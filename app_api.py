@@ -20,6 +20,25 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Custom JSON encoder to handle NaN, inf, -inf
+class SafeJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, float):
+            if np.isnan(obj) or np.isinf(obj):
+                return None
+        return super().default(obj)
+
+# Safe JSON dump function
+def safe_json_dumps(obj):
+    return json.dumps(obj, cls=SafeJSONEncoder)
+
+# Modified requests post function that handles problematic float values
+# Modified requests post function that handles problematic float values
+def safe_requests_post(url, json_data, **kwargs):
+    safe_json = clean_data_for_json(json_data)
+    return requests.post(url, json=safe_json, **kwargs)
+
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -103,14 +122,49 @@ def is_service_available(service_url):
 def clean_data_for_json(data):
     """Clean DataFrame to make it JSON serializable by replacing non-compliant values"""
     if isinstance(data, pd.DataFrame):
+        # Create a copy to avoid modifying the original data
+        data_copy = data.copy()
+        
         # Replace inf/-inf with None (which will become null in JSON)
-        data = data.replace([np.inf, -np.inf], None)
+        data_copy = data_copy.replace([np.inf, -np.inf], None)
+        
         # Replace NaN with None
-        data = data.where(pd.notnull(data), None)
-        return data.to_dict(orient='records')
+        data_copy = data_copy.where(pd.notnull(data_copy), None)
+        
+        # Handle any remaining problematic float values
+        for col in data_copy.select_dtypes(include=['float']).columns:
+            data_copy[col] = data_copy[col].apply(
+                lambda x: None if x is not None and (np.isnan(x) or np.isinf(x)) else x
+            )
+            
+        return data_copy.to_dict(orient='records')
     elif isinstance(data, pd.Series):
         # For Series objects (like target variables)
-        return data.replace([np.inf, -np.inf, np.nan], None).tolist()
+        # Create a copy to avoid modifying the original data
+        data_copy = data.copy()
+        
+        # Handle problematic values for Series
+        if data_copy.dtype.kind == 'f':  # If float type
+            data_copy = data_copy.apply(
+                lambda x: None if np.isnan(x) or np.isinf(x) else x
+            )
+        
+        return data_copy.replace([np.inf, -np.inf, np.nan], None).tolist()
+    elif isinstance(data, list):
+        # For lists, recursively clean each item
+        return [clean_data_for_json(item) if isinstance(item, (pd.DataFrame, pd.Series, list, dict)) else 
+                (None if isinstance(item, float) and (np.isnan(item) or np.isinf(item)) else item) 
+                for item in data]
+    elif isinstance(data, dict):
+        # For dictionaries, recursively clean each value
+        return {k: clean_data_for_json(v) if isinstance(v, (pd.DataFrame, pd.Series, list, dict)) else
+                (None if isinstance(v, float) and (np.isnan(v) or np.isinf(v)) else v)
+                for k, v in data.items()}
+    
+    # Handle single float value
+    if isinstance(data, float) and (np.isnan(data) or np.isinf(data)):
+        return None
+    
     return data
 
 @app.route('/')
@@ -192,12 +246,13 @@ def training():
             
             # 1. CLEAN DATA (via Data Cleaner API)
             logger.info(f"Sending data to Data Cleaner API")
-            # Clean data before sending to API
-            json_safe_data = clean_data_for_json(data)
-            response = requests.post(
+            # Convert data to records - just a plain dictionary
+            data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
+            # Use our safe request method
+            response = safe_requests_post(
                 f"{DATA_CLEANER_URL}/clean",
-                json={
-                    "data": json_safe_data,
+                {
+                    "data": data_records,
                     "target_column": target_column
                 },
                 timeout=60
@@ -212,20 +267,24 @@ def training():
             cleaned_data.to_csv(cleaned_filepath, index=False)
             session['cleaned_file'] = cleaned_filepath
             
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Data Cleaner API: {data_records[:5]}")
+            
             # 2. FEATURE SELECTION (via Feature Selector API)
             logger.info(f"Sending data to Feature Selector API")
             X = cleaned_data.drop(columns=[target_column])
             y = cleaned_data[target_column]
             
-            # Clean data before sending to API
-            json_safe_X = clean_data_for_json(X)
-            json_safe_y = clean_data_for_json(y)
+            # Convert X and y to simple Python structures
+            X_records = X.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X), None).to_dict(orient='records')
+            y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
             
-            response = requests.post(
+            # Use our safe request method
+            response = safe_requests_post(
                 f"{FEATURE_SELECTOR_URL}/select_features",
-                json={
-                    "data": json_safe_X,
-                    "target": json_safe_y,
+                {
+                    "data": X_records,
+                    "target": y_list,
                     "target_name": target_column
                 },
                 timeout=120
@@ -247,12 +306,19 @@ def training():
             session['selected_features_file'] = selected_features_filepath
             session['feature_importance'] = feature_importance
             
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Feature Selector API: {X_records[:5]}, Target: {y_list[:5]}")
+            
             # 3. ANOMALY DETECTION (via Anomaly Detector API)
             logger.info(f"Sending data to Anomaly Detector API")
-            response = requests.post(
+            # Convert to simple Python structure
+            X_selected_records = X_selected.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_selected), None).to_dict(orient='records')
+
+            # Use our safe request method
+            response = safe_requests_post(
                 f"{ANOMALY_DETECTOR_URL}/detect_anomalies",
-                json={
-                    "data": X_selected.to_dict(orient='records')
+                {
+                    "data": X_selected_records
                 },
                 timeout=60
             )
@@ -265,6 +331,9 @@ def training():
                 'is_data_valid': anomaly_results["is_data_valid"],
                 'anomaly_percentage': anomaly_results["anomaly_report"]["anomaly_percentage"]
             }
+            
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Anomaly Detector API: {X_selected_records[:5]}")
             
             # 4. MODEL TRAINING (via Model Trainer API)
             logger.info(f"Sending data to Model Trainer API")
@@ -282,15 +351,22 @@ def training():
                 task = 'regression'
             session['task'] = task
             
-            response = requests.post(
+            # Convert all data to simple Python structures
+            X_train_records = X_train.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_train), None).to_dict(orient='records')
+            X_test_records = X_test.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_test), None).to_dict(orient='records')
+            y_train_list = y_train.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y_train), None).tolist()
+            y_test_list = y_test.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y_test), None).tolist()
+
+            # Use our safe request method
+            response = safe_requests_post(
                 f"{MODEL_TRAINER_URL}/train",
-                json={
-                    "X_train": X_train.to_dict(orient='records'),
-                    "X_test": X_test.to_dict(orient='records'),
-                    "y_train": y_train.tolist(),
-                    "y_test": y_test.tolist(),
+                {
+                    "X_train": X_train_records,
+                    "X_test": X_test_records,
+                    "y_train": y_train_list,
+                    "y_test": y_test_list,
                     "task": task,
-                    "test_size": session['test_size']
+                    "test_size": float(session['test_size'])
                 },
                 timeout=180  # Model training can take time
             )
@@ -300,6 +376,9 @@ def training():
             
             model_result = response.json()
             session['trained_models'] = model_result["models"]
+            
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Model Trainer API: X_train: {X_train_records[:5]}, y_train: {y_train_list[:5]}")
             
             return redirect(url_for('model_selection'))
             
@@ -313,12 +392,15 @@ def training():
     if 'ai_recommendations' not in session and is_service_available(MEDICAL_ASSISTANT_URL):
         try:
             logger.info(f"Sending data to Medical Assistant API")
-            # Clean data before sending to API
-            json_safe_data = clean_data_for_json(data)
-            response = requests.post(
+            
+            # Convert to simple Python structure
+            data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
+            
+            # Use our safe request method
+            response = safe_requests_post(
                 f"{MEDICAL_ASSISTANT_URL}/analyze_data",
-                json={
-                    "data": json_safe_data
+                {
+                    "data": data_records
                 },
                 timeout=30
             )
@@ -326,11 +408,14 @@ def training():
             if response.status_code == 200:
                 ai_recommendations = response.json()["recommendations"]
                 session['ai_recommendations'] = ai_recommendations
+                # Add logging to verify data being sent to APIs
+                logger.info(f"Data being sent to Medical Assistant API: {data_records[:5]}")
             else:
                 logger.warning(f"Medical Assistant API returned an error: {response.text}")
         except Exception as e:
             logger.error(f"Error getting AI recommendations: {str(e)}", exc_info=True)
-            flash(f"AI recommendations are not available. Continuing without them.", 'warning')
+            # Don't flash this error to avoid confusing the user
+            logger.info("Continuing without AI recommendations")
     else:
         ai_recommendations = session.get('ai_recommendations')
     
@@ -374,7 +459,7 @@ def feature_importance():
     )
     
     # Convert to JSON for frontend
-    graphJSON = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+    graphJSON = json.dumps(fig, cls=SafeJSONEncoder)
     return jsonify(graphJSON)
 
 @app.route('/model_selection')
@@ -460,10 +545,12 @@ def prediction():
                 
                 # 1. Clean data using Data Cleaner API
                 logger.info(f"Sending prediction data to Data Cleaner API")
-                response = requests.post(
+                pred_data_records = pred_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(pred_data), None).to_dict(orient='records')
+                
+                response = safe_requests_post(
                     f"{DATA_CLEANER_URL}/clean",
-                    json={
-                        "data": pred_data.to_dict(orient='records'),
+                    {
+                        "data": pred_data_records,
                         "target_column": target_column
                     },
                     timeout=60
@@ -485,10 +572,12 @@ def prediction():
                 selected_features_file = session.get('selected_features_file')
                 selected_features_data, _ = load_data(selected_features_file)
                 
-                response = requests.post(
+                cleaned_data_records = cleaned_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(cleaned_data), None).to_dict(orient='records')
+                
+                response = safe_requests_post(
                     f"{FEATURE_SELECTOR_URL}/transform",
-                    json={
-                        "data": cleaned_data.to_dict(orient='records')
+                    {
+                        "data": cleaned_data_records
                     },
                     timeout=60
                 )
@@ -500,10 +589,12 @@ def prediction():
                 
                 # 3. Make predictions using Model Trainer API
                 logger.info(f"Sending data to Model Trainer API for prediction")
-                response = requests.post(
+                transformed_data_records = transformed_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(transformed_data), None).to_dict(orient='records')
+                
+                response = safe_requests_post(
                     f"{MODEL_TRAINER_URL}/predict/{selected_model_id}",
-                    json={
-                        "data": transformed_data.to_dict(orient='records')
+                    {
+                        "data": transformed_data_records
                     },
                     timeout=60
                 )
@@ -533,6 +624,11 @@ def prediction():
                     })
                 
                 session['prediction_distribution'] = distribution
+                
+                # Add logging to verify data being sent to APIs
+                logger.info(f"Data being sent to Data Cleaner API for prediction: {pred_data_records[:5]}")
+                logger.info(f"Data being sent to Feature Selector API for prediction: {cleaned_data_records[:5]}")
+                logger.info(f"Data being sent to Model Trainer API for prediction: {transformed_data_records[:5]}")
                 
                 return redirect(url_for('prediction_results'))
                 
@@ -589,9 +685,9 @@ def chat():
             
             # Get AI response via API
             try:
-                response = requests.post(
+                response = safe_requests_post(
                     f"{MEDICAL_ASSISTANT_URL}/chat",
-                    json={
+                    {
                         "message": prompt,
                         "session_id": f"session_{id(session)}"  # Create a unique session ID
                     },
@@ -606,6 +702,8 @@ def chat():
                         'role': 'assistant',
                         'content': ai_response
                     })
+                    # Add logging to verify data being sent to APIs
+                    logger.info(f"Data being sent to Medical Assistant Chat API: {prompt}")
                 else:
                     flash(f"Error communicating with AI assistant: {response.text}", 'error')
                 
@@ -623,9 +721,10 @@ def clear_chat():
         # Also clear on the API side
         if is_service_available(MEDICAL_ASSISTANT_URL):
             try:
-                requests.post(
+                safe_requests_post(
                     f"{MEDICAL_ASSISTANT_URL}/clear_chat",
-                    json={"session_id": f"session_{id(session)}"}
+                    {"session_id": f"session_{id(session)}"},
+                    timeout=10
                 )
             except:
                 pass  # Ignore errors in clearing remote chat history

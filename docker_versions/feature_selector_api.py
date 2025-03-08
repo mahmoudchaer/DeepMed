@@ -9,19 +9,19 @@ from sklearn.metrics import accuracy_score, make_scorer
 from sklearn.linear_model import LogisticRegression
 from itertools import combinations
 import json
-from openai import OpenAI
+import openai
 import os
 import logging
 import sys
-from datetime import datetime
+from io import StringIO
 
-# Configure logging
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler('logs/feature_selector.log'),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
@@ -42,19 +42,22 @@ class FeatureSelector:
         # Initialize OpenAI client if available
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            logging.warning("OPENAI_API_KEY environment variable not set. Using fallback method.")
+            logger.warning("🔴 OPENAI_API_KEY environment variable not set. Using fallback method.")
             self.method = 'fallback'
             self.client = None
         else:
             try:
-                # Initialize with minimal configuration to avoid proxy issues
-                self.client = OpenAI(api_key=api_key)
+                openai.api_key = api_key
+                self.client = openai
                 self.method = 'llm'
-                logging.info("OpenAI client initialized successfully for feature selection")
+                logger.info("🟢 OpenAI client initialized successfully - LLM feature selection enabled")
             except Exception as e:
-                logging.error(f"Error initializing OpenAI client for feature selection: {e}")
+                logger.error(f"🔴 Error initializing OpenAI client: {e}")
+                logger.warning("🔄 Falling back to traditional feature selection method")
                 self.method = 'fallback'
                 self.client = None
+        
+        logger.info(f"Feature selector initialized with method: {self.method}")
         
         self.system_prompt = """You are an expert medical data scientist specializing in feature selection.
         Your task is to analyze medical datasets and recommend which features to keep or remove based on:
@@ -68,13 +71,14 @@ class FeatureSelector:
         """Get feature selection recommendations from LLM."""
         # If we don't have LLM access, use fallback method
         if self.method == 'fallback' or self.client is None:
-            logging.info("Using fallback method for feature selection")
+            logger.info("🔄 Using fallback method for feature selection (LLM not available)")
             return {
                 "features_to_keep": list(X.columns),
                 "features_to_remove": [],
                 "reasoning": {}
             }
             
+        logger.info("🤖 Attempting to get feature recommendations from LLM")
         # Prepare data summary for LLM
         data_summary = {
             "features": list(X.columns),
@@ -89,6 +93,8 @@ class FeatureSelector:
                 } for col in X.columns
             }
         }
+        
+        logger.debug(f"Prepared data summary for LLM with {len(X.columns)} features")
         
         prompt = f"""Analyze this medical dataset and recommend which features to keep or remove.
 
@@ -113,7 +119,7 @@ class FeatureSelector:
         Be conservative - only recommend removing features if there's a clear reason to do so."""
 
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": self.system_prompt},
@@ -123,9 +129,13 @@ class FeatureSelector:
             )
             
             recommendations = json.loads(response.choices[0].message.content)
+            logger.info(f"🟢 Successfully received LLM recommendations")
+            logger.info(f"Features to keep: {len(recommendations['features_to_keep'])}")
+            logger.info(f"Features to remove: {len(recommendations['features_to_remove'])}")
             return recommendations
         except Exception as e:
-            logging.error(f"Error getting LLM recommendations: {str(e)}")
+            logger.error(f"🔴 Error getting LLM recommendations: {str(e)}")
+            logger.warning("🔄 Falling back to keeping all features")
             return {
                 "features_to_keep": list(X.columns),
                 "features_to_remove": [],
@@ -134,12 +144,16 @@ class FeatureSelector:
 
     def fit_transform(self, X, y=None):
         """Fit the feature selector and transform the data."""
+        logger.info(f"Starting feature selection using method: {self.method}")
+        logger.info(f"Input data shape: {X.shape}")
+        
         X = X.copy()
         
         # Prepare features (handle categorical variables)
         X = self._prepare_features(X)
         
         if self.method == 'llm':
+            logger.info("🤖 Using LLM-based feature selection")
             # Get LLM recommendations
             recommendations = self._get_llm_recommendations(X, y, target_name=y.name if hasattr(y, 'name') else None)
             
@@ -153,17 +167,19 @@ class FeatureSelector:
                 else:
                     self.feature_importances_[feature] = 0.0
                     reason = recommendations['reasoning'].get(feature, "Removed based on analysis")
-                    logging.info(f"Removing feature '{feature}': {reason}")
+                    logger.info(f"🔍 Removing feature '{feature}': {reason}")
             
             # Ensure we keep minimum number of features
             if len(self.selected_features) < self.min_features_to_keep:
-                logging.warning(f"Too few features recommended. Keeping top {self.min_features_to_keep} features based on correlation with target.")
+                logger.warning(f"⚠️ Too few features recommended ({len(self.selected_features)}). Keeping top {self.min_features_to_keep} features based on correlation with target.")
                 correlations = X.corrwith(y) if y is not None else pd.Series(1.0, index=X.columns)
                 self.selected_features = correlations.abs().nlargest(self.min_features_to_keep).index.tolist()
         else:
+            logger.info("📊 Using traditional feature selection method")
             # Fallback to original maximize method
             self.selected_features = self._maximize_features(X, y)
         
+        logger.info(f"✅ Feature selection complete. Selected {len(self.selected_features)} features")
         return X[self.selected_features]
 
     def transform(self, X):
@@ -219,11 +235,21 @@ class FeatureSelector:
     
     def _evaluate_feature_set(self, X, y, features):
         """Evaluate a set of features using cross-validation"""
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        # For very small datasets, use leave-one-out cross validation
+        if len(X) < 5:
+            cv = len(X)  # Leave-one-out
+        else:
+            cv = min(5, len(X))  # Use k-fold CV with k = min(5, n_samples)
+            
+        cv_splitter = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
         model = LogisticRegression(max_iter=1000)
         scores = []
         
-        for train_idx, val_idx in cv.split(X, y):
+        # Convert y to pandas Series if it's not already
+        if not isinstance(y, pd.Series):
+            y = pd.Series(y)
+        
+        for train_idx, val_idx in cv_splitter.split(X, y):
             X_train, X_val = X.iloc[train_idx][features], X.iloc[val_idx][features]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
             
@@ -234,7 +260,7 @@ class FeatureSelector:
     
     def _maximize_features(self, X, y):
         """Maximize feature retention while ensuring performance"""
-        logging.info("Using maximize_features method for feature selection")
+        logger.info("Using maximize_features method for feature selection")
         # Get initial feature importance using Random Forest
         rf = RandomForestClassifier(n_estimators=100, random_state=42)
         rf.fit(X, y)
@@ -283,10 +309,10 @@ class FeatureSelector:
         }
         
         # Print feature selection summary
-        logging.info(f"Feature Selection Summary:")
-        logging.info(f"Baseline performance: {baseline_performance:.4f}")
-        logging.info(f"Final performance: {best_performance:.4f}")
-        logging.info(f"Features retained: {len(best_features)}/{len(X.columns)}")
+        logger.info(f"Feature Selection Summary:")
+        logger.info(f"Baseline performance: {baseline_performance:.4f}")
+        logger.info(f"Final performance: {best_performance:.4f}")
+        logger.info(f"Features retained: {len(best_features)}/{len(X.columns)}")
         
         return best_features
 
@@ -295,71 +321,121 @@ feature_selector = FeatureSelector()
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy", "service": "feature-selector"}), 200
+    """Health check endpoint"""
+    return jsonify({"status": "healthy", "service": "feature_selector_api"})
+
+def preprocess_data(data):
+    """Preprocess input data into pandas DataFrame regardless of format."""
+    try:
+        # If data is already in DataFrame format
+        if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
+            return pd.DataFrame(data)
+        
+        # If data is a list of dictionaries
+        if isinstance(data, list) and all(isinstance(d, dict) for d in data):
+            return pd.DataFrame(data)
+        
+        # If data is a list of lists with header
+        if isinstance(data, dict) and 'headers' in data and 'values' in data:
+            return pd.DataFrame(data['values'], columns=data['headers'])
+        
+        # If data is a CSV string
+        if isinstance(data, str):
+            try:
+                return pd.read_json(data)
+            except:
+                return pd.read_csv(StringIO(data))
+        
+        raise ValueError("Unsupported data format")
+    except Exception as e:
+        raise ValueError(f"Data preprocessing failed: {str(e)}")
+
+def preprocess_target(target):
+    """Preprocess target variable into proper format."""
+    try:
+        # Convert to pandas Series if it's not already
+        if not isinstance(target, pd.Series):
+            y = pd.Series(target)
+        else:
+            y = target
+        
+        # If target is string/categorical, encode it
+        if y.dtype == object:
+            le = LabelEncoder()
+            y = pd.Series(le.fit_transform(y.astype(str)), index=y.index)
+        
+        # Ensure binary classification (0 and 1)
+        unique_values = y.unique()
+        if len(unique_values) != 2:
+            raise ValueError("Target must be binary (two classes)")
+        
+        # Map to 0 and 1 if needed
+        if not np.array_equal(np.sort(unique_values), [0, 1]):
+            y = (y == y.iloc[0]).astype(int)
+        
+        return y
+    except Exception as e:
+        raise ValueError(f"Target preprocessing failed: {str(e)}")
 
 @app.route('/select_features', methods=['POST'])
 def select_features():
-    """
-    Feature selection endpoint
-    
-    Expected JSON input:
-    {
-        "data": {...},  # Data in JSON format that can be loaded into a pandas DataFrame
-        "target": [...],  # Target values as a list
-        "target_name": "target_column_name",  # Optional name of the target column
-        "method": "llm" or "fallback",  # Optional method to use (default: "fallback")
-        "min_features": 5  # Optional minimum number of features to keep (default: 5)
-    }
-    
-    Returns:
-    {
-        "selected_features": [...],  # List of selected feature names
-        "feature_importances": {...},  # Dictionary of feature importances
-        "transformed_data": {...},  # Data with only selected features
-        "message": "Features selected successfully"
-    }
-    """
+    """Feature selection endpoint with flexible data format handling."""
     try:
-        # Get request data
+        logger.info("📥 Received feature selection request")
         request_data = request.json
         
         if not request_data or 'data' not in request_data or 'target' not in request_data:
+            logger.error("🔴 Invalid request - missing data or target")
             return jsonify({"error": "Invalid request. Missing 'data' or 'target'"}), 400
         
-        # Convert JSON to DataFrame
         try:
-            X = pd.DataFrame.from_dict(request_data['data'])
-            y = pd.Series(request_data['target'])
+            # Preprocess input data
+            logger.info("🔄 Preprocessing input data")
+            X = preprocess_data(request_data['data'])
+            y = preprocess_target(request_data['target'])
             
-            # Set target name if provided
-            if 'target_name' in request_data and request_data['target_name']:
+            logger.info(f"📊 Input data shape: {X.shape}")
+            
+            # Set parameters if provided
+            if 'target_name' in request_data:
                 y.name = request_data['target_name']
-                
-            # Set method if provided
-            if 'method' in request_data and request_data['method']:
-                feature_selector.method = request_data['method']
-                
-            # Set min_features if provided
-            if 'min_features' in request_data and request_data['min_features']:
+                logger.info(f"Target name set to: {y.name}")
+            if 'min_features' in request_data:
                 feature_selector.min_features_to_keep = int(request_data['min_features'])
-                
-        except Exception as e:
-            return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
+                logger.info(f"Minimum features to keep set to: {feature_selector.min_features_to_keep}")
+            
+        except ValueError as e:
+            logger.error(f"🔴 Preprocessing error: {str(e)}")
+            return jsonify({"error": str(e)}), 400
         
         # Select features
+        logger.info("🔄 Starting feature selection process")
         X_selected = feature_selector.fit_transform(X, y)
+        logger.info(f"✅ Feature selection complete. Selected {len(feature_selector.selected_features)} features")
         
-        # Return selected features, importances, and transformed data
         return jsonify({
             "selected_features": feature_selector.selected_features,
             "feature_importances": feature_selector.feature_importances_,
             "transformed_data": X_selected.to_dict(orient='records'),
-            "message": "Features selected successfully"
+            "message": "Features selected successfully",
+            "method_used": feature_selector.method,  # Added to show which method was used
+            "data_info": {
+                "n_samples": len(X),
+                "n_features": X.shape[1],
+                "n_selected_features": len(feature_selector.selected_features),
+                "class_distribution": {
+                    "class_0": int(np.sum(y == 0)),
+                    "class_1": int(np.sum(y == 1))
+                }
+            }
         })
     
     except Exception as e:
-        logging.error(f"Error in select_features endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"🔴 Error in feature selection: {str(e)}", exc_info=True)
+        return jsonify({
+            "error": str(e),
+            "suggestion": "Check your data format and make sure it's properly structured"
+        }), 500
 
 @app.route('/transform', methods=['POST'])
 def transform():
@@ -390,7 +466,7 @@ def transform():
         
         # Convert JSON to DataFrame
         try:
-            X = pd.DataFrame.from_dict(request_data['data'])
+            X = preprocess_data(request_data['data'])
         except Exception as e:
             return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
         
