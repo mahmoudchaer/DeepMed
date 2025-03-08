@@ -1,0 +1,188 @@
+2025-03-08 16:33:06,149 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 16:33:06,149 [INFO] Feature selector initialized with method: llm
+2025-03-08 16:33:06,166 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.5:5002
+2025-03-08 16:33:06,166 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 16:34:49,025 [INFO] 172.18.0.1 - - [08/Mar/2025 16:34:49] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:34:50,959 [INFO] 172.18.0.1 - - [08/Mar/2025 16:34:50] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:34:51,081 [INFO] 172.18.0.1 - - [08/Mar/2025 16:34:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:35:10,417 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:35:14,660 [INFO] 📥 Received feature selection request
+2025-03-08 16:35:14,684 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:35:14,719 [ERROR] 🔴 Preprocessing error: Target preprocessing failed: Target must be binary (two classes)
+2025-03-08 16:35:14,721 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:14] "[31m[1mPOST /select_features HTTP/1.1[0m" 400 -
+2025-03-08 16:35:29,378 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:29] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:35:33,432 [INFO] 📥 Received feature selection request
+2025-03-08 16:35:33,477 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:35:33,498 [ERROR] 🔴 Preprocessing error: Target preprocessing failed: Target must be binary (two classes)
+2025-03-08 16:35:33,501 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:33] "[31m[1mPOST /select_features HTTP/1.1[0m" 400 -
+2025-03-08 16:35:42,876 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:42] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:35:47,229 [INFO] 📥 Received feature selection request
+2025-03-08 16:35:47,289 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:35:47,299 [ERROR] 🔴 Preprocessing error: Target preprocessing failed: Target must be binary (two classes)
+2025-03-08 16:35:47,301 [INFO] 172.18.0.1 - - [08/Mar/2025 16:35:47] "[31m[1mPOST /select_features HTTP/1.1[0m" 400 -
+2025-03-08 16:36:20,351 [INFO] 172.18.0.1 - - [08/Mar/2025 16:36:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:36:22,663 [INFO] 172.18.0.1 - - [08/Mar/2025 16:36:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:36:33,178 [INFO] 172.18.0.1 - - [08/Mar/2025 16:36:33] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:36:45,551 [INFO] 172.18.0.1 - - [08/Mar/2025 16:36:45] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:36:55,537 [INFO] 📥 Received feature selection request
+2025-03-08 16:36:55,545 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:36:55,553 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 16:36:55,554 [INFO] Target name set to: diagnosis
+2025-03-08 16:36:55,554 [INFO] 🔄 Starting feature selection process
+2025-03-08 16:36:55,554 [INFO] Starting feature selection using method: llm
+2025-03-08 16:36:55,555 [INFO] Input data shape: (417, 31)
+2025-03-08 16:36:55,556 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 16:36:55,557 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 16:36:55,611 [ERROR] 🔴 Error getting LLM recommendations: 
+
+You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+
+You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+
+Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+
+A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+2025-03-08 16:36:55,612 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 16:36:55,612 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 16:36:55,621 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 16:36:55,640 [INFO] 172.18.0.1 - - [08/Mar/2025 16:36:55] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 16:50:58,349 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 16:50:58,349 [INFO] Feature selector initialized with method: llm
+2025-03-08 16:50:58,365 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.4:5002
+2025-03-08 16:50:58,366 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 16:51:34,467 [INFO] 172.18.0.1 - - [08/Mar/2025 16:51:34] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:51:36,134 [INFO] 172.18.0.1 - - [08/Mar/2025 16:51:36] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:51:38,932 [INFO] 172.18.0.1 - - [08/Mar/2025 16:51:38] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:52:05,181 [INFO] 172.18.0.1 - - [08/Mar/2025 16:52:05] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:52:09,591 [INFO] 📥 Received feature selection request
+2025-03-08 16:52:09,611 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:52:09,624 [ERROR] 🔴 Preprocessing error: Target preprocessing failed: Target must be binary (two classes)
+2025-03-08 16:52:09,626 [INFO] 172.18.0.1 - - [08/Mar/2025 16:52:09] "[31m[1mPOST /select_features HTTP/1.1[0m" 400 -
+2025-03-08 16:53:53,397 [INFO] 172.18.0.1 - - [08/Mar/2025 16:53:53] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:53:55,294 [INFO] 172.18.0.1 - - [08/Mar/2025 16:53:55] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:53:57,953 [INFO] 172.18.0.1 - - [08/Mar/2025 16:53:57] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:54:12,701 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:54:17,157 [INFO] 📥 Received feature selection request
+2025-03-08 16:54:17,262 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:54:17,296 [INFO] 📊 Input data shape: (10000, 11)
+2025-03-08 16:54:17,297 [INFO] Target name set to: Churn
+2025-03-08 16:54:17,297 [INFO] 🔄 Starting feature selection process
+2025-03-08 16:54:17,298 [INFO] Starting feature selection using method: llm
+2025-03-08 16:54:17,298 [INFO] Input data shape: (10000, 11)
+2025-03-08 16:54:17,299 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 16:54:17,300 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 16:54:17,315 [ERROR] 🔴 Error getting LLM recommendations: 
+
+You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+
+You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+
+Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+
+A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+2025-03-08 16:54:17,315 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 16:54:17,316 [INFO] ✅ Feature selection complete. Selected 11 features
+2025-03-08 16:54:17,317 [INFO] ✅ Feature selection complete. Selected 11 features
+2025-03-08 16:54:17,403 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:17] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 16:54:30,799 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:30] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:54:49,237 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:49] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:54:51,219 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:54:51,382 [INFO] 172.18.0.1 - - [08/Mar/2025 16:54:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:55:05,519 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:05] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:55:15,246 [INFO] 📥 Received feature selection request
+2025-03-08 16:55:15,262 [INFO] 🔄 Preprocessing input data
+2025-03-08 16:55:15,267 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 16:55:15,267 [INFO] Target name set to: diagnosis
+2025-03-08 16:55:15,268 [INFO] 🔄 Starting feature selection process
+2025-03-08 16:55:15,268 [INFO] Starting feature selection using method: llm
+2025-03-08 16:55:15,269 [INFO] Input data shape: (417, 31)
+2025-03-08 16:55:15,270 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 16:55:15,270 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 16:55:15,306 [ERROR] 🔴 Error getting LLM recommendations: 
+
+You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+
+You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+
+Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+
+A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+2025-03-08 16:55:15,307 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 16:55:15,308 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 16:55:15,309 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 16:55:15,329 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:15] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 16:55:22,806 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:55:27,322 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:27] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:55:37,231 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:37] "POST /transform HTTP/1.1" 200 -
+2025-03-08 16:55:37,398 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:37] "GET /health HTTP/1.1" 200 -
+2025-03-08 16:55:44,220 [INFO] 172.18.0.1 - - [08/Mar/2025 16:55:44] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:05:36,918 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 17:05:36,919 [INFO] Feature selector initialized with method: llm
+2025-03-08 17:05:36,933 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.5:5002
+2025-03-08 17:05:36,934 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 17:05:46,335 [INFO] 172.18.0.1 - - [08/Mar/2025 17:05:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:05:47,871 [INFO] 172.18.0.1 - - [08/Mar/2025 17:05:47] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:05:50,516 [INFO] 172.18.0.1 - - [08/Mar/2025 17:05:50] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:06:04,163 [INFO] 172.18.0.1 - - [08/Mar/2025 17:06:04] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:06:07,983 [INFO] 📥 Received feature selection request
+2025-03-08 17:06:08,007 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:06:08,018 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:06:08,019 [INFO] Target name set to: Air Quality
+2025-03-08 17:06:08,019 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:06:08,020 [INFO] Starting feature selection using method: llm
+2025-03-08 17:06:08,020 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:06:08,021 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 17:06:08,022 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 17:06:08,033 [ERROR] 🔴 Error getting LLM recommendations: 
+
+You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+
+You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+
+Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+
+A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+2025-03-08 17:06:08,033 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 17:06:08,034 [INFO] ✅ Feature selection complete. Selected 9 features
+2025-03-08 17:06:08,035 [INFO] ✅ Feature selection complete. Selected 9 features
+2025-03-08 17:06:08,076 [INFO] 172.18.0.1 - - [08/Mar/2025 17:06:08] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:06:54,812 [INFO] 172.18.0.1 - - [08/Mar/2025 17:06:54] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:06:56,951 [INFO] 172.18.0.1 - - [08/Mar/2025 17:06:56] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:06:57,484 [INFO] 172.18.0.1 - - [08/Mar/2025 17:06:57] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:07:27,847 [INFO] 172.18.0.1 - - [08/Mar/2025 17:07:27] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:07:38,372 [INFO] 📥 Received feature selection request
+2025-03-08 17:07:38,411 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:07:38,429 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 17:07:38,430 [INFO] Target name set to: diagnosis
+2025-03-08 17:07:38,430 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:07:38,431 [INFO] Starting feature selection using method: llm
+2025-03-08 17:07:38,432 [INFO] Input data shape: (417, 31)
+2025-03-08 17:07:38,435 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 17:07:38,435 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 17:07:38,483 [ERROR] 🔴 Error getting LLM recommendations: 
+
+You tried to access openai.ChatCompletion, but this is no longer supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.
+
+You can run `openai migrate` to automatically upgrade your codebase to use the 1.0.0 interface. 
+
+Alternatively, you can pin your installation to the old version, e.g. `pip install openai==0.28`
+
+A detailed migration guide is available here: https://github.com/openai/openai-python/discussions/742
+
+2025-03-08 17:07:38,483 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 17:07:38,484 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 17:07:38,486 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 17:07:38,508 [INFO] 172.18.0.1 - - [08/Mar/2025 17:07:38] "POST /select_features HTTP/1.1" 200 -
