@@ -146,3 +146,45 @@
 2025-03-08 17:48:38,411 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:38] "GET /health HTTP/1.1" 200 -
 2025-03-08 17:48:39,434 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:39] "POST /analyze_data HTTP/1.1" 200 -
 2025-03-08 17:48:40,491 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:40] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:54:09,001 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:54:09,002 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:54:09,023 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:54:09,024 - werkzeug - INFO -  * Running on http://172.18.0.6:5005/ (Press CTRL+C to quit)
+2025-03-08 17:54:09,026 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 17:54:10,175 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:54:10,175 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:54:10,186 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 17:54:10,188 - werkzeug - INFO -  * Debugger PIN: 834-484-237
+2025-03-08 17:54:17,409 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:54:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:54:19,142 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:54:19] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:54:23,960 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:54:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:54:54,790 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:54:54] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:55:01,837 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:55:01] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:55:03,532 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:55:03] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 18:10:04,816 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 18:10:04,816 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 18:10:04,829 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:10:04,830 - werkzeug - INFO -  * Running on http://172.18.0.2:5005/ (Press CTRL+C to quit)
+2025-03-08 18:10:04,831 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 18:10:05,734 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 18:10:05,734 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 18:10:05,744 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 18:10:05,745 - werkzeug - INFO -  * Debugger PIN: 616-610-697
+2025-03-08 18:10:23,349 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:10:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:15:40,028 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 18:15:40,039 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 18:15:40,066 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:15:40,066 - werkzeug - INFO -  * Running on http://172.18.0.3:5005/ (Press CTRL+C to quit)
+2025-03-08 18:15:40,068 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 18:15:41,018 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 18:15:41,019 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 18:15:41,027 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 18:15:41,028 - werkzeug - INFO -  * Debugger PIN: 449-198-235
+2025-03-08 18:15:46,837 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:15:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:15:48,564 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:15:48] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:15:53,976 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:15:53] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:16:12,517 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:16:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:16:14,668 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 18:16:14] "POST /analyze_data HTTP/1.1" 200 -

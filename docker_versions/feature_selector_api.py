@@ -168,6 +168,76 @@ class FeatureSelector:
                 "reasoning": {}
             }
 
+    def _get_target_recommendations(self, df):
+        """Get target column recommendations from LLM."""
+        if self.method == 'fallback' or self.client is None:
+            logger.info("🔄 LLM not available for target recommendations")
+            return None
+            
+        logger.info("🤖 Getting target column recommendations from LLM")
+        
+        # Prepare data summary for LLM
+        data_summary = {
+            "columns": {
+                col: {
+                    "dtype": str(df[col].dtype),
+                    "unique_values": int(df[col].nunique()),
+                    "missing_values": int(df[col].isnull().sum()),
+                    "sample_values": list(df[col].dropna().head().astype(str)),
+                    "is_numeric": pd.api.types.is_numeric_dtype(df[col])
+                } for col in df.columns
+            }
+        }
+        
+        prompt = f"""Analyze this medical dataset and recommend which column should be the target (dependent) variable.
+
+        Dataset Summary: {json.dumps(data_summary, indent=2)}
+
+        Consider:
+        1. Medical significance (e.g., disease status, patient outcome, diagnosis)
+        2. Data properties (categorical/numeric, number of unique values)
+        3. Typical medical ML prediction tasks
+
+        Respond with a JSON object:
+        {{
+            "recommended_target": "column_name",
+            "reason": "explanation for why this column is suitable as target",
+            "alternative_targets": ["other_possible_column1", "other_possible_column2"],
+            "task_type": "classification or regression",
+            "target_description": "brief description of what this target represents"
+        }}
+
+        IMPORTANT: Respond ONLY with the JSON object, no additional text."""
+
+        try:
+            logger.info("Calling OpenAI API for target recommendations...")
+            response = self.client.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are an expert medical data scientist specializing in identifying appropriate target variables for medical machine learning tasks."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2
+            )
+            
+            content = response['choices'][0]['message']['content'].strip()
+            
+            # Remove any markdown formatting if present
+            if content.startswith("```json"):
+                content = content.split("```json")[1]
+            if content.startswith("```"):
+                content = content.split("```")[1]
+            content = content.strip()
+            
+            recommendations = json.loads(content)
+            logger.info(f"🟢 Successfully received target recommendations")
+            logger.info(f"Recommended target: {recommendations['recommended_target']}")
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"🔴 Error getting target recommendations: {str(e)}")
+            return None
+
     def fit_transform(self, X, y=None):
         """Fit the feature selector and transform the data."""
         logger.info(f"Starting feature selection using method: {self.method}")
@@ -407,52 +477,64 @@ def select_features():
         logger.info("📥 Received feature selection request")
         request_data = request.json
         
-        if not request_data or 'data' not in request_data or 'target' not in request_data:
-            logger.error("🔴 Invalid request - missing data or target")
-            return jsonify({"error": "Invalid request. Missing 'data' or 'target'"}), 400
+        if not request_data or 'data' not in request_data:
+            logger.error("🔴 Invalid request - missing data")
+            return jsonify({"error": "Invalid request. Missing 'data'"}), 400
         
         try:
             # Preprocess input data
             logger.info("🔄 Preprocessing input data")
-            X = preprocess_data(request_data['data'])
-            y = preprocess_target(request_data['target'])
+            df = preprocess_data(request_data['data'])
+            logger.info(f"📊 Input data shape: {df.shape}")
             
-            logger.info(f"📊 Input data shape: {X.shape}")
+            # Get target recommendations if no target is specified
+            target_recommendations = None
+            if 'target' not in request_data:
+                target_recommendations = feature_selector._get_target_recommendations(df)
+                if target_recommendations:
+                    recommended_target = target_recommendations['recommended_target']
+                    logger.info(f"🎯 Recommended target column: {recommended_target}")
+                    y = df[recommended_target]
+                else:
+                    logger.warning("⚠️ No target recommendations available")
+                    return jsonify({"error": "No target column specified or recommended"}), 400
+            else:
+                y = preprocess_target(request_data['target'])
             
             # Set parameters if provided
             if 'target_name' in request_data:
                 y.name = request_data['target_name']
                 logger.info(f"Target name set to: {y.name}")
+            elif target_recommendations:
+                y.name = recommended_target
+            
             if 'min_features' in request_data:
                 feature_selector.min_features_to_keep = int(request_data['min_features'])
                 logger.info(f"Minimum features to keep set to: {feature_selector.min_features_to_keep}")
             
+            # Select features
+            logger.info("🔄 Starting feature selection process")
+            X_selected = feature_selector.fit_transform(df, y)
+            logger.info(f"✅ Feature selection complete. Selected {len(feature_selector.selected_features)} features")
+            
+            response_data = {
+                "selected_features": feature_selector.selected_features,
+                "feature_importances": feature_selector.feature_importances_,
+                "transformed_data": X_selected.to_dict(orient='records'),
+                "message": "Features selected successfully",
+                "method_used": feature_selector.method
+            }
+            
+            # Include target recommendations if available
+            if target_recommendations:
+                response_data["target_recommendations"] = target_recommendations
+            
+            return jsonify(response_data)
+        
         except ValueError as e:
             logger.error(f"🔴 Preprocessing error: {str(e)}")
             return jsonify({"error": str(e)}), 400
         
-        # Select features
-        logger.info("🔄 Starting feature selection process")
-        X_selected = feature_selector.fit_transform(X, y)
-        logger.info(f"✅ Feature selection complete. Selected {len(feature_selector.selected_features)} features")
-        
-        return jsonify({
-            "selected_features": feature_selector.selected_features,
-            "feature_importances": feature_selector.feature_importances_,
-            "transformed_data": X_selected.to_dict(orient='records'),
-            "message": "Features selected successfully",
-            "method_used": feature_selector.method,  # Added to show which method was used
-            "data_info": {
-                "n_samples": len(X),
-                "n_features": X.shape[1],
-                "n_selected_features": len(feature_selector.selected_features),
-                "class_distribution": {
-                    "class_0": int(np.sum(y == 0)),
-                    "class_1": int(np.sum(y == 1))
-                }
-            }
-        })
-    
     except Exception as e:
         logger.error(f"🔴 Error in feature selection: {str(e)}", exc_info=True)
         return jsonify({
