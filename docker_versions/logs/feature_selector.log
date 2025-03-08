@@ -186,3 +186,170 @@ A detailed migration guide is available here: https://github.com/openai/openai-p
 2025-03-08 17:07:38,484 [INFO] ✅ Feature selection complete. Selected 31 features
 2025-03-08 17:07:38,486 [INFO] ✅ Feature selection complete. Selected 31 features
 2025-03-08 17:07:38,508 [INFO] 172.18.0.1 - - [08/Mar/2025 17:07:38] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:19:03,586 [ERROR] 🔴 Error initializing OpenAI client: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 17:19:03,587 [WARNING] 🔄 Falling back to traditional feature selection method
+2025-03-08 17:19:03,588 [INFO] Feature selector initialized with method: fallback
+2025-03-08 17:19:03,604 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.5:5002
+2025-03-08 17:19:03,604 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 17:19:20,625 [INFO] 172.18.0.1 - - [08/Mar/2025 17:19:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:22,194 [INFO] 172.18.0.1 - - [08/Mar/2025 17:19:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:46,369 [INFO] 172.18.0.1 - - [08/Mar/2025 17:19:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:20:07,631 [INFO] 172.18.0.1 - - [08/Mar/2025 17:20:07] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:20:11,490 [INFO] 📥 Received feature selection request
+2025-03-08 17:20:11,529 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:20:11,565 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:20:11,565 [INFO] Target name set to: Air Quality
+2025-03-08 17:20:11,566 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:20:11,566 [INFO] Starting feature selection using method: fallback
+2025-03-08 17:20:11,567 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:20:11,569 [INFO] 📊 Using traditional feature selection method
+2025-03-08 17:20:11,569 [INFO] Using maximize_features method for feature selection
+2025-03-08 17:21:23,423 [INFO] Feature Selection Summary:
+2025-03-08 17:21:23,423 [INFO] Baseline performance: 0.8754
+2025-03-08 17:21:23,424 [INFO] Final performance: 0.9314
+2025-03-08 17:21:23,424 [INFO] Features retained: 7/9
+2025-03-08 17:21:23,425 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:21:23,427 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:21:23,465 [INFO] 172.18.0.1 - - [08/Mar/2025 17:21:23] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:23:41,475 [ERROR] 🔴 Error initializing OpenAI client: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 17:23:41,475 [WARNING] 🔄 Falling back to traditional feature selection method
+2025-03-08 17:23:41,476 [INFO] Feature selector initialized with method: fallback
+2025-03-08 17:23:41,487 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.5:5002
+2025-03-08 17:23:41,493 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 17:28:10,239 [INFO] 172.18.0.1 - - [08/Mar/2025 17:28:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:28:11,908 [INFO] 172.18.0.1 - - [08/Mar/2025 17:28:11] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:28:15,778 [INFO] 172.18.0.1 - - [08/Mar/2025 17:28:15] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:28:19,873 [INFO] 📥 Received feature selection request
+2025-03-08 17:28:19,913 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:28:19,929 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:28:19,929 [INFO] Target name set to: Air Quality
+2025-03-08 17:28:19,930 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:28:19,931 [INFO] Starting feature selection using method: fallback
+2025-03-08 17:28:19,931 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:28:19,933 [INFO] 📊 Using traditional feature selection method
+2025-03-08 17:28:19,934 [INFO] Using maximize_features method for feature selection
+2025-03-08 17:28:47,328 [ERROR] 🔴 Error initializing OpenAI client: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 17:28:47,329 [WARNING] 🔄 Falling back to traditional feature selection method
+2025-03-08 17:28:47,330 [INFO] Feature selector initialized with method: fallback
+2025-03-08 17:28:47,339 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.18.0.5:5002
+2025-03-08 17:28:47,340 [INFO] [33mPress CTRL+C to quit[0m
+2025-03-08 17:29:17,496 [INFO] 172.18.0.1 - - [08/Mar/2025 17:29:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:32,700 [INFO] 172.18.0.1 - - [08/Mar/2025 17:29:32] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:36,376 [INFO] 📥 Received feature selection request
+2025-03-08 17:29:36,398 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:29:36,411 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:29:36,412 [INFO] Target name set to: Air Quality
+2025-03-08 17:29:36,413 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:29:36,413 [INFO] Starting feature selection using method: fallback
+2025-03-08 17:29:36,414 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:29:36,416 [INFO] 📊 Using traditional feature selection method
+2025-03-08 17:29:36,416 [INFO] Using maximize_features method for feature selection
+2025-03-08 17:30:50,667 [INFO] Feature Selection Summary:
+2025-03-08 17:30:50,668 [INFO] Baseline performance: 0.8754
+2025-03-08 17:30:50,669 [INFO] Final performance: 0.9314
+2025-03-08 17:30:50,669 [INFO] Features retained: 7/9
+2025-03-08 17:30:50,671 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:30:50,673 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:30:50,711 [INFO] 172.18.0.1 - - [08/Mar/2025 17:30:50] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:38:46,657 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 17:38:46,657 [INFO] Feature selector initialized with method: llm
+2025-03-08 17:38:46,661 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:38:46,662 [INFO]  * Running on http://172.18.0.3:5002/ (Press CTRL+C to quit)
+2025-03-08 17:39:08,430 [INFO] 172.18.0.1 - - [08/Mar/2025 17:39:08] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:10,466 [INFO] 172.18.0.1 - - [08/Mar/2025 17:39:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:12,349 [INFO] 172.18.0.1 - - [08/Mar/2025 17:39:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:44,398 [INFO] 172.18.0.1 - - [08/Mar/2025 17:39:44] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:48,187 [INFO] 📥 Received feature selection request
+2025-03-08 17:39:48,206 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:39:48,228 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:39:48,229 [INFO] Target name set to: Air Quality
+2025-03-08 17:39:48,229 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:39:48,230 [INFO] Starting feature selection using method: llm
+2025-03-08 17:39:48,230 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:39:48,232 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 17:39:48,233 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 17:39:50,440 [ERROR] 🔴 Error getting LLM recommendations: Expecting value: line 1 column 1 (char 0)
+2025-03-08 17:39:50,441 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 17:39:50,442 [INFO] ✅ Feature selection complete. Selected 9 features
+2025-03-08 17:39:50,446 [INFO] ✅ Feature selection complete. Selected 9 features
+2025-03-08 17:39:50,552 [INFO] 172.18.0.1 - - [08/Mar/2025 17:39:50] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:44:32,659 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 17:44:32,660 [INFO] Feature selector initialized with method: llm
+2025-03-08 17:44:32,665 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:44:32,666 [INFO]  * Running on http://172.18.0.4:5002/ (Press CTRL+C to quit)
+2025-03-08 17:44:51,021 [INFO] 172.18.0.1 - - [08/Mar/2025 17:44:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:44:52,805 [INFO] 172.18.0.1 - - [08/Mar/2025 17:44:52] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:44:55,845 [INFO] 172.18.0.1 - - [08/Mar/2025 17:44:55] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:45:08,061 [INFO] 172.18.0.1 - - [08/Mar/2025 17:45:08] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:45:18,700 [INFO] 📥 Received feature selection request
+2025-03-08 17:45:18,710 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:45:18,717 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 17:45:18,718 [INFO] Target name set to: diagnosis
+2025-03-08 17:45:18,718 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:45:18,719 [INFO] Starting feature selection using method: llm
+2025-03-08 17:45:18,720 [INFO] Input data shape: (417, 31)
+2025-03-08 17:45:18,722 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 17:45:18,722 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 17:45:18,765 [INFO] Calling OpenAI API...
+2025-03-08 17:45:23,832 [INFO] Received response from OpenAI
+2025-03-08 17:45:23,835 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 17:45:23,837 [INFO] Features to keep: 19
+2025-03-08 17:45:23,839 [INFO] Features to remove: 12
+2025-03-08 17:45:23,842 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 17:45:23,845 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 17:45:23,849 [INFO] 🔍 Removing feature 'id': Identifier column with no direct medical relevance for the prediction task.
+2025-03-08 17:45:23,853 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,859 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,863 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,866 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,870 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,872 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,878 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,882 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,885 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 17:45:23,888 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 17:45:23,907 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 17:45:23,942 [INFO] 172.18.0.1 - - [08/Mar/2025 17:45:23] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 17:45:49,711 [INFO] 172.18.0.1 - - [08/Mar/2025 17:45:49] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:45:57,114 [INFO] 172.18.0.1 - - [08/Mar/2025 17:45:57] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:46:09,328 [INFO] 172.18.0.1 - - [08/Mar/2025 17:46:09] "POST /transform HTTP/1.1" 200 -
+2025-03-08 17:46:09,446 [INFO] 172.18.0.1 - - [08/Mar/2025 17:46:09] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:16,002 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 17:48:16,003 [INFO] Feature selector initialized with method: llm
+2025-03-08 17:48:16,006 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:48:16,007 [INFO]  * Running on http://172.18.0.5:5002/ (Press CTRL+C to quit)
+2025-03-08 17:48:22,960 [INFO] 172.18.0.1 - - [08/Mar/2025 17:48:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:24,608 [INFO] 172.18.0.1 - - [08/Mar/2025 17:48:24] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:25,791 [INFO] 172.18.0.1 - - [08/Mar/2025 17:48:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:44,844 [INFO] 172.18.0.1 - - [08/Mar/2025 17:48:44] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:49,183 [INFO] 📥 Received feature selection request
+2025-03-08 17:48:49,207 [INFO] 🔄 Preprocessing input data
+2025-03-08 17:48:49,221 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 17:48:49,222 [INFO] Target name set to: Air Quality
+2025-03-08 17:48:49,222 [INFO] 🔄 Starting feature selection process
+2025-03-08 17:48:49,223 [INFO] Starting feature selection using method: llm
+2025-03-08 17:48:49,224 [INFO] Input data shape: (4621, 9)
+2025-03-08 17:48:49,225 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 17:48:49,226 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 17:48:49,239 [INFO] Calling OpenAI API...
+2025-03-08 17:48:51,248 [INFO] Received response from OpenAI
+2025-03-08 17:48:51,249 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 17:48:51,250 [INFO] Features to keep: 7
+2025-03-08 17:48:51,251 [INFO] Features to remove: 2
+2025-03-08 17:48:51,252 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-08 17:48:51,253 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-08 17:48:51,254 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:48:51,260 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 17:48:51,343 [INFO] 172.18.0.1 - - [08/Mar/2025 17:48:51] "POST /select_features HTTP/1.1" 200 -
