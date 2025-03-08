@@ -1,0 +1,231 @@
+2025-03-08 09:24:00,415 [ERROR] Error initializing OpenAI client: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 09:24:00,424 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 09:24:00,426 [INFO]  * Running on http://172.18.0.3:5001/ (Press CTRL+C to quit)
+2025-03-08 09:24:34,712 [INFO] Extracted metadata for 12 columns
+2025-03-08 09:24:34,714 [INFO] Generated prompt for LLM.
+2025-03-08 09:24:34,718 [WARNING] OpenAI client not available. Using default cleaning instructions.
+2025-03-08 09:24:34,719 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 09:24:34,721 [WARNING] No cleaning instructions available. Applying default cleaning.
+2025-03-08 09:24:34,781 [INFO] Applied cleaning instructions successfully.
+2025-03-08 09:24:34,962 [INFO] 172.18.0.1 - - [08/Mar/2025 09:24:34] "POST /clean HTTP/1.1" 200 -
+2025-03-08 09:27:51,341 [INFO] OpenAI API key found: sk-p*****yEEA
+2025-03-08 09:27:51,342 [INFO] Attempting to initialize OpenAI client...
+2025-03-08 09:27:51,344 [ERROR] Error initializing OpenAI client: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 09:27:51,349 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 09:27:51,350 [INFO]  * Running on http://172.18.0.3:5001/ (Press CTRL+C to quit)
+2025-03-08 09:29:19,512 [INFO] Extracted metadata for 12 columns
+2025-03-08 09:29:19,514 [INFO] Generated prompt for LLM.
+2025-03-08 09:29:19,515 [WARNING] OpenAI client not available. Using default cleaning instructions.
+2025-03-08 09:29:19,517 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 09:29:19,518 [WARNING] No cleaning instructions available. Applying default cleaning.
+2025-03-08 09:29:19,584 [INFO] Applied cleaning instructions successfully.
+2025-03-08 09:29:19,765 [INFO] 172.18.0.1 - - [08/Mar/2025 09:29:19] "POST /clean HTTP/1.1" 200 -
+2025-03-08 09:38:51,359 [DEBUG] Environment variable: PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2025-03-08 09:38:51,360 [DEBUG] Environment variable: HOSTNAME=c5c26c881f1e
+2025-03-08 09:38:51,361 [DEBUG] Environment variable: OPENAI_API_KEY=sk-p************************************************************************************************************************************************************yEEA
+2025-03-08 09:38:51,365 [DEBUG] Environment variable: PORT=5001
+2025-03-08 09:38:51,368 [DEBUG] Environment variable: LANG=C.UTF-8
+2025-03-08 09:38:51,370 [DEBUG] Environment variable: GPG_KEY=E3FF********************************0568
+2025-03-08 09:38:51,371 [DEBUG] Environment variable: PYTHON_VERSION=3.9.21
+2025-03-08 09:38:51,371 [DEBUG] Environment variable: PYTHON_SHA256=3126f59592c9b0d798584755f2bf7b081fa1ca35ce7a6fea980108d752a05bb1
+2025-03-08 09:38:51,372 [DEBUG] Environment variable: PYTHONUNBUFFERED=1
+2025-03-08 09:38:51,373 [DEBUG] Environment variable: HOME=/root
+2025-03-08 09:38:51,374 [DEBUG] Environment variable: KMP_DUPLICATE_LIB_OK=True
+2025-03-08 09:38:51,375 [DEBUG] Environment variable: KMP_INIT_AT_FORK=FALSE
+2025-03-08 09:38:51,376 [INFO] Testing internet connectivity...
+2025-03-08 09:38:51,381 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 09:38:51,966 [DEBUG] https://api.openai.com:443 "GET / HTTP/1.1" 421 124
+2025-03-08 09:38:51,969 [INFO] Connection to OpenAI API server: status code 421
+2025-03-08 09:38:51,972 [INFO] OpenAI API key found: sk-p************************************************************************************************************************************************************yEEA
+2025-03-08 09:38:51,973 [INFO] API key length: 164 characters
+2025-03-08 09:38:51,974 [INFO] Initializing OpenAI client with explicit configuration...
+2025-03-08 09:38:51,976 [ERROR] First initialization approach failed: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 09:38:51,976 [ERROR] Second initialization approach failed: __init__() got an unexpected keyword argument 'proxies'
+2025-03-08 09:38:51,985 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 09:38:51,986 [INFO]  * Running on http://172.18.0.3:5001/ (Press CTRL+C to quit)
+2025-03-08 09:39:07,993 [INFO] Extracted metadata for 12 columns
+2025-03-08 09:39:07,995 [INFO] Generated prompt for LLM.
+2025-03-08 09:39:07,996 [WARNING] OpenAI client not available. Using default cleaning instructions.
+2025-03-08 09:39:07,997 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 09:39:07,998 [WARNING] No cleaning instructions available. Applying default cleaning.
+2025-03-08 09:39:08,070 [INFO] Applied cleaning instructions successfully.
+2025-03-08 09:39:08,266 [INFO] 172.18.0.1 - - [08/Mar/2025 09:39:08] "POST /clean HTTP/1.1" 200 -
+2025-03-08 09:52:08,579 [INFO] Python version: 3.9.21 (main, Feb 25 2025, 02:36:15) 
+[GCC 12.2.0]
+2025-03-08 09:52:08,581 [INFO] OpenAI package version: 0.28.1
+2025-03-08 09:52:08,582 [INFO] Environment variables:
+2025-03-08 09:52:08,582 [INFO]   PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2025-03-08 09:52:08,583 [INFO]   HOSTNAME=7448dd68d013
+2025-03-08 09:52:08,584 [INFO]   OPENAI_API_KEY=***
+2025-03-08 09:52:08,584 [INFO]   PORT=5001
+2025-03-08 09:52:08,585 [INFO]   LANG=C.UTF-8
+2025-03-08 09:52:08,586 [INFO]   GPG_KEY=***
+2025-03-08 09:52:08,587 [INFO]   PYTHON_VERSION=3.9.21
+2025-03-08 09:52:08,588 [INFO]   PYTHON_SHA256=3126f59592c9b0d798584755f2bf7b081fa1ca35ce7a6fea980108d752a05bb1
+2025-03-08 09:52:08,588 [INFO]   PYTHONUNBUFFERED=1
+2025-03-08 09:52:08,589 [INFO]   HOME=/root
+2025-03-08 09:52:08,590 [INFO]   KMP_DUPLICATE_LIB_OK=True
+2025-03-08 09:52:08,590 [INFO]   KMP_INIT_AT_FORK=FALSE
+2025-03-08 09:52:08,593 [INFO] API key from environment: Found
+2025-03-08 09:52:08,594 [INFO] API key appears valid (length: 164)
+2025-03-08 09:52:08,595 [INFO] Set API key on openai module
+2025-03-08 09:52:08,596 [INFO] Testing OpenAI connection...
+2025-03-08 09:52:08,610 [DEBUG] message='Request to OpenAI API' method=post path=https://api.openai.com/v1/chat/completions
+2025-03-08 09:52:08,611 [DEBUG] api_version=None data='{"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": "Say hello"}], "max_tokens": 5}' message='Post details'
+2025-03-08 09:52:08,613 [DEBUG] Converted retries value: 2 -> Retry(total=2, connect=None, read=None, redirect=None, status=None)
+2025-03-08 09:52:08,616 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 09:52:10,635 [DEBUG] https://api.openai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-03-08 09:52:10,639 [DEBUG] message='OpenAI API response' path=https://api.openai.com/v1/chat/completions processing_ms=170 request_id=req_00cd82e768d3f820b5557385661c4f05 response_code=200
+2025-03-08 09:52:10,642 [INFO] OpenAI test successful! Response: Hello! How can I
+2025-03-08 09:52:10,646 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 09:52:10,647 [INFO]  * Running on http://172.18.0.3:5001/ (Press CTRL+C to quit)
+2025-03-08 09:53:14,221 [INFO] Extracted metadata for 12 columns
+2025-03-08 09:53:14,223 [INFO] Generated prompt for LLM.
+2025-03-08 09:53:14,224 [INFO] Calling LLM API...
+2025-03-08 09:53:14,225 [DEBUG] message='Request to OpenAI API' method=post path=https://api.openai.com/v1/chat/completions
+2025-03-08 09:53:14,226 [DEBUG] api_version=None data='{"model": "gpt-3.5-turbo", "messages": [{"role": "system", "content": "You are an expert data cleaning assistant."}, {"role": "user", "content": "You are an expert data cleaning assistant. Below is metadata for a dataset extracted from a tabular file. For each column, provide detailed instructions regarding:\\n\\n1. Missing values: Specify if rows should be dropped (action: \'drop\') or if missing values should be replaced (action: \'replace\'). If replacing, provide a replacement value (e.g., 0, mean, median, mode, etc.).\\n\\n2. Conversion to numerical: For non-numerical columns, specify an \'encoding\' key with one of these values: \'none\' (if already numeric), \'onehot\' (for one-hot encoding), or \'label\' (for label encoding).\\n\\nReturn your instructions in JSON format with this structure:\\n{\\n  \\"column_name\\": {\\"missing\\": {\\"action\\": \\"drop/replace\\", \\"value\\": <value if replace>}, \\"normalize\\": false, \\"encoding\\": \\"none/onehot/label\\"},\\n  ...\\n}\\n\\nHere is the metadata:\\n{\\n  \\"customerID\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 10000,\\n    \\"unique_values_sample\\": [\\n      \\"Cust_1\\",\\n      \\"Cust_2\\",\\n      \\"Cust_3\\",\\n      \\"Cust_4\\",\\n      \\"Cust_5\\",\\n      \\"Cust_6\\",\\n      \\"Cust_7\\",\\n      \\"Cust_8\\",\\n      \\"Cust_9\\",\\n      \\"Cust_10\\",\\n      \\"Cust_11\\",\\n      \\"Cust_12\\",\\n      \\"Cust_13\\",\\n      \\"Cust_14\\",\\n      \\"Cust_15\\",\\n      \\"Cust_16\\",\\n      \\"Cust_17\\",\\n      \\"Cust_18\\",\\n      \\"Cust_19\\",\\n      \\"Cust_20\\"\\n    ]\\n  },\\n  \\"gender\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      \\"Male\\",\\n      \\"Female\\"\\n    ]\\n  },\\n  \\"SeniorCitizen\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      0.0,\\n      1.0\\n    ]\\n  },\\n  \\"Partner\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      \\"Yes\\",\\n      \\"No\\"\\n    ]\\n  },\\n  \\"Dependents\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      \\"No\\",\\n      \\"Yes\\"\\n    ]\\n  },\\n  \\"tenure\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 72,\\n    \\"unique_values_sample\\": [\\n      2.0,\\n      13.0,\\n      55.0,\\n      32.0,\\n      22.0,\\n      17.0,\\n      70.0,\\n      51.0,\\n      8.0,\\n      10.0,\\n      19.0,\\n      14.0,\\n      67.0,\\n      61.0,\\n      56.0,\\n      63.0,\\n      47.0,\\n      6.0,\\n      34.0,\\n      65.0\\n    ]\\n  },\\n  \\"PhoneService\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      \\"Yes\\",\\n      \\"No\\"\\n    ]\\n  },\\n  \\"MultipleLines\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 3,\\n    \\"unique_values_sample\\": [\\n      \\"No\\",\\n      \\"Yes\\",\\n      \\"No phone service\\"\\n    ]\\n  },\\n  \\"InternetService\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 3,\\n    \\"unique_values_sample\\": [\\n      \\"Fiber optic\\",\\n      \\"DSL\\",\\n      \\"No\\"\\n    ]\\n  },\\n  \\"OnlineSecurity\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 3,\\n    \\"unique_values_sample\\": [\\n      \\"No\\",\\n      \\"Yes\\",\\n      \\"No internet service\\"\\n    ]\\n  },\\n  \\"OnlineBackup\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 1000,\\n    \\"num_unique\\": 3,\\n    \\"unique_values_sample\\": [\\n      \\"No internet service\\",\\n      \\"Yes\\",\\n      \\"No\\"\\n    ]\\n  },\\n  \\"Churn\\": {\\n    \\"dtype\\": \\"int64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 2,\\n    \\"unique_values_sample\\": [\\n      1,\\n      0\\n    ]\\n  }\\n}"}], "temperature": 0}' message='Post details'
+2025-03-08 09:53:14,227 [DEBUG] Converted retries value: 2 -> Retry(total=2, connect=None, read=None, redirect=None, status=None)
+2025-03-08 09:53:14,229 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 09:53:20,884 [DEBUG] https://api.openai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-03-08 09:53:20,888 [DEBUG] message='OpenAI API response' path=https://api.openai.com/v1/chat/completions processing_ms=2922 request_id=req_d74f9e28a1590cd1bf8e9d6248c4be5c response_code=200
+2025-03-08 09:53:20,890 [INFO] LLM API call successful.
+2025-03-08 09:53:20,891 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 09:53:20,908 [INFO] Dropped rows with missing values in column 'customerID'.
+2025-03-08 09:53:20,932 [INFO] Fallback label-encoded column 'customerID'.
+2025-03-08 09:53:20,936 [INFO] Replaced missing values in column 'gender' with 'Unknown'.
+2025-03-08 09:53:20,939 [INFO] Label-encoded column 'gender' (instruction: 'label').
+2025-03-08 09:53:20,941 [INFO] Replaced missing values in column 'SeniorCitizen' with '0'.
+2025-03-08 09:53:20,944 [INFO] Replaced missing values in column 'Partner' with 'Unknown'.
+2025-03-08 09:53:20,947 [INFO] Label-encoded column 'Partner' (instruction: 'label').
+2025-03-08 09:53:20,950 [INFO] Replaced missing values in column 'Dependents' with 'Unknown'.
+2025-03-08 09:53:20,954 [INFO] Label-encoded column 'Dependents' (instruction: 'label').
+2025-03-08 09:53:20,956 [INFO] Replaced missing values in column 'tenure' with '36.45988888888889'.
+2025-03-08 09:53:20,960 [INFO] Replaced missing values in column 'PhoneService' with 'Unknown'.
+2025-03-08 09:53:20,963 [INFO] Label-encoded column 'PhoneService' (instruction: 'label').
+2025-03-08 09:53:20,966 [INFO] Replaced missing values in column 'MultipleLines' with 'Unknown'.
+2025-03-08 09:53:20,970 [INFO] Label-encoded column 'MultipleLines' (instruction: 'label').
+2025-03-08 09:53:20,973 [INFO] Replaced missing values in column 'InternetService' with 'Unknown'.
+2025-03-08 09:53:20,976 [INFO] Label-encoded column 'InternetService' (instruction: 'label').
+2025-03-08 09:53:20,978 [INFO] Replaced missing values in column 'OnlineSecurity' with 'Unknown'.
+2025-03-08 09:53:20,980 [INFO] Label-encoded column 'OnlineSecurity' (instruction: 'label').
+2025-03-08 09:53:20,982 [INFO] Replaced missing values in column 'OnlineBackup' with 'Unknown'.
+2025-03-08 09:53:20,985 [INFO] Label-encoded column 'OnlineBackup' (instruction: 'label').
+2025-03-08 09:53:20,989 [INFO] Dropped rows with missing values in column 'Churn'.
+2025-03-08 09:53:20,993 [INFO] Applied cleaning instructions successfully.
+2025-03-08 09:53:21,170 [INFO] 172.18.0.1 - - [08/Mar/2025 09:53:21] "POST /clean HTTP/1.1" 200 -
+2025-03-08 09:55:04,203 [INFO] 172.18.0.1 - - [08/Mar/2025 09:55:04] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:55:07,157 [INFO] 172.18.0.1 - - [08/Mar/2025 09:55:07] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:55:25,875 [INFO] 172.18.0.1 - - [08/Mar/2025 09:55:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:55:48,989 [INFO] 172.18.0.1 - - [08/Mar/2025 09:55:48] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:56:59,301 [INFO] 172.18.0.1 - - [08/Mar/2025 09:56:59] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:57:14,788 [INFO] 172.18.0.1 - - [08/Mar/2025 09:57:14] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:57:17,398 [INFO] 172.18.0.1 - - [08/Mar/2025 09:57:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:57:17,608 [INFO] 172.18.0.1 - - [08/Mar/2025 09:57:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:57:28,399 [INFO] 172.18.0.1 - - [08/Mar/2025 09:57:28] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:59:11,802 [INFO] 172.18.0.1 - - [08/Mar/2025 09:59:11] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:59:22,295 [INFO] 172.18.0.1 - - [08/Mar/2025 09:59:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:59:24,898 [INFO] 172.18.0.1 - - [08/Mar/2025 09:59:24] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:59:31,838 [INFO] 172.18.0.1 - - [08/Mar/2025 09:59:31] "GET /health HTTP/1.1" 200 -
+2025-03-08 09:59:31,924 [INFO] Extracted metadata for 0 columns
+2025-03-08 09:59:31,926 [INFO] Generated prompt for LLM.
+2025-03-08 09:59:31,927 [INFO] Calling LLM API...
+2025-03-08 09:59:31,928 [DEBUG] message='Request to OpenAI API' method=post path=https://api.openai.com/v1/chat/completions
+2025-03-08 09:59:31,929 [DEBUG] api_version=None data='{"model": "gpt-3.5-turbo", "messages": [{"role": "system", "content": "You are an expert data cleaning assistant."}, {"role": "user", "content": "You are an expert data cleaning assistant. Below is metadata for a dataset extracted from a tabular file. For each column, provide detailed instructions regarding:\\n\\n1. Missing values: Specify if rows should be dropped (action: \'drop\') or if missing values should be replaced (action: \'replace\'). If replacing, provide a replacement value (e.g., 0, mean, median, mode, etc.).\\n\\n2. Conversion to numerical: For non-numerical columns, specify an \'encoding\' key with one of these values: \'none\' (if already numeric), \'onehot\' (for one-hot encoding), or \'label\' (for label encoding).\\n\\nReturn your instructions in JSON format with this structure:\\n{\\n  \\"column_name\\": {\\"missing\\": {\\"action\\": \\"drop/replace\\", \\"value\\": <value if replace>}, \\"normalize\\": false, \\"encoding\\": \\"none/onehot/label\\"},\\n  ...\\n}\\n\\nHere is the metadata:\\n{}"}], "temperature": 0}' message='Post details'
+2025-03-08 09:59:31,931 [DEBUG] Converted retries value: 2 -> Retry(total=2, connect=None, read=None, redirect=None, status=None)
+2025-03-08 09:59:31,934 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 09:59:33,213 [DEBUG] https://api.openai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-03-08 09:59:33,218 [DEBUG] message='OpenAI API response' path=https://api.openai.com/v1/chat/completions processing_ms=447 request_id=req_7ce8c22fff5dc98c94b12284981b7f39 response_code=200
+2025-03-08 09:59:33,219 [INFO] LLM API call successful.
+2025-03-08 09:59:33,220 [ERROR] Error parsing LLM response: Expecting value: line 2 column 66 (char 67)
+2025-03-08 09:59:33,221 [WARNING] Could not parse cleaning instructions. Using default cleaning.
+2025-03-08 09:59:33,222 [WARNING] No cleaning instructions available. Applying default cleaning.
+2025-03-08 09:59:33,223 [INFO] Applied cleaning instructions successfully.
+2025-03-08 09:59:33,224 [INFO] 172.18.0.1 - - [08/Mar/2025 09:59:33] "POST /clean HTTP/1.1" 200 -
+2025-03-08 10:01:20,909 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:23,682 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:23,970 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:30,885 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:30] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:36,766 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:36] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:49,869 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:49] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:01:51,911 [INFO] 172.18.0.1 - - [08/Mar/2025 10:01:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:02:06,724 [INFO] 172.18.0.1 - - [08/Mar/2025 10:02:06] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:02:06,890 [INFO] Extracted metadata for 10 columns
+2025-03-08 10:02:06,893 [INFO] Generated prompt for LLM.
+2025-03-08 10:02:06,894 [INFO] Calling LLM API...
+2025-03-08 10:02:06,895 [DEBUG] message='Request to OpenAI API' method=post path=https://api.openai.com/v1/chat/completions
+2025-03-08 10:02:06,896 [DEBUG] api_version=None data='{"model": "gpt-3.5-turbo", "messages": [{"role": "system", "content": "You are an expert data cleaning assistant."}, {"role": "user", "content": "You are an expert data cleaning assistant. Below is metadata for a dataset extracted from a tabular file. For each column, provide detailed instructions regarding:\\n\\n1. Missing values: Specify if rows should be dropped (action: \'drop\') or if missing values should be replaced (action: \'replace\'). If replacing, provide a replacement value (e.g., 0, mean, median, mode, etc.).\\n\\n2. Conversion to numerical: For non-numerical columns, specify an \'encoding\' key with one of these values: \'none\' (if already numeric), \'onehot\' (for one-hot encoding), or \'label\' (for label encoding).\\n\\nReturn your instructions in JSON format with this structure:\\n{\\n  \\"column_name\\": {\\"missing\\": {\\"action\\": \\"drop/replace\\", \\"value\\": <value if replace>}, \\"normalize\\": false, \\"encoding\\": \\"none/onehot/label\\"},\\n  ...\\n}\\n\\nHere is the metadata:\\n{\\n  \\"Temperature\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 362,\\n    \\"unique_values_sample\\": [\\n      29.8,\\n      28.3,\\n      23.1,\\n      27.1,\\n      26.5,\\n      39.4,\\n      41.7,\\n      31.0,\\n      29.4,\\n      33.2,\\n      26.3,\\n      32.5,\\n      20.0,\\n      28.6,\\n      22.3,\\n      32.0,\\n      22.9,\\n      37.6,\\n      34.7,\\n      37.8\\n    ]\\n  },\\n  \\"Humidity\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 723,\\n    \\"unique_values_sample\\": [\\n      59.1,\\n      75.6,\\n      74.7,\\n      39.1,\\n      70.7,\\n      96.6,\\n      82.5,\\n      59.6,\\n      93.8,\\n      80.5,\\n      65.7,\\n      51.2,\\n      53.3,\\n      53.7,\\n      78.9,\\n      75.4,\\n      81.2,\\n      59.3,\\n      97.2,\\n      44.1\\n    ]\\n  },\\n  \\"PM2.5\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 815,\\n    \\"unique_values_sample\\": [\\n      5.2,\\n      2.3,\\n      26.7,\\n      6.1,\\n      6.9,\\n      14.6,\\n      1.7,\\n      5.0,\\n      10.3,\\n      11.1,\\n      1.3,\\n      1.6,\\n      3.7,\\n      28.9,\\n      4.5,\\n      22.4,\\n      28.1,\\n      9.0,\\n      0.6,\\n      3.5\\n    ]\\n  },\\n  \\"PM10\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 955,\\n    \\"unique_values_sample\\": [\\n      17.9,\\n      12.2,\\n      33.8,\\n      6.3,\\n      16.0,\\n      35.5,\\n      15.8,\\n      16.8,\\n      22.7,\\n      24.4,\\n      5.5,\\n      10.5,\\n      12.9,\\n      34.0,\\n      12.0,\\n      29.9,\\n      10.4,\\n      56.6,\\n      15.7,\\n      24.6\\n    ]\\n  },\\n  \\"NO2\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 445,\\n    \\"unique_values_sample\\": [\\n      18.9,\\n      30.8,\\n      24.4,\\n      13.5,\\n      21.9,\\n      42.9,\\n      31.1,\\n      24.2,\\n      45.1,\\n      32.0,\\n      18.3,\\n      21.6,\\n      26.1,\\n      23.2,\\n      17.2,\\n      27.5,\\n      18.4,\\n      46.7,\\n      28.5,\\n      37.1\\n    ]\\n  },\\n  \\"SO2\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 348,\\n    \\"unique_values_sample\\": [\\n      9.2,\\n      9.7,\\n      12.6,\\n      5.3,\\n      5.6,\\n      17.9,\\n      12.7,\\n      13.6,\\n      11.8,\\n      15.3,\\n      5.9,\\n      19.3,\\n      6.6,\\n      4.5,\\n      6.3,\\n      3.7,\\n      13.7,\\n      7.1,\\n      11.7,\\n      9.4\\n    ]\\n  },\\n  \\"CO\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 265,\\n    \\"unique_values_sample\\": [\\n      1.72,\\n      1.64,\\n      1.63,\\n      1.15,\\n      1.01,\\n      1.82,\\n      1.8,\\n      1.38,\\n      2.03,\\n      1.69,\\n      0.85,\\n      1.53,\\n      1.09,\\n      1.02,\\n      1.18,\\n      1.48,\\n      0.96,\\n      1.85,\\n      1.52,\\n      1.13\\n    ]\\n  },\\n  \\"Proximity_to_Industrial_Areas\\": {\\n    \\"dtype\\": \\"float64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 179,\\n    \\"unique_values_sample\\": [\\n      6.3,\\n      6.0,\\n      5.2,\\n      11.1,\\n      12.7,\\n      3.1,\\n      4.6,\\n      5.4,\\n      4.9,\\n      13.0,\\n      5.9,\\n      10.2,\\n      11.0,\\n      10.4,\\n      7.9,\\n      14.4,\\n      4.1,\\n      6.1,\\n      7.7,\\n      8.0\\n    ]\\n  },\\n  \\"Population_Density\\": {\\n    \\"dtype\\": \\"int64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 683,\\n    \\"unique_values_sample\\": [\\n      319,\\n      611,\\n      619,\\n      551,\\n      303,\\n      674,\\n      735,\\n      443,\\n      486,\\n      535,\\n      529,\\n      519,\\n      538,\\n      508,\\n      232,\\n      444,\\n      359,\\n      560,\\n      437,\\n      803\\n    ]\\n  },\\n  \\"Air Quality\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 4,\\n    \\"unique_values_sample\\": [\\n      \\"Moderate\\",\\n      \\"Good\\",\\n      \\"Hazardous\\",\\n      \\"Poor\\"\\n    ]\\n  }\\n}"}], "temperature": 0}' message='Post details'
+2025-03-08 10:02:06,897 [DEBUG] Converted retries value: 2 -> Retry(total=2, connect=None, read=None, redirect=None, status=None)
+2025-03-08 10:02:06,899 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 10:02:12,654 [DEBUG] https://api.openai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-03-08 10:02:12,656 [DEBUG] message='OpenAI API response' path=https://api.openai.com/v1/chat/completions processing_ms=5142 request_id=req_466ee4f759795025489067c75ae0eb8d response_code=200
+2025-03-08 10:02:12,658 [INFO] LLM API call successful.
+2025-03-08 10:02:12,659 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 10:02:12,662 [INFO] Replaced missing values in column 'Temperature' with '30.029020000000003'.
+2025-03-08 10:02:12,666 [INFO] Replaced missing values in column 'Humidity' with '70.05611999999999'.
+2025-03-08 10:02:12,669 [INFO] Replaced missing values in column 'PM2.5' with '20.142139999999998'.
+2025-03-08 10:02:12,671 [INFO] Replaced missing values in column 'PM10' with '30.218360000000004'.
+2025-03-08 10:02:12,673 [INFO] Replaced missing values in column 'NO2' with '26.4121'.
+2025-03-08 10:02:12,676 [INFO] Replaced missing values in column 'SO2' with '10.01482'.
+2025-03-08 10:02:12,677 [INFO] Replaced missing values in column 'CO' with '1.5003540000000002'.
+2025-03-08 10:02:12,681 [INFO] Replaced missing values in column 'Proximity_to_Industrial_Areas' with '8.4254'.
+2025-03-08 10:02:12,682 [INFO] Replaced missing values in column 'Population_Density' with '497.4238'.
+2025-03-08 10:02:12,687 [INFO] Dropped rows with missing values in column 'Air Quality'.
+2025-03-08 10:02:12,691 [INFO] Label-encoded column 'Air Quality' (instruction: 'label').
+2025-03-08 10:02:12,694 [INFO] Applied cleaning instructions successfully.
+2025-03-08 10:02:12,795 [INFO] 172.18.0.1 - - [08/Mar/2025 10:02:12] "POST /clean HTTP/1.1" 200 -
+2025-03-08 10:06:59,551 [INFO] 172.18.0.1 - - [08/Mar/2025 10:06:59] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:07:30,751 [INFO] 172.18.0.1 - - [08/Mar/2025 10:07:30] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:07:45,962 [INFO] 172.18.0.1 - - [08/Mar/2025 10:07:45] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:01,374 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:01] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:32,997 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:32] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:33,265 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:33] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:44,235 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:44] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:46,745 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:08:50,175 [INFO] 172.18.0.1 - - [08/Mar/2025 10:08:50] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:09:09,759 [INFO] 172.18.0.1 - - [08/Mar/2025 10:09:09] "GET /health HTTP/1.1" 200 -
+2025-03-08 10:09:09,898 [INFO] Extracted metadata for 15 columns
+2025-03-08 10:09:09,900 [INFO] Generated prompt for LLM.
+2025-03-08 10:09:09,901 [INFO] Calling LLM API...
+2025-03-08 10:09:09,903 [DEBUG] message='Request to OpenAI API' method=post path=https://api.openai.com/v1/chat/completions
+2025-03-08 10:09:09,904 [DEBUG] api_version=None data='{"model": "gpt-3.5-turbo", "messages": [{"role": "system", "content": "You are an expert data cleaning assistant."}, {"role": "user", "content": "You are an expert data cleaning assistant. Below is metadata for a dataset extracted from a tabular file. For each column, provide detailed instructions regarding:\\n\\n1. Missing values: Specify if rows should be dropped (action: \'drop\') or if missing values should be replaced (action: \'replace\'). If replacing, provide a replacement value (e.g., 0, mean, median, mode, etc.).\\n\\n2. Conversion to numerical: For non-numerical columns, specify an \'encoding\' key with one of these values: \'none\' (if already numeric), \'onehot\' (for one-hot encoding), or \'label\' (for label encoding).\\n\\nReturn your instructions in JSON format with this structure:\\n{\\n  \\"column_name\\": {\\"missing\\": {\\"action\\": \\"drop/replace\\", \\"value\\": <value if replace>}, \\"normalize\\": false, \\"encoding\\": \\"none/onehot/label\\"},\\n  ...\\n}\\n\\nHere is the metadata:\\n{\\n  \\"Company Name\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 19,\\n    \\"unique_values_sample\\": [\\n      \\"Apple\\",\\n      \\"Samsung\\",\\n      \\"OnePlus\\",\\n      \\"Vivo\\",\\n      \\"iQOO\\",\\n      \\"Oppo\\",\\n      \\"Realme\\",\\n      \\"Xiaomi\\",\\n      \\"Lenovo\\",\\n      \\"Motorola\\",\\n      \\"Huawei\\",\\n      \\"Nokia\\",\\n      \\"Sony\\",\\n      \\"Google\\",\\n      \\"Tecno\\",\\n      \\"Infinix\\",\\n      \\"Honor\\",\\n      \\"POCO\\",\\n      \\"Poco\\"\\n    ]\\n  },\\n  \\"Model Name\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 908,\\n    \\"unique_values_sample\\": [\\n      \\"iPhone 16 128GB\\",\\n      \\"iPhone 16 256GB\\",\\n      \\"iPhone 16 512GB\\",\\n      \\"iPhone 16 Plus 128GB\\",\\n      \\"iPhone 16 Plus 256GB\\",\\n      \\"iPhone 16 Plus 512GB\\",\\n      \\"iPhone 16 Pro 128GB\\",\\n      \\"iPhone 16 Pro 256GB\\",\\n      \\"iPhone 16 Pro 512GB\\",\\n      \\"iPhone 16 Pro Max 128GB\\",\\n      \\"iPhone 16 Pro Max 256GB\\",\\n      \\"iPhone 16 Pro Max 512GB\\",\\n      \\"iPhone 15 128GB\\",\\n      \\"iPhone 15 256GB\\",\\n      \\"iPhone 15 512GB\\",\\n      \\"iPhone 15 Plus 128GB\\",\\n      \\"iPhone 15 Plus 256GB\\",\\n      \\"iPhone 15 Plus 512GB\\",\\n      \\"iPhone 15 Pro 128GB\\",\\n      \\"iPhone 15 Pro 256GB\\"\\n    ]\\n  },\\n  \\"Mobile Weight\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 148,\\n    \\"unique_values_sample\\": [\\n      \\"174g\\",\\n      \\"203g\\",\\n      \\"206g\\",\\n      \\"221g\\",\\n      \\"171g\\",\\n      \\"172g\\",\\n      \\"140g\\",\\n      \\"204g\\",\\n      \\"238g\\",\\n      \\"135g\\",\\n      \\"164g\\",\\n      \\"189g\\",\\n      \\"228g\\",\\n      \\"194g\\",\\n      \\"188g\\",\\n      \\"226g\\",\\n      \\"177g\\",\\n      \\"208g\\",\\n      \\"458g\\",\\n      \\"490g\\"\\n    ]\\n  },\\n  \\"RAM\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 11,\\n    \\"unique_values_sample\\": [\\n      \\"6GB\\",\\n      \\"8GB\\",\\n      \\"4GB\\",\\n      \\"3GB\\",\\n      \\"12GB\\",\\n      \\"2GB\\",\\n      \\"1.5GB\\",\\n      \\"16GB\\",\\n      \\"10GB\\",\\n      \\"1GB\\",\\n      \\"8GB / 12GB\\"\\n    ]\\n  },\\n  \\"Front Camera\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 29,\\n    \\"unique_values_sample\\": [\\n      \\"12MP\\",\\n      \\"12MP / 4K\\",\\n      \\"7MP\\",\\n      \\"10MP\\",\\n      \\"32MP\\",\\n      \\"13MP\\",\\n      \\"5MP\\",\\n      \\"16MP\\",\\n      \\"8MP\\",\\n      \\"12MP + 12MP\\",\\n      \\"2MP\\",\\n      \\"44MP\\",\\n      \\"24MP\\",\\n      \\"20MP+8MP\\",\\n      \\"20MP\\",\\n      \\"50MP\\",\\n      \\"25MP\\",\\n      \\"60MP\\",\\n      \\"10.7MP\\",\\n      \\"Dual 32MP\\"\\n    ]\\n  },\\n  \\"Back Camera\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 91,\\n    \\"unique_values_sample\\": [\\n      \\"48MP\\",\\n      \\"50MP + 12MP\\",\\n      \\"48MP + 12MP\\",\\n      \\"12MP + 12MP\\",\\n      \\"12MP\\",\\n      \\"12MP + 12MP + 12MP\\",\\n      \\"8MP\\",\\n      \\"12MP + 10MP\\",\\n      \\"200MP + 12MP\\",\\n      \\"108MP + 12MP\\",\\n      \\"48MP + 8MP\\",\\n      \\"50MP + 5MP\\",\\n      \\"50MP + 2MP\\",\\n      \\"108MP + 8MP\\",\\n      \\"50MP + 8MP\\",\\n      \\"13MP + 2MP\\",\\n      \\"12MP + 16MP\\",\\n      \\"50MP\\",\\n      \\"16MP\\",\\n      \\"16MP + 5MP\\"\\n    ]\\n  },\\n  \\"Processor\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 217,\\n    \\"unique_values_sample\\": [\\n      \\"A17 Bionic\\",\\n      \\"A17 Pro\\",\\n      \\"A16 Bionic\\",\\n      \\"A15 Bionic\\",\\n      \\"A14 Bionic\\",\\n      \\"A13 Bionic\\",\\n      \\"A11 Bionic\\",\\n      \\"A12 Bionic\\",\\n      \\"A12Z Bionic\\",\\n      \\"Exynos 2400\\",\\n      \\"Snapdragon 8 Gen 2\\",\\n      \\"Exynos 2200\\",\\n      \\"Snapdragon 8 Gen 1\\",\\n      \\"Exynos 1380\\",\\n      \\"MediaTek Dimensity 1080\\",\\n      \\"MediaTek Helio G99\\",\\n      \\"Exynos 850\\",\\n      \\"Exynos 1280\\",\\n      \\"MediaTek Helio P35\\",\\n      \\"Exynos 990\\"\\n    ]\\n  },\\n  \\"Battery Capacity\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 147,\\n    \\"unique_values_sample\\": [\\n      \\"3,600mAh\\",\\n      \\"4,200mAh\\",\\n      \\"4,400mAh\\",\\n      \\"4,500mAh\\",\\n      \\"3,200mAh\\",\\n      \\"4,300mAh\\",\\n      \\"4,325mAh\\",\\n      \\"2,438mAh\\",\\n      \\"3,240mAh\\",\\n      \\"3,095mAh\\",\\n      \\"4,352mAh\\",\\n      \\"2,227mAh\\",\\n      \\"2,815mAh\\",\\n      \\"3,687mAh\\",\\n      \\"3,110mAh\\",\\n      \\"3,046mAh\\",\\n      \\"3,969mAh\\",\\n      \\"2,716mAh\\",\\n      \\"2,658mAh\\",\\n      \\"3,174mAh\\"\\n    ]\\n  },\\n  \\"Screen Size\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 97,\\n    \\"unique_values_sample\\": [\\n      \\"6.1 inches\\",\\n      \\"6.7 inches\\",\\n      \\"5.4 inches\\",\\n      \\"5.8 inches\\",\\n      \\"6.5 inches\\",\\n      \\"10.9 inches\\",\\n      \\"10.2 inches\\",\\n      \\"7.9 inches\\",\\n      \\"11 inches\\",\\n      \\"12.9 inches\\",\\n      \\"13 inches\\",\\n      \\"6.8 inches\\",\\n      \\"6.6 inches\\",\\n      \\"7.6 inches\\",\\n      \\"6.4 inches\\",\\n      \\"6.9 inches\\",\\n      \\"6.3 inches\\",\\n      \\"5.3 inches\\",\\n      \\"6.0 inches\\",\\n      \\"5.5 inches\\"\\n    ]\\n  },\\n  \\"Launched Price (Pakistan)\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 157,\\n    \\"unique_values_sample\\": [\\n      \\"PKR 224,999\\",\\n      \\"PKR 234,999\\",\\n      \\"PKR 244,999\\",\\n      \\"PKR 249,999\\",\\n      \\"PKR 259,999\\",\\n      \\"PKR 274,999\\",\\n      \\"PKR 284,999\\",\\n      \\"PKR 294,999\\",\\n      \\"PKR 314,999\\",\\n      \\"PKR 324,999\\",\\n      \\"PKR 344,999\\",\\n      \\"PKR 204,999\\",\\n      \\"PKR 214,999\\",\\n      \\"PKR 264,999\\",\\n      \\"PKR 304,999\\",\\n      \\"PKR 184,999\\",\\n      \\"PKR 194,999\\",\\n      \\"PKR 364,999\\",\\n      \\"PKR 174,999\\",\\n      \\"PKR 354,999\\"\\n    ]\\n  },\\n  \\"Launched Price (India)\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 147,\\n    \\"unique_values_sample\\": [\\n      \\"INR 79,999\\",\\n      \\"INR 84,999\\",\\n      \\"INR 89,999\\",\\n      \\"INR 94,999\\",\\n      \\"INR 104,999\\",\\n      \\"INR 99,999\\",\\n      \\"INR 114,999\\",\\n      \\"INR 109,999\\",\\n      \\"INR 124,999\\",\\n      \\"INR 74,999\\",\\n      \\"INR 119,999\\",\\n      \\"INR 134,999\\",\\n      \\"INR 69,999\\",\\n      \\"INR 144,999\\",\\n      \\"INR 69,900\\",\\n      \\"INR 74,900\\",\\n      \\"INR 84,900\\",\\n      \\"INR 94,900\\",\\n      \\"INR 119,900\\",\\n      \\"INR 129,900\\"\\n    ]\\n  },\\n  \\"Launched Price (China)\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 137,\\n    \\"unique_values_sample\\": [\\n      \\"CNY 5,799\\",\\n      \\"CNY 6,099\\",\\n      \\"CNY 6,499\\",\\n      \\"CNY 6,199\\",\\n      \\"CNY 6,999\\",\\n      \\"CNY 7,099\\",\\n      \\"CNY 7,499\\",\\n      \\"CNY 7,799\\",\\n      \\"CNY 8,199\\",\\n      \\"CNY 5,299\\",\\n      \\"CNY 5,599\\",\\n      \\"CNY 5,999\\",\\n      \\"CNY 5,699\\",\\n      \\"CNY 6,799\\",\\n      \\"CNY 7,299\\",\\n      \\"CNY 7,999\\",\\n      \\"CNY 8,699\\",\\n      \\"CNY 5,199\\",\\n      \\"CNY 5,499\\",\\n      \\"CNY 5,899\\"\\n    ]\\n  },\\n  \\"Launched Price (USA)\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 107,\\n    \\"unique_values_sample\\": [\\n      \\"USD 799\\",\\n      \\"USD 849\\",\\n      \\"USD 899\\",\\n      \\"USD 949\\",\\n      \\"USD 999\\",\\n      \\"USD 1,049\\",\\n      \\"USD 1,099\\",\\n      \\"USD 1,199\\",\\n      \\"USD 1,299\\",\\n      \\"USD 1,399\\",\\n      \\"USD 699\\",\\n      \\"USD 1,249\\",\\n      \\"USD 749\\",\\n      \\"USD 599\\",\\n      \\"USD 329\\",\\n      \\"USD 429\\",\\n      \\"USD 399\\",\\n      \\"USD 499\\",\\n      \\"USD 1,599\\",\\n      \\"USD 1,799\\"\\n    ]\\n  },\\n  \\"Launched Price (Dubai)\\": {\\n    \\"dtype\\": \\"object\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 141,\\n    \\"unique_values_sample\\": [\\n      \\"AED 2,799\\",\\n      \\"AED 2,999\\",\\n      \\"AED 3,199\\",\\n      \\"AED 3,399\\",\\n      \\"AED 3,599\\",\\n      \\"AED 3,499\\",\\n      \\"AED 3,699\\",\\n      \\"AED 3,899\\",\\n      \\"AED 3,799\\",\\n      \\"AED 3,999\\",\\n      \\"AED 4,199\\",\\n      \\"AED 2,699\\",\\n      \\"AED 4,399\\",\\n      \\"AED 4,499\\",\\n      \\"AED 2,599\\",\\n      \\"AED 3,299\\",\\n      \\"AED 4,599\\",\\n      \\"AED 2,499\\",\\n      \\"AED 4,999\\",\\n      \\"AED 4,299\\"\\n    ]\\n  },\\n  \\"Launched Year\\": {\\n    \\"dtype\\": \\"int64\\",\\n    \\"num_missing\\": 0,\\n    \\"num_unique\\": 11,\\n    \\"unique_values_sample\\": [\\n      2024,\\n      2023,\\n      2022,\\n      2021,\\n      2020,\\n      2019,\\n      2017,\\n      2018,\\n      2016,\\n      2014,\\n      2025\\n    ]\\n  }\\n}"}], "temperature": 0}' message='Post details'
+2025-03-08 10:09:09,906 [DEBUG] Converted retries value: 2 -> Retry(total=2, connect=None, read=None, redirect=None, status=None)
+2025-03-08 10:09:09,910 [DEBUG] Starting new HTTPS connection (1): api.openai.com:443
+2025-03-08 10:09:16,689 [DEBUG] https://api.openai.com:443 "POST /v1/chat/completions HTTP/1.1" 200 None
+2025-03-08 10:09:16,693 [DEBUG] message='OpenAI API response' path=https://api.openai.com/v1/chat/completions processing_ms=5705 request_id=req_17d49b68bb01294c260888b2dfc2f9d1 response_code=200
+2025-03-08 10:09:16,695 [INFO] LLM API call successful.
+2025-03-08 10:09:16,697 [INFO] Parsed cleaning instructions successfully.
+2025-03-08 10:09:16,701 [INFO] Replaced missing values in column 'Company Name' with 'Other'.
+2025-03-08 10:09:16,705 [INFO] Label-encoded column 'Company Name' (instruction: 'label').
+2025-03-08 10:09:16,708 [INFO] Replaced missing values in column 'Model Name' with 'Unknown'.
+2025-03-08 10:09:16,711 [INFO] Label-encoded column 'Model Name' (instruction: 'label').
+2025-03-08 10:09:16,712 [INFO] Replaced missing values in column 'Mobile Weight' with '0g'.
+2025-03-08 10:09:16,716 [INFO] Fallback label-encoded column 'Mobile Weight'.
+2025-03-08 10:09:16,717 [INFO] Replaced missing values in column 'RAM' with '0GB'.
+2025-03-08 10:09:16,720 [INFO] Fallback label-encoded column 'RAM'.
+2025-03-08 10:09:16,722 [INFO] Replaced missing values in column 'Front Camera' with '0MP'.
+2025-03-08 10:09:16,727 [INFO] Fallback label-encoded column 'Front Camera'.
+2025-03-08 10:09:16,729 [INFO] Replaced missing values in column 'Back Camera' with '0MP'.
+2025-03-08 10:09:16,734 [INFO] Fallback label-encoded column 'Back Camera'.
+2025-03-08 10:09:16,736 [INFO] Replaced missing values in column 'Processor' with 'Unknown'.
+2025-03-08 10:09:16,738 [INFO] Label-encoded column 'Processor' (instruction: 'label').
+2025-03-08 10:09:16,740 [INFO] Replaced missing values in column 'Battery Capacity' with '0mAh'.
+2025-03-08 10:09:16,744 [INFO] Fallback label-encoded column 'Battery Capacity'.
+2025-03-08 10:09:16,746 [INFO] Replaced missing values in column 'Screen Size' with '0 inches'.
+2025-03-08 10:09:16,750 [INFO] Fallback label-encoded column 'Screen Size'.
+2025-03-08 10:09:16,751 [INFO] Replaced missing values in column 'Launched Price (Pakistan)' with '0'.
+2025-03-08 10:09:16,754 [INFO] Fallback label-encoded column 'Launched Price (Pakistan)'.
+2025-03-08 10:09:16,756 [INFO] Replaced missing values in column 'Launched Price (India)' with '0'.
+2025-03-08 10:09:16,759 [INFO] Fallback label-encoded column 'Launched Price (India)'.
+2025-03-08 10:09:16,760 [INFO] Replaced missing values in column 'Launched Price (China)' with '0'.
+2025-03-08 10:09:16,764 [INFO] Fallback label-encoded column 'Launched Price (China)'.
+2025-03-08 10:09:16,766 [INFO] Replaced missing values in column 'Launched Price (USA)' with '0'.
+2025-03-08 10:09:16,768 [INFO] Fallback label-encoded column 'Launched Price (USA)'.
+2025-03-08 10:09:16,771 [INFO] Replaced missing values in column 'Launched Price (Dubai)' with '0'.
+2025-03-08 10:09:16,775 [INFO] Fallback label-encoded column 'Launched Price (Dubai)'.
+2025-03-08 10:09:16,776 [INFO] Replaced missing values in column 'Launched Year' with '0'.
+2025-03-08 10:09:16,780 [INFO] Applied cleaning instructions successfully.
+2025-03-08 10:09:16,806 [INFO] 172.18.0.1 - - [08/Mar/2025 10:09:16] "POST /clean HTTP/1.1" 200 -

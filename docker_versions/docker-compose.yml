@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  data-cleaner:
+    build:
+      context: .
+      dockerfile: Dockerfile.data_cleaner
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+
+  feature-selector:
+    build:
+      context: .
+      dockerfile: Dockerfile.feature_selector
+    ports:
+      - "5002:5002"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+
+  anomaly-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile.anomaly_detector
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+
+  model-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.model_trainer
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./logs:/app/logs
+      - model-data:/app/saved_models
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+
+  medical-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile.medical_assistant
+    ports:
+      - "5005:5005"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+
+networks:
+  deepmed-network:
+    driver: bridge
+
+volumes:
+  model-data:
+    driver: local 

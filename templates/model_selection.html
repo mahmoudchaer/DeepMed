@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}MedicAI - Model Selection{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Select Your Model</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('training') }}">Training</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Model Selection</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+        
+        {% if models %}
+        <!-- Overall Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <h4>Models Trained</h4>
+                    <h2>{{ overall_metrics.models_trained }}</h2>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <h4>Features Used</h4>
+                    <h2>{{ overall_metrics.features_used }}</h2>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card text-center">
+                    <h4>Test Size</h4>
+                    <h2>{{ overall_metrics.test_size * 100 }}%</h2>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Model Cards -->
+        <h3 class="mb-3">Available Models</h3>
+        <div class="row">
+            {% for model in models %}
+            <div class="col-md-4 mb-4">
+                <div class="model-card">
+                    <h3>{{ model.model_name|replace('_', ' ')|title }}</h3>
+                    <div class="metric-value my-3">
+                        {{ "%.2f%%" | format(model.metric_value * 100) }}
+                    </div>
+                    <p><strong>{{ model.metric_name }}</strong></p>
+                    <hr>
+                    <p>Cross-Validation:</p>
+                    <p>{{ "%.2f%%" | format(model.cv_score_mean * 100) }} ± {{ "%.2f%%" | format(model.cv_score_std * 100) }}</p>
+                    
+                    <a href="{{ url_for('select_model', model_id=model.id if model.id is defined else loop.index0) }}" class="btn btn-primary w-100 mt-3">
+                        Select {{ model.model_name|replace('_', ' ')|title }}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            <h4>No Trained Models Available</h4>
+            <p>Please complete the training process to view model selection options.</p>
+            <a href="{{ url_for('training') }}" class="btn btn-primary">Go to Training</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
