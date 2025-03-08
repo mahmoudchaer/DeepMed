@@ -364,14 +364,10 @@ def preprocess_target(target):
             le = LabelEncoder()
             y = pd.Series(le.fit_transform(y.astype(str)), index=y.index)
         
-        # Ensure binary classification (0 and 1)
+        # Ensure there are at least 2 classes
         unique_values = y.unique()
-        if len(unique_values) != 2:
-            raise ValueError("Target must be binary (two classes)")
-        
-        # Map to 0 and 1 if needed
-        if not np.array_equal(np.sort(unique_values), [0, 1]):
-            y = (y == y.iloc[0]).astype(int)
+        if len(unique_values) < 2:
+            raise ValueError("Target must have at least 2 classes")
         
         return y
     except Exception as e:
