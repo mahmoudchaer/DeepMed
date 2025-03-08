@@ -74,3 +74,75 @@
 2025-03-08 17:06:57,556 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:06:57] "GET /health HTTP/1.1" 200 -
 2025-03-08 17:07:09,745 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:07:09] "GET /health HTTP/1.1" 200 -
 2025-03-08 17:07:11,603 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:07:11] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:19:00,864 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:19:00,864 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:19:00,901 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:19:00,901 - werkzeug - INFO -  * Running on http://172.18.0.6:5005/ (Press CTRL+C to quit)
+2025-03-08 17:19:00,903 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 17:19:02,122 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:19:02,122 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:19:02,136 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 17:19:02,139 - werkzeug - INFO -  * Debugger PIN: 999-302-310
+2025-03-08 17:19:20,673 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:19:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:22,247 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:19:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:46,444 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:19:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:56,777 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:19:56] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:19:58,637 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:19:58] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:28:10,307 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:28:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:28:11,975 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:28:11] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:28:47,004 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:28:47] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:17,549 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:29:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:23,380 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:29:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:24,343 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:29:24] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:29:25,066 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:29:25] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:29:26,121 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:29:26] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:38:45,897 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:38:45,897 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:38:45,916 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:38:45,917 - werkzeug - INFO -  * Running on http://172.18.0.6:5005/ (Press CTRL+C to quit)
+2025-03-08 17:38:45,918 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 17:38:47,024 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:38:47,025 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:38:47,034 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 17:38:47,035 - werkzeug - INFO -  * Debugger PIN: 637-282-462
+2025-03-08 17:39:08,470 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:08] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:10,516 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:12,397 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:36,662 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:36] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:37,493 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:37] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:39:39,476 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:39] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:39:44,379 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:39:44] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:44:31,434 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:44:31,435 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:44:31,456 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:44:31,456 - werkzeug - INFO -  * Running on http://172.18.0.3:5005/ (Press CTRL+C to quit)
+2025-03-08 17:44:31,459 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 17:44:32,781 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:44:32,781 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:44:32,793 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 17:44:32,795 - werkzeug - INFO -  * Debugger PIN: 103-853-187
+2025-03-08 17:44:51,072 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:44:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:44:52,910 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:44:52] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:44:55,939 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:44:55] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:45:02,655 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:45:02] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:45:04,371 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:45:04] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:48:14,722 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:48:14,723 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:48:14,761 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 17:48:14,765 - werkzeug - INFO -  * Running on http://172.18.0.2:5005/ (Press CTRL+C to quit)
+2025-03-08 17:48:14,785 - werkzeug - INFO -  * Restarting with stat
+2025-03-08 17:48:16,035 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-08 17:48:16,035 - root - INFO - Medical Assistant initialized successfully
+2025-03-08 17:48:16,045 - werkzeug - WARNING -  * Debugger is active!
+2025-03-08 17:48:16,046 - werkzeug - INFO -  * Debugger PIN: 487-868-046
+2025-03-08 17:48:23,020 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:24,663 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:24] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:25,886 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:37,123 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:37] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:38,411 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:38] "GET /health HTTP/1.1" 200 -
+2025-03-08 17:48:39,434 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:39] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-08 17:48:40,491 - werkzeug - INFO - 172.18.0.1 - - [08/Mar/2025 17:48:40] "POST /analyze_data HTTP/1.1" 200 -

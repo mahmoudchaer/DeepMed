@@ -47,6 +47,7 @@ class FeatureSelector:
             self.client = None
         else:
             try:
+                # Set the API key directly on the openai module
                 openai.api_key = api_key
                 self.client = openai
                 self.method = 'llm'
@@ -116,9 +117,11 @@ class FeatureSelector:
         3. Correlation with target (if available)
         4. Potential redundancy between features
         
-        Be conservative - only recommend removing features if there's a clear reason to do so."""
+        Be conservative - only recommend removing features if there's a clear reason to do so.
+        IMPORTANT: Respond ONLY with the JSON object, no additional text."""
 
         try:
+            logger.info("Calling OpenAI API...")
             response = self.client.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -128,11 +131,34 @@ class FeatureSelector:
                 temperature=0.2
             )
             
-            recommendations = json.loads(response.choices[0].message.content)
-            logger.info(f"🟢 Successfully received LLM recommendations")
-            logger.info(f"Features to keep: {len(recommendations['features_to_keep'])}")
-            logger.info(f"Features to remove: {len(recommendations['features_to_remove'])}")
-            return recommendations
+            # Get the raw response content
+            content = response['choices'][0]['message']['content'].strip()
+            logger.info("Received response from OpenAI")
+            
+            # Remove any markdown formatting if present
+            if content.startswith("```json"):
+                content = content.split("```json")[1]
+            if content.startswith("```"):
+                content = content.split("```")[1]
+            content = content.strip()
+            
+            try:
+                recommendations = json.loads(content)
+                # Validate the response format
+                required_keys = ["features_to_keep", "features_to_remove", "reasoning"]
+                if not all(key in recommendations for key in required_keys):
+                    raise ValueError("Response missing required keys")
+                
+                logger.info(f"🟢 Successfully parsed LLM recommendations")
+                logger.info(f"Features to keep: {len(recommendations['features_to_keep'])}")
+                logger.info(f"Features to remove: {len(recommendations['features_to_remove'])}")
+                return recommendations
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.error(f"🔴 Error parsing LLM response: {str(e)}")
+                logger.error(f"Raw response content: {content}")
+                raise
+                
         except Exception as e:
             logger.error(f"🔴 Error getting LLM recommendations: {str(e)}")
             logger.warning("🔄 Falling back to keeping all features")
@@ -242,7 +268,8 @@ class FeatureSelector:
             cv = min(5, len(X))  # Use k-fold CV with k = min(5, n_samples)
             
         cv_splitter = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
-        model = LogisticRegression(max_iter=1000)
+        # Increase max_iter and use lbfgs solver for better convergence
+        model = LogisticRegression(max_iter=10000, solver='lbfgs', multi_class='ovr')
         scores = []
         
         # Convert y to pandas Series if it's not already
