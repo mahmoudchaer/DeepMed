@@ -55,48 +55,72 @@ class MedicalAssistant:
                 messages=messages,
                 temperature=0.3  # Lower temperature for more focused responses
             )
-            return response.choices[0].message.content
+            return response['choices'][0]['message']['content']
         except Exception as e:
             logging.error(f"Error communicating with AI assistant: {str(e)}")
             return f"Error communicating with AI assistant: {str(e)}"
 
     def analyze_data(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Analyze uploaded data and provide recommendations."""
-        data_summary = {
-            "columns": list(data.columns),
-            "sample": data.head(5).to_dict(),
-            "dtypes": data.dtypes.astype(str).to_dict(),
-            "missing_values": data.isnull().sum().to_dict(),
-            "unique_values": {col: int(data[col].nunique()) for col in data.columns}
-        }
-        
-        prompt = f"""Analyze this medical dataset and provide recommendations:
-        1. Identify the most likely target column for prediction
-        2. Suggest the best type of model to use
-        3. Identify potential data quality issues
-        
-        Dataset summary: {json.dumps(data_summary)}
-        
-        Provide your response in JSON format with these keys:
-        - target_column: recommended target column name
-        - model_type: recommended model type
-        - reasoning: brief explanation of your recommendations
-        - data_issues: list of potential data quality concerns
-        """
-        
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": prompt}
-        ]
-        
-        response = self._get_chat_completion(messages)
         try:
-            return json.loads(response)
-        except:
+            # Create data summary with more detailed statistics
+            data_summary = {
+                "columns": list(data.columns),
+                "sample": data.head(5).to_dict(),
+                "dtypes": data.dtypes.astype(str).to_dict(),
+                "missing_values": data.isnull().sum().to_dict(),
+                "unique_values": {col: int(data[col].nunique()) for col in data.columns},
+                "numeric_stats": data.describe().to_dict() if not data.empty else {}
+            }
+            
+            prompt = f"""Analyze this medical dataset and provide recommendations:
+            1. Identify the most likely target column for prediction
+            2. Suggest the best type of model to use (classification/regression)
+            3. Identify potential data quality issues
+            
+            Dataset summary: {json.dumps(data_summary)}
+            
+            Provide your response in JSON format with these keys:
+            - target_column: recommended target column name
+            - model_type: recommended model type (classification/regression)
+            - reasoning: brief explanation of your recommendations
+            - data_issues: list of potential data quality concerns
+            
+            IMPORTANT: Respond with ONLY the JSON object, no additional text or formatting.
+            """
+            
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self._get_chat_completion(messages)
+            
+            # Clean the response - remove any markdown formatting
+            response = response.strip()
+            if response.startswith("```json"):
+                response = response[7:]
+            if response.endswith("```"):
+                response = response[:-3]
+            response = response.strip()
+            
+            # Parse and validate the response
+            recommendations = json.loads(response)
+            
+            # Validate required keys
+            required_keys = ["target_column", "model_type", "reasoning", "data_issues"]
+            if not all(key in recommendations for key in required_keys):
+                raise ValueError("Missing required keys in AI response")
+                
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"Error in analyze_data: {str(e)}")
+            logger.error(f"Raw response: {response if 'response' in locals() else 'No response'}")
             return {
                 "target_column": None,
-                "model_type": "logistic_regression",
-                "reasoning": "Unable to parse AI response",
+                "model_type": "classification",
+                "reasoning": "Unable to analyze data",
                 "data_issues": ["Analysis failed"]
             }
 

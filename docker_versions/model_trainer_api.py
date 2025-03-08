@@ -362,8 +362,11 @@ def predict(model_id):
             decoded_predictions = [mapping[pred] for pred in predictions]
             predictions = decoded_predictions
         
+        # Convert NumPy values to native Python types
+        predictions = [int(p) if isinstance(p, np.integer) else float(p) if isinstance(p, np.floating) else str(p) for p in predictions]
+        
         return jsonify({
-            "predictions": list(predictions),
+            "predictions": predictions,
             "message": "Predictions made successfully"
         })
     
