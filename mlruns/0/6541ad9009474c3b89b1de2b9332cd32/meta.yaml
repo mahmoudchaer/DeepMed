@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/mahmo/Desktop/DeepMedV1/mlruns/0/6541ad9009474c3b89b1de2b9332cd32/artifacts
+end_time: 1741346855156
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 6541ad9009474c3b89b1de2b9332cd32
+run_name: dashing-gnu-956
+run_uuid: 6541ad9009474c3b89b1de2b9332cd32
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741346800889
+status: 3
+tags: []
+user_id: mahmo

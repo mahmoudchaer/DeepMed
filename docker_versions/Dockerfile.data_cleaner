@@ -1,0 +1,24 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Install dependencies
+COPY requirements.data_cleaner.txt .
+RUN pip install --no-cache-dir -r requirements.data_cleaner.txt
+
+# Copy application code
+COPY data_cleaner_api.py .
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=5001
+# Don't set OPENAI_API_KEY here - it will be passed from docker-compose
+
+# Expose the port
+EXPOSE ${PORT}
+
+# Run the application
+CMD ["python", "data_cleaner_api.py"] 

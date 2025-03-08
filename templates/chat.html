@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}MedicAI - AI Medical Assistant{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">AI Medical Assistant</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div style="background-color: #f0f9ff; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="color: #0077b6; margin-bottom: 10px;">Medical AI Assistant</h3>
+                    <p>I can help you with:</p>
+                    <ul>
+                        <li>Analyzing your medical data</li>
+                        <li>Recommending appropriate models</li>
+                        <li>Explaining results and implications</li>
+                        <li>Guiding you through the process</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="message {% if message.role == 'user' %}user-message{% else %}assistant-message{% endif %}">
+                                    {{ message.content | safe }}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="message assistant-message">
+                                Hello! I'm your medical AI assistant. How can I help you today?
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <form action="{{ url_for('chat') }}" method="post" id="chat-form">
+                        <div class="chat-input">
+                            <input type="text" name="prompt" id="prompt" placeholder="Ask me anything about your medical data analysis..." required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('clear_chat') }}" class="btn btn-outline-secondary">
+                        Clear Chat History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Scroll to bottom of chat on page load
+    $(document).ready(function() {
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Focus on input field
+        document.getElementById('prompt').focus();
+        
+        // Auto scroll on form submit
+        $('#chat-form').on('submit', function() {
+            const prompt = $('#prompt').val();
+            if (prompt) {
+                // Immediately add user message to chat
+                $('#chat-messages').append(
+                    `<div class="message user-message">${prompt}</div>`
+                );
+                
+                // Add loading indicator
+                $('#chat-messages').append(
+                    `<div class="message assistant-message" id="loading-message">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        Thinking...
+                    </div>`
+                );
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Clear input
+                $('#prompt').val('');
+            }
+        });
+    });
+</script>
+{% endblock %} 
