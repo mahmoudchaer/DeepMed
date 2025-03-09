@@ -447,3 +447,516 @@ A detailed migration guide is available here: https://github.com/openai/openai-p
 2025-03-08 18:18:02,133 [INFO] 172.18.0.1 - - [08/Mar/2025 18:18:02] "GET /health HTTP/1.1" 200 -
 2025-03-08 18:18:11,150 [INFO] 172.18.0.1 - - [08/Mar/2025 18:18:11] "POST /transform HTTP/1.1" 200 -
 2025-03-08 18:18:11,306 [INFO] 172.18.0.1 - - [08/Mar/2025 18:18:11] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:24:30,230 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 18:24:30,230 [INFO] Feature selector initialized with method: llm
+2025-03-08 18:24:30,236 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:24:30,237 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-08 18:24:33,436 [INFO] 172.18.0.1 - - [08/Mar/2025 18:24:33] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:24:35,293 [INFO] 172.18.0.1 - - [08/Mar/2025 18:24:35] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:24:35,875 [INFO] 172.18.0.1 - - [08/Mar/2025 18:24:35] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:25:00,530 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:00] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:25:09,692 [INFO] 📥 Received feature selection request
+2025-03-08 18:25:09,701 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:25:09,710 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:25:09,711 [INFO] Target name set to: diagnosis
+2025-03-08 18:25:09,711 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:25:09,712 [INFO] Starting feature selection using method: llm
+2025-03-08 18:25:09,712 [INFO] Input data shape: (417, 31)
+2025-03-08 18:25:09,713 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:25:09,714 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:25:09,752 [INFO] Calling OpenAI API...
+2025-03-08 18:25:14,066 [INFO] Received response from OpenAI
+2025-03-08 18:25:14,069 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:25:14,072 [INFO] Features to keep: 19
+2025-03-08 18:25:14,077 [INFO] Features to remove: 12
+2025-03-08 18:25:14,079 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 18:25:14,081 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:25:14,082 [INFO] 🔍 Removing feature 'id': Identifier variable with no direct medical relevance for predicting diagnosis.
+2025-03-08 18:25:14,084 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:25:14,085 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be as relevant for diagnosis.
+2025-03-08 18:25:14,086 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and potential redundancy with other features.
+2025-03-08 18:25:14,088 [INFO] 🔍 Removing feature 'mean texture': Correlation with the target variable is relatively low compared to other features.
+2025-03-08 18:25:14,088 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not be as informative for diagnosis.
+2025-03-08 18:25:14,090 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and potential redundancy with 'mean symmetry' and 'worst symmetry'.
+2025-03-08 18:25:14,091 [INFO] 🔍 Removing feature 'texture error': Correlation with the target variable is relatively low compared to other features.
+2025-03-08 18:25:14,092 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:25:14,093 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be as relevant for diagnosis.
+2025-03-08 18:25:14,094 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:25:14,103 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:25:14,131 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:14] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:25:23,944 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:25:28,973 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:28] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:25:41,938 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:41] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:25:42,232 [INFO] 172.18.0.1 - - [08/Mar/2025 18:25:42] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:34:14,390 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 18:34:14,390 [INFO] Feature selector initialized with method: llm
+2025-03-08 18:34:14,394 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:34:14,395 [INFO]  * Running on http://172.18.0.3:5002/ (Press CTRL+C to quit)
+2025-03-08 18:34:19,201 [INFO] 172.18.0.1 - - [08/Mar/2025 18:34:19] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:34:20,809 [INFO] 172.18.0.1 - - [08/Mar/2025 18:34:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:34:21,986 [INFO] 172.18.0.1 - - [08/Mar/2025 18:34:21] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:34:38,113 [INFO] 172.18.0.1 - - [08/Mar/2025 18:34:38] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:34:47,402 [INFO] 📥 Received feature selection request
+2025-03-08 18:34:47,409 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:34:47,416 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:34:47,417 [INFO] Target name set to: diagnosis
+2025-03-08 18:34:47,418 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:34:47,418 [INFO] Starting feature selection using method: llm
+2025-03-08 18:34:47,419 [INFO] Input data shape: (417, 31)
+2025-03-08 18:34:47,420 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:34:47,420 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:34:47,454 [INFO] Calling OpenAI API...
+2025-03-08 18:34:52,729 [INFO] Received response from OpenAI
+2025-03-08 18:34:52,731 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:34:52,733 [INFO] Features to keep: 19
+2025-03-08 18:34:52,735 [INFO] Features to remove: 12
+2025-03-08 18:34:52,737 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 18:34:52,740 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:34:52,743 [INFO] 🔍 Removing feature 'id': Identifier column with no direct medical relevance for predicting the diagnosis.
+2025-03-08 18:34:52,745 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:34:52,746 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be as relevant for diagnosis.
+2025-03-08 18:34:52,748 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and potential redundancy with other features.
+2025-03-08 18:34:52,750 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable and may not be as informative for diagnosis.
+2025-03-08 18:34:52,752 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not contribute significantly to prediction.
+2025-03-08 18:34:52,754 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and potential redundancy with 'mean symmetry' and 'worst symmetry'.
+2025-03-08 18:34:52,755 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not be as relevant for diagnosis.
+2025-03-08 18:34:52,757 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:34:52,759 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be as relevant for diagnosis.
+2025-03-08 18:34:52,761 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:34:52,772 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:34:52,853 [INFO] 172.18.0.1 - - [08/Mar/2025 18:34:52] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:35:01,619 [INFO] 172.18.0.1 - - [08/Mar/2025 18:35:01] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:35:06,588 [INFO] 172.18.0.1 - - [08/Mar/2025 18:35:06] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:35:17,728 [INFO] 172.18.0.1 - - [08/Mar/2025 18:35:17] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:35:17,849 [INFO] 172.18.0.1 - - [08/Mar/2025 18:35:17] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:38:58,036 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 18:38:58,037 [INFO] Feature selector initialized with method: llm
+2025-03-08 18:38:58,040 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:38:58,041 [INFO]  * Running on http://172.18.0.4:5002/ (Press CTRL+C to quit)
+2025-03-08 18:39:03,310 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:03] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:39:05,029 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:05] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:39:07,281 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:07] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:39:28,519 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:28] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:39:37,411 [INFO] 📥 Received feature selection request
+2025-03-08 18:39:37,419 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:39:37,429 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:39:37,431 [INFO] Target name set to: diagnosis
+2025-03-08 18:39:37,431 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:39:37,432 [INFO] Starting feature selection using method: llm
+2025-03-08 18:39:37,432 [INFO] Input data shape: (417, 31)
+2025-03-08 18:39:37,434 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:39:37,435 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:39:37,470 [INFO] Calling OpenAI API...
+2025-03-08 18:39:41,815 [INFO] Received response from OpenAI
+2025-03-08 18:39:41,817 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:39:41,819 [INFO] Features to keep: 18
+2025-03-08 18:39:41,822 [INFO] Features to remove: 13
+2025-03-08 18:39:41,828 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable
+2025-03-08 18:39:41,834 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable
+2025-03-08 18:39:41,836 [INFO] 🔍 Removing feature 'id': Identifier feature with no direct medical relevance
+2025-03-08 18:39:41,840 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable
+2025-03-08 18:39:41,849 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable
+2025-03-08 18:39:41,853 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable
+2025-03-08 18:39:41,857 [INFO] 🔍 Removing feature 'mean texture': Potential redundancy with 'worst texture'
+2025-03-08 18:39:41,862 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable
+2025-03-08 18:39:41,865 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable
+2025-03-08 18:39:41,869 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable
+2025-03-08 18:39:41,870 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable
+2025-03-08 18:39:41,872 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable
+2025-03-08 18:39:41,873 [INFO] 🔍 Removing feature 'worst texture': Potential redundancy with 'mean texture'
+2025-03-08 18:39:41,875 [INFO] ✅ Feature selection complete. Selected 18 features
+2025-03-08 18:39:41,883 [INFO] ✅ Feature selection complete. Selected 18 features
+2025-03-08 18:39:41,913 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:41] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:39:58,323 [INFO] 172.18.0.1 - - [08/Mar/2025 18:39:58] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:40:03,548 [INFO] 172.18.0.1 - - [08/Mar/2025 18:40:03] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:40:13,719 [INFO] 172.18.0.1 - - [08/Mar/2025 18:40:13] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:40:13,818 [INFO] 172.18.0.1 - - [08/Mar/2025 18:40:13] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:44:10,586 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 18:44:10,587 [INFO] Feature selector initialized with method: llm
+2025-03-08 18:44:10,591 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 18:44:10,591 [INFO]  * Running on http://172.18.0.6:5002/ (Press CTRL+C to quit)
+2025-03-08 18:44:19,898 [INFO] 172.18.0.1 - - [08/Mar/2025 18:44:19] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:44:21,721 [INFO] 172.18.0.1 - - [08/Mar/2025 18:44:21] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:44:31,610 [INFO] 172.18.0.1 - - [08/Mar/2025 18:44:31] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:44:43,950 [INFO] 172.18.0.1 - - [08/Mar/2025 18:44:43] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:44:54,895 [INFO] 📥 Received feature selection request
+2025-03-08 18:44:54,917 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:44:54,923 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:44:54,924 [INFO] Target name set to: diagnosis
+2025-03-08 18:44:54,925 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:44:54,926 [INFO] Starting feature selection using method: llm
+2025-03-08 18:44:54,926 [INFO] Input data shape: (417, 31)
+2025-03-08 18:44:54,928 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:44:54,928 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:44:54,960 [INFO] Calling OpenAI API...
+2025-03-08 18:44:59,541 [INFO] Received response from OpenAI
+2025-03-08 18:44:59,544 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:44:59,546 [INFO] Features to keep: 19
+2025-03-08 18:44:59,548 [INFO] Features to remove: 12
+2025-03-08 18:44:59,552 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable
+2025-03-08 18:44:59,555 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable
+2025-03-08 18:44:59,558 [INFO] 🔍 Removing feature 'id': Identifier and not relevant for prediction
+2025-03-08 18:44:59,561 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable
+2025-03-08 18:44:59,563 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable
+2025-03-08 18:44:59,566 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable
+2025-03-08 18:44:59,570 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable
+2025-03-08 18:44:59,574 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable
+2025-03-08 18:44:59,576 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable
+2025-03-08 18:44:59,579 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable
+2025-03-08 18:44:59,582 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable
+2025-03-08 18:44:59,586 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable
+2025-03-08 18:44:59,589 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:44:59,602 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:44:59,652 [INFO] 172.18.0.1 - - [08/Mar/2025 18:44:59] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:45:09,690 [INFO] 172.18.0.1 - - [08/Mar/2025 18:45:09] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:45:23,284 [INFO] 172.18.0.1 - - [08/Mar/2025 18:45:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:45:33,072 [INFO] 172.18.0.1 - - [08/Mar/2025 18:45:33] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:45:33,184 [INFO] 172.18.0.1 - - [08/Mar/2025 18:45:33] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:49:00,108 [INFO] 172.18.0.1 - - [08/Mar/2025 18:49:00] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:49:01,941 [INFO] 172.18.0.1 - - [08/Mar/2025 18:49:01] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:49:02,083 [INFO] 172.18.0.1 - - [08/Mar/2025 18:49:02] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:49:19,030 [INFO] 172.18.0.1 - - [08/Mar/2025 18:49:19] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:49:29,643 [INFO] 📥 Received feature selection request
+2025-03-08 18:49:29,678 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:49:29,704 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:49:29,711 [INFO] Target name set to: diagnosis
+2025-03-08 18:49:29,714 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:49:29,716 [INFO] Starting feature selection using method: llm
+2025-03-08 18:49:29,719 [INFO] Input data shape: (417, 31)
+2025-03-08 18:49:29,731 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:49:29,733 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:49:29,815 [INFO] Calling OpenAI API...
+2025-03-08 18:49:36,687 [INFO] Received response from OpenAI
+2025-03-08 18:49:36,690 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:49:36,692 [INFO] Features to keep: 18
+2025-03-08 18:49:36,694 [INFO] Features to remove: 13
+2025-03-08 18:49:36,699 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potentially redundant with 'mean compactness' and 'worst compactness'.
+2025-03-08 18:49:36,703 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:49:36,706 [INFO] 🔍 Removing feature 'id': Identifier column with no medical relevance for predicting the diagnosis.
+2025-03-08 18:49:36,712 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:49:36,714 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and potentially redundant with other texture-related features.
+2025-03-08 18:49:36,716 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and potentially redundant with 'worst symmetry'.
+2025-03-08 18:49:36,717 [INFO] 🔍 Removing feature 'mean texture': May be redundant with 'worst texture' and other texture-related features.
+2025-03-08 18:49:36,719 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:49:36,721 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and potentially redundant with 'worst symmetry'.
+2025-03-08 18:49:36,723 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:49:36,725 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:49:36,726 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and potentially redundant with other texture-related features.
+2025-03-08 18:49:36,729 [INFO] 🔍 Removing feature 'worst texture': May be redundant with 'mean texture' and other texture-related features.
+2025-03-08 18:49:36,730 [INFO] ✅ Feature selection complete. Selected 18 features
+2025-03-08 18:49:36,739 [INFO] ✅ Feature selection complete. Selected 18 features
+2025-03-08 18:49:36,773 [INFO] 172.18.0.1 - - [08/Mar/2025 18:49:36] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:50:18,233 [INFO] 172.18.0.1 - - [08/Mar/2025 18:50:18] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:50:22,818 [INFO] 172.18.0.1 - - [08/Mar/2025 18:50:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:50:32,024 [INFO] 172.18.0.1 - - [08/Mar/2025 18:50:32] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:50:32,135 [INFO] 172.18.0.1 - - [08/Mar/2025 18:50:32] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:52:23,608 [INFO] 172.18.0.1 - - [08/Mar/2025 18:52:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:52:50,644 [INFO] 172.18.0.1 - - [08/Mar/2025 18:52:50] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:54:56,033 [INFO] 172.18.0.1 - - [08/Mar/2025 18:54:56] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:54:57,811 [INFO] 172.18.0.1 - - [08/Mar/2025 18:54:57] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:54:59,533 [INFO] 172.18.0.1 - - [08/Mar/2025 18:54:59] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:55:46,577 [INFO] 172.18.0.1 - - [08/Mar/2025 18:55:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:55:57,625 [INFO] 📥 Received feature selection request
+2025-03-08 18:55:57,632 [INFO] 🔄 Preprocessing input data
+2025-03-08 18:55:57,638 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 18:55:57,641 [INFO] Target name set to: diagnosis
+2025-03-08 18:55:57,642 [INFO] 🔄 Starting feature selection process
+2025-03-08 18:55:57,642 [INFO] Starting feature selection using method: llm
+2025-03-08 18:55:57,643 [INFO] Input data shape: (417, 31)
+2025-03-08 18:55:57,644 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 18:55:57,645 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 18:55:57,685 [INFO] Calling OpenAI API...
+2025-03-08 18:56:02,294 [INFO] Received response from OpenAI
+2025-03-08 18:56:02,295 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 18:56:02,295 [INFO] Features to keep: 19
+2025-03-08 18:56:02,296 [INFO] Features to remove: 12
+2025-03-08 18:56:02,298 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 18:56:02,299 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:56:02,300 [INFO] 🔍 Removing feature 'id': Identifier column with no medical relevance for predicting the diagnosis.
+2025-03-08 18:56:02,301 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 18:56:02,302 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,303 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,304 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,305 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,306 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,307 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,308 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 18:56:02,309 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 18:56:02,310 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:56:02,313 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 18:56:02,331 [INFO] 172.18.0.1 - - [08/Mar/2025 18:56:02] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 18:56:22,248 [INFO] 172.18.0.1 - - [08/Mar/2025 18:56:22] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:56:27,001 [INFO] 172.18.0.1 - - [08/Mar/2025 18:56:27] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:56:36,817 [INFO] 172.18.0.1 - - [08/Mar/2025 18:56:36] "POST /transform HTTP/1.1" 200 -
+2025-03-08 18:56:36,960 [INFO] 172.18.0.1 - - [08/Mar/2025 18:56:36] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:59:53,292 [INFO] 172.18.0.1 - - [08/Mar/2025 18:59:53] "GET /health HTTP/1.1" 200 -
+2025-03-08 18:59:57,106 [INFO] 172.18.0.1 - - [08/Mar/2025 18:59:57] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:00:06,498 [INFO] 172.18.0.1 - - [08/Mar/2025 19:00:06] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:00:23,093 [INFO] 172.18.0.1 - - [08/Mar/2025 19:00:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:00:39,072 [INFO] 172.18.0.1 - - [08/Mar/2025 19:00:39] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:01:08,698 [INFO] 172.18.0.1 - - [08/Mar/2025 19:01:08] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:01:39,021 [INFO] 172.18.0.1 - - [08/Mar/2025 19:01:39] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:01:53,109 [INFO] 172.18.0.1 - - [08/Mar/2025 19:01:53] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:02:46,152 [INFO] 172.18.0.1 - - [08/Mar/2025 19:02:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:03:52,141 [INFO] 172.18.0.1 - - [08/Mar/2025 19:03:52] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:04:33,718 [INFO] 172.18.0.1 - - [08/Mar/2025 19:04:33] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:04:48,472 [INFO] 172.18.0.1 - - [08/Mar/2025 19:04:48] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:05:12,496 [INFO] 172.18.0.1 - - [08/Mar/2025 19:05:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:05:25,694 [INFO] 172.18.0.1 - - [08/Mar/2025 19:05:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:05:35,888 [INFO] 172.18.0.1 - - [08/Mar/2025 19:05:35] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:05:45,761 [INFO] 📥 Received feature selection request
+2025-03-08 19:05:45,769 [INFO] 🔄 Preprocessing input data
+2025-03-08 19:05:45,774 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 19:05:45,775 [INFO] Target name set to: diagnosis
+2025-03-08 19:05:45,776 [INFO] 🔄 Starting feature selection process
+2025-03-08 19:05:45,776 [INFO] Starting feature selection using method: llm
+2025-03-08 19:05:45,779 [INFO] Input data shape: (417, 31)
+2025-03-08 19:05:45,781 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 19:05:45,782 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 19:05:45,808 [INFO] Calling OpenAI API...
+2025-03-08 19:05:49,450 [INFO] Received response from OpenAI
+2025-03-08 19:05:49,451 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 19:05:49,452 [INFO] Features to keep: 19
+2025-03-08 19:05:49,452 [INFO] Features to remove: 12
+2025-03-08 19:05:49,453 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable
+2025-03-08 19:05:49,454 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable
+2025-03-08 19:05:49,454 [INFO] 🔍 Removing feature 'id': Not relevant for prediction
+2025-03-08 19:05:49,455 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable
+2025-03-08 19:05:49,456 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable
+2025-03-08 19:05:49,456 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable
+2025-03-08 19:05:49,457 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable
+2025-03-08 19:05:49,457 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable
+2025-03-08 19:05:49,458 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable
+2025-03-08 19:05:49,458 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable
+2025-03-08 19:05:49,459 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable
+2025-03-08 19:05:49,460 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable
+2025-03-08 19:05:49,461 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 19:05:49,464 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 19:05:49,479 [INFO] 172.18.0.1 - - [08/Mar/2025 19:05:49] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 19:06:29,575 [INFO] 172.18.0.1 - - [08/Mar/2025 19:06:29] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:06:37,018 [INFO] 172.18.0.1 - - [08/Mar/2025 19:06:37] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:06:47,296 [INFO] 172.18.0.1 - - [08/Mar/2025 19:06:47] "POST /transform HTTP/1.1" 200 -
+2025-03-08 19:06:47,397 [INFO] 172.18.0.1 - - [08/Mar/2025 19:06:47] "GET /health HTTP/1.1" 200 -
+2025-03-08 19:06:53,749 [INFO] 172.18.0.1 - - [08/Mar/2025 19:06:53] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:14:41,794 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 22:14:41,796 [INFO] Feature selector initialized with method: llm
+2025-03-08 22:14:41,802 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 22:14:41,802 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-08 22:15:08,594 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:08] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:10,369 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:10] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:11,961 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:11] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:25,494 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:29,779 [INFO] 📥 Received feature selection request
+2025-03-08 22:15:29,836 [INFO] 🔄 Preprocessing input data
+2025-03-08 22:15:29,871 [INFO] 📊 Input data shape: (10000, 11)
+2025-03-08 22:15:29,875 [INFO] Target name set to: Churn
+2025-03-08 22:15:29,875 [INFO] 🔄 Starting feature selection process
+2025-03-08 22:15:29,876 [INFO] Starting feature selection using method: llm
+2025-03-08 22:15:29,876 [INFO] Input data shape: (10000, 11)
+2025-03-08 22:15:29,877 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 22:15:29,877 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 22:15:29,890 [INFO] Calling OpenAI API...
+2025-03-08 22:15:31,553 [INFO] Received response from OpenAI
+2025-03-08 22:15:31,553 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 22:15:31,554 [INFO] Features to keep: 10
+2025-03-08 22:15:31,554 [INFO] Features to remove: 1
+2025-03-08 22:15:31,555 [INFO] 🔍 Removing feature 'customerID': This feature is an identifier with 10000 unique values and does not provide medical relevance or statistical significance for predicting churn.
+2025-03-08 22:15:31,555 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-08 22:15:31,558 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-08 22:15:31,695 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:31] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 22:15:43,478 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:43] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:54,072 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:54] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:15:57,123 [INFO] 📥 Received feature selection request
+2025-03-08 22:15:57,140 [INFO] 🔄 Preprocessing input data
+2025-03-08 22:15:57,152 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-08 22:15:57,154 [INFO] Target name set to: Air Quality
+2025-03-08 22:15:57,155 [INFO] 🔄 Starting feature selection process
+2025-03-08 22:15:57,155 [INFO] Starting feature selection using method: llm
+2025-03-08 22:15:57,156 [INFO] Input data shape: (4621, 9)
+2025-03-08 22:15:57,158 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 22:15:57,158 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 22:15:57,170 [INFO] Calling OpenAI API...
+2025-03-08 22:15:58,487 [INFO] Received response from OpenAI
+2025-03-08 22:15:58,487 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 22:15:58,488 [INFO] Features to keep: 7
+2025-03-08 22:15:58,488 [INFO] Features to remove: 2
+2025-03-08 22:15:58,489 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-08 22:15:58,489 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-08 22:15:58,490 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 22:15:58,492 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-08 22:15:58,543 [INFO] 172.18.0.1 - - [08/Mar/2025 22:15:58] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 22:16:23,404 [INFO] 172.18.0.1 - - [08/Mar/2025 22:16:23] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:35:40,414 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 22:35:40,415 [INFO] Feature selector initialized with method: llm
+2025-03-08 22:35:40,417 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 22:35:40,418 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-08 22:35:41,845 [INFO] 172.18.0.1 - - [08/Mar/2025 22:35:41] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:35:43,287 [INFO] 172.18.0.1 - - [08/Mar/2025 22:35:43] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:35:49,522 [INFO] 172.18.0.1 - - [08/Mar/2025 22:35:49] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:36:20,246 [INFO] 172.18.0.1 - - [08/Mar/2025 22:36:20] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:38:40,873 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 22:38:40,874 [INFO] Feature selector initialized with method: llm
+2025-03-08 22:38:40,877 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 22:38:40,877 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-08 22:38:45,005 [INFO] 172.18.0.1 - - [08/Mar/2025 22:38:45] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:38:46,560 [INFO] 172.18.0.1 - - [08/Mar/2025 22:38:46] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:38:47,676 [INFO] 172.18.0.1 - - [08/Mar/2025 22:38:47] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:39:12,235 [INFO] 172.18.0.1 - - [08/Mar/2025 22:39:12] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:39:21,093 [INFO] 📥 Received feature selection request
+2025-03-08 22:39:21,099 [INFO] 🔄 Preprocessing input data
+2025-03-08 22:39:21,116 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 22:39:21,142 [INFO] Target name set to: diagnosis
+2025-03-08 22:39:21,143 [INFO] 🔄 Starting feature selection process
+2025-03-08 22:39:21,143 [INFO] Starting feature selection using method: llm
+2025-03-08 22:39:21,144 [INFO] Input data shape: (417, 31)
+2025-03-08 22:39:21,145 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 22:39:21,145 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 22:39:21,207 [INFO] Calling OpenAI API...
+2025-03-08 22:39:26,260 [INFO] Received response from OpenAI
+2025-03-08 22:39:26,261 [ERROR] 🔴 Error parsing LLM response: Extra data: line 56 column 1 (char 2253)
+2025-03-08 22:39:26,261 [ERROR] Raw response content: {
+    "features_to_keep": [
+        "area error",
+        "concave points error",
+        "concavity error",
+        "mean area",
+        "mean concave points",
+        "mean concavity",
+        "mean perimeter",
+        "mean radius",
+        "perimeter error",
+        "radius error",
+        "worst area",
+        "worst concave points",
+        "worst concavity",
+        "worst perimeter",
+        "worst radius"
+    ],
+    "features_to_remove": [
+        "id",
+        "mean compactness",
+        "mean fractal dimension",
+        "mean smoothness",
+        "mean symmetry",
+        "mean texture",
+        "compactness error",
+        "fractal dimension error",
+        "smoothness error",
+        "symmetry error",
+        "texture error",
+        "worst compactness",
+        "worst fractal dimension",
+        "worst smoothness",
+        "worst symmetry",
+        "worst texture"
+    ],
+    "reasoning": {
+        "id": "Not relevant for the analysis as it is an identifier",
+        "mean compactness": "Lower correlation with the target compared to other features",
+        "mean fractal dimension": "Low correlation with the target and lower medical relevance",
+        "mean smoothness": "Low correlation with the target",
+        "mean symmetry": "Low correlation with the target",
+        "mean texture": "Other features like mean radius and worst texture provide similar information",
+        "compactness error": "Lower correlation with the target compared to other features",
+        "fractal dimension error": "Low correlation with the target and lower medical relevance",
+        "smoothness error": "Low correlation with the target",
+        "symmetry error": "Low correlation with the target",
+        "texture error": "Other features like mean texture and worst texture provide similar information",
+        "worst compactness": "Lower correlation with the target compared to other features",
+        "worst fractal dimension": "Low correlation with the target and lower medical relevance",
+        "worst smoothness": "Low correlation with the target",
+        "worst symmetry": "Low correlation with the target",
+        "worst texture": "Other features like mean texture and worst texture provide similar information"
+    }
+}
+```
+2025-03-08 22:39:26,261 [ERROR] 🔴 Error getting LLM recommendations: Extra data: line 56 column 1 (char 2253)
+2025-03-08 22:39:26,262 [WARNING] 🔄 Falling back to keeping all features
+2025-03-08 22:39:26,263 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 22:39:26,294 [INFO] ✅ Feature selection complete. Selected 31 features
+2025-03-08 22:39:26,318 [INFO] 172.18.0.1 - - [08/Mar/2025 22:39:26] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 22:40:26,040 [INFO] 172.18.0.1 - - [08/Mar/2025 22:40:26] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:41:47,347 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 22:41:47,348 [INFO] Feature selector initialized with method: llm
+2025-03-08 22:41:47,351 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 22:41:47,351 [INFO]  * Running on http://172.18.0.4:5002/ (Press CTRL+C to quit)
+2025-03-08 22:41:51,225 [INFO] 172.18.0.1 - - [08/Mar/2025 22:41:51] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:41:52,933 [INFO] 172.18.0.1 - - [08/Mar/2025 22:41:52] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:41:55,893 [INFO] 172.18.0.1 - - [08/Mar/2025 22:41:55] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:42:25,287 [INFO] 172.18.0.1 - - [08/Mar/2025 22:42:25] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:42:34,323 [INFO] 📥 Received feature selection request
+2025-03-08 22:42:34,329 [INFO] 🔄 Preprocessing input data
+2025-03-08 22:42:34,335 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 22:42:34,336 [INFO] Target name set to: diagnosis
+2025-03-08 22:42:34,337 [INFO] 🔄 Starting feature selection process
+2025-03-08 22:42:34,337 [INFO] Starting feature selection using method: llm
+2025-03-08 22:42:34,338 [INFO] Input data shape: (417, 31)
+2025-03-08 22:42:34,339 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 22:42:34,339 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 22:42:34,370 [INFO] Calling OpenAI API...
+2025-03-08 22:42:38,237 [INFO] Received response from OpenAI
+2025-03-08 22:42:38,238 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 22:42:38,238 [INFO] Features to keep: 19
+2025-03-08 22:42:38,239 [INFO] Features to remove: 12
+2025-03-08 22:42:38,239 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 22:42:38,240 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 22:42:38,240 [INFO] 🔍 Removing feature 'id': Identifier column with no medical relevance for predicting the diagnosis.
+2025-03-08 22:42:38,241 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 22:42:38,241 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,242 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,242 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,243 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,244 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,244 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,244 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 22:42:38,245 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:42:38,245 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 22:42:38,257 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 22:42:38,273 [INFO] 172.18.0.1 - - [08/Mar/2025 22:42:38] "POST /select_features HTTP/1.1" 200 -
+2025-03-08 22:45:00,369 [INFO] 172.18.0.1 - - [08/Mar/2025 22:45:00] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:47:10,337 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-08 22:47:10,338 [INFO] Feature selector initialized with method: llm
+2025-03-08 22:47:10,342 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-08 22:47:10,342 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-08 22:47:13,150 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:13] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:47:14,580 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:14] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:47:16,825 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:16] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:47:26,735 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:26] "GET /health HTTP/1.1" 200 -
+2025-03-08 22:47:35,634 [INFO] 📥 Received feature selection request
+2025-03-08 22:47:35,640 [INFO] 🔄 Preprocessing input data
+2025-03-08 22:47:35,647 [INFO] 📊 Input data shape: (417, 31)
+2025-03-08 22:47:35,649 [INFO] Target name set to: diagnosis
+2025-03-08 22:47:35,649 [INFO] 🔄 Starting feature selection process
+2025-03-08 22:47:35,650 [INFO] Starting feature selection using method: llm
+2025-03-08 22:47:35,650 [INFO] Input data shape: (417, 31)
+2025-03-08 22:47:35,651 [INFO] 🤖 Using LLM-based feature selection
+2025-03-08 22:47:35,652 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-08 22:47:35,681 [INFO] Calling OpenAI API...
+2025-03-08 22:47:39,800 [INFO] Received response from OpenAI
+2025-03-08 22:47:39,801 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-08 22:47:39,801 [INFO] Features to keep: 19
+2025-03-08 22:47:39,802 [INFO] Features to remove: 12
+2025-03-08 22:47:39,802 [INFO] 🔍 Removing feature 'compactness error': Low correlation with the target variable and potential redundancy with 'mean compactness' and 'worst compactness'.
+2025-03-08 22:47:39,803 [INFO] 🔍 Removing feature 'fractal dimension error': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 22:47:39,803 [INFO] 🔍 Removing feature 'id': Identifier column with no medical relevance for predicting the diagnosis.
+2025-03-08 22:47:39,804 [INFO] 🔍 Removing feature 'mean fractal dimension': Low correlation with the target variable and may not be clinically significant.
+2025-03-08 22:47:39,804 [INFO] 🔍 Removing feature 'mean smoothness': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:47:39,805 [INFO] 🔍 Removing feature 'mean symmetry': Low correlation with the target variable and potential redundancy with 'worst symmetry'.
+2025-03-08 22:47:39,805 [INFO] 🔍 Removing feature 'mean texture': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:47:39,806 [INFO] 🔍 Removing feature 'smoothness error': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:47:39,807 [INFO] 🔍 Removing feature 'symmetry error': Low correlation with the target variable and potential redundancy with 'worst symmetry'.
+2025-03-08 22:47:39,807 [INFO] 🔍 Removing feature 'texture error': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:47:39,808 [INFO] 🔍 Removing feature 'worst fractal dimension': Low correlation with the target variable and may not provide significant predictive value.
+2025-03-08 22:47:39,808 [INFO] 🔍 Removing feature 'worst smoothness': Low correlation with the target variable and may not be clinically relevant.
+2025-03-08 22:47:39,809 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 22:47:39,811 [INFO] ✅ Feature selection complete. Selected 19 features
+2025-03-08 22:47:39,827 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:39] "POST /select_features HTTP/1.1" 200 -
