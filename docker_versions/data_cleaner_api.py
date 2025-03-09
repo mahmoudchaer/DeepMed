@@ -45,17 +45,14 @@ class DataCleaner:
         """
         try:
             # For debugging - try with hardcoded key
-            # WARNING: This is just for testing - DON'T do this in production!
-            hardcoded_key = "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"
-            
+ 
             # First try environment variable (this should be the normal way)
             api_key = os.getenv("OPENAI_API_KEY")
             logging.info(f"API key from environment: {'Found' if api_key else 'Not found'}")
             
             # If not found, use hardcoded key for testing
             if not api_key:
-                api_key = hardcoded_key
-                logging.info("Using hardcoded API key for testing")
+                logging.info("API key not found in environment variables")
             
             # Test if key looks valid
             if api_key and len(api_key) > 20:  # Simple validation that it's not empty or too short

@@ -1,80 +1,124 @@
 {% extends "base.html" %}
 
-{% block title %}MedicAI - Model Selection{% endblock %}
+{% block title %}Model Selection{% endblock %}
 
 {% block content %}
-<div class="card shadow">
-    <div class="card-body">
-        <h1 class="mb-4">Select Your Model</h1>
-        
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ url_for('training') }}">Training</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Model Selection</li>
-                    </ol>
-                </nav>
-                <div class="text-end">
-                    <a href="{{ url_for('index', reset=1) }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Start New Training
-                    </a>
+<div class="container mt-4">
+    <h1 class="mb-4">Model Selection</h1>
+    
+    <div class="alert alert-info" role="alert">
+        <h4>Training Results</h4>
+        <ul>
+            <li><strong>Models Trained:</strong> {{ overall_metrics.models_trained }}</li>
+            <li><strong>Features Used:</strong> {{ overall_metrics.features_used }}</li>
+            <li><strong>Test Size:</strong> {{ overall_metrics.test_size }}</li>
+        </ul>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Top Models Ready for Deployment</h3>
                 </div>
-            </div>
-        </div>
-        
-        {% if models %}
-        <!-- Overall Metrics -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="metric-card text-center">
-                    <h4>Models Trained</h4>
-                    <h2>{{ overall_metrics.models_trained }}</h2>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="metric-card text-center">
-                    <h4>Features Used</h4>
-                    <h2>{{ overall_metrics.features_used }}</h2>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="metric-card text-center">
-                    <h4>Test Size</h4>
-                    <h2>{{ overall_metrics.test_size * 100 }}%</h2>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Model Cards -->
-        <h3 class="mb-3">Available Models</h3>
-        <div class="row">
-            {% for model in models %}
-            <div class="col-md-4 mb-4">
-                <div class="model-card">
-                    <h3>{{ model.model_name|replace('_', ' ')|title }}</h3>
-                    <div class="metric-value my-3">
-                        {{ "%.2f%%" | format(model.metric_value * 100) }}
+                <div class="card-body">
+                    <div class="row">
+                        {% for model in models %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="card-title mb-0">{{ model.model_name }}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Best for {{ model.metric_name }}</h6>
+                                    <p class="card-text">
+                                        <strong>{{ model.metric_name }}:</strong> {{ "%.3f" | format(model.metric_value) }}
+                                    </p>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('deploy_model', model_name=model.model_name, metric=model.metric_name) }}" class="btn btn-primary">
+                                            <i class="fas fa-rocket"></i> Deploy as API
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
-                    <p><strong>{{ model.metric_name }}</strong></p>
-                    <hr>
-                    <p>Cross-Validation:</p>
-                    <p>{{ "%.2f%%" | format(model.cv_score_mean * 100) }} ± {{ "%.2f%%" | format(model.cv_score_std * 100) }}</p>
-                    
-                    <a href="{{ url_for('select_model', model_id=model.id if model.id is defined else loop.index0) }}" class="btn btn-primary w-100 mt-3">
-                        Select {{ model.model_name|replace('_', ' ')|title }}
-                    </a>
                 </div>
             </div>
-            {% endfor %}
         </div>
-        {% else %}
-        <div class="alert alert-warning">
-            <h4>No Trained Models Available</h4>
-            <p>Please complete the training process to view model selection options.</p>
-            <a href="{{ url_for('training') }}" class="btn btn-primary">Go to Training</a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <h3>Deployment Instructions</h3>
         </div>
-        {% endif %}
+        <div class="card-body">
+            <p class="lead">Follow these steps to deploy your selected model:</p>
+            <ol>
+                <li>Choose one of the top models above based on your preferred metric:
+                    <ul>
+                        <li><strong>Accuracy</strong>: Best for overall performance when all classes are equally important</li>
+                        <li><strong>Precision</strong>: Best when minimizing false positives is important</li>
+                        <li><strong>Recall</strong>: Best when minimizing false negatives is critical</li>
+                    </ul>
+                </li>
+                <li>Click the "Deploy as API" button to create a containerized API for the model</li>
+                <li>Wait for the deployment to complete (usually takes 15-30 seconds)</li>
+                <li>You'll be redirected to a page with instructions on how to use your deployed model API</li>
+            </ol>
+            <div class="alert alert-warning">
+                <strong>Note:</strong> Each deployed model runs in its own Docker container. Make sure Docker is running on your system before deploying.
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#allModelMetrics" aria-expanded="false" aria-controls="allModelMetrics">
+                Show All Model Metrics
+            </button>
+        </div>
+        <div class="collapse" id="allModelMetrics">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Accuracy</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model_name, metrics in model_metrics.items() %}
+                            <tr>
+                                <td>{{ model_name }}</td>
+                                <td>{{ "%.3f" | format(metrics.accuracy) if metrics.accuracy is defined else 'N/A' }}</td>
+                                <td>{{ "%.3f" | format(metrics.precision) if metrics.precision is defined else 'N/A' }}</td>
+                                <td>{{ "%.3f" | format(metrics.recall) if metrics.recall is defined else 'N/A' }}</td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="deployDropdown-{{ model_name }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Deploy
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="deployDropdown-{{ model_name }}">
+                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='accuracy') }}">For Accuracy</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='precision') }}">For Precision</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='recall') }}">For Recall</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %} 

@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/266444083799054644
+creation_time: 1741548899904
+experiment_id: '266444083799054644'
+last_update_time: 1741548899904
+lifecycle_stage: active
+name: svm_model

@@ -1,0 +1,21 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.model_trainer.txt .
+RUN pip install --no-cache-dir -r requirements.model_trainer.txt
+
+COPY naive_bayes_api.py .
+
+# Create directories for models and MLflow
+RUN mkdir -p saved_models/naive_bayes mlruns
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV MLFLOW_EXPERIMENT_NAME=naive_bayes_model
+ENV PORT=5015
+
+EXPOSE 5015
+
+CMD ["python", "naive_bayes_api.py"] 

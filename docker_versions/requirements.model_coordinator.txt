@@ -1,0 +1,10 @@
+flask==2.2.3
+requests==2.28.2
+waitress==2.1.2
+mlflow>=2.0.0
+pathlib
+pandas
+numpy
+python-dotenv==1.0.0
+werkzeug==2.3.7
+jsonschema==4.19.0 

@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/147295399925258129
+creation_time: 1741548900268
+experiment_id: '147295399925258129'
+last_update_time: 1741548900268
+lifecycle_stage: active
+name: medical_diagnosis
