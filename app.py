@@ -88,7 +88,12 @@ def load_data(file_path):
         return None, f"Error loading file: {str(e)}"
 
 @app.route('/')
+@app.route('/index')
 def index():
+    # Check if we need to reset the session
+    if request.args.get('reset'):
+        session.clear()
+        flash('Session cleared. You can now start a new training.', 'info')
     # Reset session data for new session
     for key in list(session.keys()):
         if key != '_flashes':

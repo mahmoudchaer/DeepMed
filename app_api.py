@@ -338,34 +338,16 @@ def training():
             # 4. MODEL TRAINING (via Model Trainer API)
             logger.info(f"Sending data to Model Trainer API")
             
-            # For model training, we'll create a train/test split here
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_selected, y, test_size=session['test_size'], random_state=42
-            )
-            
-            # Detect task type (same logic as original)
-            unique_values = len(np.unique(y))
-            if unique_values < 10 or str(y.dtype) in ['bool', 'object']:
-                task = 'classification'
-            else:
-                task = 'regression'
-            session['task'] = task
-            
             # Convert all data to simple Python structures
-            X_train_records = X_train.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_train), None).to_dict(orient='records')
-            X_test_records = X_test.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_test), None).to_dict(orient='records')
-            y_train_list = y_train.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y_train), None).tolist()
-            y_test_list = y_test.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y_test), None).tolist()
+            X_selected_records = X_selected.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_selected), None).to_dict(orient='records')
+            y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
 
             # Use our safe request method
             response = safe_requests_post(
                 f"{MODEL_TRAINER_URL}/train",
                 {
-                    "X_train": X_train_records,
-                    "X_test": X_test_records,
-                    "y_train": y_train_list,
-                    "y_test": y_test_list,
-                    "task": task,
+                    "data": X_selected_records,
+                    "target": y_list,
                     "test_size": float(session['test_size'])
                 },
                 timeout=180  # Model training can take time
@@ -375,10 +357,13 @@ def training():
                 raise Exception(f"Model Trainer API error: {response.json().get('error', 'Unknown error')}")
             
             model_result = response.json()
+            # Store all models in session
             session['trained_models'] = model_result["models"]
+            session['saved_models'] = model_result["saved_models"]
             
             # Add logging to verify data being sent to APIs
-            logger.info(f"Data being sent to Model Trainer API: X_train: {X_train_records[:5]}, y_train: {y_train_list[:5]}")
+            logger.info(f"Data being sent to Model Trainer API: X_selected: {X_selected_records[:5]}, y: {y_list[:5]}")
+            logger.info(f"Models received: {len(model_result['models'])} models")
             
             return redirect(url_for('model_selection'))
             
