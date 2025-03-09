@@ -15,6 +15,11 @@ import time
 from datetime import datetime
 import requests
 import logging
+import shutil
+import atexit
+import tempfile
+import uuid
+import glob
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -52,10 +57,57 @@ MEDICAL_ASSISTANT_URL = "http://localhost:5005"
 # Setup Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+
+# Register cleanup function to run when app exits
+def cleanup_temp_files():
+    """Remove all temporary files when the application exits"""
+    try:
+        if os.path.exists(UPLOAD_FOLDER):
+            shutil.rmtree(UPLOAD_FOLDER)
+            print(f"Cleaned up temporary directory: {UPLOAD_FOLDER}")
+    except Exception as e:
+        print(f"Error cleaning up temporary directory: {str(e)}")
+
+atexit.register(cleanup_temp_files)
+
+# Function to generate a unique filename
+def get_temp_filepath(original_filename=None, extension=None):
+    """Generate a unique temporary filepath"""
+    if extension is None and original_filename:
+        extension = os.path.splitext(original_filename)[1]
+    elif extension is None:
+        extension = '.tmp'
+    
+    unique_id = str(uuid.uuid4())
+    if original_filename:
+        safe_name = secure_filename(original_filename)
+        filename = f"{unique_id}_{safe_name}"
+    else:
+        filename = f"{unique_id}{extension}"
+    
+    return os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+# Function to cleanup session files
+def cleanup_session_files():
+    """Remove files associated with the current session"""
+    files_to_cleanup = []
+    for key in ['uploaded_file', 'cleaned_file', 'selected_features_file', 'predictions_file']:
+        if key in session:
+            filepath = session.get(key)
+            if filepath and os.path.exists(filepath):
+                files_to_cleanup.append(filepath)
+                
+    # Delete the files
+    for filepath in files_to_cleanup:
+        try:
+            os.remove(filepath)
+            logger.info(f"Deleted temporary file: {filepath}")
+        except Exception as e:
+            logger.error(f"Error deleting temporary file {filepath}: {str(e)}")
 
 # Check service health
 def check_services():
@@ -174,6 +226,9 @@ def index():
         if key != '_flashes':
             session.pop(key)
     
+    # Clean up any files from previous sessions
+    cleanup_session_files()
+    
     # Check services health for status display
     services_status = check_services()
     return render_template('index.html', services_status=services_status)
@@ -190,13 +245,23 @@ def upload():
         return redirect(url_for('index'))
     
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Clean up previous upload if exists
+        if 'uploaded_file' in session and os.path.exists(session['uploaded_file']):
+            try:
+                os.remove(session['uploaded_file'])
+            except:
+                pass
+        
+        # Generate unique filename for temporary storage
+        filepath = get_temp_filepath(file.filename)
         file.save(filepath)
         
         # Load the data to validate it
         data, result = load_data(filepath)
         if data is None:
+            # Clean up invalid file
+            if os.path.exists(filepath):
+                os.remove(filepath)
             flash(result, 'error')
             return redirect(url_for('index'))
         
@@ -416,7 +481,14 @@ def download_cleaned():
     if not cleaned_filepath:
         flash('No cleaned file available', 'error')
         return redirect(url_for('training'))
-    return send_file(cleaned_filepath, as_attachment=True, download_name='cleaned_data.csv')
+    
+    # Create a BytesIO object to serve the file from memory
+    file_data = io.BytesIO()
+    with open(cleaned_filepath, 'rb') as f:
+        file_data.write(f.read())
+    file_data.seek(0)
+    
+    return send_file(file_data, as_attachment=True, download_name='cleaned_data.csv')
 
 @app.route('/feature_importance')
 def feature_importance():
@@ -646,7 +718,13 @@ def download_predictions():
         flash('No predictions available', 'error')
         return redirect(url_for('prediction'))
     
-    return send_file(predictions_file, as_attachment=True, download_name='predictions.csv')
+    # Create a BytesIO object to serve the file from memory
+    file_data = io.BytesIO()
+    with open(predictions_file, 'rb') as f:
+        file_data.write(f.read())
+    file_data.seek(0)
+    
+    return send_file(file_data, as_attachment=True, download_name='predictions.csv')
 
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
@@ -728,4 +806,9 @@ if __name__ == '__main__':
     status = check_services()
     for service, health in status.items():
         print(f"- {service}: {health}")
-    app.run(debug=True, port=5000) 
+    
+    try:
+        app.run(debug=True, port=5000)
+    finally:
+        # Clean up all temporary files when the application stops
+        cleanup_temp_files() 
