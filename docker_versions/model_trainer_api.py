@@ -2,12 +2,18 @@ from flask import Flask, request, jsonify, send_file
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
+import mlflow
+import mlflow.sklearn
 import joblib
 from pathlib import Path
 import logging
@@ -17,6 +23,7 @@ import tempfile
 import json
 import io
 import base64
+from waitress import serve
 
 # Set up logging
 logging.basicConfig(
@@ -25,7 +32,15 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
+
+# Configure MLflow
+MLFLOW_TRACKING_URI = "file:./mlruns"
+EXPERIMENT_NAME = os.getenv('MLFLOW_EXPERIMENT_NAME', 'medical_diagnosis')
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'saved_models')
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -39,260 +54,274 @@ class ModelTrainer:
         self.scaler = StandardScaler()
         self.label_encoder = LabelEncoder()
         
+        # Define classification models with their hyperparameters
         self.classification_models = {
-            'accuracy_focused': {
-                'model': LogisticRegression(
-                    multi_class='ovr',
-                    tol=1e-4,
-                    solver='saga'
-                ),
+            'logistic_regression': {
+                'model': LogisticRegression(multi_class='ovr'),
                 'params': {
-                    'classifier__C': [0.001, 0.01, 0.1, 1, 10],
-                    'classifier__class_weight': ['balanced'],
-                    'classifier__max_iter': [1000, 2500, 5000, 7500, 10000],
+                    'classifier__C': [0.001, 0.01, 0.1, 1, 10, 100],
+                    'classifier__solver': ['lbfgs', 'saga'],
+                    'classifier__max_iter': [1000, 5000, 10000],
+                    'classifier__class_weight': ['balanced']
                 },
-                'scoring': 'accuracy',
-                'display_metric': 'accuracy',
-                'metric_name': 'Accuracy'
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
             },
-            'sensitivity_focused': {
-                'model': LogisticRegression(
-                    multi_class='ovr',
-                    tol=1e-4,
-                    solver='saga'
-                ),
+            'decision_tree': {
+                'model': DecisionTreeClassifier(),
                 'params': {
-                    'classifier__C': [0.001, 0.01, 0.1, 1, 10],
-                    'classifier__class_weight': ['balanced'],
-                    'classifier__max_iter': [1000, 2500, 5000, 7500, 10000],
+                    'classifier__max_depth': [3, 5, 7, 10, None],
+                    'classifier__min_samples_split': [2, 5, 10],
+                    'classifier__min_samples_leaf': [1, 2, 4],
+                    'classifier__class_weight': ['balanced']
                 },
-                'scoring': 'recall_macro',
-                'display_metric': 'true_positive_rate',
-                'metric_name': 'Sensitivity'
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
             },
-            'specificity_focused': {  
-                'model': LogisticRegression(
-                    multi_class='ovr',
-                    tol=1e-4,
-                    solver='saga'
-                ),
+            'random_forest': {
+                'model': RandomForestClassifier(),
                 'params': {
-                    'classifier__C': [0.001, 0.01, 0.1, 1, 10],
-                    'classifier__class_weight': ['balanced'],
-                    'classifier__max_iter': [1000, 2500, 5000, 7500, 10000],
+                    'classifier__n_estimators': [100, 200, 300],
+                    'classifier__max_depth': [5, 10, None],
+                    'classifier__min_samples_split': [2, 5],
+                    'classifier__min_samples_leaf': [1, 2],
+                    'classifier__class_weight': ['balanced']
                 },
-                'scoring': 'precision_macro',
-                'display_metric': 'true_negative_rate',
-                'metric_name': 'Specificity'
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
+            },
+            'svm': {
+                'model': SVC(probability=True),
+                'params': {
+                    'classifier__C': [0.1, 1, 10],
+                    'classifier__kernel': ['rbf', 'linear'],
+                    'classifier__gamma': ['scale', 'auto'],
+                    'classifier__class_weight': ['balanced']
+                },
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
+            },
+            'knn': {
+                'model': KNeighborsClassifier(),
+                'params': {
+                    'classifier__n_neighbors': [3, 5, 7, 11],
+                    'classifier__weights': ['uniform', 'distance'],
+                    'classifier__metric': ['euclidean', 'manhattan']
+                },
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
+            },
+            'naive_bayes': {
+                'model': GaussianNB(),
+                'params': {
+                    'classifier__var_smoothing': [1e-9, 1e-8, 1e-7, 1e-6]
+                },
+                'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],
+                'refit': 'accuracy'
             }
         }
     
     def _detect_task(self, y):
         unique_values = len(np.unique(y))
-        if unique_values < 2:
-            raise ValueError("Classification requires at least 2 different classes in the target variable.")
-        return 'classification'
+        if unique_values < 10 or str(y.dtype) in ['bool', 'object']:
+            return 'classification'
+        return 'regression'
     
     def _handle_imbalance(self, X, y):
+        """Handle imbalanced datasets using SMOTE"""
         try:
             smote = SMOTE(random_state=42)
             X_resampled, y_resampled = smote.fit_resample(X, y)
+            logger.info("Applied SMOTE to handle class imbalance")
             return X_resampled, y_resampled
         except Exception as e:
-            logging.warning(f"SMOTE failed: {e}. Using original data.")
+            logger.warning(f"Could not apply SMOTE: {str(e)}. Using original data.")
             return X, y
     
     def train_models(self, X_train, X_test, y_train, y_test):
+        """Train multiple models and track with MLflow"""
         if self.task == 'auto':
             self.task = self._detect_task(y_train)
         
-        self.original_classes = np.unique(y_train)
-        self.class_mapping = dict(zip(range(len(self.original_classes)), self.original_classes))
-        
-        # Encode target variable for classification
-        y_train_encoded = self.label_encoder.fit_transform(y_train)
-        y_test_encoded = self.label_encoder.transform(y_test)
-        
-        return self._train_classification_models(X_train, X_test, y_train_encoded, y_test_encoded)
+        if self.task == 'classification':
+            return self._train_classification_models(X_train, X_test, y_train, y_test)
+        else:
+            raise ValueError("Only classification tasks are currently supported")
     
     def _train_classification_models(self, X_train, X_test, y_train, y_test):
+        """Train and evaluate classification models"""
+        logger.info("Starting classification model training")
+        
+        # Handle imbalanced datasets
+        X_train_balanced, y_train_balanced = self._handle_imbalance(X_train, y_train)
+        
+        # Encode labels if they're not numeric
+        if not np.issubdtype(y_train.dtype, np.number):
+            y_train_balanced = self.label_encoder.fit_transform(y_train_balanced)
+            y_test = self.label_encoder.transform(y_test)
+        
         best_models = []
+        model_metrics = {}
         
-        for model_name, model_info in self.classification_models.items():
-            try:
-                pipeline = Pipeline([
-                    ('scaler', StandardScaler()),
-                    ('classifier', model_info['model'])
-                ])
+        with mlflow.start_run(run_name="model_comparison") as run:
+            for model_name, model_info in self.classification_models.items():
+                logger.info(f"Training {model_name}")
                 
-                grid_search = GridSearchCV(
-                    pipeline,
-                    model_info['params'],
-                    cv=5,
-                    scoring=model_info['scoring'],
-                    refit=True,
-                    n_jobs=-1
-                )
-                
-                grid_search.fit(X_train, y_train)
-                
-                cv_scores = cross_val_score(
-                    grid_search.best_estimator_,
-                    X_train, y_train,
-                    cv=5, 
-                    scoring=model_info['scoring']
-                )
-                
-                y_pred = grid_search.predict(X_test)
-                
-                cm = confusion_matrix(y_test, y_pred)
-                if cm.shape == (2, 2):
-                    tn, fp, fn, tp = cm.ravel()
-                    true_negative_rate = tn / (tn + fp) if (tn + fp) > 0 else 0
-                    true_positive_rate = tp / (tp + fn) if (tp + fn) > 0 else 0
-                else:
-                    specificity = np.diag(cm) / np.sum(cm, axis=1)
-                    true_negative_rate = np.mean(specificity)
-                    sensitivity = np.diag(cm) / np.sum(cm, axis=0)
-                    true_positive_rate = np.mean(sensitivity)
-                
-                metrics = {
-                    'accuracy': accuracy_score(y_test, y_pred),
-                    'true_negative_rate': true_negative_rate,
-                    'true_positive_rate': true_positive_rate,
-                    'cv_score_mean': cv_scores.mean(),
-                    'cv_score_std': cv_scores.std()
-                }
-                
-                model_info = {
-                    'model': grid_search.best_estimator_,
+                try:
+                    with mlflow.start_run(run_name=model_name, nested=True):
+                        # Create pipeline
+                        pipeline = Pipeline([
+                            ('scaler', StandardScaler()),
+                            ('classifier', model_info['model'])
+                        ])
+                        
+                        # Perform grid search with cross-validation
+                        grid_search = GridSearchCV(
+                            pipeline,
+                            model_info['params'],
+                            cv=5,
+                            scoring=model_info['scoring'],
+                            refit=model_info['refit'],
+                            n_jobs=-1
+                        )
+                        
+                        # Train model
+                        grid_search.fit(X_train_balanced, y_train_balanced)
+                        
+                        # Get best model
+                        best_model = grid_search.best_estimator_
+                        
+                        # Make predictions
+                        y_pred = best_model.predict(X_test)
+                        
+                        # Calculate metrics
+                        metrics = {
+                            'accuracy': accuracy_score(y_test, y_pred),
+                            'precision': precision_score(y_test, y_pred, average='weighted'),
+                            'recall': recall_score(y_test, y_pred, average='weighted'),
+                            'f1': f1_score(y_test, y_pred, average='weighted'),
+                            'cv_score_mean': grid_search.best_score_,
+                            'cv_score_std': grid_search.cv_results_['std_test_accuracy'][grid_search.best_index_]
+                        }
+                        
+                        # Log parameters and metrics
+                        mlflow.log_params(grid_search.best_params_)
+                        mlflow.log_metrics(metrics)
+                        
+                        # Log model
+                        mlflow.sklearn.log_model(best_model, model_name)
+                        
+                        # Store model info
+                        model_metrics[model_name] = {
+                            'model': best_model,
+                            'metrics': metrics,
+                            'model_name': model_name,
+                            'params': grid_search.best_params_
+                        }
+                        
+                        logger.info(f"Completed training {model_name}")
+                        
+                except Exception as e:
+                    logger.error(f"Error training {model_name}: {str(e)}")
+                    continue
+        
+        # Select top models based on different metrics
+        best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['metrics']['accuracy'])
+        best_precision = max(model_metrics.items(), key=lambda x: x[1]['metrics']['precision'])
+        best_recall = max(model_metrics.items(), key=lambda x: x[1]['metrics']['recall'])
+        
+        # Prepare best models info
+        for metric_name, (model_name, model_info) in [
+            ('Accuracy', best_accuracy),
+            ('Precision', best_precision),
+            ('Recall', best_recall)
+        ]:
+            if model_name not in [m['model_name'] for m in best_models]:  # Avoid duplicates
+                best_models.append({
+                    'model': model_info['model'],
                     'model_name': model_name,
-                    'params': grid_search.best_params_,
-                    'metrics': metrics,
-                    'label_encoder': self.label_encoder,
-                    'original_classes': self.original_classes,
-                    'class_mapping': self.class_mapping,
-                    'display_metric': model_info['display_metric'],
-                    'metric_name': model_info['metric_name']
-                }
-                
-                best_models.append(model_info)
-                
-            except Exception as e:
-                logging.error(f"Error training {model_name}: {str(e)}")
-                continue
-        
-        if not best_models:
-            raise ValueError("Unable to train models with the provided data.")
+                    'metric_name': metric_name,
+                    'metrics': model_info['metrics'],
+                    'display_metric': metric_name.lower(),
+                    'label_encoder': self.label_encoder if not np.issubdtype(y_train.dtype, np.number) else None
+                })
         
         self.best_models = best_models
-        return self.best_models
+        return best_models
     
-    def save_models(self, output_dir=MODELS_DIR):
+    def save_models(self, output_dir='models'):
         """Save trained models to disk"""
         output_path = Path(output_dir)
-        output_path.mkdir(exist_ok=True)
+        output_path.mkdir(parents=True, exist_ok=True)
         
-        model_paths = []
         for i, model_info in enumerate(self.best_models):
             model_path = output_path / f'model_{i}.joblib'
-            model_info['label_encoder'] = self.label_encoder
-            model_info['class_mapping'] = self.class_mapping
             joblib.dump(model_info, model_path)
-            model_paths.append(str(model_path))
         
-        return model_paths
+        return [str(output_path / f'model_{i}.joblib') for i in range(len(self.best_models))]
     
     def load_model(self, model_path):
         """Load a trained model from disk"""
-        model_info = joblib.load(model_path)
-        if 'label_encoder' in model_info:
-            self.label_encoder = model_info['label_encoder']
-        if 'class_mapping' in model_info:
-            self.class_mapping = model_info['class_mapping']
-        return model_info
+        return joblib.load(model_path)
 
-# Create a global ModelTrainer instance
+# Initialize model trainer
 model_trainer = ModelTrainer()
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "model_trainer_api"})
+@app.route('/health')
+def health():
+    return jsonify({
+        "service": "model_trainer_api",
+        "status": "healthy"
+    })
 
 @app.route('/train', methods=['POST'])
 def train():
     """
-    Train models endpoint
+    Train models on the provided data
     
     Expected JSON input:
     {
-        "X_train": {...},  # Training features in JSON format
-        "X_test": {...},   # Test features in JSON format 
-        "y_train": [...],  # Training target values as list
-        "y_test": [...],   # Test target values as list
-        "task": "auto",    # Optional task type: "auto", "classification", "regression" (default: "auto")
-        "test_size": 0.2   # Optional test size (default: 0.2)
+        "data": {...},  # Features in JSON format
+        "target": [...],  # Target variable
+        "test_size": 0.2  # Optional
     }
     
     Returns:
     {
-        "models": [        # List of trained model information
-            {
-                "model_name": "...",
-                "metric_name": "...",
-                "metric_value": 0.XX,
-                "cv_score_mean": 0.XX,
-                "cv_score_std": 0.XX,
-                "model_id": 0
-            },
-            ...
-        ],
-        "saved_models": [...],  # List of paths where models are saved
+        "models": [...],  # List of trained model info
+        "saved_models": [...],  # List of saved model paths
         "message": "Models trained successfully"
     }
     """
     try:
-        # Get request data
         request_data = request.json
         
-        if not request_data or 'X_train' not in request_data or 'y_train' not in request_data:
-            return jsonify({"error": "Invalid request. Missing required training data."}), 400
+        if not request_data or 'data' not in request_data or 'target' not in request_data:
+            return jsonify({"error": "Invalid request. Missing 'data' or 'target'."}), 400
         
-        # Convert JSON to DataFrames/Series
+        # Convert JSON to DataFrame/array
         try:
-            X_train = pd.DataFrame.from_dict(request_data['X_train'])
-            y_train = pd.Series(request_data['y_train'])
-            
-            # Handle test data - if not provided, create train/test split
-            if 'X_test' in request_data and 'y_test' in request_data:
-                X_test = pd.DataFrame.from_dict(request_data['X_test'])
-                y_test = pd.Series(request_data['y_test'])
-            else:
-                # Create train/test split
-                test_size = request_data.get('test_size', 0.2)
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X_train, y_train, test_size=test_size, random_state=42
-                )
-                
-            # Set task if provided
-            if 'task' in request_data and request_data['task']:
-                model_trainer.task = request_data['task']
-                
-            # Set test_size if provided
-            if 'test_size' in request_data and request_data['test_size']:
-                model_trainer.test_size = float(request_data['test_size'])
-                
+            X = pd.DataFrame.from_dict(request_data['data'])
+            y = np.array(request_data['target'])
         except Exception as e:
-            return jsonify({"error": f"Failed to process input data: {str(e)}"}), 400
+            return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
+        
+        # Set test size if provided
+        if 'test_size' in request_data:
+            model_trainer.test_size = float(request_data['test_size'])
+        
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=model_trainer.test_size, random_state=42
+        )
         
         # Train models
         best_models = model_trainer.train_models(X_train, X_test, y_train, y_test)
         
-        # Save models to disk
-        saved_models = model_trainer.save_models()
+        # Save models
+        saved_models = model_trainer.save_models(MODELS_DIR)
         
-        # Create response with simplified model info
+        # Prepare response
         models_info = []
         for i, model_info in enumerate(best_models):
             models_info.append({
@@ -309,9 +338,9 @@ def train():
             "saved_models": saved_models,
             "message": "Models trained successfully"
         })
-    
+        
     except Exception as e:
-        logging.error(f"Error in train endpoint: {str(e)}", exc_info=True)
+        logger.error(f"Error in train endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/predict/<int:model_id>', methods=['POST'])
@@ -363,15 +392,26 @@ def predict(model_id):
             predictions = decoded_predictions
         
         # Convert NumPy values to native Python types
-        predictions = [int(p) if isinstance(p, np.integer) else float(p) if isinstance(p, np.floating) else str(p) for p in predictions]
+        converted_predictions = []
+        for p in predictions:
+            if isinstance(p, (np.integer, np.floating)):
+                # Convert NumPy numeric types to Python float first
+                converted_value = float(p)
+                # Check if it's close to an integer before rounding
+                if abs(converted_value - int(converted_value)) < 1e-10:
+                    converted_value = int(converted_value)
+            else:
+                # For non-numeric types (e.g., strings), convert to string
+                converted_value = str(p)
+            converted_predictions.append(converted_value)
         
         return jsonify({
-            "predictions": predictions,
+            "predictions": converted_predictions,
             "message": "Predictions made successfully"
         })
     
     except Exception as e:
-        logging.error(f"Error in predict endpoint: {str(e)}", exc_info=True)
+        logger.error(f"Error in predict endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/download_model/<int:model_id>', methods=['GET'])
@@ -385,7 +425,7 @@ def download_model(model_id):
         return send_file(model_path, as_attachment=True, download_name=f'model_{model_id}.joblib')
     
     except Exception as e:
-        logging.error(f"Error in download_model endpoint: {str(e)}", exc_info=True)
+        logger.error(f"Error in download_model endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/model_info/<int:model_id>', methods=['GET'])
@@ -412,10 +452,9 @@ def model_info(model_id):
         return jsonify(response)
     
     except Exception as e:
-        logging.error(f"Error in model_info endpoint: {str(e)}", exc_info=True)
+        logger.error(f"Error in model_info endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Run the app on port 5004
     port = int(os.environ.get('PORT', 5004))
-    app.run(host='0.0.0.0', port=port) 
+    serve(app, host='0.0.0.0', port=port) 
