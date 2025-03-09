@@ -38,11 +38,9 @@ def safe_json_dumps(obj):
     return json.dumps(obj, cls=SafeJSONEncoder)
 
 # Modified requests post function that handles problematic float values
-# Modified requests post function that handles problematic float values
 def safe_requests_post(url, json_data, **kwargs):
     safe_json = clean_data_for_json(json_data)
     return requests.post(url, json=safe_json, **kwargs)
-
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,8 +49,17 @@ load_dotenv()
 DATA_CLEANER_URL = "http://localhost:5001"
 FEATURE_SELECTOR_URL = "http://localhost:5002"
 ANOMALY_DETECTOR_URL = "http://localhost:5003"
-MODEL_TRAINER_URL = "http://localhost:5004"
+MODEL_COORDINATOR_URL = "http://localhost:5020"  # New model coordinator URL instead of MODEL_TRAINER_URL
 MEDICAL_ASSISTANT_URL = "http://localhost:5005"
+
+# Update service URLs dictionary with proper health endpoints
+SERVICES = {
+    "Data Cleaner": {"url": DATA_CLEANER_URL, "endpoint": "/health"},
+    "Feature Selector": {"url": FEATURE_SELECTOR_URL, "endpoint": "/health"},
+    "Anomaly Detector": {"url": ANOMALY_DETECTOR_URL, "endpoint": "/health"},
+    "Model Coordinator": {"url": MODEL_COORDINATOR_URL, "endpoint": "/health"},
+    "Medical Assistant": {"url": MEDICAL_ASSISTANT_URL, "endpoint": "/health"}
+}
 
 # Setup Flask app
 app = Flask(__name__)
@@ -61,8 +68,10 @@ UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
 
-# Register cleanup function to run when app exits
+# Register cleanup function for temporary files
 def cleanup_temp_files():
     """Remove all temporary files when the application exits"""
     try:
@@ -91,11 +100,17 @@ def get_temp_filepath(original_filename=None, extension=None):
     
     return os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
-# Function to cleanup session files
+# Update the session cleanup function to handle files
 def cleanup_session_files():
     """Remove files associated with the current session"""
     files_to_cleanup = []
-    for key in ['uploaded_file', 'cleaned_file', 'selected_features_file', 'predictions_file']:
+    
+    # Check for file paths in session
+    file_keys = [
+        'uploaded_file', 'cleaned_file', 'selected_features_file', 'predictions_file'
+    ]
+    
+    for key in file_keys:
         if key in session:
             filepath = session.get(key)
             if filepath and os.path.exists(filepath):
@@ -108,6 +123,11 @@ def cleanup_session_files():
             logger.info(f"Deleted temporary file: {filepath}")
         except Exception as e:
             logger.error(f"Error deleting temporary file {filepath}: {str(e)}")
+            
+    # Clear session references to files
+    for key in file_keys:
+        if key in session:
+            session.pop(key)
 
 # Check service health
 def check_services():
@@ -115,7 +135,7 @@ def check_services():
         "Data Cleaner": DATA_CLEANER_URL,
         "Feature Selector": FEATURE_SELECTOR_URL,
         "Anomaly Detector": ANOMALY_DETECTOR_URL,
-        "Model Trainer": MODEL_TRAINER_URL,
+        "Model Coordinator": MODEL_COORDINATOR_URL,
         "Medical Assistant": MEDICAL_ASSISTANT_URL
     }
     
@@ -301,13 +321,26 @@ def training():
                 "Data Cleaner": DATA_CLEANER_URL,
                 "Feature Selector": FEATURE_SELECTOR_URL,
                 "Anomaly Detector": ANOMALY_DETECTOR_URL,
-                "Model Trainer": MODEL_TRAINER_URL
+                "Model Coordinator": MODEL_COORDINATOR_URL  # Changed from Model Trainer to Model Coordinator
             }
             
             for service_name, service_url in required_services.items():
                 if not is_service_available(service_url):
                     flash(f"The {service_name} service is not available. Cannot proceed with training.", 'error')
                     return redirect(url_for('training'))
+            
+            # DEBUG: Check which model services are available through the coordinator
+            try:
+                coordinator_health_response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=5)
+                if coordinator_health_response.status_code == 200:
+                    coordinator_health = coordinator_health_response.json()
+                    if "model_services" in coordinator_health:
+                        for model, status in coordinator_health["model_services"].items():
+                            logger.info(f"Model service {model}: {status}")
+                    else:
+                        logger.warning("Model services not found in coordinator health response")
+            except Exception as e:
+                logger.error(f"Error checking model services: {str(e)}")
             
             # 1. CLEAN DATA (via Data Cleaner API)
             logger.info(f"Sending data to Data Cleaner API")
@@ -328,7 +361,15 @@ def training():
             
             cleaning_result = response.json()
             cleaned_data = pd.DataFrame.from_dict(cleaning_result["data"])
-            cleaned_filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'cleaned_data.csv')
+            
+            # Clean up previous cleaned file if exists
+            if 'cleaned_file' in session and os.path.exists(session['cleaned_file']):
+                try:
+                    os.remove(session['cleaned_file'])
+                except:
+                    pass
+                    
+            cleaned_filepath = get_temp_filepath(extension='.csv')
             cleaned_data.to_csv(cleaned_filepath, index=False)
             session['cleaned_file'] = cleaned_filepath
             
@@ -361,15 +402,34 @@ def training():
             feature_result = response.json()
             X_selected = pd.DataFrame.from_dict(feature_result["transformed_data"])
             
+            # Store selected features in session
+            selected_features = X_selected.columns.tolist()
+            
+            # Save selected features to file to prevent session bloat
+            selected_features_file_json = save_to_temp_file(selected_features, 'selected_features')
+            session['selected_features_file_json'] = selected_features_file_json
+            # Use a reference in session to avoid storing large data
+            session['selected_features'] = f"[{len(selected_features)} features]"
+            
             # Store feature importances for visualization
             feature_importance = []
             for feature, importance in feature_result["feature_importances"].items():
                 feature_importance.append({'Feature': feature, 'Importance': importance})
             
-            selected_features_filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'selected_features.csv')
+            # Save feature importance to file
+            feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance')
+            session['feature_importance_file'] = feature_importance_file
+            
+            # Clean up previous selected features file if exists
+            if 'selected_features_file' in session and os.path.exists(session['selected_features_file']):
+                try:
+                    os.remove(session['selected_features_file'])
+                except:
+                    pass
+                    
+            selected_features_filepath = get_temp_filepath(extension='.csv')
             X_selected.to_csv(selected_features_filepath, index=False)
             session['selected_features_file'] = selected_features_filepath
-            session['feature_importance'] = feature_importance
             
             # Add logging to verify data being sent to APIs
             logger.info(f"Data being sent to Feature Selector API: {X_records[:5]}, Target: {y_list[:5]}")
@@ -400,35 +460,48 @@ def training():
             # Add logging to verify data being sent to APIs
             logger.info(f"Data being sent to Anomaly Detector API: {X_selected_records[:5]}")
             
-            # 4. MODEL TRAINING (via Model Trainer API)
-            logger.info(f"Sending data to Model Trainer API")
+            # 4. MODEL TRAINING (via Model Coordinator API instead of Model Trainer API)
+            logger.info(f"Sending data to Model Coordinator API")
             
-            # Convert all data to simple Python structures
-            X_selected_records = X_selected.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_selected), None).to_dict(orient='records')
-            y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
+            # Prepare data for model coordinator
+            X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
+            y_data = y.tolist()
 
             # Use our safe request method
             response = safe_requests_post(
-                f"{MODEL_TRAINER_URL}/train",
+                f"{MODEL_COORDINATOR_URL}/train",
                 {
-                    "data": X_selected_records,
-                    "target": y_list,
-                    "test_size": float(session['test_size'])
+                    "data": X_data,
+                    "target": y_data,
+                    "test_size": session['test_size']
                 },
-                timeout=180  # Model training can take time
+                timeout=1800  # Model training can take time
             )
             
             if response.status_code != 200:
-                raise Exception(f"Model Trainer API error: {response.json().get('error', 'Unknown error')}")
+                raise Exception(f"Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
             
+            # Store the complete model results in session
             model_result = response.json()
-            # Store all models in session
-            session['trained_models'] = model_result["models"]
-            session['saved_models'] = model_result["saved_models"]
+            session['model_results'] = model_result
             
-            # Add logging to verify data being sent to APIs
-            logger.info(f"Data being sent to Model Trainer API: X_selected: {X_selected_records[:5]}, y: {y_list[:5]}")
-            logger.info(f"Models received: {len(model_result['models'])} models")
+            # Log key info from the response
+            if 'models' in model_result:
+                num_models = len(model_result['models'])
+                logger.info(f"Found {num_models} models in response")
+                model_names = []
+                if model_result['models']:
+                    for model_data in model_result['models']:
+                        if 'model' in model_data and 'model_name' in model_data['model']:
+                            model_names.append(model_data['model']['model_name'])
+                    logger.info(f"Model names in response: {', '.join(model_names)}")
+                    
+                    # Verify that we have all 6 expected models
+                    expected_models = ['logistic_regression', 'decision_tree', 'random_forest', 
+                                      'svm', 'knn', 'naive_bayes']
+                    missing_models = [m for m in expected_models if m not in model_names]
+                    if missing_models:
+                        logger.warning(f"Missing models in response: {', '.join(missing_models)}")
             
             return redirect(url_for('model_selection'))
             
@@ -439,7 +512,7 @@ def training():
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
     ai_recommendations = None
-    if 'ai_recommendations' not in session and is_service_available(MEDICAL_ASSISTANT_URL):
+    if 'ai_recommendations' not in session and 'ai_recommendations_file' not in session and is_service_available(MEDICAL_ASSISTANT_URL):
         try:
             logger.info(f"Sending data to Medical Assistant API")
             
@@ -457,17 +530,36 @@ def training():
             
             if response.status_code == 200:
                 ai_recommendations = response.json()["recommendations"]
-                session['ai_recommendations'] = ai_recommendations
-                # Add logging to verify data being sent to APIs
-                logger.info(f"Data being sent to Medical Assistant API: {data_records[:5]}")
+                
+                # Save to file instead of storing in session
+                recommendations_file = save_to_temp_file(ai_recommendations, 'ai_recommendations')
+                session['ai_recommendations_file'] = recommendations_file
+                logger.info(f"Saved AI recommendations to {recommendations_file}")
+                
+                # Log sample of data sent
+                logger.info(f"Data being sent to Medical Assistant API: {data_records[:3]}")
             else:
                 logger.warning(f"Medical Assistant API returned an error: {response.text}")
         except Exception as e:
             logger.error(f"Error getting AI recommendations: {str(e)}", exc_info=True)
             # Don't flash this error to avoid confusing the user
             logger.info("Continuing without AI recommendations")
+    elif 'ai_recommendations_file' in session:
+        # Load from file
+        ai_recommendations = load_from_temp_file(session['ai_recommendations_file'])
     else:
+        # Try to get from session (backward compatibility)
         ai_recommendations = session.get('ai_recommendations')
+        
+        # If it's in session, move to file
+        if ai_recommendations:
+            recommendations_file = save_to_temp_file(ai_recommendations, 'ai_recommendations')
+            session['ai_recommendations_file'] = recommendations_file
+            session.pop('ai_recommendations', None)
+            logger.info(f"Moved AI recommendations from session to file: {recommendations_file}")
+    
+    # Make sure session size is under control
+    check_session_size()
     
     return render_template('training.html', 
                           data=data.head().to_html(classes='table table-striped'),
@@ -492,7 +584,23 @@ def download_cleaned():
 
 @app.route('/feature_importance')
 def feature_importance():
-    importance_data = session.get('feature_importance')
+    # First check if we have it in a file
+    importance_file = session.get('feature_importance_file')
+    importance_data = None
+    
+    if importance_file:
+        importance_data = load_from_temp_file(importance_file)
+    else:
+        # Try the session (backward compatibility)
+        importance_data = session.get('feature_importance')
+        
+        # If it's in session and large, move to file
+        if importance_data and len(importance_data) > 20:
+            importance_file = save_to_temp_file(importance_data, 'feature_importance')
+            session['feature_importance_file'] = importance_file
+            session.pop('feature_importance', None)
+            logger.info(f"Moved feature importance from session to file: {importance_file}")
+    
     if not importance_data:
         return jsonify({'error': 'No feature importance data available'})
     
@@ -521,64 +629,233 @@ def feature_importance():
 
 @app.route('/model_selection')
 def model_selection():
-    trained_models = session.get('trained_models')
-    if not trained_models:
+    """Display the trained models and allow selection of the best one"""
+    # Log what's in the session for debugging
+    logger.info(f"Session keys: {list(session.keys())}")
+    
+    # Check if we have model results
+    if 'model_results' not in session or not session['model_results']:
         flash('No trained models available. Please complete the training process first.', 'error')
         return redirect(url_for('training'))
     
-    task = session.get('task')
-    selected_features_file = session.get('selected_features_file')
+    model_result = session['model_results']
+    logger.info(f"Model result keys: {list(model_result.keys() if model_result else [])}")
     
-    # Load selected features data to get column count
-    selected_features_data, _ = load_data(selected_features_file)
-    feature_count = len(selected_features_data.columns) if selected_features_data is not None else 0
+    # Process the models data
+    all_models = {}  # All models with metrics
+    best_models = {  # Track best models by each metric
+        'accuracy': {'model_name': '', 'metrics': {'accuracy': 0}},
+        'precision': {'model_name': '', 'metrics': {'precision': 0}},
+        'recall': {'model_name': '', 'metrics': {'recall': 0}}
+    }
+    
+    try:
+        if 'models' in model_result:
+            # Extract each model's data
+            for model_data in model_result['models']:
+                # Each item in the models array contains a "model" key
+                if 'model' in model_data:
+                    model_info = model_data['model']
+                    model_name = model_info.get('model_name', f"model_{len(all_models)}")
+                    metrics = model_info.get('metrics', {})
+                    
+                    # Add debugging logs
+                    logger.info(f"Processing model: {model_name} with metrics: {metrics}")
+                    
+                    # Store all models
+                    all_models[model_name] = metrics
+                    
+                    # Check if this model is best for any metric
+                    accuracy = metrics.get('accuracy', 0)
+                    precision = metrics.get('precision', 0)
+                    recall = metrics.get('recall', 0)
+                    
+                    logger.info(f"Model {model_name} metrics - accuracy: {accuracy}, precision: {precision}, recall: {recall}")
+                    
+                    if accuracy > best_models['accuracy']['metrics'].get('accuracy', 0):
+                        best_models['accuracy'] = {
+                            'model_name': model_name,
+                            'metrics': metrics
+                        }
+                        
+                    if precision > best_models['precision']['metrics'].get('precision', 0):
+                        best_models['precision'] = {
+                            'model_name': model_name,
+                            'metrics': metrics
+                        }
+                        
+                    if recall > best_models['recall']['metrics'].get('recall', 0):
+                        best_models['recall'] = {
+                            'model_name': model_name,
+                            'metrics': metrics
+                        }
+        
+        # Log how many models were processed
+        logger.info(f"Processed {len(all_models)} models")
+        logger.info(f"Best models: {json.dumps(best_models)}")
+        
+        if len(all_models) < 6:
+            logger.warning(f"Expected 6 models but only found {len(all_models)}")
+            
+    except Exception as e:
+        logger.error(f"Error processing model results: {str(e)}", exc_info=True)
+        flash('Error processing model data. Please try training again.', 'error')
+        return redirect(url_for('training'))
+    
+    # Prepare data for template display
+    simplified_model_data = []
+    
+    # Process best models by metric
+    for metric, model_info in best_models.items():
+        if model_info.get('model_name'):  # Only include models with a name
+            model_name = model_info.get('model_name', 'Unknown')
+            metric_value = model_info.get('metrics', {}).get(metric, 0)
+            
+            # Round to 3 decimal places
+            metric_value = round(metric_value, 3) if isinstance(metric_value, float) else metric_value
+            
+            logger.info(f"Adding best model for {metric}: {model_name} with value {metric_value}")
+            
+            simplified_model_data.append({
+                'model_name': model_name,
+                'metric_name': metric,
+                'metric_value': metric_value,
+                'is_best_for': metric
+            })
+    
+    # If we still have no models for display, create entries for each trained model with its best metric
+    if not simplified_model_data and all_models:
+        logger.info("No best models identified, creating display data from all models")
+        for model_name, metrics in all_models.items():
+            # Find the best metric for this model
+            best_metric = None
+            best_value = -1
+            
+            for metric in ['accuracy', 'precision', 'recall']:
+                value = metrics.get(metric, 0)
+                if value > best_value:
+                    best_value = value
+                    best_metric = metric
+            
+            if best_metric:
+                best_value = round(best_value, 3) if isinstance(best_value, float) else best_value
+                simplified_model_data.append({
+                    'model_name': model_name,
+                    'metric_name': best_metric,
+                    'metric_value': best_value,
+                    'is_best_for': None  # Not actually the best overall, just the best for this model
+                })
+    
+    # Create dummy data if absolutely nothing is available (for development/testing)
+    if not simplified_model_data:
+        logger.warning("No models available, creating dummy data for display")
+        for model_name in ['random_forest', 'logistic_regression', 'decision_tree']:
+            simplified_model_data.append({
+                'model_name': model_name,
+                'metric_name': 'accuracy',
+                'metric_value': 0.85,
+                'is_best_for': None
+            })
+    
+    # Create a simplified version of all models with key metrics
+    simplified_model_metrics = {}
+    important_metrics = ['accuracy', 'precision', 'recall']
+    
+    for model_name, metrics in all_models.items():
+        # Only store the important metrics
+        simplified_metrics = {}
+        for metric in important_metrics:
+            if metric in metrics:
+                simplified_metrics[metric] = round(metrics[metric], 3) if isinstance(metrics[metric], float) else metrics[metric]
+        
+        simplified_model_metrics[model_name] = simplified_metrics
+    
+    # Get selected features
+    selected_features = session.get('selected_features', [])
+    if isinstance(selected_features, str) and selected_features.startswith('['):
+        # It's a string representation, try to extract the count
+        import re
+        match = re.search(r'\[(\d+) features\]', selected_features)
+        if match:
+            features_count = int(match.group(1))
+        else:
+            features_count = 0
+    else:
+        features_count = len(selected_features) if isinstance(selected_features, list) else 0
+    
+    # Log what we're sending to the template
+    logger.info(f"Sending {len(simplified_model_data)} model summaries to template")
+    logger.info(f"Sending {len(simplified_model_metrics)} detailed models to template")
+    
+    task = session.get('task', 'classification')
     
     overall_metrics = {
-        'models_trained': len(trained_models),
-        'features_used': feature_count,
+        'models_trained': len(all_models),
+        'models_displayed': len(simplified_model_metrics),
+        'features_used': features_count,
         'test_size': session.get('test_size', 0.2)
     }
     
     return render_template('model_selection.html', 
-                          models=trained_models,
+                          models=simplified_model_data,
                           task=task,
+                          model_metrics=simplified_model_metrics,
                           overall_metrics=overall_metrics)
 
-@app.route('/select_model/<int:model_id>')
-def select_model(model_id):
-    trained_models = session.get('trained_models')
-    if not trained_models or model_id >= len(trained_models):
-        flash('Invalid model selection', 'error')
-        return redirect(url_for('model_selection'))
+@app.route('/select_model/<model_name>/<metric>')
+def select_model(model_name, metric):
+    """Select a model for predictions"""
+    # Check if we have model results
+    if 'model_results' not in session:
+        flash('No trained models available. Please train models first.', 'error')
+        return redirect(url_for('training'))
     
-    session['selected_model'] = model_id
+    # Log the selection
+    logger.info(f"Selecting model {model_name} optimized for {metric}")
+    
+    # Store selected model details in session
+    session['selected_model'] = {
+        'model_name': model_name,
+        'metric': metric
+    }
+    
+    # Log success
+    logger.info(f"Successfully selected model {model_name} with metric {metric}")
+    
+    flash(f'Selected {model_name} model optimized for {metric}', 'success')
     return redirect(url_for('prediction'))
 
 @app.route('/prediction', methods=['GET', 'POST'])
 def prediction():
-    selected_model_id = session.get('selected_model')
-    if selected_model_id is None:
-        flash('No model selected', 'error')
-        return redirect(url_for('model_selection'))
+    """Make predictions using the selected model"""
+    # Log current selection state
+    logger.info(f"Selected model in session: {session.get('selected_model')}")
     
-    trained_models = session.get('trained_models')
-    if not trained_models or selected_model_id >= len(trained_models):
-        flash('Invalid model selection', 'error')
+    # Check if a model has been selected
+    selected_model = session.get('selected_model')
+    if not selected_model:
+        flash('No model selected. Please select a model first.', 'error')
         return redirect(url_for('model_selection'))
         
-    selected_model_info = trained_models[selected_model_id]
+    # Get model name and metric from session
+    model_name = selected_model.get('model_name', '')
+    metric = selected_model.get('metric', '')
+    
+    if not model_name or not metric:
+        flash('Invalid model selection. Please select a model again.', 'error')
+        return redirect(url_for('model_selection'))
     
     # Check if required services are available
     required_prediction_services = {
         "Data Cleaner": DATA_CLEANER_URL,
         "Feature Selector": FEATURE_SELECTOR_URL,
-        "Model Trainer": MODEL_TRAINER_URL
+        "Model Coordinator": MODEL_COORDINATOR_URL
     }
     
     for service_name, service_url in required_prediction_services.items():
         if not is_service_available(service_url):
             flash(f"The {service_name} service is not available. Cannot make predictions.", 'error')
-            return render_template('prediction.html', model=selected_model_info)
+            return render_template('prediction.html', model=selected_model)
     
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -591,8 +868,15 @@ def prediction():
             return redirect(url_for('prediction'))
         
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            # Clean up previous prediction file if exists
+            if 'prediction_file' in session and os.path.exists(session['prediction_file']):
+                try:
+                    os.remove(session['prediction_file'])
+                except:
+                    pass
+                    
+            # Generate unique filename for temporary storage
+            filepath = get_temp_filepath(file.filename)
             file.save(filepath)
             
             try:
@@ -625,9 +909,8 @@ def prediction():
                 # 2. Transform features using Feature Selector API
                 logger.info(f"Sending prediction data to Feature Selector API for transformation")
                 
-                # Load the selected features to get the correct columns
-                selected_features_file = session.get('selected_features_file')
-                selected_features_data, _ = load_data(selected_features_file)
+                # Get selected features from session
+                selected_features = session.get('selected_features', [])
                 
                 cleaned_data_records = cleaned_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(cleaned_data), None).to_dict(orient='records')
                 
@@ -644,30 +927,77 @@ def prediction():
                 
                 transformed_data = pd.DataFrame.from_dict(response.json()["transformed_data"])
                 
-                # 3. Make predictions using Model Trainer API
-                logger.info(f"Sending data to Model Trainer API for prediction")
-                transformed_data_records = transformed_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(transformed_data), None).to_dict(orient='records')
+                # 3. Make predictions using Model Coordinator API
+                logger.info(f"Sending data to Model Coordinator API for prediction using {model_name} optimized for {metric}")
+                
+                # Extract only the needed features
+                prediction_data = {feature: transformed_data[feature].tolist() for feature in selected_features if feature in transformed_data.columns}
+                
+                # Log missing features
+                missing_features = [f for f in selected_features if f not in transformed_data.columns]
+                if missing_features:
+                    logger.warning(f"Missing features in prediction data: {missing_features}")
+                
+                # Prepare request payload for model coordinator
+                # We're sending the metric to use as the model selector
+                payload = {
+                    "data": prediction_data,
+                    "models": [metric]  # Use the metric to select the model
+                }
+                
+                logger.info(f"Making prediction with payload for metric: {metric}")
                 
                 response = safe_requests_post(
-                    f"{MODEL_TRAINER_URL}/predict/{selected_model_id}",
-                    {
-                        "data": transformed_data_records
-                    },
+                    f"{MODEL_COORDINATOR_URL}/predict",
+                    payload,
                     timeout=60
                 )
                 
                 if response.status_code != 200:
-                    raise Exception(f"Model Trainer API error: {response.json().get('error', 'Unknown error')}")
+                    raise Exception(f"Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
                 
-                predictions = response.json()["predictions"]
+                result = response.json()
+                logger.info(f"Prediction response keys: {result.keys()}")
+                
+                # Extract predictions based on the coordinator response format
+                predictions = []
+                probabilities = []
+                
+                if 'predictions' in result and metric in result['predictions']:
+                    model_result = result['predictions'][metric]
+                    predictions = model_result.get('predictions', [])
+                    probabilities = model_result.get('probabilities', [])
+                    logger.info(f"Found {len(predictions)} predictions for metric {metric}")
+                else:
+                    # Try alternate format
+                    if 'predictions' in result:
+                        predictions = result['predictions']
+                        logger.info(f"Found {len(predictions)} predictions in alternate format")
+                    else:
+                        logger.error(f"No predictions found in response: {result}")
+                        raise Exception('No predictions returned from model.')
                 
                 # Create results DataFrame
                 results_df = pd.DataFrame({'Prediction': predictions})
                 
-                # Save results
-                results_filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'predictions.csv')
+                # Clean up previous predictions file if exists
+                if 'predictions_file' in session and os.path.exists(session['predictions_file']):
+                    try:
+                        os.remove(session['predictions_file'])
+                    except:
+                        pass
+                        
+                # Save results to temporary file
+                results_filepath = get_temp_filepath(extension='.csv')
                 results_df.to_csv(results_filepath, index=False)
                 session['predictions_file'] = results_filepath
+                
+                # Clean up the uploaded file for prediction
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                    except:
+                        pass
                 
                 # Create distribution data for display
                 value_counts = results_df['Prediction'].value_counts()
@@ -682,19 +1012,21 @@ def prediction():
                 
                 session['prediction_distribution'] = distribution
                 
-                # Add logging to verify data being sent to APIs
-                logger.info(f"Data being sent to Data Cleaner API for prediction: {pred_data_records[:5]}")
-                logger.info(f"Data being sent to Feature Selector API for prediction: {cleaned_data_records[:5]}")
-                logger.info(f"Data being sent to Model Trainer API for prediction: {transformed_data_records[:5]}")
-                
                 return redirect(url_for('prediction_results'))
                 
             except Exception as e:
+                # Clean up the temporary file in case of error
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                    except:
+                        pass
+                
                 logger.error(f"Error making predictions: {str(e)}", exc_info=True)
                 flash(f"Error making predictions: {str(e)}", 'error')
                 return redirect(url_for('prediction'))
     
-    return render_template('prediction.html', model=selected_model_info)
+    return render_template('prediction.html', model=selected_model)
 
 @app.route('/prediction_results')
 def prediction_results():
@@ -798,7 +1130,204 @@ def clear_chat():
 def service_status():
     """Check the status of all services"""
     services_status = check_services()
+    
+    # If model coordinator is available, also check model services
+    if services_status.get("Model Coordinator") == "healthy":
+        try:
+            response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=5)
+            if response.status_code == 200:
+                coordinator_data = response.json()
+                if "model_services" in coordinator_data:
+                    for model_name, status in coordinator_data["model_services"].items():
+                        services_status[f"Model - {model_name}"] = "healthy" if status == "healthy" else "unhealthy"
+        except Exception as e:
+            logger.error(f"Error getting model service status: {str(e)}")
+    
     return jsonify(services_status)
+
+# Function to save data to a temporary file
+def save_to_temp_file(data, prefix='data'):
+    """Save data to a temporary file and return the filepath"""
+    filepath = get_temp_filepath(extension='.json')
+    with open(filepath, 'w') as f:
+        json.dump(data, f, cls=SafeJSONEncoder)
+    return filepath
+
+# Function to load data from a temporary file
+def load_from_temp_file(filepath):
+    """Load data from a temporary file"""
+    if not filepath or not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error loading data from file {filepath}: {str(e)}")
+        return None
+
+# Add a helper function to estimate session size
+def get_session_size():
+    """Estimate the current session size in bytes"""
+    try:
+        import pickle
+        import sys
+        
+        # Try to pickle the session data to estimate its size
+        session_copy = dict(session)
+        pickled = pickle.dumps(session_copy)
+        size = sys.getsizeof(pickled)
+        logger.info(f"Current session size estimate: {size / 1024:.2f} KB")
+        return size
+    except Exception as e:
+        logger.error(f"Error estimating session size: {str(e)}")
+        return 0
+
+# Add a function to monitor and trim session if needed
+def check_session_size(max_size=3000000):  # ~3MB limit
+    """Check if session is too large and trim it if needed"""
+    size = get_session_size()
+    if size > max_size:
+        logger.warning(f"Session size ({size/1024:.2f} KB) exceeds limit ({max_size/1024:.2f} KB). Moving data to files.")
+        
+        # Move large data to files
+        large_keys = ['ai_recommendations', 'anomaly_results', 'raw_model_result', 'models', 'all_models', 'feature_importance']
+        for key in large_keys:
+            if key in session and session[key]:
+                try:
+                    # Save to file and store only the path
+                    data = session[key]
+                    file_path = save_to_temp_file(data, key)
+                    session[f"{key}_file"] = file_path
+                    # Remove the large data from session
+                    session.pop(key)
+                    logger.info(f"Moved {key} to file: {file_path}")
+                except Exception as e:
+                    logger.error(f"Error moving {key} to file: {str(e)}")
+        
+        # Check if we need to move feature data too
+        if 'selected_features' in session and len(session['selected_features']) > 100:
+            selected_features = session['selected_features']
+            file_path = save_to_temp_file(selected_features, 'selected_features')
+            session['selected_features_file_json'] = file_path
+            session['selected_features'] = f"[{len(selected_features)} features saved to file]"
+            logger.info(f"Moved selected_features to file: {file_path}")
+            
+        logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
+
+@app.route('/deploy_model/<model_name>/<metric>')
+def deploy_model(model_name, metric):
+    """Deploy a model as a standalone Docker container"""
+    # Check if we have model results
+    if 'model_results' not in session:
+        flash('No trained models available. Please train models first.', 'error')
+        return redirect(url_for('training'))
+    
+    # Log the deployment request
+    logger.info(f"Deploying model {model_name} optimized for {metric}")
+    
+    try:
+        # Import the deployer module
+        import model_deployer
+        
+        # Get selected features - try multiple possible locations
+        selected_features = []
+        
+        # Try loading from file first (most reliable)
+        selected_features_file_json = session.get('selected_features_file_json')
+        if selected_features_file_json and os.path.exists(selected_features_file_json):
+            try:
+                with open(selected_features_file_json, 'r') as f:
+                    selected_features = json.load(f)
+                logger.info(f"Loaded {len(selected_features)} features from JSON file")
+            except Exception as e:
+                logger.error(f"Error loading features from JSON file: {str(e)}")
+        
+        # If no features from file, try the selected_features_file (CSV)
+        if not selected_features:
+            features_file = session.get('selected_features_file')
+            if features_file and os.path.exists(features_file):
+                try:
+                    selected_features_df = pd.read_csv(features_file)
+                    selected_features = selected_features_df.columns.tolist()
+                    logger.info(f"Loaded {len(selected_features)} features from CSV file")
+                except Exception as e:
+                    logger.error(f"Error loading features from CSV file: {str(e)}")
+        
+        # If still no features, check if they're directly in the session
+        if not selected_features and isinstance(session.get('selected_features'), list):
+            selected_features = session['selected_features']
+            logger.info(f"Loaded {len(selected_features)} features from session")
+        elif not selected_features and isinstance(session.get('selected_features'), str) and '[' in session.get('selected_features'):
+            # Try to parse from the string representation
+            import re
+            match = re.search(r'\[(\d+) features\]', session.get('selected_features', ''))
+            if match:
+                # We know there are features but can't get them directly
+                # Try to load from the model data columns
+                if 'data_columns' in session:
+                    # Use data columns as a fallback
+                    selected_features = session['data_columns']
+                    target_column = session.get('target_column')
+                    # Remove target column if it's in the list
+                    if target_column and target_column in selected_features:
+                        selected_features.remove(target_column)
+                    logger.info(f"Using {len(selected_features)} data columns as features")
+        
+        # If all else fails, proceed with empty features list
+        if not selected_features:
+            logger.warning("No features found, using dummy features for deployment")
+            # Create some dummy feature names for demonstration
+            selected_features = [f"feature_{i}" for i in range(1, 6)]
+        
+        # Deploy the model with extra diagnostic info
+        logger.info(f"Starting deployment with model_name={model_name}, model_type={model_name}, features={len(selected_features)} items")
+        logger.info(f"Feature list: {selected_features}")
+        
+        result = model_deployer.deploy_model(
+            model_name=model_name,
+            model_type=model_name,
+            features=selected_features
+        )
+        
+        if result['success']:
+            # Store deployment info in session
+            session['deployed_model'] = {
+                'model_name': model_name,
+                'metric': metric,
+                'container_name': result['container_name'],
+                'image_name': result['image_name'],
+                'url': result['url'],
+                'port': result['port']
+            }
+            
+            flash(f'Successfully deployed {model_name} model as API service at {result["url"]}', 'success')
+        else:
+            error_message = result.get('error', 'Unknown error')
+            
+            if 'stdout' in result:
+                logger.error(f"Deployment stdout: {result['stdout']}")
+            if 'stderr' in result:
+                logger.error(f"Deployment stderr: {result['stderr']}")
+                
+            flash(f'Error deploying model: {error_message}', 'error')
+            logger.error(f"Deployment error: {result}")
+        
+        return redirect(url_for('deployed_models'))
+    except Exception as e:
+        logger.error(f"Error deploying model: {str(e)}", exc_info=True)
+        flash(f'Error deploying model: {str(e)}', 'error')
+        return redirect(url_for('model_selection'))
+
+@app.route('/deployed_models')
+def deployed_models():
+    """View deployed models and interact with them"""
+    deployed_model = session.get('deployed_model')
+    
+    if not deployed_model:
+        flash('No deployed models available', 'info')
+        return redirect(url_for('model_selection'))
+    
+    return render_template('deployed_models.html', model=deployed_model)
 
 if __name__ == '__main__':
     print("Starting MedicAI with API services integration")

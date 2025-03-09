@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Deployed Models{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Deployed Model</h1>
+    
+    <div class="alert alert-success" role="alert">
+        <h4>Your model is now running as a standalone API service!</h4>
+        <p>
+            You can use this service for making predictions independently of the main application.
+            The model will run until you stop it or restart your computer.
+        </p>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">{{ model.model_name }} Model</h3>
+        </div>
+        <div class="card-body">
+            <h5>Deployed Model Information</h5>
+            <table class="table table-striped">
+                <tr>
+                    <th style="width: 30%">Model Name:</th>
+                    <td><strong>{{ model.model_name }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Optimized For:</th>
+                    <td><span class="badge bg-success">{{ model.metric }}</span></td>
+                </tr>
+                <tr>
+                    <th>API URL:</th>
+                    <td><code class="bg-light p-2 rounded">{{ model.url }}</code></td>
+                </tr>
+                <tr>
+                    <th>Container Name:</th>
+                    <td><code class="bg-light p-2 rounded">{{ model.container_name }}</code></td>
+                </tr>
+            </table>
+            
+            <div class="mt-3 mb-3">
+                <a href="{{ url_for('model_selection') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Model Selection
+                </a>
+                <a href="{{ model.url }}/health" target="_blank" class="btn btn-success">
+                    <i class="fas fa-heartbeat"></i> Test Health Endpoint
+                </a>
+                <a href="{{ model.url }}/model_info" target="_blank" class="btn btn-info">
+                    <i class="fas fa-info-circle"></i> View Model Info
+                </a>
+            </div>
+            
+            <h5 class="mt-4">API Endpoints</h5>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Method</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/health</code></td>
+                            <td>GET</td>
+                            <td>Check if the model is healthy and running</td>
+                        </tr>
+                        <tr>
+                            <td><code>/predict</code></td>
+                            <td>POST</td>
+                            <td>Make predictions with the model</td>
+                        </tr>
+                        <tr>
+                            <td><code>/model_info</code></td>
+                            <td>GET</td>
+                            <td>Get information about the model, including features required</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h5 class="mt-4">How to Use the API</h5>
+            <div class="accordion" id="apiUsageAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="healthCheckHeading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#healthCheckCollapse" aria-expanded="true" aria-controls="healthCheckCollapse">
+                            Health Check
+                        </button>
+                    </h2>
+                    <div id="healthCheckCollapse" class="accordion-collapse collapse show" aria-labelledby="healthCheckHeading" data-bs-parent="#apiUsageAccordion">
+                        <div class="accordion-body bg-light">
+                            <h6>Request:</h6>
+                            <pre><code>curl {{ model.url }}/health</code></pre>
+                            <h6>Response:</h6>
+                            <pre><code>{
+  "status": "healthy",
+  "model_type": "{{ model.model_name }}"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="modelInfoHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#modelInfoCollapse" aria-expanded="false" aria-controls="modelInfoCollapse">
+                            Get Model Information
+                        </button>
+                    </h2>
+                    <div id="modelInfoCollapse" class="accordion-collapse collapse" aria-labelledby="modelInfoHeading" data-bs-parent="#apiUsageAccordion">
+                        <div class="accordion-body bg-light">
+                            <h6>Request:</h6>
+                            <pre><code>curl {{ model.url }}/model_info</code></pre>
+                            <h6>Response:</h6>
+                            <pre><code>{
+  "model_type": "RandomForestClassifier",
+  "features": ["feature1", "feature2", "feature3", ...],
+  "feature_count": 10
+}</code></pre>
+                            <div class="alert alert-info mt-2">
+                                <strong>Tip:</strong> Get the required feature names from this endpoint before making predictions to ensure you're providing all needed features in the correct format.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="predictionsHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#predictionsCollapse" aria-expanded="false" aria-controls="predictionsCollapse">
+                            Make Predictions
+                        </button>
+                    </h2>
+                    <div id="predictionsCollapse" class="accordion-collapse collapse" aria-labelledby="predictionsHeading" data-bs-parent="#apiUsageAccordion">
+                        <div class="accordion-body bg-light">
+                            <h6>Option 1: Columnar Format (multiple records)</h6>
+                            <pre><code>curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": {
+      "feature1": [value1, value2, value3], 
+      "feature2": [value1, value2, value3]
+    }
+  }' \
+  {{ model.url }}/predict</code></pre>
+  
+                            <h6 class="mt-3">Option 2: Records Format (multiple samples)</h6>
+                            <pre><code>curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": [
+      {"feature1": value1, "feature2": value1}, 
+      {"feature1": value2, "feature2": value2}
+    ]
+  }' \
+  {{ model.url }}/predict</code></pre>
+
+                            <h6 class="mt-3">Sample Response:</h6>
+                            <pre><code>{
+  "predictions": [0, 1, 0],
+  "probabilities": [[0.8, 0.2], [0.3, 0.7], [0.9, 0.1]],
+  "record_count": 3
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h3 class="mb-0">Stop the Deployed Model</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <strong>Important:</strong> The model container will continue running until explicitly stopped or until your computer restarts. To free up resources when you're done, stop the container.
+            </div>
+            
+            <h5>Option 1: Using Docker CLI</h5>
+            <pre><code>docker stop {{ model.container_name }}</code></pre>
+            
+            <h5 class="mt-3">Option 2: Using Docker Desktop</h5>
+            <ol>
+                <li>Open Docker Desktop</li>
+                <li>Go to the "Containers" tab</li>
+                <li>Find the container named <code>{{ model.container_name }}</code></li>
+                <li>Click the stop button</li>
+            </ol>
+            
+            <h5 class="mt-3">To Remove the Container Completely:</h5>
+            <pre><code>docker rm {{ model.container_name }}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %} 

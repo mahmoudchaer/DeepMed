@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/586764595882649478
+creation_time: 1741548899915
+experiment_id: '586764595882649478'
+last_update_time: 1741548899915
+lifecycle_stage: active
+name: decision_tree_model

@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/388134743042890302
+creation_time: 1741548899515
+experiment_id: '388134743042890302'
+last_update_time: 1741548899515
+lifecycle_stage: active
+name: naive_bayes_model

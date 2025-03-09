@@ -1,0 +1,15 @@
+artifact_uri: file:///app/mlruns/586764595882649478/7d9b861906224ed4987021c1a686c626/artifacts
+end_time: 1741550641903
+entry_point_name: ''
+experiment_id: '586764595882649478'
+lifecycle_stage: active
+run_id: 7d9b861906224ed4987021c1a686c626
+run_name: decision_tree
+run_uuid: 7d9b861906224ed4987021c1a686c626
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741550633854
+status: 3
+tags: []
+user_id: root

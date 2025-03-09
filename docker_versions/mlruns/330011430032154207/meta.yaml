@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/330011430032154207
+creation_time: 1741548899423
+experiment_id: '330011430032154207'
+last_update_time: 1741548899423
+lifecycle_stage: active
+name: knn_model

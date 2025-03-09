@@ -1,0 +1,21 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.model_trainer.txt .
+RUN pip install --no-cache-dir -r requirements.model_trainer.txt
+
+COPY decision_tree_api.py .
+
+# Create directories for models and MLflow
+RUN mkdir -p saved_models/decision_tree mlruns
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV MLFLOW_EXPERIMENT_NAME=decision_tree_model
+ENV PORT=5011
+
+EXPOSE 5011
+
+CMD ["python", "decision_tree_api.py"] 

@@ -26,6 +26,85 @@ This directory contains containerized versions of all DeepMed components as sepa
    - Analyzes data and provides recommendations
    - Conversation capabilities for Q&A
 
+## Distributed Model Training Architecture
+
+The system now uses a distributed architecture for model training, where each classification model runs in its own Docker container. This approach provides several benefits:
+
+1. **Parallel Training**: Instead of training models sequentially, all models are trained in parallel, significantly reducing overall training time.
+2. **Isolation**: Each model has its own isolated environment, reducing interference between different model implementations.
+3. **Scalability**: Individual model services can be scaled independently based on resource requirements.
+4. **Resiliency**: Failure in one model service doesn't affect the others.
+
+### Model Services
+
+The system includes 6 separate model services, each specialized in a specific classification algorithm:
+
+1. **Logistic Regression** (Port 5010)
+2. **Decision Tree** (Port 5011)
+3. **Random Forest** (Port 5012)
+4. **Support Vector Machine (SVM)** (Port 5013)
+5. **K-Nearest Neighbors (KNN)** (Port 5014)
+6. **Naive Bayes** (Port 5015)
+
+Each service uses MLflow to track experiments and optimize hyperparameters.
+
+### Model Coordinator
+
+The **Model Coordinator** (Port 5020) acts as an orchestrator for all model services. It provides:
+
+- A unified API for training and prediction
+- Parallel dispatch of requests to all model services
+- Selection of the best models based on different metrics (accuracy, precision, recall)
+- Aggregation of results from all models
+
+### API Endpoints
+
+#### Model Coordinator API
+
+- `GET /health`: Check health status of all model services
+- `POST /train`: Train all models in parallel
+- `POST /predict`: Get predictions from the best models
+- `GET /model_info`: Get information about all available models
+
+#### Individual Model Service API
+
+Each model service provides the following endpoints:
+
+- `GET /health`: Check health status
+- `POST /train`: Train the specific model
+- `POST /predict`: Get predictions from the model
+- `GET /model_info`: Get information about the model
+- `GET /download_model`: Download the trained model file
+
+### Using the Distributed Architecture
+
+To train models:
+```
+curl -X POST http://localhost:5020/train \
+  -H "Content-Type: application/json" \
+  -d '{"data": {...}, "target": [...]}'
+```
+
+To make predictions:
+```
+curl -X POST http://localhost:5020/predict \
+  -H "Content-Type: application/json" \
+  -d '{"data": {...}, "models": ["accuracy", "precision", "recall"]}'
+```
+
+To get model information:
+```
+curl http://localhost:5020/model_info
+```
+
+### Launching the System
+
+```bash
+docker-compose up -d
+```
+
+This will start all model services and the model coordinator.
+
 ## Setup Instructions
 
 ### Prerequisites

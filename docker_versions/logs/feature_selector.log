@@ -960,3 +960,732 @@ A detailed migration guide is available here: https://github.com/openai/openai-p
 2025-03-08 22:47:39,809 [INFO] ✅ Feature selection complete. Selected 19 features
 2025-03-08 22:47:39,811 [INFO] ✅ Feature selection complete. Selected 19 features
 2025-03-08 22:47:39,827 [INFO] 172.18.0.1 - - [08/Mar/2025 22:47:39] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 12:42:29,196 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 12:42:29,197 [INFO] Feature selector initialized with method: llm
+2025-03-09 12:42:29,200 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 12:42:29,201 [INFO]  * Running on http://172.18.0.2:5002/ (Press CTRL+C to quit)
+2025-03-09 12:43:17,196 [INFO] 172.18.0.1 - - [09/Mar/2025 12:43:17] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:43:20,127 [INFO] 172.18.0.1 - - [09/Mar/2025 12:43:20] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:43:20,395 [INFO] 172.18.0.1 - - [09/Mar/2025 12:43:20] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:43:30,759 [INFO] 172.18.0.1 - - [09/Mar/2025 12:43:30] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:43:36,700 [INFO] 📥 Received feature selection request
+2025-03-09 12:43:36,722 [INFO] 🔄 Preprocessing input data
+2025-03-09 12:43:36,747 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 12:43:36,758 [INFO] Target name set to: Air Quality
+2025-03-09 12:43:36,760 [INFO] 🔄 Starting feature selection process
+2025-03-09 12:43:36,761 [INFO] Starting feature selection using method: llm
+2025-03-09 12:43:36,762 [INFO] Input data shape: (4621, 9)
+2025-03-09 12:43:36,764 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 12:43:36,769 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 12:43:36,797 [INFO] Calling OpenAI API...
+2025-03-09 12:43:40,065 [INFO] Received response from OpenAI
+2025-03-09 12:43:40,067 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 12:43:40,068 [INFO] Features to keep: 7
+2025-03-09 12:43:40,069 [INFO] Features to remove: 2
+2025-03-09 12:43:40,070 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 12:43:40,071 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 12:43:40,072 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 12:43:40,085 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 12:43:40,152 [INFO] 172.18.0.1 - - [09/Mar/2025 12:43:40] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 12:45:01,663 [INFO] 172.18.0.1 - - [09/Mar/2025 12:45:01] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:45:11,576 [INFO] 172.18.0.1 - - [09/Mar/2025 12:45:11] "GET /health HTTP/1.1" 200 -
+2025-03-09 12:45:16,989 [INFO] 📥 Received feature selection request
+2025-03-09 12:45:17,048 [INFO] 🔄 Preprocessing input data
+2025-03-09 12:45:17,086 [INFO] 📊 Input data shape: (10000, 11)
+2025-03-09 12:45:17,092 [INFO] Target name set to: Churn
+2025-03-09 12:45:17,095 [INFO] 🔄 Starting feature selection process
+2025-03-09 12:45:17,096 [INFO] Starting feature selection using method: llm
+2025-03-09 12:45:17,097 [INFO] Input data shape: (10000, 11)
+2025-03-09 12:45:17,099 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 12:45:17,102 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 12:45:17,125 [INFO] Calling OpenAI API...
+2025-03-09 12:45:19,365 [INFO] Received response from OpenAI
+2025-03-09 12:45:19,366 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 12:45:19,367 [INFO] Features to keep: 10
+2025-03-09 12:45:19,367 [INFO] Features to remove: 1
+2025-03-09 12:45:19,368 [INFO] 🔍 Removing feature 'customerID': This feature is an identifier with high cardinality (10000 unique values) and does not provide medical relevance or significant correlation with the target variable. It can be removed without impacting the analysis.
+2025-03-09 12:45:19,369 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 12:45:19,372 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 12:45:19,523 [INFO] 172.18.0.1 - - [09/Mar/2025 12:45:19] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 13:13:05,331 [INFO] 172.18.0.1 - - [09/Mar/2025 13:13:05] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:13:08,079 [INFO] 172.18.0.1 - - [09/Mar/2025 13:13:08] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:13:14,559 [INFO] 172.18.0.1 - - [09/Mar/2025 13:13:14] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:13:30,572 [INFO] 172.18.0.1 - - [09/Mar/2025 13:13:30] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:13:35,657 [INFO] 📥 Received feature selection request
+2025-03-09 13:13:35,879 [INFO] 🔄 Preprocessing input data
+2025-03-09 13:13:35,896 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 13:13:35,899 [INFO] Target name set to: Air Quality
+2025-03-09 13:13:35,900 [INFO] 🔄 Starting feature selection process
+2025-03-09 13:13:35,901 [INFO] Starting feature selection using method: llm
+2025-03-09 13:13:35,902 [INFO] Input data shape: (4621, 9)
+2025-03-09 13:13:35,904 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 13:13:35,904 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 13:13:35,923 [INFO] Calling OpenAI API...
+2025-03-09 13:13:39,084 [INFO] Received response from OpenAI
+2025-03-09 13:13:39,084 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 13:13:39,085 [INFO] Features to keep: 7
+2025-03-09 13:13:39,086 [INFO] Features to remove: 2
+2025-03-09 13:13:39,088 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 13:13:39,088 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 13:13:39,089 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 13:13:39,093 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 13:13:39,164 [INFO] 172.18.0.1 - - [09/Mar/2025 13:13:39] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 13:42:38,141 [INFO] 172.18.0.1 - - [09/Mar/2025 13:42:38] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:42:44,166 [INFO] 172.18.0.1 - - [09/Mar/2025 13:42:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 13:51:24,099 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 13:51:24,101 [INFO] Feature selector initialized with method: llm
+2025-03-09 13:51:24,105 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 13:51:24,111 [INFO]  * Running on http://172.18.0.4:5002/ (Press CTRL+C to quit)
+2025-03-09 14:36:13,374 [INFO] 172.18.0.1 - - [09/Mar/2025 14:36:13] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:36:16,079 [INFO] 172.18.0.1 - - [09/Mar/2025 14:36:16] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:36:18,679 [INFO] 172.18.0.1 - - [09/Mar/2025 14:36:18] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:36:31,646 [INFO] 172.18.0.1 - - [09/Mar/2025 14:36:31] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:36:40,939 [INFO] 📥 Received feature selection request
+2025-03-09 14:36:41,007 [INFO] 🔄 Preprocessing input data
+2025-03-09 14:36:41,060 [INFO] 📊 Input data shape: (10000, 11)
+2025-03-09 14:36:41,071 [INFO] Target name set to: Churn
+2025-03-09 14:36:41,072 [INFO] 🔄 Starting feature selection process
+2025-03-09 14:36:41,073 [INFO] Starting feature selection using method: llm
+2025-03-09 14:36:41,074 [INFO] Input data shape: (10000, 11)
+2025-03-09 14:36:41,076 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 14:36:41,076 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 14:36:41,100 [INFO] Calling OpenAI API...
+2025-03-09 14:36:44,847 [INFO] Received response from OpenAI
+2025-03-09 14:36:44,849 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 14:36:44,851 [INFO] Features to keep: 10
+2025-03-09 14:36:44,851 [INFO] Features to remove: 1
+2025-03-09 14:36:44,853 [INFO] 🔍 Removing feature 'customerID': Irrelevant for predicting churn and does not provide medical insight
+2025-03-09 14:36:44,853 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 14:36:44,868 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 14:36:45,016 [INFO] 172.18.0.1 - - [09/Mar/2025 14:36:45] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 14:39:30,812 [INFO] 172.18.0.1 - - [09/Mar/2025 14:39:30] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:40:01,842 [INFO] 172.18.0.1 - - [09/Mar/2025 14:40:01] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:40:09,495 [INFO] 📥 Received feature selection request
+2025-03-09 14:40:09,561 [INFO] 🔄 Preprocessing input data
+2025-03-09 14:40:09,611 [INFO] 📊 Input data shape: (9328, 16)
+2025-03-09 14:40:09,616 [INFO] Target name set to: Outcome
+2025-03-09 14:40:09,617 [INFO] 🔄 Starting feature selection process
+2025-03-09 14:40:09,618 [INFO] Starting feature selection using method: llm
+2025-03-09 14:40:09,619 [INFO] Input data shape: (9328, 16)
+2025-03-09 14:40:09,621 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 14:40:09,622 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 14:40:09,646 [INFO] Calling OpenAI API...
+2025-03-09 14:40:11,588 [INFO] Received response from OpenAI
+2025-03-09 14:40:11,589 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 14:40:11,590 [INFO] Features to keep: 15
+2025-03-09 14:40:11,594 [INFO] Features to remove: 1
+2025-03-09 14:40:11,595 [INFO] 🔍 Removing feature 'Hypertension': This feature has only one unique value and does not provide any discriminatory information for the target variable.
+2025-03-09 14:40:11,596 [INFO] ✅ Feature selection complete. Selected 15 features
+2025-03-09 14:40:11,600 [INFO] ✅ Feature selection complete. Selected 15 features
+2025-03-09 14:40:11,941 [INFO] 172.18.0.1 - - [09/Mar/2025 14:40:11] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 14:41:52,902 [INFO] 172.18.0.1 - - [09/Mar/2025 14:41:52] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:41:59,236 [INFO] 172.18.0.1 - - [09/Mar/2025 14:41:59] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:42:13,410 [INFO] 172.18.0.1 - - [09/Mar/2025 14:42:13] "POST /transform HTTP/1.1" 200 -
+2025-03-09 14:42:14,448 [INFO] 172.18.0.1 - - [09/Mar/2025 14:42:14] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:42:54,900 [INFO] 172.18.0.1 - - [09/Mar/2025 14:42:54] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:43:00,640 [INFO] 172.18.0.1 - - [09/Mar/2025 14:43:00] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:43:16,722 [INFO] 172.18.0.1 - - [09/Mar/2025 14:43:16] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:43:24,691 [INFO] 📥 Received feature selection request
+2025-03-09 14:43:24,722 [INFO] 🔄 Preprocessing input data
+2025-03-09 14:43:24,737 [INFO] 📊 Input data shape: (1363, 34)
+2025-03-09 14:43:24,739 [INFO] Target name set to: Attrition
+2025-03-09 14:43:24,740 [INFO] 🔄 Starting feature selection process
+2025-03-09 14:43:24,741 [INFO] Starting feature selection using method: llm
+2025-03-09 14:43:24,742 [INFO] Input data shape: (1363, 34)
+2025-03-09 14:43:24,744 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 14:43:24,745 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 14:43:24,776 [INFO] Calling OpenAI API...
+2025-03-09 14:43:27,693 [INFO] Received response from OpenAI
+2025-03-09 14:43:27,696 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 14:43:27,697 [INFO] Features to keep: 29
+2025-03-09 14:43:27,698 [INFO] Features to remove: 4
+2025-03-09 14:43:27,700 [INFO] 🔍 Removing feature 'BusinessTravel': Removed based on analysis
+2025-03-09 14:43:27,701 [INFO] 🔍 Removing feature 'EmployeeCount': No variance, all values are the same
+2025-03-09 14:43:27,702 [INFO] 🔍 Removing feature 'EmployeeNumber': Not relevant for predicting attrition
+2025-03-09 14:43:27,703 [INFO] 🔍 Removing feature 'Over18': Constant value, does not provide any predictive power
+2025-03-09 14:43:27,704 [INFO] 🔍 Removing feature 'StandardHours': Constant value, does not provide any predictive power
+2025-03-09 14:43:27,705 [INFO] ✅ Feature selection complete. Selected 29 features
+2025-03-09 14:43:27,708 [INFO] ✅ Feature selection complete. Selected 29 features
+2025-03-09 14:43:27,765 [INFO] 172.18.0.1 - - [09/Mar/2025 14:43:27] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 14:52:35,930 [INFO] 172.18.0.1 - - [09/Mar/2025 14:52:35] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:53:06,282 [INFO] 172.18.0.1 - - [09/Mar/2025 14:53:06] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:53:55,933 [INFO] 172.18.0.1 - - [09/Mar/2025 14:53:55] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:54:48,041 [INFO] 172.18.0.1 - - [09/Mar/2025 14:54:48] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:56:27,875 [INFO] 172.18.0.1 - - [09/Mar/2025 14:56:27] "GET /health HTTP/1.1" 200 -
+2025-03-09 14:57:32,407 [INFO] 172.18.0.1 - - [09/Mar/2025 14:57:32] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:01:36,984 [INFO] 172.18.0.1 - - [09/Mar/2025 15:01:36] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:01:53,725 [INFO] 172.18.0.1 - - [09/Mar/2025 15:01:53] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:19:19,832 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 15:19:19,836 [INFO] Feature selector initialized with method: llm
+2025-03-09 15:19:19,846 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 15:19:19,847 [INFO]  * Running on http://172.18.0.6:5002/ (Press CTRL+C to quit)
+2025-03-09 15:20:01,541 [INFO] 172.18.0.1 - - [09/Mar/2025 15:20:01] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:20:03,092 [INFO] 172.18.0.1 - - [09/Mar/2025 15:20:03] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:20:09,448 [INFO] 172.18.0.1 - - [09/Mar/2025 15:20:09] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:20:26,842 [INFO] 172.18.0.1 - - [09/Mar/2025 15:20:26] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:23:39,670 [INFO] 172.18.0.1 - - [09/Mar/2025 15:23:39] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:23:46,031 [INFO] 172.18.0.1 - - [09/Mar/2025 15:23:46] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:23:53,071 [INFO] 172.18.0.1 - - [09/Mar/2025 15:23:53] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:24:00,596 [INFO] 172.18.0.1 - - [09/Mar/2025 15:24:00] "GET /health HTTP/1.1" 200 -
+2025-03-09 15:24:04,230 [INFO] 📥 Received feature selection request
+2025-03-09 15:24:04,265 [INFO] 🔄 Preprocessing input data
+2025-03-09 15:24:04,275 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 15:24:04,277 [INFO] Target name set to: Air Quality
+2025-03-09 15:24:04,277 [INFO] 🔄 Starting feature selection process
+2025-03-09 15:24:04,278 [INFO] Starting feature selection using method: llm
+2025-03-09 15:24:04,278 [INFO] Input data shape: (4621, 9)
+2025-03-09 15:24:04,279 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 15:24:04,279 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 15:24:04,288 [INFO] Calling OpenAI API...
+2025-03-09 15:24:06,137 [INFO] Received response from OpenAI
+2025-03-09 15:24:06,138 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 15:24:06,138 [INFO] Features to keep: 7
+2025-03-09 15:24:06,138 [INFO] Features to remove: 2
+2025-03-09 15:24:06,139 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 15:24:06,139 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 15:24:06,139 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 15:24:06,144 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 15:24:06,183 [INFO] 172.18.0.1 - - [09/Mar/2025 15:24:06] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 15:40:18,628 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 15:40:18,630 [INFO] Feature selector initialized with method: llm
+2025-03-09 15:40:18,635 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 15:40:18,635 [INFO]  * Running on http://172.18.0.3:5002/ (Press CTRL+C to quit)
+2025-03-09 16:04:01,586 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 16:04:01,587 [INFO] Feature selector initialized with method: llm
+2025-03-09 16:04:01,593 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 16:04:01,594 [INFO]  * Running on http://172.18.0.6:5002/ (Press CTRL+C to quit)
+2025-03-09 16:04:20,647 [INFO] 172.18.0.1 - - [09/Mar/2025 16:04:20] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:04:22,316 [INFO] 172.18.0.1 - - [09/Mar/2025 16:04:22] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:04:23,102 [INFO] 172.18.0.1 - - [09/Mar/2025 16:04:23] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:04:31,003 [INFO] 172.18.0.1 - - [09/Mar/2025 16:04:31] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:04:35,297 [INFO] 📥 Received feature selection request
+2025-03-09 16:04:35,310 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:04:35,320 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:04:35,323 [INFO] Target name set to: Air Quality
+2025-03-09 16:04:35,324 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:04:35,324 [INFO] Starting feature selection using method: llm
+2025-03-09 16:04:35,324 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:04:35,325 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:04:35,325 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:04:35,339 [INFO] Calling OpenAI API...
+2025-03-09 16:04:37,119 [INFO] Received response from OpenAI
+2025-03-09 16:04:37,120 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:04:37,120 [INFO] Features to keep: 7
+2025-03-09 16:04:37,120 [INFO] Features to remove: 2
+2025-03-09 16:04:37,121 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:04:37,121 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:04:37,121 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:04:37,128 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:04:37,182 [INFO] 172.18.0.1 - - [09/Mar/2025 16:04:37] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:07:40,594 [INFO] 172.18.0.1 - - [09/Mar/2025 16:07:40] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:07:45,541 [INFO] 📥 Received feature selection request
+2025-03-09 16:07:45,590 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:07:45,717 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:07:45,734 [INFO] Target name set to: Air Quality
+2025-03-09 16:07:45,735 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:07:45,736 [INFO] Starting feature selection using method: llm
+2025-03-09 16:07:45,736 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:07:45,754 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:07:45,755 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:07:45,922 [INFO] Calling OpenAI API...
+2025-03-09 16:07:47,931 [INFO] Received response from OpenAI
+2025-03-09 16:07:47,940 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:07:47,954 [INFO] Features to keep: 7
+2025-03-09 16:07:47,964 [INFO] Features to remove: 2
+2025-03-09 16:07:47,975 [INFO] 🔍 Removing feature 'Humidity': Low correlation with the target variable and may not have direct medical relevance in air quality prediction.
+2025-03-09 16:07:47,982 [INFO] 🔍 Removing feature 'PM2.5': Although important, PM2.5 shows lower correlation with the target compared to other features and may have redundancy with PM10.
+2025-03-09 16:07:47,993 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:07:48,030 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:07:48,088 [INFO] 172.18.0.1 - - [09/Mar/2025 16:07:48] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:11:41,814 [INFO] 172.18.0.1 - - [09/Mar/2025 16:11:41] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:11:52,861 [INFO] 172.18.0.1 - - [09/Mar/2025 16:11:52] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:12:02,802 [INFO] 172.18.0.1 - - [09/Mar/2025 16:12:02] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:12:12,059 [INFO] 172.18.0.1 - - [09/Mar/2025 16:12:12] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:12:17,051 [INFO] 📥 Received feature selection request
+2025-03-09 16:12:17,086 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:12:17,113 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:12:17,118 [INFO] Target name set to: Air Quality
+2025-03-09 16:12:17,119 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:12:17,119 [INFO] Starting feature selection using method: llm
+2025-03-09 16:12:17,119 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:12:17,121 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:12:17,121 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:12:17,139 [INFO] Calling OpenAI API...
+2025-03-09 16:12:19,395 [INFO] Received response from OpenAI
+2025-03-09 16:12:19,396 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:12:19,397 [INFO] Features to keep: 7
+2025-03-09 16:12:19,397 [INFO] Features to remove: 2
+2025-03-09 16:12:19,398 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:12:19,398 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:12:19,399 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:12:19,409 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:12:19,479 [INFO] 172.18.0.1 - - [09/Mar/2025 16:12:19] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:14:25,724 [INFO] 172.18.0.1 - - [09/Mar/2025 16:14:25] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:15:04,692 [INFO] 172.18.0.1 - - [09/Mar/2025 16:15:04] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:15:35,263 [INFO] 172.18.0.1 - - [09/Mar/2025 16:15:35] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:15:44,825 [INFO] 172.18.0.1 - - [09/Mar/2025 16:15:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:16:36,725 [INFO] 172.18.0.1 - - [09/Mar/2025 16:16:36] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:16:55,319 [INFO] 172.18.0.1 - - [09/Mar/2025 16:16:55] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:17:08,198 [INFO] 172.18.0.1 - - [09/Mar/2025 16:17:08] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:17:11,559 [INFO] 📥 Received feature selection request
+2025-03-09 16:17:11,590 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:17:11,607 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:17:11,610 [INFO] Target name set to: Air Quality
+2025-03-09 16:17:11,613 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:17:11,614 [INFO] Starting feature selection using method: llm
+2025-03-09 16:17:11,615 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:17:11,617 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:17:11,617 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:17:11,625 [INFO] Calling OpenAI API...
+2025-03-09 16:17:13,177 [INFO] Received response from OpenAI
+2025-03-09 16:17:13,186 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:17:13,191 [INFO] Features to keep: 7
+2025-03-09 16:17:13,200 [INFO] Features to remove: 2
+2025-03-09 16:17:13,208 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:17:13,216 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable and potential redundancy with PM10
+2025-03-09 16:17:13,223 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:17:13,232 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:17:14,824 [INFO] 172.18.0.1 - - [09/Mar/2025 16:17:14] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:19:12,771 [INFO] 172.18.0.1 - - [09/Mar/2025 16:19:12] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:20:46,822 [INFO] 172.18.0.1 - - [09/Mar/2025 16:20:46] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:20:49,823 [INFO] 172.18.0.1 - - [09/Mar/2025 16:20:49] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:20:57,962 [INFO] 172.18.0.1 - - [09/Mar/2025 16:20:57] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:21:02,805 [INFO] 📥 Received feature selection request
+2025-03-09 16:21:02,838 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:21:02,846 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:21:02,847 [INFO] Target name set to: Air Quality
+2025-03-09 16:21:02,847 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:21:02,848 [INFO] Starting feature selection using method: llm
+2025-03-09 16:21:02,848 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:21:02,848 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:21:02,849 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:21:02,856 [INFO] Calling OpenAI API...
+2025-03-09 16:21:05,004 [INFO] Received response from OpenAI
+2025-03-09 16:21:05,005 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:21:05,006 [INFO] Features to keep: 7
+2025-03-09 16:21:05,007 [INFO] Features to remove: 2
+2025-03-09 16:21:05,008 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:21:05,008 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:21:05,009 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:21:05,011 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:21:05,043 [INFO] 172.18.0.1 - - [09/Mar/2025 16:21:05] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:22:57,610 [INFO] 172.18.0.1 - - [09/Mar/2025 16:22:57] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:23:02,882 [INFO] 172.18.0.1 - - [09/Mar/2025 16:23:02] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:07,541 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:07] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:23,561 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:23] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:28,931 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:28] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:29,536 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:29] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:36,798 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:36] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:24:46,635 [INFO] 📥 Received feature selection request
+2025-03-09 16:24:46,645 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:24:46,654 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:24:46,655 [INFO] Target name set to: Air Quality
+2025-03-09 16:24:46,656 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:24:46,656 [INFO] Starting feature selection using method: llm
+2025-03-09 16:24:46,656 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:24:46,657 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:24:46,658 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:24:46,666 [INFO] Calling OpenAI API...
+2025-03-09 16:24:48,990 [INFO] Received response from OpenAI
+2025-03-09 16:24:48,991 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:24:48,992 [INFO] Features to keep: 7
+2025-03-09 16:24:48,993 [INFO] Features to remove: 2
+2025-03-09 16:24:48,994 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:24:48,994 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:24:48,995 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:24:48,998 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:24:49,045 [INFO] 172.18.0.1 - - [09/Mar/2025 16:24:49] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:29:51,194 [INFO] 172.18.0.1 - - [09/Mar/2025 16:29:51] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:29:52,900 [INFO] 172.18.0.1 - - [09/Mar/2025 16:29:52] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:30:33,611 [INFO] 172.18.0.1 - - [09/Mar/2025 16:30:33] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:32:08,206 [INFO] 172.18.0.1 - - [09/Mar/2025 16:32:08] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:32:08,438 [INFO] 172.18.0.1 - - [09/Mar/2025 16:32:08] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:32:50,276 [INFO] 172.18.0.1 - - [09/Mar/2025 16:32:50] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:33:24,553 [INFO] 172.18.0.1 - - [09/Mar/2025 16:33:24] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:33:25,556 [INFO] 172.18.0.1 - - [09/Mar/2025 16:33:25] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:35:07,381 [INFO] 172.18.0.1 - - [09/Mar/2025 16:35:07] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:35:30,996 [INFO] 172.18.0.1 - - [09/Mar/2025 16:35:30] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:35:44,003 [INFO] 172.18.0.1 - - [09/Mar/2025 16:35:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:35:53,614 [INFO] 172.18.0.1 - - [09/Mar/2025 16:35:53] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:36:04,093 [INFO] 172.18.0.1 - - [09/Mar/2025 16:36:04] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:36:40,454 [INFO] 172.18.0.1 - - [09/Mar/2025 16:36:40] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:36:48,526 [INFO] 172.18.0.1 - - [09/Mar/2025 16:36:48] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:36:56,766 [INFO] 172.18.0.1 - - [09/Mar/2025 16:36:56] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:37:00,152 [INFO] 📥 Received feature selection request
+2025-03-09 16:37:00,161 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:37:00,183 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:37:00,188 [INFO] Target name set to: Air Quality
+2025-03-09 16:37:00,188 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:37:00,189 [INFO] Starting feature selection using method: llm
+2025-03-09 16:37:00,189 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:37:00,190 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:37:00,190 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:37:00,204 [INFO] Calling OpenAI API...
+2025-03-09 16:37:01,876 [INFO] Received response from OpenAI
+2025-03-09 16:37:01,878 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:37:01,879 [INFO] Features to keep: 7
+2025-03-09 16:37:01,880 [INFO] Features to remove: 2
+2025-03-09 16:37:01,881 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:37:01,881 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:37:01,882 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:37:01,890 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:37:01,934 [INFO] 172.18.0.1 - - [09/Mar/2025 16:37:01] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:42:31,281 [INFO] 172.18.0.1 - - [09/Mar/2025 16:42:31] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:42:39,465 [INFO] 172.18.0.1 - - [09/Mar/2025 16:42:39] "GET /health HTTP/1.1" 200 -
+2025-03-09 16:42:44,345 [INFO] 📥 Received feature selection request
+2025-03-09 16:42:44,417 [INFO] 🔄 Preprocessing input data
+2025-03-09 16:42:44,444 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 16:42:44,449 [INFO] Target name set to: Air Quality
+2025-03-09 16:42:44,449 [INFO] 🔄 Starting feature selection process
+2025-03-09 16:42:44,449 [INFO] Starting feature selection using method: llm
+2025-03-09 16:42:44,450 [INFO] Input data shape: (4621, 9)
+2025-03-09 16:42:44,452 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 16:42:44,452 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 16:42:44,466 [INFO] Calling OpenAI API...
+2025-03-09 16:42:46,331 [INFO] Received response from OpenAI
+2025-03-09 16:42:46,332 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 16:42:46,332 [INFO] Features to keep: 7
+2025-03-09 16:42:46,333 [INFO] Features to remove: 2
+2025-03-09 16:42:46,334 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 16:42:46,334 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 16:42:46,334 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:42:46,337 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 16:42:46,371 [INFO] 172.18.0.1 - - [09/Mar/2025 16:42:46] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 16:44:00,808 [INFO] 172.18.0.1 - - [09/Mar/2025 16:44:00] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:00:24,612 [INFO] 172.18.0.1 - - [09/Mar/2025 18:00:24] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:00:27,717 [INFO] 172.18.0.1 - - [09/Mar/2025 18:00:27] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:00:28,012 [INFO] 172.18.0.1 - - [09/Mar/2025 18:00:28] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:00:40,193 [INFO] 172.18.0.1 - - [09/Mar/2025 18:00:40] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:00:44,616 [INFO] 📥 Received feature selection request
+2025-03-09 18:00:44,691 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:00:44,732 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:00:44,737 [INFO] Target name set to: Air Quality
+2025-03-09 18:00:44,738 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:00:44,739 [INFO] Starting feature selection using method: llm
+2025-03-09 18:00:44,740 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:00:44,745 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:00:44,746 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:00:44,769 [INFO] Calling OpenAI API...
+2025-03-09 18:00:46,877 [INFO] Received response from OpenAI
+2025-03-09 18:00:46,878 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:00:46,879 [INFO] Features to keep: 7
+2025-03-09 18:00:46,879 [INFO] Features to remove: 2
+2025-03-09 18:00:46,882 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:00:46,883 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:00:46,884 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:00:46,890 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:00:46,976 [INFO] 172.18.0.1 - - [09/Mar/2025 18:00:46] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:02:10,041 [INFO] 172.18.0.1 - - [09/Mar/2025 18:02:10] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:04:16,942 [INFO] 172.18.0.1 - - [09/Mar/2025 18:04:16] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:04:59,123 [INFO] 172.18.0.1 - - [09/Mar/2025 18:04:59] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:05:13,331 [INFO] 172.18.0.1 - - [09/Mar/2025 18:05:13] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:05:22,877 [INFO] 172.18.0.1 - - [09/Mar/2025 18:05:22] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:05:33,845 [INFO] 172.18.0.1 - - [09/Mar/2025 18:05:33] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:05:42,462 [INFO] 📥 Received feature selection request
+2025-03-09 18:05:42,511 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:05:42,540 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:05:42,546 [INFO] Target name set to: Air Quality
+2025-03-09 18:05:42,547 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:05:42,548 [INFO] Starting feature selection using method: llm
+2025-03-09 18:05:42,549 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:05:42,553 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:05:42,554 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:05:42,573 [INFO] Calling OpenAI API...
+2025-03-09 18:05:44,050 [INFO] Received response from OpenAI
+2025-03-09 18:05:44,052 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:05:44,053 [INFO] Features to keep: 7
+2025-03-09 18:05:44,054 [INFO] Features to remove: 2
+2025-03-09 18:05:44,056 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:05:44,057 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:05:44,058 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:05:44,065 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:05:44,133 [INFO] 172.18.0.1 - - [09/Mar/2025 18:05:44] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:08:44,041 [INFO] 172.18.0.1 - - [09/Mar/2025 18:08:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:10:41,034 [INFO] 172.18.0.1 - - [09/Mar/2025 18:10:41] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:10:57,914 [INFO] 172.18.0.1 - - [09/Mar/2025 18:10:57] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:12:00,921 [INFO] 172.18.0.1 - - [09/Mar/2025 18:12:00] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:12:09,564 [INFO] 172.18.0.1 - - [09/Mar/2025 18:12:09] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:12:19,332 [INFO] 172.18.0.1 - - [09/Mar/2025 18:12:19] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:12:23,572 [INFO] 📥 Received feature selection request
+2025-03-09 18:12:23,599 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:12:23,637 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:12:23,646 [INFO] Target name set to: Air Quality
+2025-03-09 18:12:23,647 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:12:23,650 [INFO] Starting feature selection using method: llm
+2025-03-09 18:12:23,651 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:12:23,653 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:12:23,654 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:12:23,694 [INFO] Calling OpenAI API...
+2025-03-09 18:12:25,555 [INFO] Received response from OpenAI
+2025-03-09 18:12:25,556 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:12:25,557 [INFO] Features to keep: 7
+2025-03-09 18:12:25,558 [INFO] Features to remove: 2
+2025-03-09 18:12:25,559 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:12:25,560 [INFO] 🔍 Removing feature 'PM2.5': Relatively lower correlation with the target variable and potential redundancy with PM10
+2025-03-09 18:12:25,561 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:12:25,581 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:12:25,654 [INFO] 172.18.0.1 - - [09/Mar/2025 18:12:25] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:20:49,437 [INFO] 172.18.0.1 - - [09/Mar/2025 18:20:49] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:20:52,250 [INFO] 172.18.0.1 - - [09/Mar/2025 18:20:52] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:20:52,533 [INFO] 172.18.0.1 - - [09/Mar/2025 18:20:52] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:21:02,061 [INFO] 172.18.0.1 - - [09/Mar/2025 18:21:02] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:21:06,459 [INFO] 📥 Received feature selection request
+2025-03-09 18:21:06,529 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:21:06,569 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:21:06,576 [INFO] Target name set to: Air Quality
+2025-03-09 18:21:06,577 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:21:06,578 [INFO] Starting feature selection using method: llm
+2025-03-09 18:21:06,579 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:21:06,584 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:21:06,585 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:21:06,615 [INFO] Calling OpenAI API...
+2025-03-09 18:21:08,596 [INFO] Received response from OpenAI
+2025-03-09 18:21:08,597 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:21:08,598 [INFO] Features to keep: 7
+2025-03-09 18:21:08,601 [INFO] Features to remove: 2
+2025-03-09 18:21:08,602 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:21:08,603 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:21:08,604 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:21:08,612 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:21:08,689 [INFO] 172.18.0.1 - - [09/Mar/2025 18:21:08] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:24:04,205 [INFO] 172.18.0.1 - - [09/Mar/2025 18:24:04] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:24:10,211 [INFO] 172.18.0.1 - - [09/Mar/2025 18:24:10] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:24:19,282 [INFO] 172.18.0.1 - - [09/Mar/2025 18:24:19] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:24:23,407 [INFO] 📥 Received feature selection request
+2025-03-09 18:24:23,442 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:24:23,461 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:24:23,465 [INFO] Target name set to: Air Quality
+2025-03-09 18:24:23,466 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:24:23,466 [INFO] Starting feature selection using method: llm
+2025-03-09 18:24:23,467 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:24:23,469 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:24:23,470 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:24:23,484 [INFO] Calling OpenAI API...
+2025-03-09 18:24:25,226 [INFO] Received response from OpenAI
+2025-03-09 18:24:25,227 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:24:25,228 [INFO] Features to keep: 7
+2025-03-09 18:24:25,229 [INFO] Features to remove: 2
+2025-03-09 18:24:25,231 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:24:25,232 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:24:25,233 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:24:25,237 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:24:25,302 [INFO] 172.18.0.1 - - [09/Mar/2025 18:24:25] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:28:44,578 [INFO] 172.18.0.1 - - [09/Mar/2025 18:28:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:29:42,570 [INFO] 172.18.0.1 - - [09/Mar/2025 18:29:42] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:29:47,264 [INFO] 172.18.0.1 - - [09/Mar/2025 18:29:47] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:29:55,832 [INFO] 172.18.0.1 - - [09/Mar/2025 18:29:55] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:29:59,941 [INFO] 📥 Received feature selection request
+2025-03-09 18:30:00,012 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:30:00,060 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:30:00,073 [INFO] Target name set to: Air Quality
+2025-03-09 18:30:00,075 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:30:00,076 [INFO] Starting feature selection using method: llm
+2025-03-09 18:30:00,076 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:30:00,078 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:30:00,080 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:30:00,149 [INFO] Calling OpenAI API...
+2025-03-09 18:30:01,618 [INFO] Received response from OpenAI
+2025-03-09 18:30:01,619 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:30:01,620 [INFO] Features to keep: 7
+2025-03-09 18:30:01,620 [INFO] Features to remove: 2
+2025-03-09 18:30:01,626 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:30:01,627 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:30:01,628 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:30:01,647 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:30:01,710 [INFO] 172.18.0.1 - - [09/Mar/2025 18:30:01] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:37:29,797 [INFO] 172.18.0.1 - - [09/Mar/2025 18:37:29] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:37:37,827 [INFO] 172.18.0.1 - - [09/Mar/2025 18:37:37] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:37:42,687 [INFO] 📥 Received feature selection request
+2025-03-09 18:37:42,831 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:37:42,919 [INFO] 📊 Input data shape: (10000, 11)
+2025-03-09 18:37:42,932 [INFO] Target name set to: Churn
+2025-03-09 18:37:42,933 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:37:42,934 [INFO] Starting feature selection using method: llm
+2025-03-09 18:37:42,935 [INFO] Input data shape: (10000, 11)
+2025-03-09 18:37:42,939 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:37:42,940 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:37:42,993 [INFO] Calling OpenAI API...
+2025-03-09 18:37:44,880 [INFO] Received response from OpenAI
+2025-03-09 18:37:44,882 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:37:44,883 [INFO] Features to keep: 10
+2025-03-09 18:37:44,884 [INFO] Features to remove: 1
+2025-03-09 18:37:44,884 [INFO] 🔍 Removing feature 'customerID': This feature is an identifier with 10000 unique values and does not provide medical relevance or statistical significance for predicting churn.
+2025-03-09 18:37:44,885 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 18:37:44,911 [INFO] ✅ Feature selection complete. Selected 10 features
+2025-03-09 18:37:45,105 [INFO] 172.18.0.1 - - [09/Mar/2025 18:37:45] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:39:43,540 [INFO] 172.18.0.1 - - [09/Mar/2025 18:39:43] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:39:58,468 [INFO] 172.18.0.1 - - [09/Mar/2025 18:39:58] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:10,793 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:10] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:13,586 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:13] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:32,363 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:32] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:34,976 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:34] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:35,233 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:35] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:41:35,262 [INFO] 172.18.0.1 - - [09/Mar/2025 18:41:35] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:42:57,490 [INFO] 172.18.0.1 - - [09/Mar/2025 18:42:57] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:43:02,552 [INFO] 📥 Received feature selection request
+2025-03-09 18:43:02,606 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:43:02,668 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:43:02,678 [INFO] Target name set to: Air Quality
+2025-03-09 18:43:02,678 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:43:02,679 [INFO] Starting feature selection using method: llm
+2025-03-09 18:43:02,680 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:43:02,686 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:43:02,704 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:43:02,751 [INFO] Calling OpenAI API...
+2025-03-09 18:43:05,567 [INFO] Received response from OpenAI
+2025-03-09 18:43:05,569 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:43:05,570 [INFO] Features to keep: 7
+2025-03-09 18:43:05,570 [INFO] Features to remove: 2
+2025-03-09 18:43:05,571 [INFO] 🔍 Removing feature 'Humidity': Low correlation with the target variable and may not have direct medical relevance in air quality prediction.
+2025-03-09 18:43:05,572 [INFO] 🔍 Removing feature 'PM2.5': Although important, PM2.5 shows lower correlation with the target compared to other features and may have redundancy with PM10.
+2025-03-09 18:43:05,573 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:43:05,590 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:43:05,693 [INFO] 172.18.0.1 - - [09/Mar/2025 18:43:05] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:47:36,955 [INFO] 172.18.0.1 - - [09/Mar/2025 18:47:36] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:47:44,762 [INFO] 172.18.0.1 - - [09/Mar/2025 18:47:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:47:50,417 [INFO] 📥 Received feature selection request
+2025-03-09 18:47:50,433 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:47:50,447 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:47:50,449 [INFO] Target name set to: Air Quality
+2025-03-09 18:47:50,450 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:47:50,451 [INFO] Starting feature selection using method: llm
+2025-03-09 18:47:50,451 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:47:50,452 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:47:50,454 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:47:50,467 [INFO] Calling OpenAI API...
+2025-03-09 18:47:52,423 [INFO] Received response from OpenAI
+2025-03-09 18:47:52,425 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:47:52,426 [INFO] Features to keep: 7
+2025-03-09 18:47:52,427 [INFO] Features to remove: 2
+2025-03-09 18:47:52,428 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 18:47:52,429 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 18:47:52,430 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:47:52,434 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:47:52,511 [INFO] 172.18.0.1 - - [09/Mar/2025 18:47:52] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 18:49:19,773 [INFO] 172.18.0.1 - - [09/Mar/2025 18:49:19] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:49:32,002 [INFO] 172.18.0.1 - - [09/Mar/2025 18:49:32] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:49:41,756 [INFO] 172.18.0.1 - - [09/Mar/2025 18:49:41] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:50:14,986 [INFO] 172.18.0.1 - - [09/Mar/2025 18:50:14] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:50:40,553 [INFO] 172.18.0.1 - - [09/Mar/2025 18:50:40] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:51:26,159 [INFO] 172.18.0.1 - - [09/Mar/2025 18:51:26] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:52:21,530 [INFO] 172.18.0.1 - - [09/Mar/2025 18:52:21] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:52:24,241 [INFO] 172.18.0.1 - - [09/Mar/2025 18:52:24] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:52:24,486 [INFO] 172.18.0.1 - - [09/Mar/2025 18:52:24] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:52:33,763 [INFO] 172.18.0.1 - - [09/Mar/2025 18:52:33] "GET /health HTTP/1.1" 200 -
+2025-03-09 18:52:39,667 [INFO] 📥 Received feature selection request
+2025-03-09 18:52:39,700 [INFO] 🔄 Preprocessing input data
+2025-03-09 18:52:39,719 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 18:52:39,724 [INFO] Target name set to: Air Quality
+2025-03-09 18:52:39,725 [INFO] 🔄 Starting feature selection process
+2025-03-09 18:52:39,726 [INFO] Starting feature selection using method: llm
+2025-03-09 18:52:39,726 [INFO] Input data shape: (4621, 9)
+2025-03-09 18:52:39,729 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 18:52:39,730 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 18:52:39,747 [INFO] Calling OpenAI API...
+2025-03-09 18:52:41,707 [INFO] Received response from OpenAI
+2025-03-09 18:52:41,708 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 18:52:41,709 [INFO] Features to keep: 7
+2025-03-09 18:52:41,710 [INFO] Features to remove: 2
+2025-03-09 18:52:41,711 [INFO] 🔍 Removing feature 'Humidity': Low correlation with the target variable and may not have direct medical relevance in air quality prediction.
+2025-03-09 18:52:41,711 [INFO] 🔍 Removing feature 'PM2.5': Although important, PM2.5 shows lower correlation with the target compared to other features and may have redundancy with PM10.
+2025-03-09 18:52:41,712 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:52:41,716 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 18:52:41,790 [INFO] 172.18.0.1 - - [09/Mar/2025 18:52:41] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 19:02:34,252 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 19:02:34,252 [INFO] Feature selector initialized with method: llm
+2025-03-09 19:02:34,255 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 19:02:34,256 [INFO]  * Running on http://172.18.0.9:5002/ (Press CTRL+C to quit)
+2025-03-09 19:06:43,390 [INFO] 172.18.0.1 - - [09/Mar/2025 19:06:43] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:06:46,146 [INFO] 172.18.0.1 - - [09/Mar/2025 19:06:46] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:06:50,859 [INFO] 172.18.0.1 - - [09/Mar/2025 19:06:50] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:06:58,933 [INFO] 172.18.0.1 - - [09/Mar/2025 19:06:58] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:07:03,147 [INFO] 📥 Received feature selection request
+2025-03-09 19:07:03,168 [INFO] 🔄 Preprocessing input data
+2025-03-09 19:07:03,183 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 19:07:03,186 [INFO] Target name set to: Air Quality
+2025-03-09 19:07:03,187 [INFO] 🔄 Starting feature selection process
+2025-03-09 19:07:03,188 [INFO] Starting feature selection using method: llm
+2025-03-09 19:07:03,189 [INFO] Input data shape: (4621, 9)
+2025-03-09 19:07:03,191 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 19:07:03,191 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 19:07:03,204 [INFO] Calling OpenAI API...
+2025-03-09 19:07:04,874 [INFO] Received response from OpenAI
+2025-03-09 19:07:04,875 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 19:07:04,876 [INFO] Features to keep: 7
+2025-03-09 19:07:04,877 [INFO] Features to remove: 2
+2025-03-09 19:07:04,877 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 19:07:04,878 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 19:07:04,879 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 19:07:04,890 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 19:07:04,966 [INFO] 172.18.0.1 - - [09/Mar/2025 19:07:04] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 19:08:44,296 [INFO] 172.18.0.1 - - [09/Mar/2025 19:08:44] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:08:55,911 [INFO] 172.18.0.1 - - [09/Mar/2025 19:08:55] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:09:00,880 [INFO] 📥 Received feature selection request
+2025-03-09 19:09:00,928 [INFO] 🔄 Preprocessing input data
+2025-03-09 19:09:01,149 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 19:09:01,191 [INFO] Target name set to: Air Quality
+2025-03-09 19:09:01,193 [INFO] 🔄 Starting feature selection process
+2025-03-09 19:09:01,194 [INFO] Starting feature selection using method: llm
+2025-03-09 19:09:01,195 [INFO] Input data shape: (4621, 9)
+2025-03-09 19:09:01,236 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 19:09:01,240 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 19:09:01,487 [INFO] Calling OpenAI API...
+2025-03-09 19:09:03,140 [INFO] Received response from OpenAI
+2025-03-09 19:09:03,141 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 19:09:03,142 [INFO] Features to keep: 7
+2025-03-09 19:09:03,143 [INFO] Features to remove: 2
+2025-03-09 19:09:03,145 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 19:09:03,146 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 19:09:03,146 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 19:09:03,182 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 19:09:03,254 [INFO] 172.18.0.1 - - [09/Mar/2025 19:09:03] "POST /select_features HTTP/1.1" 200 -
+2025-03-09 19:11:40,225 [INFO] 172.18.0.1 - - [09/Mar/2025 19:11:40] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:12:54,712 [INFO] 172.18.0.1 - - [09/Mar/2025 19:12:54] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:13:14,969 [INFO] 172.18.0.1 - - [09/Mar/2025 19:13:14] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:14:26,663 [INFO] 172.18.0.1 - - [09/Mar/2025 19:14:26] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:14:43,161 [INFO] 172.18.0.1 - - [09/Mar/2025 19:14:43] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:15:19,322 [INFO] 172.18.0.1 - - [09/Mar/2025 19:15:19] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:15:31,633 [INFO] 172.18.0.1 - - [09/Mar/2025 19:15:31] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:15:53,002 [INFO] 172.18.0.1 - - [09/Mar/2025 19:15:53] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:34:59,447 [INFO] 🟢 OpenAI client initialized successfully - LLM feature selection enabled
+2025-03-09 19:34:59,448 [INFO] Feature selector initialized with method: llm
+2025-03-09 19:34:59,453 [WARNING]  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-09 19:34:59,454 [INFO]  * Running on http://172.18.0.10:5002/ (Press CTRL+C to quit)
+2025-03-09 19:37:07,034 [INFO] 172.18.0.1 - - [09/Mar/2025 19:37:07] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:37:13,930 [INFO] 172.18.0.1 - - [09/Mar/2025 19:37:13] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:37:18,198 [INFO] 172.18.0.1 - - [09/Mar/2025 19:37:18] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:37:21,271 [INFO] 172.18.0.1 - - [09/Mar/2025 19:37:21] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:37:55,687 [INFO] 172.18.0.1 - - [09/Mar/2025 19:37:55] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:38:26,206 [INFO] 172.18.0.1 - - [09/Mar/2025 19:38:26] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:38:56,203 [INFO] 172.18.0.1 - - [09/Mar/2025 19:38:56] "GET /health HTTP/1.1" 200 -
+2025-03-09 19:39:26,212 [INFO] 172.18.0.1 - - [09/Mar/2025 19:39:26] "GET /health HTTP/1.1" 200 -
+2025-03-09 20:02:58,743 [INFO] 172.18.0.1 - - [09/Mar/2025 20:02:58] "GET /health HTTP/1.1" 200 -
+2025-03-09 20:03:01,361 [INFO] 172.18.0.1 - - [09/Mar/2025 20:03:01] "GET /health HTTP/1.1" 200 -
+2025-03-09 20:03:25,293 [INFO] 172.18.0.1 - - [09/Mar/2025 20:03:25] "GET /health HTTP/1.1" 200 -
+2025-03-09 20:03:33,773 [INFO] 172.18.0.1 - - [09/Mar/2025 20:03:33] "GET /health HTTP/1.1" 200 -
+2025-03-09 20:03:39,705 [INFO] 📥 Received feature selection request
+2025-03-09 20:03:39,758 [INFO] 🔄 Preprocessing input data
+2025-03-09 20:03:39,807 [INFO] 📊 Input data shape: (4621, 9)
+2025-03-09 20:03:39,819 [INFO] Target name set to: Air Quality
+2025-03-09 20:03:39,820 [INFO] 🔄 Starting feature selection process
+2025-03-09 20:03:39,821 [INFO] Starting feature selection using method: llm
+2025-03-09 20:03:39,822 [INFO] Input data shape: (4621, 9)
+2025-03-09 20:03:39,828 [INFO] 🤖 Using LLM-based feature selection
+2025-03-09 20:03:39,829 [INFO] 🤖 Attempting to get feature recommendations from LLM
+2025-03-09 20:03:39,877 [INFO] Calling OpenAI API...
+2025-03-09 20:03:42,177 [INFO] Received response from OpenAI
+2025-03-09 20:03:42,179 [INFO] 🟢 Successfully parsed LLM recommendations
+2025-03-09 20:03:42,179 [INFO] Features to keep: 7
+2025-03-09 20:03:42,180 [INFO] Features to remove: 2
+2025-03-09 20:03:42,182 [INFO] 🔍 Removing feature 'Humidity': Lower correlation with the target variable compared to other features
+2025-03-09 20:03:42,183 [INFO] 🔍 Removing feature 'PM2.5': Lower correlation with the target variable compared to other features
+2025-03-09 20:03:42,183 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 20:03:42,202 [INFO] ✅ Feature selection complete. Selected 7 features
+2025-03-09 20:03:42,267 [INFO] 172.18.0.1 - - [09/Mar/2025 20:03:42] "POST /select_features HTTP/1.1" 200 -

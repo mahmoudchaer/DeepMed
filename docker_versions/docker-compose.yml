@@ -1,4 +1,7 @@
+version: '3'
+
 services:
+  # Data Cleaner service
   data-cleaner:
     build:
       context: .
@@ -12,8 +15,8 @@ services:
       - ./logs:/app/logs
     networks:
       - deepmed-network
-    restart: unless-stopped
 
+  # Feature Selector service
   feature-selector:
     build:
       context: .
@@ -26,8 +29,8 @@ services:
       - ./logs:/app/logs
     networks:
       - deepmed-network
-    restart: unless-stopped
 
+  # Anomaly Detector service
   anomaly-detector:
     build:
       context: .
@@ -38,8 +41,8 @@ services:
       - ./logs:/app/logs
     networks:
       - deepmed-network
-    restart: unless-stopped
 
+  # Model Trainer service (main service for training models)
   model-trainer:
     build:
       context: .
@@ -48,11 +51,12 @@ services:
       - "5004:5004"
     volumes:
       - ./logs:/app/logs
-      - model-data:/app/saved_models
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
     networks:
       - deepmed-network
-    restart: unless-stopped
 
+  # Medical Assistant service (chatbot and analysis)
   medical-assistant:
     build:
       context: .
@@ -65,12 +69,123 @@ services:
       - ./logs:/app/logs
     networks:
       - deepmed-network
-    restart: unless-stopped
+
+  # Model Coordinator (orchestrates model services)
+  model_coordinator:
+    build:
+      context: .
+      dockerfile: Dockerfile.model_coordinator
+    container_name: model_coordinator
+    ports:
+      - "5020:5020"
+    environment:
+      - PORT=5020
+      - IS_DOCKER=true
+      - LOGISTIC_REGRESSION_URL=http://logistic_regression:5010
+      - DECISION_TREE_URL=http://decision_tree:5011
+      - RANDOM_FOREST_URL=http://random_forest:5012
+      - SVM_URL=http://svm:5013
+      - KNN_URL=http://knn:5014
+      - NAIVE_BAYES_URL=http://naive_bayes:5015
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+    restart: on-failure
+
+  # Individual model services
+  logistic_regression:
+    build:
+      context: .
+      dockerfile: Dockerfile.logistic_regression
+    ports:
+      - "5010:5010"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  decision_tree:
+    build:
+      context: .
+      dockerfile: Dockerfile.decision_tree
+    ports:
+      - "5011:5011"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  random_forest:
+    build:
+      context: .
+      dockerfile: Dockerfile.random_forest
+    ports:
+      - "5012:5012"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  svm:
+    build:
+      context: .
+      dockerfile: Dockerfile.svm
+    ports:
+      - "5013:5013"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+      
+  knn:
+    build:
+      context: .
+      dockerfile: Dockerfile.knn
+    ports:
+      - "5014:5014"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+      
+  naive_bayes:
+    build:
+      context: .
+      dockerfile: Dockerfile.naive_bayes
+    ports:
+      - "5015:5015"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
 
 networks:
   deepmed-network:
-    driver: bridge
-
-volumes:
-  model-data:
-    driver: local 
+    driver: bridge 

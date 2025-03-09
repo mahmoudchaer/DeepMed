@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/429845507772423527
+creation_time: 1741548899901
+experiment_id: '429845507772423527'
+last_update_time: 1741548899901
+lifecycle_stage: active
+name: logistic_regression_model
