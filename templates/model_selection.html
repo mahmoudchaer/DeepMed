@@ -19,7 +19,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0">Top Models Ready for Deployment</h3>
+                    <h3 class="mb-0">Top Models</h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -34,12 +34,6 @@
                                     <p class="card-text">
                                         <strong>{{ model.metric_name }}:</strong> {{ "%.3f" | format(model.metric_value) }}
                                     </p>
-                                    
-                                    <div class="d-grid gap-2">
-                                        <a href="{{ url_for('deploy_model', model_name=model.model_name, metric=model.metric_name) }}" class="btn btn-primary">
-                                            <i class="fas fa-rocket"></i> Deploy as API
-                                        </a>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -52,25 +46,15 @@
 
     <div class="card mb-3">
         <div class="card-header bg-light">
-            <h3>Deployment Instructions</h3>
+            <h3>Model Information</h3>
         </div>
         <div class="card-body">
-            <p class="lead">Follow these steps to deploy your selected model:</p>
-            <ol>
-                <li>Choose one of the top models above based on your preferred metric:
-                    <ul>
-                        <li><strong>Accuracy</strong>: Best for overall performance when all classes are equally important</li>
-                        <li><strong>Precision</strong>: Best when minimizing false positives is important</li>
-                        <li><strong>Recall</strong>: Best when minimizing false negatives is critical</li>
-                    </ul>
-                </li>
-                <li>Click the "Deploy as API" button to create a containerized API for the model</li>
-                <li>Wait for the deployment to complete (usually takes 15-30 seconds)</li>
-                <li>You'll be redirected to a page with instructions on how to use your deployed model API</li>
-            </ol>
-            <div class="alert alert-warning">
-                <strong>Note:</strong> Each deployed model runs in its own Docker container. Make sure Docker is running on your system before deploying.
-            </div>
+            <p class="lead">The models above are ranked based on different metrics:</p>
+            <ul>
+                <li><strong>Accuracy</strong>: Best for overall performance when all classes are equally important</li>
+                <li><strong>Precision</strong>: Best when minimizing false positives is important</li>
+                <li><strong>Recall</strong>: Best when minimizing false negatives is critical</li>
+            </ul>
         </div>
     </div>
 
@@ -90,7 +74,6 @@
                                 <th>Accuracy</th>
                                 <th>Precision</th>
                                 <th>Recall</th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -100,18 +83,6 @@
                                 <td>{{ "%.3f" | format(metrics.accuracy) if metrics.accuracy is defined else 'N/A' }}</td>
                                 <td>{{ "%.3f" | format(metrics.precision) if metrics.precision is defined else 'N/A' }}</td>
                                 <td>{{ "%.3f" | format(metrics.recall) if metrics.recall is defined else 'N/A' }}</td>
-                                <td>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="deployDropdown-{{ model_name }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                            Deploy
-                                        </button>
-                                        <ul class="dropdown-menu" aria-labelledby="deployDropdown-{{ model_name }}">
-                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='accuracy') }}">For Accuracy</a></li>
-                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='precision') }}">For Precision</a></li>
-                                            <li><a class="dropdown-item" href="{{ url_for('deploy_model', model_name=model_name, metric='recall') }}">For Recall</a></li>
-                                        </ul>
-                                    </div>
-                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>

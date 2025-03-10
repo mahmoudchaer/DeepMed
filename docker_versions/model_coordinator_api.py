@@ -196,9 +196,33 @@ def train_models():
                 # Check response
                 if response.status_code == 200:
                     model_result = response.json()
-                    print(f"Successfully trained {model_name} model. Metrics: {model_result.get('metrics', {})}")
+                    
+                    # Ensure metrics are properly processed
+                    if 'model' in model_result and 'metrics' in model_result['model']:
+                        metrics = model_result['model']['metrics']
+                        print(f"Successfully trained {model_name} model. Metrics: {metrics}")
+                        
+                        # Debug - print types of metrics values
+                        for metric_name, metric_value in metrics.items():
+                            print(f"Metric {metric_name} is of type {type(metric_value)}")
+                            
+                        # Ensure metrics are numeric
+                        clean_metrics = {}
+                        for metric_name, metric_value in metrics.items():
+                            try:
+                                if isinstance(metric_value, str):
+                                    clean_metrics[metric_name] = float(metric_value)
+                                else:
+                                    clean_metrics[metric_name] = metric_value
+                            except (ValueError, TypeError):
+                                clean_metrics[metric_name] = 0
+                                print(f"WARNING: Could not convert metric {metric_name}={metric_value} to float")
+                        
+                        # Replace original metrics with clean metrics
+                        model_result['model']['metrics'] = clean_metrics
+                    
                     models_results.append({
-                        'model': model_result
+                        'model': model_result['model']
                     })
                 else:
                     error_message = f"Error training {model_name} model: {response.text}"
@@ -368,7 +392,31 @@ def model_info():
             try:
                 response = requests.get(f"{url}/model_info", timeout=5)
                 if response.status_code == 200:
-                    model_info[model_name] = response.json()
+                    model_data = response.json()
+                    
+                    # Ensure metrics are properly processed
+                    if 'metrics' in model_data and isinstance(model_data['metrics'], dict):
+                        metrics = model_data['metrics']
+                        
+                        # Debug - print metrics
+                        print(f"Model {model_name} metrics: {metrics}")
+                        
+                        # Ensure metrics are numeric
+                        clean_metrics = {}
+                        for metric_name, metric_value in metrics.items():
+                            try:
+                                if isinstance(metric_value, str):
+                                    clean_metrics[metric_name] = float(metric_value)
+                                else:
+                                    clean_metrics[metric_name] = metric_value
+                            except (ValueError, TypeError):
+                                clean_metrics[metric_name] = 0
+                                print(f"WARNING: Could not convert metric {metric_name}={metric_value} to float")
+                        
+                        # Replace original metrics with clean metrics
+                        model_data['metrics'] = clean_metrics
+                    
+                    model_info[model_name] = model_data
                 else:
                     model_info[model_name] = {"status": "unavailable", "error": response.text}
             except requests.RequestException as e:
@@ -388,25 +436,29 @@ def model_info():
             
             for metric in metrics:
                 try:
+                    # Find the best model for this metric
+                    # Convert all metric values to float for proper comparison
                     best_model = max(
                         valid_models.items(),
-                        key=lambda x: x[1]['metrics'].get(metric, 0)
+                        key=lambda x: float(x[1]['metrics'].get(metric, 0))
                     )
                     best_models[metric] = {
                         'model_name': best_model[0],
-                        'value': best_model[1]['metrics'].get(metric, 0)
+                        'value': float(best_model[1]['metrics'].get(metric, 0))
                     }
                 except:
                     continue
+                    
+            # Print best models for debugging
+            print(f"Best models by metric: {best_models}")
         
         return jsonify({
-            "models": model_info,
-            "best_models": best_models
+            'models': model_info,
+            'best_models': best_models
         })
-        
     except Exception as e:
-        logger.error(f"Error in model_info endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        print(f"ERROR in model_info: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Get available model services
 def get_model_services():

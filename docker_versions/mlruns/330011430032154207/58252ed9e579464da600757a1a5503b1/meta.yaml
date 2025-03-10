@@ -1,0 +1,15 @@
+artifact_uri: file:///app/mlruns/330011430032154207/58252ed9e579464da600757a1a5503b1/artifacts
+end_time: 1741624079630
+entry_point_name: ''
+experiment_id: '330011430032154207'
+lifecycle_stage: active
+run_id: 58252ed9e579464da600757a1a5503b1
+run_name: knn
+run_uuid: 58252ed9e579464da600757a1a5503b1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741624072708
+status: 3
+tags: []
+user_id: root
