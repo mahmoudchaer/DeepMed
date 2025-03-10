@@ -1,0 +1,20 @@
+artifact_path: naive_bayes
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.9.21
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.3.0
+mlflow_version: 2.9.2
+model_size_bytes: 1766
+model_uuid: c2443b9bbc1f4ef2860f755faa5ddb7c
+run_id: 07814f48e56f43e0b5fe890decdc6397
+utc_time_created: '2025-03-10 16:22:22.477717'

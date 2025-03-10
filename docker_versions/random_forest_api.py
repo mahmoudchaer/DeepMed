@@ -172,15 +172,18 @@ class RandomForestTrainer:
                 # Make predictions
                 y_pred = self.best_model.predict(X_test)
                 
-                # Calculate metrics
+                # Calculate metrics and convert numpy types to Python native types
                 metrics = {
-                    'accuracy': accuracy_score(y_test, y_pred),
-                    'precision': precision_score(y_test, y_pred, average='weighted'),
-                    'recall': recall_score(y_test, y_pred, average='weighted'),
-                    'f1': f1_score(y_test, y_pred, average='weighted'),
-                    'cv_score_mean': grid_search.best_score_,
-                    'cv_score_std': grid_search.cv_results_['std_test_accuracy'][grid_search.best_index_]
+                    'accuracy': float(accuracy_score(y_test, y_pred)),
+                    'precision': float(precision_score(y_test, y_pred, average='weighted')),
+                    'recall': float(recall_score(y_test, y_pred, average='weighted')),
+                    'f1': float(f1_score(y_test, y_pred, average='weighted')),
+                    'cv_score_mean': float(grid_search.best_score_),
+                    'cv_score_std': float(grid_search.cv_results_['std_test_accuracy'][grid_search.best_index_])
                 }
+                
+                # Log the metrics for debugging
+                logger.info(f"Model metrics: {metrics}")
                 
                 # Log parameters and metrics
                 mlflow.log_params(grid_search.best_params_)
@@ -284,12 +287,22 @@ def train():
         # Save model
         saved_model = model_trainer.save_model()
         
-        # Prepare response
+        # Prepare response - ensure metrics are native Python types
+        clean_metrics = {}
+        for metric_name, metric_value in model_info['metrics'].items():
+            if isinstance(metric_value, (np.float64, np.float32, np.int64, np.int32)):
+                clean_metrics[metric_name] = float(metric_value)
+            else:
+                clean_metrics[metric_name] = metric_value
+        
         response_model_info = {
             'model_name': model_info['model_name'],
-            'metrics': model_info['metrics'],
+            'metrics': clean_metrics,
             'params': str(model_info['params'])
         }
+        
+        # Log the response for debugging
+        logger.info(f"Train response metrics: {clean_metrics}")
         
         return jsonify({
             "model": response_model_info,
@@ -383,12 +396,24 @@ def model_info():
         model_info = model_trainer.load_model(model_path)
         
         # Create a clean response (without the actual model object)
+        # Ensure metrics are numeric and properly serialized
+        clean_metrics = {}
+        for metric_name, metric_value in model_info['metrics'].items():
+            if isinstance(metric_value, (np.float64, np.float32, np.int64, np.int32)):
+                # Convert numpy types to Python native types
+                clean_metrics[metric_name] = float(metric_value)
+            else:
+                clean_metrics[metric_name] = metric_value
+                
         response = {
             'model_name': model_info['model_name'],
-            'metrics': model_info['metrics'],
+            'metrics': clean_metrics,
             'params': str(model_info['params']),
             'task': 'classification'
         }
+        
+        # Add debug log to verify metrics
+        logger.info(f"Returning model info with metrics: {clean_metrics}")
         
         return jsonify(response)
     

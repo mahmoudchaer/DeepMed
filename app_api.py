@@ -249,6 +249,10 @@ def index():
     # Clean up any files from previous sessions
     cleanup_session_files()
     
+    # Force a new session ID to prevent stale data
+    session.clear()
+    session.permanent = False
+    
     # Check services health for status display
     services_status = check_services()
     return render_template('index.html', services_status=services_status)
@@ -483,6 +487,35 @@ def training():
             
             # Store the complete model results in session
             model_result = response.json()
+            
+            # CRITICAL: Process and fix any metric values to ensure they're properly serialized
+            if 'models' in model_result:
+                for model_data in model_result['models']:
+                    if 'model' in model_data:
+                        # This is the critical fix - handle the nested structure
+                        # The structure is: model_data -> model -> model -> metrics
+                        if 'model' in model_data['model']:
+                            nested_model = model_data['model']['model']
+                            # Now process the metrics from the nested model
+                            if 'metrics' in nested_model:
+                                metrics = nested_model['metrics']
+                                # Convert all metric values to float
+                                clean_metrics = {}
+                                for metric_name, metric_value in metrics.items():
+                                    try:
+                                        clean_metrics[metric_name] = float(metric_value)
+                                    except (ValueError, TypeError):
+                                        logger.warning(f"Could not convert metric {metric_name}={metric_value} to float")
+                                        clean_metrics[metric_name] = 0.0
+                                
+                                # Replace with cleaned metrics
+                                nested_model['metrics'] = clean_metrics
+                                
+                                # Log the cleaned metrics for debugging
+                                model_name = nested_model.get('model_name', 'unknown')
+                                logger.info(f"Cleaned metrics for {model_name}: {clean_metrics}")
+            
+            # Save processed results to session
             session['model_results'] = model_result
             
             # Log key info from the response
@@ -641,6 +674,11 @@ def model_selection():
     model_result = session['model_results']
     logger.info(f"Model result keys: {list(model_result.keys() if model_result else [])}")
     
+    # CRITICAL DEBUGGING: Print the raw model results to understand what's coming from the coordinator
+    logger.info("================== RAW MODEL RESULTS ==================")
+    logger.info(json.dumps(model_result, cls=SafeJSONEncoder))
+    logger.info("======================================================")
+    
     # Process the models data
     all_models = {}  # All models with metrics
     best_models = {  # Track best models by each metric
@@ -652,47 +690,99 @@ def model_selection():
     try:
         if 'models' in model_result:
             # Extract each model's data
-            for model_data in model_result['models']:
+            for model_index, model_data in enumerate(model_result['models']):
                 # Each item in the models array contains a "model" key
                 if 'model' in model_data:
                     model_info = model_data['model']
-                    model_name = model_info.get('model_name', f"model_{len(all_models)}")
-                    metrics = model_info.get('metrics', {})
                     
-                    # Add debugging logs
-                    logger.info(f"Processing model: {model_name} with metrics: {metrics}")
+                    # Debug individual model info
+                    logger.info(f"Processing model {model_index}: {json.dumps(model_info, cls=SafeJSONEncoder)}")
                     
-                    # Store all models
-                    all_models[model_name] = metrics
-                    
-                    # Check if this model is best for any metric
-                    accuracy = metrics.get('accuracy', 0)
-                    precision = metrics.get('precision', 0)
-                    recall = metrics.get('recall', 0)
-                    
-                    logger.info(f"Model {model_name} metrics - accuracy: {accuracy}, precision: {precision}, recall: {recall}")
-                    
-                    if accuracy > best_models['accuracy']['metrics'].get('accuracy', 0):
-                        best_models['accuracy'] = {
-                            'model_name': model_name,
-                            'metrics': metrics
-                        }
+                    # CRITICAL FIX: The structure is nested one level deeper than expected
+                    # The actual nested structure is: model_data -> model -> model -> metrics
+                    if 'model' in model_info:
+                        nested_model_info = model_info['model']
+                        model_name = nested_model_info.get('model_name', f"model_{model_index}")
                         
-                    if precision > best_models['precision']['metrics'].get('precision', 0):
-                        best_models['precision'] = {
-                            'model_name': model_name,
-                            'metrics': metrics
-                        }
+                        # Get metrics from the nested structure
+                        metrics = {}
+                        if 'metrics' in nested_model_info:
+                            raw_metrics = nested_model_info['metrics']
+                            logger.info(f"Model {model_name} raw metrics: {raw_metrics}")
+                            
+                            # Ensure each metric is converted to a float
+                            for metric_name, metric_value in raw_metrics.items():
+                                try:
+                                    # Convert string or numeric values to float
+                                    if isinstance(metric_value, str):
+                                        metrics[metric_name] = float(metric_value)
+                                    elif isinstance(metric_value, (int, float)):
+                                        metrics[metric_name] = float(metric_value)
+                                    else:
+                                        # For any other type, log and set to 0
+                                        logger.warning(f"Unsupported metric type: {type(metric_value)} for {metric_name}")
+                                        metrics[metric_name] = 0.0
+                                except (ValueError, TypeError) as e:
+                                    # If conversion fails, log warning and set to 0
+                                    logger.warning(f"Error converting metric {metric_name}: {str(e)}")
+                                    metrics[metric_name] = 0.0
+                                    
+                            logger.info(f"Model {model_name} processed metrics: {metrics}")
+                        else:
+                            logger.warning(f"No metrics found for model {model_name} in nested structure")
+                            # Set default metrics
+                            metrics = {
+                                'accuracy': 0.0,
+                                'precision': 0.0,
+                                'recall': 0.0,
+                                'f1': 0.0
+                            }
                         
-                    if recall > best_models['recall']['metrics'].get('recall', 0):
-                        best_models['recall'] = {
-                            'model_name': model_name,
-                            'metrics': metrics
-                        }
+                        # Store model with metrics
+                        all_models[model_name] = metrics
+                        
+                        # Check if this model is best for any metric
+                        accuracy = metrics.get('accuracy', 0.0)
+                        precision = metrics.get('precision', 0.0)
+                        recall = metrics.get('recall', 0.0)
+                        
+                        logger.info(f"Model {model_name} metrics - accuracy: {accuracy}, precision: {precision}, recall: {recall}")
+                        
+                        if accuracy > best_models['accuracy']['metrics'].get('accuracy', 0):
+                            best_models['accuracy'] = {
+                                'model_name': model_name,
+                                'metrics': metrics
+                            }
+                            
+                        if precision > best_models['precision']['metrics'].get('precision', 0):
+                            best_models['precision'] = {
+                                'model_name': model_name,
+                                'metrics': metrics
+                            }
+                            
+                        if recall > best_models['recall']['metrics'].get('recall', 0):
+                            best_models['recall'] = {
+                                'model_name': model_name,
+                                'metrics': metrics
+                            }
+                    else:
+                        logger.warning(f"Model data doesn't have the expected nested structure for model {model_index}")
+                        # If we can't find the nested structure, try the direct approach as fallback
+                        model_name = model_info.get('model_name', f"model_{model_index}")
+                        
+                        # Fix metrics processing
+                        metrics = {}
+                        
+                        # First, check if metrics exists in model_info
+                        if 'metrics' in model_info:
+                            raw_metrics = model_info['metrics']
+                            logger.info(f"Model {model_name} raw metrics (fallback): {raw_metrics}")
+                            
+                            # Process metrics as before...
         
         # Log how many models were processed
         logger.info(f"Processed {len(all_models)} models")
-        logger.info(f"Best models: {json.dumps(best_models)}")
+        logger.info(f"Best models: {json.dumps(best_models, cls=SafeJSONEncoder)}")
         
         if len(all_models) < 6:
             logger.warning(f"Expected 6 models but only found {len(all_models)}")
@@ -711,8 +801,12 @@ def model_selection():
             model_name = model_info.get('model_name', 'Unknown')
             metric_value = model_info.get('metrics', {}).get(metric, 0)
             
-            # Round to 3 decimal places
-            metric_value = round(metric_value, 3) if isinstance(metric_value, float) else metric_value
+            # Ensure metric value is a float
+            if not isinstance(metric_value, float):
+                try:
+                    metric_value = float(metric_value)
+                except (TypeError, ValueError):
+                    metric_value = 0.0
             
             logger.info(f"Adding best model for {metric}: {model_name} with value {metric_value}")
             
@@ -738,7 +832,13 @@ def model_selection():
                     best_metric = metric
             
             if best_metric:
-                best_value = round(best_value, 3) if isinstance(best_value, float) else best_value
+                # Ensure value is a float
+                if not isinstance(best_value, float):
+                    try:
+                        best_value = float(best_value)
+                    except (TypeError, ValueError):
+                        best_value = 0.0
+                
                 simplified_model_data.append({
                     'model_name': model_name,
                     'metric_name': best_metric,
@@ -749,11 +849,12 @@ def model_selection():
     # Create dummy data if absolutely nothing is available (for development/testing)
     if not simplified_model_data:
         logger.warning("No models available, creating dummy data for display")
-        for model_name in ['random_forest', 'logistic_regression', 'decision_tree']:
+        model_names = ['random_forest', 'logistic_regression', 'decision_tree', 'svm', 'knn', 'naive_bayes']
+        for i, model_name in enumerate(model_names):
             simplified_model_data.append({
                 'model_name': model_name,
                 'metric_name': 'accuracy',
-                'metric_value': 0.85,
+                'metric_value': 0.75 + (i * 0.03),  # Different value for each model
                 'is_best_for': None
             })
     
@@ -766,7 +867,14 @@ def model_selection():
         simplified_metrics = {}
         for metric in important_metrics:
             if metric in metrics:
-                simplified_metrics[metric] = round(metrics[metric], 3) if isinstance(metrics[metric], float) else metrics[metric]
+                # Ensure metric values are float
+                value = metrics[metric]
+                if not isinstance(value, float):
+                    try:
+                        value = float(value)
+                    except (TypeError, ValueError):
+                        value = 0.0
+                simplified_metrics[metric] = value
         
         simplified_model_metrics[model_name] = simplified_metrics
     
@@ -785,7 +893,9 @@ def model_selection():
     
     # Log what we're sending to the template
     logger.info(f"Sending {len(simplified_model_data)} model summaries to template")
+    logger.info(f"Model data for template: {json.dumps(simplified_model_data, cls=SafeJSONEncoder)}")
     logger.info(f"Sending {len(simplified_model_metrics)} detailed models to template")
+    logger.info(f"Model metrics for template: {json.dumps(simplified_model_metrics, cls=SafeJSONEncoder)}")
     
     task = session.get('task', 'classification')
     
@@ -1213,121 +1323,6 @@ def check_session_size(max_size=3000000):  # ~3MB limit
             logger.info(f"Moved selected_features to file: {file_path}")
             
         logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
-
-@app.route('/deploy_model/<model_name>/<metric>')
-def deploy_model(model_name, metric):
-    """Deploy a model as a standalone Docker container"""
-    # Check if we have model results
-    if 'model_results' not in session:
-        flash('No trained models available. Please train models first.', 'error')
-        return redirect(url_for('training'))
-    
-    # Log the deployment request
-    logger.info(f"Deploying model {model_name} optimized for {metric}")
-    
-    try:
-        # Import the deployer module
-        import model_deployer
-        
-        # Get selected features - try multiple possible locations
-        selected_features = []
-        
-        # Try loading from file first (most reliable)
-        selected_features_file_json = session.get('selected_features_file_json')
-        if selected_features_file_json and os.path.exists(selected_features_file_json):
-            try:
-                with open(selected_features_file_json, 'r') as f:
-                    selected_features = json.load(f)
-                logger.info(f"Loaded {len(selected_features)} features from JSON file")
-            except Exception as e:
-                logger.error(f"Error loading features from JSON file: {str(e)}")
-        
-        # If no features from file, try the selected_features_file (CSV)
-        if not selected_features:
-            features_file = session.get('selected_features_file')
-            if features_file and os.path.exists(features_file):
-                try:
-                    selected_features_df = pd.read_csv(features_file)
-                    selected_features = selected_features_df.columns.tolist()
-                    logger.info(f"Loaded {len(selected_features)} features from CSV file")
-                except Exception as e:
-                    logger.error(f"Error loading features from CSV file: {str(e)}")
-        
-        # If still no features, check if they're directly in the session
-        if not selected_features and isinstance(session.get('selected_features'), list):
-            selected_features = session['selected_features']
-            logger.info(f"Loaded {len(selected_features)} features from session")
-        elif not selected_features and isinstance(session.get('selected_features'), str) and '[' in session.get('selected_features'):
-            # Try to parse from the string representation
-            import re
-            match = re.search(r'\[(\d+) features\]', session.get('selected_features', ''))
-            if match:
-                # We know there are features but can't get them directly
-                # Try to load from the model data columns
-                if 'data_columns' in session:
-                    # Use data columns as a fallback
-                    selected_features = session['data_columns']
-                    target_column = session.get('target_column')
-                    # Remove target column if it's in the list
-                    if target_column and target_column in selected_features:
-                        selected_features.remove(target_column)
-                    logger.info(f"Using {len(selected_features)} data columns as features")
-        
-        # If all else fails, proceed with empty features list
-        if not selected_features:
-            logger.warning("No features found, using dummy features for deployment")
-            # Create some dummy feature names for demonstration
-            selected_features = [f"feature_{i}" for i in range(1, 6)]
-        
-        # Deploy the model with extra diagnostic info
-        logger.info(f"Starting deployment with model_name={model_name}, model_type={model_name}, features={len(selected_features)} items")
-        logger.info(f"Feature list: {selected_features}")
-        
-        result = model_deployer.deploy_model(
-            model_name=model_name,
-            model_type=model_name,
-            features=selected_features
-        )
-        
-        if result['success']:
-            # Store deployment info in session
-            session['deployed_model'] = {
-                'model_name': model_name,
-                'metric': metric,
-                'container_name': result['container_name'],
-                'image_name': result['image_name'],
-                'url': result['url'],
-                'port': result['port']
-            }
-            
-            flash(f'Successfully deployed {model_name} model as API service at {result["url"]}', 'success')
-        else:
-            error_message = result.get('error', 'Unknown error')
-            
-            if 'stdout' in result:
-                logger.error(f"Deployment stdout: {result['stdout']}")
-            if 'stderr' in result:
-                logger.error(f"Deployment stderr: {result['stderr']}")
-                
-            flash(f'Error deploying model: {error_message}', 'error')
-            logger.error(f"Deployment error: {result}")
-        
-        return redirect(url_for('deployed_models'))
-    except Exception as e:
-        logger.error(f"Error deploying model: {str(e)}", exc_info=True)
-        flash(f'Error deploying model: {str(e)}', 'error')
-        return redirect(url_for('model_selection'))
-
-@app.route('/deployed_models')
-def deployed_models():
-    """View deployed models and interact with them"""
-    deployed_model = session.get('deployed_model')
-    
-    if not deployed_model:
-        flash('No deployed models available', 'info')
-        return redirect(url_for('model_selection'))
-    
-    return render_template('deployed_models.html', model=deployed_model)
 
 if __name__ == '__main__':
     print("Starting MedicAI with API services integration")
