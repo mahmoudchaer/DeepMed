@@ -298,6 +298,48 @@ def model_selection():
     selected_features_data, _ = load_data(selected_features_file)
     feature_count = len(selected_features_data.columns) if selected_features_data is not None else 0
     
+    # Filter trained_models to only include the top 3 models (best accuracy, precision, recall)
+    best_models = []
+    
+    # Track best model for each metric
+    best_accuracy_model = None
+    best_precision_model = None
+    best_recall_model = None
+    best_accuracy_value = 0
+    best_precision_value = 0
+    best_recall_value = 0
+    
+    # Find the best model for each metric
+    for model in trained_models:
+        # Get metric values, ensuring they are floats
+        accuracy = float(model.get('metric_value', 0)) if model.get('metric_name') == 'accuracy' else 0
+        precision = float(model.get('metric_value', 0)) if model.get('metric_name') == 'precision' else 0
+        recall = float(model.get('metric_value', 0)) if model.get('metric_name') == 'recall' else 0
+        
+        # Update best models if this one is better
+        if accuracy > best_accuracy_value:
+            best_accuracy_value = accuracy
+            best_accuracy_model = model
+        if precision > best_precision_value:
+            best_precision_value = precision
+            best_precision_model = model
+        if recall > best_recall_value:
+            best_recall_value = recall
+            best_recall_model = model
+    
+    # Add the best models to our filtered list
+    if best_accuracy_model:
+        best_models.append(best_accuracy_model)
+    if best_precision_model and best_precision_model not in best_models:
+        best_models.append(best_precision_model)
+    if best_recall_model and best_recall_model not in best_models:
+        best_models.append(best_recall_model)
+    
+    # If we still have no models, use the original list but limited to 3
+    if not best_models and trained_models:
+        # Sort by metric value in descending order and take top 3
+        best_models = sorted(trained_models, key=lambda x: float(x.get('metric_value', 0)), reverse=True)[:3]
+    
     overall_metrics = {
         'models_trained': len(trained_models),
         'features_used': feature_count,
@@ -305,7 +347,7 @@ def model_selection():
     }
     
     return render_template('model_selection.html', 
-                          models=trained_models,
+                          models=best_models,  # Now only sending the top 3 models
                           task=task,
                           overall_metrics=overall_metrics)
 

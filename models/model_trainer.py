@@ -7,7 +7,7 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
@@ -17,6 +17,7 @@ import joblib
 from pathlib import Path
 import logging
 import os
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -118,106 +119,150 @@ class ModelTrainer:
     
     def _train_classification_models(self, X_train, X_test, y_train, y_test):
         """Train and evaluate classification models"""
-        logger.info("Starting classification model training")
-        
-        # Handle imbalanced datasets
-        X_train_balanced, y_train_balanced = self._handle_imbalance(X_train, y_train)
-        
-        # Encode labels if they're not numeric
-        if not np.issubdtype(y_train.dtype, np.number):
-            y_train_balanced = self.label_encoder.fit_transform(y_train_balanced)
-            y_test = self.label_encoder.transform(y_test)
-        
-        best_models = []
         model_metrics = {}
+        best_models = []
         
-        # Train all models with extensive hyperparameter search
-        with mlflow.start_run(run_name="model_comparison") as run:
-            mlflow.log_param("dataset_size", len(X_train))
-            mlflow.log_param("features_count", X_train.shape[1])
+        # Convert to numpy arrays for compatibility
+        if isinstance(X_train, pd.DataFrame):
+            X_train = X_train.values
+        if isinstance(X_test, pd.DataFrame):
+            X_test = X_test.values
+        if isinstance(y_train, pd.Series):
+            y_train = y_train.values
+        if isinstance(y_test, pd.Series):
+            y_test = y_test.values
+        
+        # Convert categorical target to numeric
+        if not np.issubdtype(y_train.dtype, np.number):
+            self.label_encoder.fit(y_train)
+            y_train = self.label_encoder.transform(y_train)
+            y_test = self.label_encoder.transform(y_test)
+            logger.info(f"Transformed labels: {self.label_encoder.classes_}")
+        
+        # Check for class imbalance
+        if len(np.unique(y_train)) > 1:
+            value_counts = np.bincount(y_train)
+            majority_class_count = np.max(value_counts)
+            minority_class_count = np.min(value_counts)
             
-            for model_name, model_info in self.classification_models.items():
-                logger.info(f"Training {model_name}")
+            # If imbalanced (majority class is more than 3x the minority class)
+            if majority_class_count / minority_class_count > 3:
+                logger.info("Class imbalance detected, applying SMOTE")
+                X_train, y_train = self._handle_imbalance(X_train, y_train)
+        
+        # Scale features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # Train each model
+        for model_name, model_config in self.classification_models.items():
+            logger.info(f"Training {model_name}...")
+            try:
+                # Create a pipeline with the model
+                pipeline = Pipeline([
+                    ('scaler', StandardScaler()),  # Add scaler in pipeline for consistency
+                    ('classifier', model_config['model'])
+                ])
                 
-                try:
-                    with mlflow.start_run(run_name=model_name, nested=True):
-                        # Create pipeline
-                        pipeline = Pipeline([
-                            ('scaler', StandardScaler()),
-                            ('classifier', model_info['model'])
-                        ])
-                        
-                        # Perform grid search with cross-validation
-                        grid_search = GridSearchCV(
-                            pipeline,
-                            model_info['params'],
-                            cv=5,
-                            scoring=['accuracy', 'precision_weighted', 'recall_weighted'],
-                            refit='accuracy',
-                            n_jobs=-1
-                        )
-                        
-                        # Train model
-                        grid_search.fit(X_train_balanced, y_train_balanced)
-                        
-                        # Get best model
-                        best_model = grid_search.best_estimator_
-                        
-                        # Make predictions
-                        y_pred = best_model.predict(X_test)
-                        
-                        # Calculate metrics
-                        metrics = {
-                            'accuracy': accuracy_score(y_test, y_pred),
-                            'precision': precision_score(y_test, y_pred, average='weighted'),
-                            'recall': recall_score(y_test, y_pred, average='weighted'),
-                            'f1': f1_score(y_test, y_pred, average='weighted'),
-                            'cv_score_mean': grid_search.best_score_,
-                            'cv_score_std': grid_search.cv_results_['std_test_accuracy'][grid_search.best_index_]
-                        }
-                        
-                        # Log to MLflow
-                        mlflow.log_params(grid_search.best_params_)
-                        mlflow.log_metrics(metrics)
-                        mlflow.sklearn.log_model(best_model, model_name)
-                        
-                        # Store model info
-                        model_metrics[model_name] = {
-                            'model': best_model,
-                            'metrics': metrics,
-                            'model_name': model_name,
-                            'params': grid_search.best_params_
-                        }
-                        
-                        logger.info(f"Completed training {model_name}")
-                        
-                except Exception as e:
-                    logger.error(f"Error training {model_name}: {str(e)}")
-                    continue
+                # Set up cross-validation with stratification
+                cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+                scoring = 'accuracy'
+                
+                # Set up grid search with our pipeline
+                grid_search = GridSearchCV(
+                    pipeline,
+                    param_grid=model_config['params'],
+                    cv=cv,
+                    scoring=scoring,
+                    verbose=1,
+                    n_jobs=-1
+                )
+                
+                # Fit the grid search
+                with mlflow.start_run(nested=True):
+                    mlflow.log_param("model_name", model_name)
+                    
+                    # Log start time
+                    start_time = time.time()
+                    
+                    # Fit the model
+                    grid_search.fit(X_train, y_train)
+                    
+                    # Log training time
+                    training_time = time.time() - start_time
+                    mlflow.log_metric("training_time", training_time)
+                    
+                    # Get best model
+                    best_model = grid_search.best_estimator_
+                    
+                    # Make predictions
+                    y_pred = best_model.predict(X_test)
+                    
+                    # Calculate metrics
+                    metrics = {
+                        'accuracy': float(accuracy_score(y_test, y_pred)),
+                        'precision': float(precision_score(y_test, y_pred, average='weighted')),
+                        'recall': float(recall_score(y_test, y_pred, average='weighted')),
+                        'f1': float(f1_score(y_test, y_pred, average='weighted')),
+                        'cv_score_mean': float(grid_search.best_score_),
+                        'cv_score_std': float(grid_search.cv_results_['std_test_accuracy'][grid_search.best_index_])
+                    }
+                    
+                    # Log to MLflow
+                    mlflow.log_params(grid_search.best_params_)
+                    mlflow.log_metrics(metrics)
+                    mlflow.sklearn.log_model(best_model, model_name)
+                    
+                    # Store model info - ensure all values are properly converted to floating point
+                    model_metrics[model_name] = {
+                        'model': best_model,
+                        'metrics': metrics,
+                        'model_name': model_name,
+                        'params': grid_search.best_params_
+                    }
+                    
+                    logger.info(f"Completed training {model_name}")
+                    logger.info(f"Model {model_name} metrics: accuracy={metrics['accuracy']:.4f}, precision={metrics['precision']:.4f}, recall={metrics['recall']:.4f}")
+                    
+            except Exception as e:
+                logger.error(f"Error training {model_name}: {str(e)}")
+                continue
         
         # Select top models based on different metrics
-        best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['metrics']['accuracy'])
-        best_precision = max(model_metrics.items(), key=lambda x: x[1]['metrics']['precision'])
-        best_recall = max(model_metrics.items(), key=lambda x: x[1]['metrics']['recall'])
-        
-        # Prepare best models info
-        for metric_name, (model_name, model_info) in [
-            ('Accuracy', best_accuracy),
-            ('Precision', best_precision),
-            ('Recall', best_recall)
-        ]:
-            if model_name not in [m['model_name'] for m in best_models]:  # Avoid duplicates
-                best_models.append({
-                    'model': model_info['model'],
-                    'model_name': model_name,
-                    'metric_name': metric_name,
-                    'metrics': model_info['metrics'],
-                    'display_metric': metric_name.lower(),
-                    'label_encoder': self.label_encoder if not np.issubdtype(y_train.dtype, np.number) else None
-                })
-        
-        self.best_models = best_models
-        return best_models
+        if model_metrics:
+            best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['metrics']['accuracy'])
+            best_precision = max(model_metrics.items(), key=lambda x: x[1]['metrics']['precision'])
+            best_recall = max(model_metrics.items(), key=lambda x: x[1]['metrics']['recall'])
+            
+            # Prepare best models info
+            for metric_name, (model_name, model_info) in [
+                ('Accuracy', best_accuracy),
+                ('Precision', best_precision),
+                ('Recall', best_recall)
+            ]:
+                if model_name not in [m['model_name'] for m in best_models]:  # Avoid duplicates
+                    best_models.append({
+                        'model': model_info['model'],
+                        'model_name': model_name,
+                        'metric_name': metric_name.lower(),
+                        'metric_value': float(model_info['metrics'][metric_name.lower()]),  # Ensure float conversion
+                        'display_metric': metric_name.lower(),
+                        'cv_score_mean': float(model_info['metrics']['cv_score_mean']),
+                        'cv_score_std': float(model_info['metrics']['cv_score_std']),
+                        'label_encoder': self.label_encoder if not np.issubdtype(y_test.dtype, np.number) else None
+                    })
+            
+            # Add all metrics for each best model
+            for model in best_models:
+                model_name = model['model_name']
+                model['metrics'] = model_metrics[model_name]['metrics']
+            
+            self.best_models = best_models
+            return best_models
+        else:
+            logger.warning("No models were successfully trained")
+            return []
     
     def save_models(self, output_dir='models'):
         """Save trained models to disk"""
