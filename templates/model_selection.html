@@ -19,18 +19,18 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0">Top Models</h3>
+                    <h3 class="mb-0">Best Accuracy Model</h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         {% for model in models %}
-                        <div class="col-md-4 mb-4">
+                        <div class="col-md-6 offset-md-3 mb-4">
                             <div class="card h-100 border-success">
-                                <div class="card-header bg-success text-white">
+                                <div class="card-header bg-success text-white"> 
                                     <h5 class="card-title mb-0">{{ model.model_name }}</h5>
                                 </div>
                                 <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Best for {{ model.metric_name }}</h6>
+                                    <h6 class="card-subtitle mb-2 text-muted">Selected Model</h6>
                                     <p class="card-text">
                                         <strong>{{ model.metric_name }}:</strong> {{ "%.3f" | format(model.metric_value) }}
                                     </p>
@@ -49,11 +49,9 @@
             <h3>Model Information</h3>
         </div>
         <div class="card-body">
-            <p class="lead">The models above are ranked based on different metrics:</p>
+            <p class="lead">This model was selected based on accuracy:</p>
             <ul>
-                <li><strong>Accuracy</strong>: Best for overall performance when all classes are equally important</li>
-                <li><strong>Precision</strong>: Best when minimizing false positives is important</li>
-                <li><strong>Recall</strong>: Best when minimizing false negatives is critical</li>
+                <li><strong>Accuracy</strong>: Measures the overall performance when all classes are equally important</li>
             </ul>
         </div>
     </div>

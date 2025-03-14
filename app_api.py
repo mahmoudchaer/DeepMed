@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, flash, make_response
 from werkzeug.utils import secure_filename
 import os
 import pandas as pd
@@ -20,6 +20,9 @@ import atexit
 import tempfile
 import uuid
 import glob
+import secrets  # Import for generating secure tokens
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models.users import db, User
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -69,7 +72,43 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_PERMANENT'] = False  # Changed from True to False
+app.config['REMEMBER_COOKIE_DURATION'] = None  # Don't remember user login
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24  # 24 hours
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///deepmedver.db'  # Using SQLite for simplicity
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize the database
+db.init_app(app)
+
+# Initialize login manager before the routes
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'warning'
+login_manager.session_protection = None  # Disable session protection completely
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by ID"""
+    return User.query.get(int(user_id))
+
+# Add context processor to make current_user available in all templates
+@app.context_processor
+def inject_user():
+    context = {'current_user': current_user}
+    
+    # Add logout token if user is authenticated
+    if current_user.is_authenticated and 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    if current_user.is_authenticated and 'logout_token' in session:
+        context['logout_token'] = session['logout_token']
+    
+    return context
 
 # Register cleanup function for temporary files
 def cleanup_temp_files():
@@ -241,24 +280,40 @@ def clean_data_for_json(data):
 
 @app.route('/')
 def index():
-    # Reset session data for new session
+    """Root route - always check authentication first"""
+    # First, check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the application.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Only clear data-related keys, but preserve authentication
+    data_keys = ['uploaded_file', 'cleaned_file', 'selected_features_file', 
+                'predictions_file', 'file_stats', 'data_columns']
+    
     for key in list(session.keys()):
-        if key != '_flashes':
+        if key in data_keys:
             session.pop(key)
     
     # Clean up any files from previous sessions
     cleanup_session_files()
     
-    # Force a new session ID to prevent stale data
-    session.clear()
-    session.permanent = False
-    
     # Check services health for status display
     services_status = check_services()
-    return render_template('index.html', services_status=services_status)
+    return render_template('index.html', services_status=services_status, logout_token=session['logout_token'])
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload():
+    # Double check authentication - ensure user is logged in
+    if not current_user.is_authenticated:
+        logger.warning("Upload attempted without authentication")
+        flash('Please log in to upload files.', 'warning')
+        return redirect(url_for('login'))
+        
     if 'file' not in request.files:
         flash('No file part', 'error')
         return redirect(url_for('index'))
@@ -302,11 +357,13 @@ def upload():
     return redirect(url_for('index'))
 
 @app.route('/training', methods=['GET', 'POST'])
+@login_required
 def training():
     filepath = session.get('uploaded_file')
     
     if not filepath:
-        flash('Please upload a file first', 'error')
+        # If accessed directly without upload, show a friendly message
+        flash('Please upload a file first to start training.', 'info')
         return redirect(url_for('index'))
     
     data, _ = load_data(filepath)
@@ -601,6 +658,7 @@ def training():
                           ai_recommendations=ai_recommendations)
 
 @app.route('/download_cleaned')
+@login_required
 def download_cleaned():
     cleaned_filepath = session.get('cleaned_file')
     if not cleaned_filepath:
@@ -661,6 +719,7 @@ def feature_importance():
     return jsonify(graphJSON)
 
 @app.route('/model_selection')
+@login_required
 def model_selection():
     """Display the trained models and allow selection of the best one"""
     # Log what's in the session for debugging
@@ -830,65 +889,52 @@ def model_selection():
     # Prepare data for template display - ONLY THE TOP 3 MODELS
     simplified_model_data = []
     
-    # Process best models by metric - ONLY include the best models
-    for metric, model_info in best_models.items():
-        if model_info.get('model_name'):  # Only include models with a name
-            model_name = model_info.get('model_name', 'Unknown')
-            metric_value = model_info.get('metrics', {}).get(metric, 0)
-            
-            # Ensure metric value is a float
-            if not isinstance(metric_value, float):
-                try:
-                    metric_value = float(metric_value)
-                except (TypeError, ValueError):
-                    metric_value = 0.0
-            
-            logger.info(f"Adding best model for {metric}: {model_name} with value {metric_value}")
-            
-            simplified_model_data.append({
-                'model_name': model_name,
-                'metric_name': metric,
-                'metric_value': metric_value,
-                'is_best_for': metric
-            })
-    
-    # If we still have no models for display, create entries for only the top 3 models
-    if not simplified_model_data and all_models:
-        logger.info("No best models identified, creating display data from top models")
+    # Only include the model with best accuracy
+    if best_models['accuracy'].get('model_name'):  # Only include model with a name
+        model_name = best_models['accuracy'].get('model_name', 'Unknown')
+        metric_value = best_models['accuracy'].get('metrics', {}).get('accuracy', 0)
         
-        # Find the top model for each metric
+        # Ensure metric value is a float
+        if not isinstance(metric_value, float):
+            try:
+                metric_value = float(metric_value)
+            except (TypeError, ValueError):
+                metric_value = 0.0
+        
+        logger.info(f"Adding best accuracy model: {model_name} with value {metric_value}")
+        
+        simplified_model_data.append({
+            'model_name': model_name,
+            'metric_name': 'accuracy',
+            'metric_value': metric_value,
+            'is_best_for': 'accuracy'
+        })
+    
+    # If we still have no models for display, create entries for only the best accuracy model
+    if not simplified_model_data and all_models:
+        logger.info("No best models identified, creating display data from top model")
+        
+        # Find the top model by accuracy
         top_accuracy = ('', 0)
-        top_precision = ('', 0)
-        top_recall = ('', 0)
         
         for model_name, metrics in all_models.items():
             accuracy = metrics.get('accuracy', 0)
-            precision = metrics.get('precision', 0)
-            recall = metrics.get('recall', 0)
             
             if accuracy > top_accuracy[1]:
                 top_accuracy = (model_name, accuracy)
-            if precision > top_precision[1]:
-                top_precision = (model_name, precision)
-            if recall > top_recall[1]:
-                top_recall = (model_name, recall)
         
-        # Add only the top models
-        for metric_name, (model_name, value) in [
-            ('accuracy', top_accuracy),
-            ('precision', top_precision),
-            ('recall', top_recall)
-        ]:
-            if model_name and value > 0:
-                simplified_model_data.append({
-                    'model_name': model_name,
-                    'metric_name': metric_name,
-                    'metric_value': value,
-                    'is_best_for': metric_name
-                })
+        # Add only the top accuracy model
+        model_name, value = top_accuracy
+        if model_name and value > 0:
+            simplified_model_data.append({
+                'model_name': model_name,
+                'metric_name': 'accuracy',
+                'metric_value': value,
+                'is_best_for': 'accuracy'
+            })
     
     # Create dummy data if absolutely nothing is available (for development/testing)
-    # NOTE: Now only creating the top 3 models instead of all 6
+    # NOTE: Now only creating the best accuracy model instead of top 3
     if not simplified_model_data:
         logger.warning("No models available, creating dummy data for display")
         model_metrics = {
@@ -900,31 +946,15 @@ def model_selection():
             'naive_bayes': {'accuracy': 0.90, 'precision': 0.91, 'recall': 0.88}
         }
         
-        # Find the top model for each metric
+        # Find the top model by accuracy
         best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['accuracy'])
-        best_precision = max(model_metrics.items(), key=lambda x: x[1]['precision'])
-        best_recall = max(model_metrics.items(), key=lambda x: x[1]['recall'])
         
-        # Add only the best models
+        # Add only the best accuracy model
         simplified_model_data.append({
             'model_name': best_accuracy[0],
             'metric_name': 'accuracy',
             'metric_value': best_accuracy[1]['accuracy'],
             'is_best_for': 'accuracy'
-        })
-        
-        simplified_model_data.append({
-            'model_name': best_precision[0],
-            'metric_name': 'precision',
-            'metric_value': best_precision[1]['precision'],
-            'is_best_for': 'precision'
-        })
-        
-        simplified_model_data.append({
-            'model_name': best_recall[0],
-            'metric_name': 'recall',
-            'metric_value': best_recall[1]['recall'],
-            'is_best_for': 'recall'
         })
     
     # Create a simplified version of all models with key metrics
@@ -982,6 +1012,7 @@ def model_selection():
                           overall_metrics=overall_metrics)
 
 @app.route('/select_model/<model_name>/<metric>')
+@login_required
 def select_model(model_name, metric):
     """Select a model for predictions"""
     # Check if we have model results
@@ -1005,6 +1036,7 @@ def select_model(model_name, metric):
     return redirect(url_for('prediction'))
 
 @app.route('/prediction', methods=['GET', 'POST'])
+@login_required
 def prediction():
     """Make predictions using the selected model"""
     # Log current selection state
@@ -1208,6 +1240,7 @@ def prediction():
     return render_template('prediction.html', model=selected_model)
 
 @app.route('/prediction_results')
+@login_required
 def prediction_results():
     predictions_file = session.get('predictions_file')
     if not predictions_file:
@@ -1223,6 +1256,7 @@ def prediction_results():
                           distribution=distribution)
 
 @app.route('/download_predictions')
+@login_required
 def download_predictions():
     predictions_file = session.get('predictions_file')
     if not predictions_file:
@@ -1238,6 +1272,7 @@ def download_predictions():
     return send_file(file_data, as_attachment=True, download_name='predictions.csv')
 
 @app.route('/chat', methods=['GET', 'POST'])
+@login_required
 def chat():
     # Check if Medical Assistant API is available
     if not is_service_available(MEDICAL_ASSISTANT_URL):
@@ -1288,6 +1323,7 @@ def chat():
     return render_template('chat.html', messages=session.get('messages', []))
 
 @app.route('/clear_chat')
+@login_required
 def clear_chat():
     if 'messages' in session:
         session.pop('messages')
@@ -1393,12 +1429,176 @@ def check_session_size(max_size=3000000):  # ~3MB limit
             
         logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
 
+@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login/<path:action>', methods=['GET', 'POST'])
+def login(action=None):
+    """User login page with action parameter to handle different cases"""
+    logger.info(f"Login route accessed with method: {request.method}, action: {action}")
+    
+    # Force showing login page if action is 'force'
+    if action == 'force':
+        logger.info("Force login page display requested")
+        logout_user()
+        session.clear()
+        flash('You have been logged out. Please log in again.', 'info')
+        return render_template('login.html')
+    
+    # If already logged in, redirect to index
+    if current_user.is_authenticated:
+        logger.info("User already authenticated, redirecting to index")
+        return redirect('/')
+        
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # Check if user exists and verify password
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            # Never set permanent session
+            session.permanent = False
+            
+            # Log in user but DO NOT remember them
+            login_user(user, remember=False)
+            
+            # Flash a success message
+            flash('Login successful!', 'success')
+            
+            # Simple redirect to index
+            return redirect('/')
+        else:
+            flash('Invalid email or password.', 'danger')
+    
+    # Simple template response
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration page"""
+    # Check if user is already logged in
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        name = request.form.get('name', '')
+        # Split name into first and last name
+        name_parts = name.split(' ', 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # Check if user already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash('Email already registered. Please login or use a different email.', 'danger')
+            return redirect(url_for('register'))
+        
+        # Create new user
+        new_user = User(email=email, first_name=first_name, last_name=last_name)
+        new_user.set_password(password)
+        
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Account created successfully! Please login.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating account: {str(e)}', 'danger')
+            return redirect(url_for('register'))
+    
+    return render_template('register.html')
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Most direct unauthorized handler possible"""
+    # Clear all session data
+    session.clear()
+    # Add message
+    flash('Please log in to access this page.', 'warning')
+    # Direct redirect to login
+    return redirect('/login')
+
+@app.route('/force_logout', methods=['POST'])
+def force_logout():
+    """Emergency force logout route"""
+    logger.info("Emergency force logout triggered")
+    
+    # First, perform normal logout actions
+    if current_user.is_authenticated:
+        logout_user()
+    
+    # Clear the entire session
+    session.clear()
+    
+    # Set response
+    response = make_response('')
+    
+    # Destroy all cookies
+    for cookie in request.cookies:
+        response.delete_cookie(cookie)
+    
+    # Set no-cache headers
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    # Return an empty response since the JavaScript will handle the redirect
+    return response
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    """User logout with absolute most direct approach possible"""
+    # Add debug logging
+    logger.info(f"Logout route accessed with method: {request.method}")
+    
+    # Perform logout actions
+    logout_user()
+    session.clear()
+    flash('You have been logged out.', 'info')
+    
+    # Different approach based on request method
+    if request.method == 'POST':
+        # For POST requests (form submission), use 303 See Other to force GET on redirect
+        return redirect('/login', code=303)
+    else:
+        # For GET requests, use the JavaScript approach as fallback
+        response = make_response("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0;url=/login">
+            <title>Logging out...</title>
+            <script>
+                window.location.href = "/login";
+            </script>
+        </head>
+        <body>
+            <p>Logging out... <a href="/login">Click here</a> if you are not redirected.</p>
+        </body>
+        </html>
+        """)
+        
+        # Add headers to prevent caching
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        
+        return response
+
 if __name__ == '__main__':
     print("Starting MedicAI with API services integration")
     print("Service status:")
     status = check_services()
     for service, health in status.items():
         print(f"- {service}: {health}")
+    
+    # Create database tables if they don't exist
+    with app.app_context():
+        db.create_all()
+        print("Database tables created/verified")
     
     try:
         app.run(debug=True, port=5000)

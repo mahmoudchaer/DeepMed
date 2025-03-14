@@ -1,113 +1,76 @@
 {% extends "base.html" %}
 
-{% block title %}MedicAI - Home{% endblock %}
+{% block title %}DeepMedVer - Medical AI Platform{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <div class="card shadow">
-            <div class="card-body">
-                <h1 class="text-center mb-4">Welcome to MedicAI</h1>
-                
-                <div class="status-box medical-border mb-4">
-                    <h3 style="color: #0077b6;">Medical AI Data Analysis Pipeline</h3>
-                    <p>Upload your medical dataset to start the analysis process. The system will:</p>
-                    <ol>
-                        <li>Clean and preprocess your data</li>
-                        <li>Select the most relevant features</li>
-                        <li>Check for anomalies</li>
-                        <li>Train multiple machine learning models</li>
-                        <li>Present you with the best performing models</li>
-                    </ol>
+<!-- Add loading overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
+        <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 class="mt-3">Analyzing your data...</h4>
+        <p>Our AI is reviewing your dataset and generating recommendations.<br>This may take a few moments.</p>
+    </div>
+</div>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Welcome to DeepMedVer</h4>
                 </div>
-                
-                <!-- Service Status Section -->
-                {% if services_status %}
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h5 class="mb-0">Microservices Status</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    {% for service, status in services_status.items() %}
-                                    <div class="col-md-4 mb-2">
-                                        <div class="service-status-card">
-                                            <span class="service-name">{{ service }}</span>
-                                            <span class="status-indicator {% if status == 'healthy' %}status-healthy{% else %}status-unhealthy{% endif %}">
-                                                {% if status == 'healthy' %}
-                                                <i class="fas fa-check-circle"></i> Healthy
-                                                {% else %}
-                                                <i class="fas fa-exclamation-circle"></i> {{ status }}
-                                                {% endif %}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
+                <div class="card-body">
+                    <h5>Upload Your Data</h5>
+                    <p>Get started by uploading your dataset for analysis. We accept CSV and Excel files.</p>
+                    
+                    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="mb-4" id="upload-form">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select File</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
+                            <div class="form-text">Maximum file size: 16MB</div>
                         </div>
-                    </div>
+                        <button type="submit" class="btn btn-primary" id="upload-btn">Upload and Analyze</button>
+                    </form>
                 </div>
-                {% endif %}
-                
-                <div class="row">
-                    <div class="col-md-8 offset-md-2">
-                        <div class="card">
-                            <div class="card-body">
-                                <h4 class="card-title text-center mb-4">Upload Your Medical Dataset</h4>
-                                <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
-                                    <label for="file-upload" class="custom-file-upload w-100">
-                                        <i class="fa fa-upload"></i> Choose a CSV or Excel file
-                                        <br><small class="text-muted">Drag and drop or click to select</small>
-                                    </label>
-                                    <input id="file-upload" type="file" name="file" class="file-input" accept=".csv,.xlsx,.xls" onchange="updateFileName(this)">
-                                    <p id="file-name" class="mt-2 text-center"></p>
-                                    <button type="submit" class="btn btn-primary w-100 mt-3">
-                                        Start Processing Pipeline
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Services Status</h4>
                 </div>
-                
-                <div class="row mt-5">
-                    <div class="col-12">
-                        <h4 class="text-center mb-4">Processing Pipeline</h4>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="process-step">
-                                    <h4><span class="step-number">1</span> Data Cleaning</h4>
-                                    <ul>
-                                        <li>Handle missing values</li>
-                                        <li>Convert categorical data</li>
-                                        <li>Remove outliers</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="process-step">
-                                    <h4><span class="step-number">2</span> Feature Selection</h4>
-                                    <ul>
-                                        <li>Identify important features</li>
-                                        <li>Remove redundant data</li>
-                                        <li>Optimize predictive power</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="process-step">
-                                    <h4><span class="step-number">3</span> Model Training</h4>
-                                    <ul>
-                                        <li>Train multiple ML models</li>
-                                        <li>Evaluate performance</li>
-                                        <li>Select best models</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        {% for service, status in services_status.items() %}
+                            {% if status == "healthy" %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ service }}
+                                    <span class="badge bg-success rounded-pill">Active</span>
+                                </li>
+                            {% else %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ service }}
+                                    <span class="badge bg-danger rounded-pill">Offline</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Quick Actions</h4>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('training') }}" class="btn btn-outline-primary">Training</a>
+                        <a href="{{ url_for('model_selection') }}" class="btn btn-outline-primary">Models</a>
+                        <a href="{{ url_for('prediction') }}" class="btn btn-outline-primary">Prediction</a>
+                        <a href="{{ url_for('chat') }}" class="btn btn-outline-primary">AI Assistant</a>
                     </div>
                 </div>
             </div>
@@ -118,47 +81,32 @@
 
 {% block scripts %}
 <script>
-    function updateFileName(input) {
-        const fileName = input.files[0].name;
-        document.getElementById('file-name').textContent = fileName;
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('upload-form');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const uploadBtn = document.getElementById('upload-btn');
         
-        // Auto-submit the form when a file is selected
-        if (fileName) {
-            setTimeout(function() {
-                input.form.submit();
-            }, 500);
+        form.addEventListener('submit', function(e) {
+            // Check if a file was actually selected
+            const fileInput = document.getElementById('file');
+            if (fileInput.files.length > 0) {
+                // Show loading overlay
+                loadingOverlay.style.display = 'block';
+                
+                // Disable button and change text
+                uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+                uploadBtn.disabled = true;
+                
+                // Store in sessionStorage that we're processing data
+                sessionStorage.setItem('processing_data', 'true');
+            }
+        });
+        
+        // If we return to this page and processing_data is still set, clear it
+        // (this means user navigated back without completing the process)
+        if (sessionStorage.getItem('processing_data') === 'true') {
+            sessionStorage.removeItem('processing_data');
         }
-    }
-    
-    // Refresh service status every 30 seconds
-    function refreshServiceStatus() {
-        fetch('/service_status')
-            .then(response => response.json())
-            .then(data => {
-                // Update status indicators
-                Object.entries(data).forEach(([service, status]) => {
-                    const indicators = document.querySelectorAll('.service-name');
-                    indicators.forEach(indicator => {
-                        if (indicator.textContent === service) {
-                            const statusSpan = indicator.nextElementSibling;
-                            
-                            if (status === 'healthy') {
-                                statusSpan.innerHTML = '<i class="fas fa-check-circle"></i> Healthy';
-                                statusSpan.classList.remove('status-unhealthy');
-                                statusSpan.classList.add('status-healthy');
-                            } else {
-                                statusSpan.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${status}`;
-                                statusSpan.classList.remove('status-healthy');
-                                statusSpan.classList.add('status-unhealthy');
-                            }
-                        }
-                    });
-                });
-            })
-            .catch(error => console.error('Error refreshing service status:', error));
-    }
-    
-    // Refresh status every 30 seconds
-    setInterval(refreshServiceStatus, 30000);
+    });
 </script>
 {% endblock %} 
