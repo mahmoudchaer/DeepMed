@@ -1,0 +1,15 @@
+artifact_uri: file:///app/mlruns/429845507772423527/a2737c13d61041e5a0493f6cead7222f/artifacts
+end_time: 1741739062657
+entry_point_name: ''
+experiment_id: '429845507772423527'
+lifecycle_stage: active
+run_id: a2737c13d61041e5a0493f6cead7222f
+run_name: logistic_regression
+run_uuid: a2737c13d61041e5a0493f6cead7222f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741739062310
+status: 4
+tags: []
+user_id: root

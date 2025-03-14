@@ -1,0 +1,21 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.model_coordinator.txt .
+RUN pip install --no-cache-dir -r requirements.model_coordinator.txt
+
+COPY model_coordinator_api.py .
+
+# Create directories for MLflow
+RUN mkdir -p mlruns
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV IS_DOCKER=true
+ENV PORT=6020
+
+EXPOSE 6020
+
+CMD ["python", "model_coordinator_api.py"] 

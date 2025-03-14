@@ -1,0 +1,15 @@
+artifact_uri: file:///app/mlruns/266444083799054644/9990e1d932934b73b2bb60ca75574209/artifacts
+end_time: 1741810213538
+entry_point_name: ''
+experiment_id: '266444083799054644'
+lifecycle_stage: active
+run_id: 9990e1d932934b73b2bb60ca75574209
+run_name: svm
+run_uuid: 9990e1d932934b73b2bb60ca75574209
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741810208519
+status: 3
+tags: []
+user_id: root

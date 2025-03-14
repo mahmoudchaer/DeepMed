@@ -800,6 +800,7 @@
 2025-03-11 17:35:57,968 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 17:35:57] "GET /health HTTP/1.1" 200 -
 2025-03-11 17:36:04,590 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 17:36:04] "GET /health HTTP/1.1" 200 -
 2025-03-11 17:36:06,896 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 17:36:06] "POST /analyze_data HTTP/1.1" 200 -
+<<<<<<< HEAD
 2025-03-13 21:20:17,549 - root - INFO - Medical Assistant: OpenAI client initialized
 2025-03-13 21:20:17,550 - root - INFO - Medical Assistant initialized successfully
 2025-03-13 21:20:17,590 - werkzeug - WARNING -  * Running on all addresses.
@@ -973,3 +974,270 @@
 2025-03-14 17:40:32,098 - werkzeug - INFO - 172.18.0.1 - - [14/Mar/2025 17:40:32] "GET /health HTTP/1.1" 200 -
 2025-03-14 17:40:42,606 - werkzeug - INFO - 172.18.0.1 - - [14/Mar/2025 17:40:42] "GET /health HTTP/1.1" 200 -
 2025-03-14 17:40:48,267 - werkzeug - INFO - 172.18.0.1 - - [14/Mar/2025 17:40:48] "POST /analyze_data HTTP/1.1" 200 -
+=======
+2025-03-11 22:05:25,991 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-11 22:05:25,992 - root - INFO - Medical Assistant initialized successfully
+2025-03-11 22:05:26,023 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-11 22:05:26,024 - werkzeug - INFO -  * Running on http://172.18.0.9:5005/ (Press CTRL+C to quit)
+2025-03-11 22:05:26,028 - werkzeug - INFO -  * Restarting with stat
+2025-03-11 22:05:27,461 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-11 22:05:27,462 - root - INFO - Medical Assistant initialized successfully
+2025-03-11 22:05:27,477 - werkzeug - WARNING -  * Debugger is active!
+2025-03-11 22:05:27,481 - werkzeug - INFO -  * Debugger PIN: 115-556-156
+2025-03-11 22:05:41,670 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:05:41] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:05:43,444 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:05:43] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:05:44,498 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:05:44] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:05:52,171 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:05:52] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:05:54,066 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:05:54] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:17:30,333 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-11 22:17:30,370 - root - INFO - Medical Assistant initialized successfully
+2025-03-11 22:17:30,419 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-11 22:17:30,440 - werkzeug - INFO -  * Running on http://172.18.0.2:5005/ (Press CTRL+C to quit)
+2025-03-11 22:17:30,442 - werkzeug - INFO -  * Restarting with stat
+2025-03-11 22:17:33,616 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-11 22:17:33,644 - root - INFO - Medical Assistant initialized successfully
+2025-03-11 22:17:33,686 - werkzeug - WARNING -  * Debugger is active!
+2025-03-11 22:17:33,690 - werkzeug - INFO -  * Debugger PIN: 189-319-403
+2025-03-11 22:17:37,261 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:17:37] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:17:39,288 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:17:39] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:17:41,659 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:17:41] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:17:46,835 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:17:46] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:17:49,413 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:17:49] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:19:00,390 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:19:00] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:20:32,087 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:20:32] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:21:06,753 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:21:06] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:21:24,542 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:21:24] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:21:32,912 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:21:32] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:23:10,200 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:23:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:23:16,083 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:23:16] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:23:18,384 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:23:18] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:26:44,150 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:26:44] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:27:17,802 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:27:17] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:27:37,547 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:27:37] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:27:58,402 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:27:58] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:28:38,575 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:28:38] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:28:40,673 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:28:40] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:28:40,886 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:28:40] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:28:46,845 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:28:46] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:28:48,986 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:28:48] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:32:57,619 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:32:57] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:33:55,124 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:33:55] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:34:52,312 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:34:52] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:34:53,945 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:34:53] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:34:57,527 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:34:57] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:03,437 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:03] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:05,566 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:05] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:35:07,860 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:07] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:10,081 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:14,212 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:14] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:17,477 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:17] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:21,106 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:21] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:26,532 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:26] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:35:58,510 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:35:58] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:40:16,372 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:40:16] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:40:19,682 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:40:19] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:40:23,525 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:40:23] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:40:36,555 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:40:36] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:40:39,830 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:40:39] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:44:10,289 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:44:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:44:18,561 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:44:18] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:44:56,754 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:44:56] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:45:16,955 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:45:16] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:45:41,234 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:45:41] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:29,318 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:29] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:31,727 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:31] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:46,981 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:46] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:48,804 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:48] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:49,937 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:49] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:47:58,266 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:47:58] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:48:01,622 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:48:01] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:53:52,898 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:53:52] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:53:54,914 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:53:54] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:54:06,369 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:54:06] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:54:15,338 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:54:15] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:54:18,067 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:54:18] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 22:58:25,380 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:58:25] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:59:29,514 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:59:29] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:59:37,172 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:59:37] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:59:39,985 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:59:39] "GET /health HTTP/1.1" 200 -
+2025-03-11 22:59:58,918 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 22:59:58] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:00:01,838 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:00:01] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:00:01,987 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:00:01] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:00:02,139 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:00:02] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:00:10,097 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:00:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:00:12,744 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:00:12] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 23:08:05,916 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:05] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:17,640 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:17] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:22,031 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:22] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:22,205 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:22] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:22,367 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:22] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:30,526 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:30] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:08:33,198 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:08:33] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 23:18:46,412 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:18:46] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:18:48,295 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:18:48] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:19:15,502 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:19:15] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:19:18,586 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:19:18] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:20:50,034 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:20:50] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:11,356 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:11] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:13,171 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:13] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:19,083 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:19] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:19,370 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:19] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:46,862 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:46] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:48,242 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:48] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:48,748 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:48] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:21:49,823 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:21:49] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:23:07,708 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:23:07] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:23:10,460 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:23:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:23:10,626 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:23:10] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:23:15,948 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:23:15] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:23:23,384 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:23:23] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 23:24:47,692 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:24:47] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:25:02,200 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:25:02] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:25:04,240 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:25:04] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:25:07,379 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:25:07] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:25:12,934 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:25:12] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:25:17,322 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:25:17] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-11 23:35:20,244 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:35:20] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:35:20,247 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:35:20] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:35:24,986 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:35:24] "GET /health HTTP/1.1" 200 -
+2025-03-11 23:35:24,997 - werkzeug - INFO - 172.18.0.1 - - [11/Mar/2025 23:35:24] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:19,626 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:19] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:19,679 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:19] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:22,788 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:22] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:22,837 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:22] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:54,353 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:54] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:56,237 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:56] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:23:56,459 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:23:56] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:24:03,302 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:24:03] "GET /health HTTP/1.1" 200 -
+2025-03-12 00:24:03,526 - urllib3.connectionpool - WARNING - Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f8c9644b1f0>: Failed to resolve 'api.openai.com' ([Errno -2] Name or service not known)")': /v1/chat/completions
+2025-03-12 00:24:03,530 - urllib3.connectionpool - WARNING - Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f8c9644ba30>: Failed to resolve 'api.openai.com' ([Errno -2] Name or service not known)")': /v1/chat/completions
+2025-03-12 00:24:03,535 - root - ERROR - Error communicating with AI assistant: Error communicating with OpenAI: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f8c964b6850>: Failed to resolve 'api.openai.com' ([Errno -2] Name or service not known)"))
+2025-03-12 00:24:03,536 - __main__ - ERROR - Error in analyze_data: Expecting value: line 1 column 1 (char 0)
+2025-03-12 00:24:03,536 - __main__ - ERROR - Raw response: Error communicating with AI assistant: Error communicating with OpenAI: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f8c964b6850>: Failed to resolve 'api.openai.com' ([Errno -2] Name or service not known)"))
+2025-03-12 00:24:03,537 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 00:24:03] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 19:48:27,061 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 19:48:27,069 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 19:48:27,172 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-12 19:48:27,173 - werkzeug - INFO -  * Running on http://172.18.0.6:5005/ (Press CTRL+C to quit)
+2025-03-12 19:48:27,176 - werkzeug - INFO -  * Restarting with stat
+2025-03-12 19:48:30,729 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 19:48:30,730 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 19:48:30,765 - werkzeug - WARNING -  * Debugger is active!
+2025-03-12 19:48:30,769 - werkzeug - INFO -  * Debugger PIN: 394-268-228
+2025-03-12 19:48:31,239 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:48:31] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:48:35,680 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:48:35] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:49:05,425 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:49:05] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:49:09,148 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:49:09] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 19:50:44,896 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:50:44] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:52:45,086 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:52:45] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:53:17,189 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:53:17] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:53:49,757 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:53:49] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:57:53,061 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 19:57:53,074 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 19:57:53,172 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-12 19:57:53,194 - werkzeug - INFO -  * Running on http://172.18.0.12:5005/ (Press CTRL+C to quit)
+2025-03-12 19:57:53,198 - werkzeug - INFO -  * Restarting with stat
+2025-03-12 19:57:57,540 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 19:57:57,541 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 19:57:57,578 - werkzeug - WARNING -  * Debugger is active!
+2025-03-12 19:57:57,580 - werkzeug - INFO -  * Debugger PIN: 106-485-785
+2025-03-12 19:58:00,835 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:58:00] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:58:03,208 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:58:03] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:58:07,325 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:58:07] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:58:13,408 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:58:13] "GET /health HTTP/1.1" 200 -
+2025-03-12 19:58:15,706 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 19:58:15] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:01:27,834 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:01:27] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:01:47,920 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:01:47] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:01:58,681 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:01:58] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:01,784 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:01] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:04,286 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:04] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:17,784 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:17] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:20,092 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:20] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:24,744 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:24] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:36,223 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:36] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:05:38,970 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:05:38] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:09:19,490 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:09:19] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:09:21,792 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:09:21] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:09:22,765 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:09:22] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:09:29,778 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:09:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:09:35,301 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:09:35] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:10:53,979 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:10:53] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:15:44,726 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:15:44] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:15:47,355 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:15:47] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:15:50,736 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:15:50] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:16:03,904 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:16:03] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:16:07,260 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:16:07] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:24:00,498 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:24:00] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:24:03,803 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:24:03] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:24:04,063 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:24:04] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:24:19,021 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:24:19] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:24:22,428 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:24:22] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:31:27,794 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:31:27] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:31:29,424 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:31:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:35:12,219 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 20:35:12,227 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 20:35:12,316 - werkzeug - WARNING -  * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+2025-03-12 20:35:12,365 - werkzeug - INFO -  * Running on http://172.18.0.10:5005/ (Press CTRL+C to quit)
+2025-03-12 20:35:12,382 - werkzeug - INFO -  * Restarting with stat
+2025-03-12 20:35:16,415 - root - INFO - Medical Assistant: OpenAI client initialized
+2025-03-12 20:35:16,420 - root - INFO - Medical Assistant initialized successfully
+2025-03-12 20:35:16,471 - werkzeug - WARNING -  * Debugger is active!
+2025-03-12 20:35:16,492 - werkzeug - INFO -  * Debugger PIN: 166-339-878
+2025-03-12 20:35:18,629 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:35:18] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:35:21,210 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:35:21] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:35:25,598 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:35:25] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:35:31,156 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:35:31] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:35:40,151 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:35:40] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:39:05,418 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:39:05] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:39:08,002 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:39:08] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:39:08,337 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:39:08] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:39:15,580 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:39:15] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:39:18,597 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:39:18] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:42:57,166 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:42:57] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:43:22,415 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:43:22] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:43:26,394 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:43:26] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:43:29,829 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:43:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:45:13,618 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:45:13] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:45:41,319 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:45:41] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:45:58,661 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:45:58] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:46:26,397 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:46:26] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:46:36,669 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:46:36] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:46:38,719 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:46:38] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:46:52,474 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:46:52] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:47:26,948 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:47:26] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:47:28,968 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:47:28] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:50:52,678 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:50:52] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:50:52,991 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:50:52] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:00,553 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:00] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:02,931 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:02] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:06,785 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:06] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:06,787 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:06] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:14,912 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:14] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:20,033 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:20] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:51:21,840 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:51:21] "POST /analyze_data HTTP/1.1" 200 -
+2025-03-12 20:53:22,973 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:53:22] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:53:23,702 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:53:23] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:53:23,976 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:53:23] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:55:29,278 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:55:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:55:29,299 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:55:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:55:29,624 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:55:29] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:09,765 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:09] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:09,844 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:09] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:10,045 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:10] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:28,133 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:28] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:28,245 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:28] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:28,817 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:28] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:40,093 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:40] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:40,165 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:40] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:56:40,477 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:56:40] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:57:17,795 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:57:17] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:57:19,881 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:57:19] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:58:18,421 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:58:18] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:58:25,044 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:58:25] "GET /health HTTP/1.1" 200 -
+2025-03-12 20:58:27,747 - werkzeug - INFO - 172.18.0.1 - - [12/Mar/2025 20:58:27] "POST /analyze_data HTTP/1.1" 200 -
+>>>>>>> 251f647428da5b4bac4be9b047210940cd9714b1
