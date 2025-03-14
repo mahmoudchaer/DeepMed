@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Deploying Model{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 60vh;
+    }
+    
+    .spinner {
+        width: 100px;
+        height: 100px;
+        border: 10px solid rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+        border-top: 10px solid #3498db;
+        animation: spin 2s linear infinite;
+        margin-bottom: 30px;
+    }
+    
+    .progress-container {
+        width: 80%;
+        max-width: 500px;
+        margin-top: 20px;
+    }
+    
+    .status-message {
+        margin-top: 20px;
+        font-size: 18px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Deploying Your Model</h3>
+        </div>
+        <div class="card-body">
+            <div class="loading-container">
+                <div class="spinner"></div>
+                <h3>Building and Deploying Container...</h3>
+                <div class="status-message" id="status-message">Initializing deployment...</div>
+                <div class="progress-container">
+                    <div class="progress">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                             style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-sm btn-info" type="button" data-toggle="collapse" 
+                           data-target="#logsContainer" aria-expanded="false" aria-controls="logsContainer">
+                        View Logs
+                    </button>
+                    <div class="collapse mt-2" id="logsContainer">
+                        <div class="card card-body">
+                            <h5>Deployment Logs</h5>
+                            <pre id="logs-content" class="bg-dark text-light p-2" style="max-height: 300px; overflow-y: auto;">Waiting for logs...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <p>Please wait while we prepare your model for prediction.</p>
+                <p>This may take a few moments...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // This script will check the deployment status and redirect when complete
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('progress-bar');
+        const statusMessage = document.getElementById('status-message');
+        const logsContent = document.getElementById('logs-content');
+        const modelId = "{{ model_id }}";
+        const deploymentId = "{{ deployment_id }}";
+        
+        console.log("Checking deployment status for ID:", deploymentId);
+        
+        // Check deployment status every 2 seconds
+        function checkDeploymentStatus() {
+            fetch('/deployment_status/' + deploymentId)
+                .then(response => response.json())
+                .then(data => {
+                    // Update message and progress bar
+                    statusMessage.textContent = data.message;
+                    
+                    // Update progress bar
+                    let progress = data.progress || 0;
+                    progressBar.style.width = progress + '%';
+                    progressBar.setAttribute('aria-valuenow', progress);
+                    
+                    // Update logs if available
+                    if (data.logs && data.logs.length > 0) {
+                        logsContent.textContent = data.logs.join('\n');
+                        // Auto-scroll to bottom of logs
+                        logsContent.scrollTop = logsContent.scrollHeight;
+                    }
+                    
+                    if (data.status === 'complete') {
+                        // Deployment completed successfully
+                        statusMessage.textContent = 'Deployment complete! Redirecting to prediction page...';
+                        progressBar.classList.remove('progress-bar-animated');
+                        
+                        // Redirect to prediction page
+                        setTimeout(() => {
+                            window.location.href = data.redirect_url;
+                        }, 1500);
+                    }
+                    else if (data.status === 'failed') {
+                        // Deployment failed
+                        statusMessage.textContent = 'Deployment failed: ' + data.message;
+                        statusMessage.classList.add('text-danger');
+                        progressBar.classList.remove('progress-bar-animated');
+                        progressBar.classList.add('bg-danger');
+                        
+                        // Add return button
+                        const container = document.querySelector('.loading-container');
+                        const button = document.createElement('a');
+                        button.href = "{{ url_for('model_selection') }}";
+                        button.className = 'btn btn-primary mt-4';
+                        button.textContent = 'Return to Model Selection';
+                        container.appendChild(button);
+                        
+                        // Stop checking
+                        clearInterval(statusCheckInterval);
+                    }
+                    else if (data.status === 'not_found') {
+                        // Deployment not found
+                        statusMessage.textContent = 'Error: Deployment not found';
+                        statusMessage.classList.add('text-danger');
+                        
+                        // Stop checking
+                        clearInterval(statusCheckInterval);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking deployment status:', error);
+                    statusMessage.textContent = 'Error checking deployment status';
+                    statusMessage.classList.add('text-danger');
+                });
+        }
+        
+        // Start checking status
+        checkDeploymentStatus(); // Check immediately
+        const statusCheckInterval = setInterval(checkDeploymentStatus, 2000); // Then every 2 seconds
+    });
+</script>
+{% endblock %} 
