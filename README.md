@@ -1,67 +1,86 @@
-# DeepMed - Medical AI Assistant
+# DeepMedVer - Medical AI Platform
 
-DeepMed is a powerful medical AI assistant that helps healthcare professionals analyze medical data using advanced machine learning techniques. This Flask application provides a user-friendly interface for data cleaning, feature selection, model training, and prediction.
+A comprehensive medical AI platform for training models on medical data, making predictions, and getting AI-assisted insights.
 
 ## Features
 
-- **Data Cleaning**: Automatically clean and preprocess medical datasets
-- **Feature Selection**: Identify the most important features for prediction
-- **Anomaly Detection**: Detect and handle outliers in medical data
-- **Model Training**: Train multiple machine learning models simultaneously
-- **Model Selection**: Compare and select the best performing model
-- **Prediction**: Make accurate predictions using trained models
-- **AI Assistant**: Get recommendations and insights from an AI medical expert
+- User authentication system
+- Data cleaning and preprocessing
+- Feature selection
+- Anomaly detection
+- Model training (classification and regression)
+- Model evaluation and selection
+- Prediction on new data
+- AI-assisted medical recommendations
+- Interactive data visualization
+
+## Requirements
+
+- Python 3.8+
+- PostgreSQL 12+
+- Required Python packages (see requirements.txt)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/DeepMedV1.git
-cd DeepMedV1
+git clone https://github.com/yourusername/DeepMedVer.git
+cd DeepMedVer
 ```
 
 2. Create a virtual environment:
 ```bash
 python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Activate the virtual environment:
-- Windows:
-```bash
-venv\Scripts\activate
-```
-- Mac/Linux:
-```bash
-source venv/bin/activate
-```
-
-4. Install dependencies:
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Set up the .env file with your OpenAI API key:
-```
-OPENAI_API_KEY=your_api_key_here
-SECRET_KEY=your_secret_key_here
-```
+4. Configure environment variables:
+   - Copy `.env.example` to `.env`
+   - Update the PostgreSQL connection details (user, password, host, port, database name)
+   - Add your OpenAI API key if you want to use the AI assistant feature
 
-## Running the Application
-
-1. Start the Flask server:
+5. Set up the PostgreSQL database:
 ```bash
-python src/app.py
+python setup_db.py
 ```
 
-2. Open your browser and navigate to:
+6. Run the application:
+```bash
+python app.py
 ```
-http://localhost:5000
-```
+
+7. Open your browser and navigate to http://localhost:5000
+
+## Usage
+
+1. Register a new account or log in to an existing account
+2. Upload your dataset (CSV or Excel format)
+3. Select the target variable and training parameters
+4. Train various models and select the best one
+5. Make predictions on new data
+6. Use the AI assistant for medical insights
+
+## Authentication
+
+The platform includes a user authentication system with the following features:
+- User registration with email validation
+- Secure password storage (hashed)
+- Login and session management
+- Access control for all application features
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Project Structure
 
 ```
-DeepMedV1/
+DeepMedVer/
 ├── src/
 │   ├── app.py                 # Flask application entry point
 │   ├── models/                # Core model components
@@ -94,10 +113,6 @@ DeepMedV1/
 - **Scikit-learn**: Machine learning algorithms
 - **Plotly**: Interactive data visualization
 - **OpenAI**: AI assistant capabilities
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 

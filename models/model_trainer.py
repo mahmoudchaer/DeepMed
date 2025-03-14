@@ -232,28 +232,21 @@ class ModelTrainer:
         # Select top models based on different metrics
         if model_metrics:
             best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['metrics']['accuracy'])
-            best_precision = max(model_metrics.items(), key=lambda x: x[1]['metrics']['precision'])
-            best_recall = max(model_metrics.items(), key=lambda x: x[1]['metrics']['recall'])
             
-            # Prepare best models info
-            for metric_name, (model_name, model_info) in [
-                ('Accuracy', best_accuracy),
-                ('Precision', best_precision),
-                ('Recall', best_recall)
-            ]:
-                if model_name not in [m['model_name'] for m in best_models]:  # Avoid duplicates
-                    best_models.append({
-                        'model': model_info['model'],
-                        'model_name': model_name,
-                        'metric_name': metric_name.lower(),
-                        'metric_value': float(model_info['metrics'][metric_name.lower()]),  # Ensure float conversion
-                        'display_metric': metric_name.lower(),
-                        'cv_score_mean': float(model_info['metrics']['cv_score_mean']),
-                        'cv_score_std': float(model_info['metrics']['cv_score_std']),
-                        'label_encoder': self.label_encoder if not np.issubdtype(y_test.dtype, np.number) else None
-                    })
+            # Prepare best model info - only using the model with best accuracy
+            model_name, model_info = best_accuracy
+            best_models.append({
+                'model': model_info['model'],
+                'model_name': model_name,
+                'metric_name': 'accuracy',
+                'metric_value': float(model_info['metrics']['accuracy']),  # Ensure float conversion
+                'display_metric': 'accuracy',
+                'cv_score_mean': float(model_info['metrics']['cv_score_mean']),
+                'cv_score_std': float(model_info['metrics']['cv_score_std']),
+                'label_encoder': self.label_encoder if not np.issubdtype(y_test.dtype, np.number) else None
+            })
             
-            # Add all metrics for each best model
+            # Add all metrics for the best model
             for model in best_models:
                 model_name = model['model_name']
                 model['metrics'] = model_metrics[model_name]['metrics']

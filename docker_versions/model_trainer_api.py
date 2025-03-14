@@ -227,24 +227,17 @@ class ModelTrainer:
         
         # Select top models based on different metrics
         best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['metrics']['accuracy'])
-        best_precision = max(model_metrics.items(), key=lambda x: x[1]['metrics']['precision'])
-        best_recall = max(model_metrics.items(), key=lambda x: x[1]['metrics']['recall'])
         
-        # Prepare best models info
-        for metric_name, (model_name, model_info) in [
-            ('Accuracy', best_accuracy),
-            ('Precision', best_precision),
-            ('Recall', best_recall)
-        ]:
-            if model_name not in [m['model_name'] for m in best_models]:  # Avoid duplicates
-                best_models.append({
-                    'model': model_info['model'],
-                    'model_name': model_name,
-                    'metric_name': metric_name,
-                    'metrics': model_info['metrics'],
-                    'display_metric': metric_name.lower(),
-                    'label_encoder': self.label_encoder if not np.issubdtype(y_train.dtype, np.number) else None
-                })
+        # Prepare best model info - only using the model with best accuracy
+        model_name, model_info = best_accuracy
+        best_models.append({
+            'model': model_info['model'],
+            'model_name': model_name,
+            'metric_name': 'Accuracy',
+            'metrics': model_info['metrics'],
+            'display_metric': 'accuracy',
+            'label_encoder': self.label_encoder if not np.issubdtype(y_train.dtype, np.number) else None
+        })
         
         self.best_models = best_models
         return best_models
