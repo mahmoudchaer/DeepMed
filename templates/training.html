@@ -2,6 +2,54 @@
 
 {% block title %}MedicAI - Training Pipeline{% endblock %}
 
+{% block head %}
+<style>
+    /* Improve data table styling */
+    .table-responsive table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    .table-responsive th {
+        background-color: #0077b6;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        white-space: nowrap;
+        padding: 8px 12px;
+    }
+    
+    .table-responsive td {
+        padding: 6px 10px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .table-responsive tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    
+    .table-responsive tr:hover {
+        background-color: #e9ecef;
+    }
+    
+    /* Style for the status box */
+    .status-box {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 4px solid #0077b6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    .medical-border {
+        border-left: 4px solid #0077b6;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card shadow">
     <div class="card-body">
@@ -16,7 +64,12 @@
         <div class="row mb-4">
             <div class="col-md-8">
                 <h3>Data Preview</h3>
-                {{ data | safe }}
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    {{ data | safe }}
+                </div>
+                <div class="text-muted small mt-2">
+                    <em>* Scroll horizontally to view all columns. Showing first 5 rows of the dataset.</em>
+                </div>
             </div>
             <div class="col-md-4">
                 <div class="status-box">
@@ -41,16 +94,38 @@
         {% if ai_recommendations %}
         <div class="row mb-4">
             <div class="col-12">
-                <div class="status-box">
-                    <h4>AI Recommendations</h4>
-                    <p><strong>Recommended Target:</strong> {{ ai_recommendations.target_column }}</p>
-                    <p><strong>Suggested Model:</strong> {{ ai_recommendations.model_type }}</p>
-                    <p><strong>Reasoning:</strong> {{ ai_recommendations.reasoning }}</p>
+                <div class="status-box p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-robot text-primary me-3" style="font-size: 1.5rem;"></i>
+                        <h4 class="mb-0">AI Recommendations</h4>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="fw-bold text-primary">Recommended Target Column:</label>
+                                <div class="p-2 bg-light rounded border">{{ ai_recommendations.target_column }}</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold text-primary">Suggested Model Type:</label>
+                                <div class="p-2 bg-light rounded border">{{ ai_recommendations.model_type }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="fw-bold text-primary">Analysis Reasoning:</label>
+                            <p class="p-2 bg-light rounded border">{{ ai_recommendations.reasoning }}</p>
+                        </div>
+                    </div>
                     
                     {% if ai_recommendations.data_issues %}
                     <div class="alert alert-warning mt-3">
-                        <h5>Potential Data Issues:</h5>
-                        <ul>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <h5 class="mb-0">Potential Data Issues:</h5>
+                        </div>
+                        <ul class="mb-0">
                             {% for issue in ai_recommendations.data_issues %}
                             <li>{{ issue }}</li>
                             {% endfor %}
@@ -64,13 +139,15 @@
         
         <div class="row">
             <div class="col-12">
-                <div class="card">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="card-title mb-0">Configure Training</h4>
+                    </div>
                     <div class="card-body">
-                        <h4 class="card-title">Configure Training</h4>
                         <form action="{{ url_for('training') }}" method="post" id="training-form">
                             <div class="row mb-3">
                                 <div class="col-md-8">
-                                    <label for="target_column" class="form-label">Select Target Column</label>
+                                    <label for="target_column" class="form-label fw-bold">Select Target Column</label>
                                     <select name="target_column" id="target_column" class="form-select" required>
                                         {% for column in columns %}
                                         <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
@@ -78,19 +155,21 @@
                                         </option>
                                         {% endfor %}
                                     </select>
+                                    <div class="form-text">This is the column you want to predict.</div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="test_size" class="form-label">Test Size</label>
+                                    <label for="test_size" class="form-label fw-bold">Test Size</label>
                                     <select name="test_size" id="test_size" class="form-select">
                                         <option value="0.1">10%</option>
                                         <option value="0.2" selected>20%</option>
                                         <option value="0.3">30%</option>
                                     </select>
+                                    <div class="form-text">Percentage of data used for testing.</div>
                                 </div>
                             </div>
                             
-                            <button type="submit" class="btn btn-primary w-100" id="start-pipeline-btn">
-                                Start Pipeline
+                            <button type="submit" class="btn btn-primary w-100 py-2" id="start-pipeline-btn">
+                                <i class="fas fa-play-circle me-2"></i> Start Pipeline
                             </button>
                         </form>
                     </div>
