@@ -1,0 +1,21 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.regression_models.txt .
+RUN pip install --no-cache-dir -r requirements.regression_models.txt
+
+COPY ridge_regression_api.py .
+
+# Create directories for models and MLflow
+RUN mkdir -p saved_models/ridge_regression mlruns
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV MLFLOW_EXPERIMENT_NAME=ridge_regression_model
+ENV PORT=6011
+
+EXPOSE 6011
+
+CMD ["python", "ridge_regression_api.py"] 
