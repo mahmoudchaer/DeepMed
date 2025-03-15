@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Training Status{% endblock %}
+
+{% block content %}
+<div class='container'>
+  <h2>Model Training Status</h2>
+  <div id='status-display'>
+    <p>Loading training status...</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Update status every 3 seconds
+  setInterval(function() {
+    $.get('/images/job_status', function(data) {
+      $('#status-display').html(
+        '<div class="card">'+
+        '  <div class="card-header">Job Status: ' + data.status + '</div>'+
+        '  <div class="card-body">'+
+        '    <p>Progress: ' + data.progress.current_epoch + '/' + data.progress.total_epochs + ' epochs</p>'+
+        '    <div class="progress mb-3">'+
+        '      <div class="progress-bar" role="progressbar" style="width: ' + (data.progress.current_epoch/data.progress.total_epochs*100) + '%"></div>'+
+        '    </div>'+
+        '    <p>' + data.progress.message + '</p>'+
+        '  </div>'+
+        '</div>'
+      );
+    });
+  }, 3000);
+</script>
+{% endblock %} 

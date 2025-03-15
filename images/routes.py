@@ -279,7 +279,7 @@ def job_status():
     
     # If "completed", add download URLs
     if simulated_status == 'completed':
-        download_base = url_for('images.download_model', _external=True)
+        download_base = url_for('images.download_trained_model', _external=True)
         response['download_urls'] = {
             'keras_model': f"{download_base}?format=keras",
             'tflite_model': f"{download_base}?format=tflite",
@@ -558,8 +558,8 @@ def training_status():
     logger.debug(f"Rendering training status page for job: {session['active_training_job'].get('id')}")
     return render_template('training_status.html')
 
-@images_bp.route('/download_model')
-def download_model():
+@images_bp.route('/download_trained_model')
+def download_trained_model():
     """Download the trained model."""
     logger.info("Download model endpoint called")
     
@@ -575,22 +575,13 @@ def download_model():
     try:
         logger.info("Attempting to call model API for model download")
         # This would normally make an API call to the model service
-        # For now, we'll return a placeholder
-        # In a real implementation, this would be:
-        # response = requests.get(
-        #     f'http://localhost:5100/models/efficientnet_b0/jobs/{job_id}/model?format={model_format}',
-        #     stream=True
-        # )
-        # if response.ok:
-        #     return send_file(
-        #         io.BytesIO(response.content),
-        #         as_attachment=True,
-        #         download_name=f'efficientnet_b0_{job_id}.{model_format}',
-        #         mimetype='application/octet-stream'
-        #     )
-        
-        logger.info("Model download API not implemented yet")
-        return "Model download API not implemented yet"
+        # For now, return a placeholder message wrapped in a JSON response
+        return jsonify({
+            'status': 'not_implemented',
+            'message': f'Model download not yet implemented. Requested format: {model_format}',
+            'job_id': job_id,
+            'format': model_format
+        }), 200  # Return 200 OK instead of 501 Not Implemented
     except Exception as e:
         logger.error(f"Error downloading model: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error downloading model: {str(e)}'}), 500

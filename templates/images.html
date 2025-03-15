@@ -24,7 +24,7 @@
                                 <h6 class="mb-0">Upload Images</h6>
                             </div>
                             <div class="card-body">
-                                <form id="image-upload-form" method="POST" action="{{ url_for('images.upload') }}" enctype="multipart/form-data">
+                                <form id="image-upload-form" method="POST" action="/images/upload" enctype="multipart/form-data">
                                     <div class="mb-3">
                                         <label for="imageFile" class="form-label">Select Dataset Zip File</label>
                                         <input class="form-control" type="file" id="imageFile" name="imageFile" accept=".zip">
@@ -445,7 +445,7 @@
                     
                     // Send extracted features to server
                     $.ajax({
-                        url: '{{ url_for("images.process_features") }}',
+                        url: '/images/process_features',
                         type: 'POST',
                         data: formData,
                         processData: false,
