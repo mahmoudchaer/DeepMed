@@ -24,7 +24,7 @@
                                 <h6 class="mb-0">Upload Images</h6>
                             </div>
                             <div class="card-body">
-                                <form id="image-upload-form" method="POST" action="/images/upload" enctype="multipart/form-data">
+                                <form id="image-upload-form" method="POST" action="{{ url_for('images.upload') }}" enctype="multipart/form-data">
                                     <div class="mb-3">
                                         <label for="imageFile" class="form-label">Select Dataset Zip File</label>
                                         <input class="form-control" type="file" id="imageFile" name="imageFile" accept=".zip">
@@ -150,30 +150,29 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+<!-- TensorFlow.js and other libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 <script>
-    // Global variables
-    let modelLoaded = false;
+    // Global variables for feature extraction
     let featureExtractionModel;
+    let modelLoaded = false;
+    let processingStartTime = 0;
     let totalImages = 0;
     let processedImages = 0;
-    let categories = [];
-    let extractedFeatures = {};
-    let processingStartTime;
     
-    // Function to load TensorFlow.js model
+    // Load the feature extraction model (MobileNet)
     async function loadFeatureExtractionModel() {
         try {
-            // Load EfficientNetB0 feature extraction base (without top classification layers)
-            updateStatusMessage("Loading feature extraction model...");
-            featureExtractionModel = await tf.loadLayersModel('https://tfhub.dev/tensorflow/tfjs-model/efficientnet/b0/feature-vector/1/default/1');
+            console.log("Loading feature extraction model...");
+            // Load mobilenet for feature extraction (smaller and faster than EfficientNet)
+            featureExtractionModel = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json');
+            console.log("Feature extraction model loaded successfully");
             modelLoaded = true;
-            updateStatusMessage("Feature extraction model loaded successfully");
-            console.log("Model loaded successfully");
             return true;
         } catch (error) {
-            console.error("Error loading model:", error);
-            updateStatusMessage("Error loading model: " + error.message);
+            console.error("Error loading feature extraction model:", error);
             return false;
         }
     }
@@ -186,9 +185,19 @@
                 const img = new Image();
                 img.onload = async () => {
                     try {
+                        // Check if model is loaded
+                        if (!modelLoaded || !featureExtractionModel) {
+                            // Try loading model one more time
+                            const loaded = await loadFeatureExtractionModel();
+                            if (!loaded) {
+                                reject(new Error("Failed to load feature extraction model"));
+                                return;
+                            }
+                        }
+                        
                         // Convert image to tensor
                         const tensor = tf.browser.fromPixels(img)
-                            .resizeNearestNeighbor([224, 224]) // Resize to EfficientNet input size
+                            .resizeNearestNeighbor([224, 224]) // Resize to model input size
                             .toFloat()
                             .div(tf.scalar(255.0))  // Normalize to [0,1]
                             .expandDims();          // Add batch dimension
@@ -243,68 +252,67 @@
             $('#processing-status').show();
             updateStatusMessage("Extracting ZIP contents...");
             
-            // Check if JSZip is loaded, if not, load it
+            // Check if JSZip is loaded
             if (typeof JSZip === 'undefined') {
-                const jsZipScript = document.createElement('script');
-                jsZipScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-                document.head.appendChild(jsZipScript);
-                
-                await new Promise((resolve) => {
-                    jsZipScript.onload = resolve;
-                });
+                updateStatusMessage("Loading required libraries...");
+                throw new Error("JSZip not loaded - please reload the page and try again");
             }
             
-            // Load the model if not already loaded
-            if (!modelLoaded) {
-                const modelLoaded = await loadFeatureExtractionModel();
-                if (!modelLoaded) {
-                    throw new Error("Failed to load feature extraction model");
-                }
-            }
-            
-            // Load and process zip file
+            // Create a new instance of JSZip and load the file
+            updateStatusMessage("Reading ZIP file...");
             const zip = new JSZip();
             const zipContents = await zip.loadAsync(zipFile);
             
-            // Find all image files in the zip
+            // Process the zip file content
+            updateStatusMessage("Analyzing ZIP structure...");
             const imageFiles = [];
-            const imageRegex = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i;
+            const categories = new Set();
+            const extractedFeatures = {};
             
-            // First pass: count total images and identify categories
-            let imgCount = 0;
-            categories = [];
-            
-            // Process folder structure
-            for (const relativePath in zipContents.files) {
-                const file = zipContents.files[relativePath];
-                if (!file.dir) {
-                    // Extract the category name from the path (first folder)
-                    const pathParts = relativePath.split('/');
-                    if (pathParts.length >= 2) {
-                        const categoryName = pathParts[0];
-                        const fileName = pathParts[pathParts.length - 1];
-                        
-                        if (imageRegex.test(fileName)) {
-                            imgCount++;
-                            if (!categories.includes(categoryName)) {
-                                categories.push(categoryName);
-                                extractedFeatures[categoryName] = [];
-                            }
-                            
-                            imageFiles.push({
-                                path: relativePath,
-                                category: categoryName,
-                                zipObj: file
-                            });
-                        }
-                    }
+            // Find all image files organized by category
+            for (const filepath in zipContents.files) {
+                // Skip directories and non-image files
+                const file = zipContents.files[filepath];
+                if (file.dir || !filepath.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                    continue;
+                }
+                
+                // Extract category from path (first level directory)
+                const pathParts = filepath.split('/');
+                if (pathParts.length >= 2) {
+                    const category = pathParts[0];
+                    categories.add(category);
+                    imageFiles.push({
+                        path: filepath,
+                        zipObj: file,
+                        category: category
+                    });
                 }
             }
             
-            totalImages = imgCount;
+            if (imageFiles.length === 0) {
+                throw new Error("No valid image files found in the ZIP. Make sure images are organized in category folders.");
+            }
+            
+            // Initialize feature storage
+            for (const category of categories) {
+                extractedFeatures[category] = [];
+            }
+            
+            // Count total images
+            totalImages = imageFiles.length;
             processedImages = 0;
             
-            updateStatusMessage(`Found ${totalImages} images in ${categories.length} categories. Processing...`);
+            updateStatusMessage(`Found ${totalImages} images in ${categories.size} categories. Processing...`);
+            
+            // Load the model if not already loaded
+            if (!modelLoaded) {
+                updateStatusMessage("Loading feature extraction model...");
+                const loaded = await loadFeatureExtractionModel();
+                if (!loaded) {
+                    throw new Error("Failed to load feature extraction model");
+                }
+            }
             
             // Process each image and extract features
             for (const imageFile of imageFiles) {
@@ -340,7 +348,7 @@
             // Return the extracted features
             return {
                 features: extractedFeatures,
-                categories: categories,
+                categories: Array.from(categories),
                 totalImages: totalImages,
                 processingTime: processingTime
             };
@@ -352,6 +360,9 @@
     }
     
     $(document).ready(function() {
+        // Load the feature extraction model on page load
+        loadFeatureExtractionModel();
+        
         // Function to fetch and update services status
         function updateServicesStatus() {
             $.get('/service_status', function(data) {
@@ -434,7 +445,7 @@
                     
                     // Send extracted features to server
                     $.ajax({
-                        url: '/images/process_features',
+                        url: '{{ url_for("images.process_features") }}',
                         type: 'POST',
                         data: formData,
                         processData: false,

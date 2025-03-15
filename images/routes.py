@@ -2,7 +2,7 @@
 Route definitions for the image analysis module.
 """
 
-from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from flask import render_template, request, redirect, url_for, session, flash, jsonify, send_file, current_app
 from flask_login import login_required, current_user
 import secrets
 import os
@@ -97,18 +97,25 @@ def index():
 @login_required
 def upload():
     """Handle zip file upload with categorized images"""
+    logger.info("Upload endpoint called")
+    
     if not current_user.is_authenticated:
+        logger.warning("Unauthenticated user attempted upload")
         flash('Please log in to upload files.', 'warning')
         return redirect(url_for('login'))
     
     if 'imageFile' not in request.files:
+        logger.error("No file part in the request")
         flash('No file part in the request', 'error')
         return redirect(url_for('images.index'))
     
     file = request.files['imageFile']
     if file.filename == '':
+        logger.error("No file selected")
         flash('No file selected', 'error')
         return redirect(url_for('images.index'))
+    
+    logger.info(f"File uploaded: {file.filename}")
     
     if file and file.filename.endswith('.zip'):
         # Create a temporary directory to extract the zip file
@@ -123,14 +130,17 @@ def upload():
             # Create directory for extraction
             extracted_dir = os.path.join(extract_dir, 'extracted')
             os.makedirs(extracted_dir, exist_ok=True)
+            logger.debug(f"Created extraction directory: {extracted_dir}")
             
             # Extract the zip file
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extracted_dir)
+            logger.info(f"Extracted ZIP file to {extracted_dir}")
             
             # Get categories (folders)
             categories = [f for f in os.listdir(extracted_dir) 
                         if os.path.isdir(os.path.join(extracted_dir, f))]
+            logger.info(f"Found {len(categories)} categories: {categories}")
             
             # Count images in each category
             category_counts = {}
@@ -142,6 +152,9 @@ def upload():
                              if allowed_image_file(f)]
                 category_counts[category] = len(image_files)
                 total_images += len(image_files)
+            
+            logger.info(f"Image counts per category: {category_counts}")
+            logger.info(f"Total images: {total_images}")
             
             # Store the extracted path in session for later processing
             session['extracted_dataset_path'] = extracted_dir
@@ -157,36 +170,53 @@ def upload():
             if session['analysis_type'] == 'classification':
                 # Send request to the EfficientNet-B0 model API
                 try:
+                    logger.info("Starting classification model training")
+                    
+                    # Calculate hyperparameters based on dataset size
+                    hyperparams = calculate_hyperparameters(total_images, len(categories))
+                    logger.info(f"Using hyperparameters: {hyperparams}")
+                    
+                    # In a real implementation, this would be a request to the model API
+                    # job_id = start_efficientnet_training(extracted_dir, hyperparams)
+                    # logger.info(f"Training job started with ID: {job_id}")
+                    
                     # Simulating a successful API response
                     job_id = secrets.token_hex(8)
+                    logger.info(f"Generated simulated job_id: {job_id}")
+                    
                     simulated_response = {
                         'job_id': job_id,
                         'id': job_id,  # Add an 'id' property for consistency
                         'status_url': url_for('images.job_status', _external=True),
                         'message': 'Training job started successfully'
                     }
+                    logger.debug(f"Simulated response: {simulated_response}")
                     
                     # Store the job information in session
                     session['active_training_job'] = simulated_response
+                    logger.info(f"Stored job info in session: {simulated_response}")
                     
                     flash(f'Dataset uploaded with {len(categories)} categories: {category_summary}. Started training EfficientNet-B0 model.', 'success')
                     
                 except Exception as e:
-                    logger.error(f"Error starting model training: {str(e)}")
+                    logger.error(f"Error starting model training: {str(e)}", exc_info=True)
                     flash(f'Dataset uploaded but error starting model training: {str(e)}', 'error')
             else:
                 # For other analysis types
+                logger.info(f"Analysis type {session['analysis_type']} doesn't require immediate training")
                 flash(f'Dataset uploaded with {len(categories)} categories: {category_summary}. Total images: {total_images}', 'success')
             
         except Exception as e:
-            logger.error(f"Error processing zip file: {str(e)}")
+            logger.error(f"Error processing zip file: {str(e)}", exc_info=True)
             flash(f'Error processing zip file: {str(e)}', 'error')
             # Clean up the temporary directory
             shutil.rmtree(extract_dir, ignore_errors=True)
             return redirect(url_for('images.index'))
-            
+        
+        logger.info("Upload successful, redirecting to index")
         return redirect(url_for('images.index'))
     else:
+        logger.error(f"Invalid file type: {file.filename}")
         flash('Invalid file type. Please upload a ZIP file.', 'error')
         return redirect(url_for('images.index'))
 
@@ -194,20 +224,30 @@ def upload():
 @login_required
 def job_status():
     """Check the status of the current training job"""
+    logger.info("Job status endpoint called")
+    
     # In a real implementation, this would forward the request to the model's status endpoint
     # For now, we'll just return simulated status data
     
     active_job = session.get('active_training_job')
     if not active_job:
+        logger.error("No active training job found in session")
+        logger.debug(f"Session keys: {list(session.keys())}")
         return jsonify({
             'error': 'No active job found'
         }), 404
     
+    logger.info(f"Found active job in session: {active_job}")
+    
     job_id = active_job.get('job_id')
     if not job_id:
+        logger.error("Invalid job information - no job_id found")
+        logger.debug(f"Active job data: {active_job}")
         return jsonify({
             'error': 'Invalid job information'
         }), 400
+    
+    logger.info(f"Checking status of job: {job_id}")
     
     # In a real implementation, this would fetch the actual status from the model API
     # For now, we'll just return a simulated status
@@ -218,6 +258,8 @@ def job_status():
     simulated_statuses = ['initializing', 'preparing', 'training', 'evaluating', 'completed']
     simulated_idx = int(job_id, 16) % len(simulated_statuses)
     simulated_status = simulated_statuses[simulated_idx]
+    
+    logger.info(f"Using simulated status: {simulated_status}")
     
     response = {
         'job_id': job_id,
@@ -237,12 +279,15 @@ def job_status():
     
     # If "completed", add download URLs
     if simulated_status == 'completed':
+        download_base = url_for('images.download_model', _external=True)
         response['download_urls'] = {
-            'keras_model': url_for('images.download_model', format='keras', _external=True),
-            'tflite_model': url_for('images.download_model', format='tflite', _external=True),
-            'saved_model': url_for('images.download_model', format='saved_model', _external=True)
+            'keras_model': f"{download_base}?format=keras",
+            'tflite_model': f"{download_base}?format=tflite",
+            'saved_model': f"{download_base}?format=saved_model"
         }
+        logger.info("Added download URLs to response")
     
+    logger.debug(f"Returning job status response: {response}")
     return jsonify(response), 200
 
 @images_bp.route('/download_model', methods=['GET'])
@@ -270,12 +315,18 @@ def process_features():
         # Check if we got the feature data
         if 'featureData' not in request.form:
             logger.error("No feature data provided in request")
+            logger.debug(f"Request form keys: {list(request.form.keys())}")
             return jsonify({'error': 'No feature data provided'}), 400
         
         # Get the feature data
         logger.debug("Parsing feature data")
-        feature_data = json.loads(request.form.get('featureData'))
-        logger.info(f"Received feature data with {len(feature_data.get('categories', []))} categories")
+        try:
+            feature_data = json.loads(request.form.get('featureData'))
+            logger.info(f"Received feature data with {len(feature_data.get('categories', []))} categories")
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing feature data: {str(e)}", exc_info=True)
+            logger.debug(f"Raw feature data: {request.form.get('featureData')[:100]}...")
+            return jsonify({'error': f'Invalid feature data format: {str(e)}'}), 400
         
         # Create a unique ID for this analysis
         analysis_id = str(uuid.uuid4())
@@ -284,18 +335,32 @@ def process_features():
         # Create a directory to store the feature data
         feature_dir = os.path.join(DATASET_DIR, f"features_{analysis_id}")
         logger.debug(f"Creating feature directory: {feature_dir}")
-        os.makedirs(feature_dir, exist_ok=True)
+        try:
+            os.makedirs(feature_dir, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Error creating feature directory: {str(e)}", exc_info=True)
+            return jsonify({'error': f'Error creating feature directory: {str(e)}'}), 500
         
         # Save the feature data
         feature_file = os.path.join(feature_dir, 'features.json')
         logger.debug(f"Saving feature data to: {feature_file}")
-        with open(feature_file, 'w') as f:
-            json.dump(feature_data, f)
+        try:
+            with open(feature_file, 'w') as f:
+                json.dump(feature_data, f)
+            logger.info(f"Feature data saved to {feature_file}")
+        except Exception as e:
+            logger.error(f"Error saving feature data: {str(e)}", exc_info=True)
+            return jsonify({'error': f'Error saving feature data: {str(e)}'}), 500
         
         # Extract information from feature data
-        categories = feature_data['categories']
-        total_images = feature_data['totalImages']
-        logger.info(f"Feature data contains {len(categories)} categories and {total_images} images")
+        try:
+            categories = feature_data['categories']
+            total_images = feature_data['totalImages']
+            logger.info(f"Feature data contains {len(categories)} categories and {total_images} images")
+        except KeyError as e:
+            logger.error(f"Missing required key in feature data: {str(e)}", exc_info=True)
+            logger.debug(f"Feature data keys: {list(feature_data.keys())}")
+            return jsonify({'error': f'Missing required key in feature data: {str(e)}'}), 400
         
         # Set dynamic hyperparameters based on dataset size
         hyperparams = calculate_hyperparameters(total_images, len(categories))
@@ -315,24 +380,28 @@ def process_features():
         
         if analysis_type == 'classification':
             logger.info("Starting feature-based EfficientNet training")
-            # Initiate model training with features instead of raw images
-            job_id = start_efficientnet_feature_training(feature_dir, hyperparams)
-            logger.info(f"Feature-based training job started with ID: {job_id}")
-            
-            # Store job info in session
-            session['active_training_job'] = {
-                'id': job_id,
-                'job_id': job_id,
-                'analysis_id': analysis_id,
-                'type': analysis_type,
-                'status_url': f'/images/job_status?job_id={job_id}'
-            }
-            logger.debug("Job info stored in session")
-            
-            return jsonify({
-                'message': 'Features processed and training initiated',
-                'redirect': url_for('images.training_status')
-            })
+            try:
+                # Initiate model training with features instead of raw images
+                job_id = start_efficientnet_feature_training(feature_dir, hyperparams)
+                logger.info(f"Feature-based training job started with ID: {job_id}")
+                
+                # Store job info in session
+                session['active_training_job'] = {
+                    'id': job_id,
+                    'job_id': job_id,
+                    'analysis_id': analysis_id,
+                    'type': analysis_type,
+                    'status_url': f'/images/job_status?job_id={job_id}'
+                }
+                logger.debug("Job info stored in session")
+                
+                return jsonify({
+                    'message': 'Features processed and training initiated',
+                    'redirect': url_for('images.training_status')
+                })
+            except Exception as e:
+                logger.error(f"Error starting feature-based training: {str(e)}", exc_info=True)
+                return jsonify({'error': f'Error starting feature-based training: {str(e)}'}), 500
         else:
             logger.warning(f"Analysis type not yet implemented: {analysis_type}")
             return jsonify({
@@ -525,6 +594,19 @@ def download_model():
     except Exception as e:
         logger.error(f"Error downloading model: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error downloading model: {str(e)}'}), 500
+
+@images_bp.route('/test', methods=['GET'])
+def test():
+    """Simple test endpoint to verify the images module is working"""
+    logger.info("Test endpoint called")
+    return jsonify({
+        'status': 'success',
+        'message': 'Images module is working correctly',
+        'routes': [
+            rule.rule for rule in current_app.url_map.iter_rules() 
+            if rule.endpoint.startswith('images.')
+        ]
+    })
 
 # Add this at the end of the file
 logger.info("Images routes module loaded successfully") 
