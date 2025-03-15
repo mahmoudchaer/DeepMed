@@ -1,34 +1,410 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Training Status - MedicAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .progress {
+            height: 25px;
+        }
+        .metrics-card {
+            transition: all 0.3s ease;
+        }
+        .metrics-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+        @keyframes pulse-animation {
+            0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(13, 110, 253, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">MedicAI</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/images">Images</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-{% block title %}Training Status{% endblock %}
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-brain me-2"></i>Model Training Status
+                        </h5>
+                        <span id="job-id" class="badge bg-secondary"></span>
+                    </div>
+                    <div class="card-body">
+                        <div id="training-status-spinner" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">Loading training status...</p>
+                        </div>
+                        
+                        <div id="training-content" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="status-message">Training in progress. Please do not close this window.</span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Training Progress</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span id="progress-text">Initializing...</span>
+                                                <span id="time-elapsed" class="badge bg-dark">0s</span>
+                                            </div>
+                                            <div class="progress mb-3">
+                                                <div id="training-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                            </div>
+                                            <div id="eta-container" class="text-end">
+                                                <small id="eta-text" class="text-muted">Estimating time remaining...</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card metrics-card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Training Metrics</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Metric</th>
+                                                            <th>Current</th>
+                                                            <th>Best</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td><i class="fas fa-bullseye text-primary me-2"></i>Accuracy</td>
+                                                            <td id="current-accuracy">-</td>
+                                                            <td id="best-accuracy">-</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><i class="fas fa-chart-line text-danger me-2"></i>Loss</td>
+                                                            <td id="current-loss">-</td>
+                                                            <td id="best-loss">-</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <div class="card metrics-card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Validation Metrics</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-hover">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Metric</th>
+                                                            <th>Current</th>
+                                                            <th>Best</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td><i class="fas fa-bullseye text-primary me-2"></i>Accuracy</td>
+                                                            <td id="current-val-accuracy">-</td>
+                                                            <td id="best-val-accuracy">-</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><i class="fas fa-chart-line text-danger me-2"></i>Loss</td>
+                                                            <td id="current-val-loss">-</td>
+                                                            <td id="best-val-loss">-</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Model Information</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p><strong>Model:</strong> <span id="model-name">EfficientNet-B0</span></p>
+                                                    <p><strong>Dataset Size:</strong> <span id="dataset-size">-</span></p>
+                                                    <p><strong>Classes:</strong> <span id="num-classes">-</span></p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <p><strong>Batch Size:</strong> <span id="batch-size">-</span></p>
+                                                    <p><strong>Learning Rate:</strong> <span id="learning-rate">-</span></p>
+                                                    <p><strong>Epochs:</strong> <span id="total-epochs">-</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="completed-section" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-12 mb-4">
+                                        <div class="card pulse">
+                                            <div class="card-header bg-success text-white">
+                                                <h6 class="mb-0"><i class="fas fa-check-circle me-2"></i>Training Complete</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <p>Your model has been successfully trained! You can now download it for use or integration with your application.</p>
+                                                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                                    <a id="download-model-link" href="#" class="btn btn-primary">
+                                                        <i class="fas fa-download me-2"></i>Download Model
+                                                    </a>
+                                                    <a href="/images" class="btn btn-secondary">
+                                                        <i class="fas fa-arrow-left me-2"></i>Back to Images
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="failed-section" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-12 mb-4">
+                                        <div class="card pulse">
+                                            <div class="card-header bg-danger text-white">
+                                                <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Training Failed</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <p>There was an error during the training process. Please check the logs for more information.</p>
+                                                <p id="error-message" class="text-danger"></p>
+                                                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                                    <a href="/images" class="btn btn-secondary">
+                                                        <i class="fas fa-arrow-left me-2"></i>Back to Images
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-{% block content %}
-<div class='container'>
-  <h2>Model Training Status</h2>
-  <div id='status-display'>
-    <p>Loading training status...</p>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  // Update status every 3 seconds
-  setInterval(function() {
-    $.get('/images/job_status', function(data) {
-      $('#status-display').html(
-        '<div class="card">'+
-        '  <div class="card-header">Job Status: ' + data.status + '</div>'+
-        '  <div class="card-body">'+
-        '    <p>Progress: ' + data.progress.current_epoch + '/' + data.progress.total_epochs + ' epochs</p>'+
-        '    <div class="progress mb-3">'+
-        '      <div class="progress-bar" role="progressbar" style="width: ' + (data.progress.current_epoch/data.progress.total_epochs*100) + '%"></div>'+
-        '    </div>'+
-        '    <p>' + data.progress.message + '</p>'+
-        '  </div>'+
-        '</div>'
-      );
-    });
-  }, 3000);
-</script>
-{% endblock %} 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get job ID from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId = urlParams.get('job_id');
+        
+        // Format time in seconds to a human-readable string
+        function formatTime(seconds) {
+            if (seconds < 60) {
+                return `${Math.floor(seconds)}s`;
+            } else if (seconds < 3600) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                return `${minutes}m ${remainingSeconds}s`;
+            } else {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            }
+        }
+        
+        // Update progress bar
+        function updateProgress(progress) {
+            if (progress !== undefined && progress !== null) {
+                const percent = Math.min(100, Math.max(0, Math.round(progress * 100)));
+                $('#training-progress').css('width', `${percent}%`).attr('aria-valuenow', percent).text(`${percent}%`);
+            }
+        }
+        
+        // Format number to 4 decimal places
+        function formatNumber(num) {
+            if (num === undefined || num === null) return '-';
+            return parseFloat(num).toFixed(4);
+        }
+        
+        // Update UI based on job status
+        function updateUI(data) {
+            // Hide spinner and show content
+            $('#training-status-spinner').hide();
+            $('#training-content').show();
+            
+            // Update job ID
+            $('#job-id').text(`Job ID: ${jobId}`);
+            
+            // Update status message
+            if (data.status) {
+                $('#status-message').text(data.status_message || 'Training in progress');
+            }
+            
+            // Update progress
+            if (data.progress !== undefined) {
+                updateProgress(data.progress);
+                
+                // Update progress text
+                if (data.current_epoch !== undefined && data.total_epochs !== undefined) {
+                    $('#progress-text').text(`Epoch ${data.current_epoch}/${data.total_epochs}`);
+                }
+            }
+            
+            // Update time elapsed
+            if (data.elapsed_time !== undefined) {
+                $('#time-elapsed').text(formatTime(data.elapsed_time));
+            }
+            
+            // Update ETA
+            if (data.eta !== undefined) {
+                $('#eta-text').text(`Estimated time remaining: ${formatTime(data.eta)}`);
+            }
+            
+            // Update metrics
+            if (data.metrics) {
+                // Training metrics
+                if (data.metrics.accuracy !== undefined) {
+                    $('#current-accuracy').text(formatNumber(data.metrics.accuracy));
+                }
+                if (data.metrics.loss !== undefined) {
+                    $('#current-loss').text(formatNumber(data.metrics.loss));
+                }
+                
+                // Best training metrics
+                if (data.metrics.best_accuracy !== undefined) {
+                    $('#best-accuracy').text(formatNumber(data.metrics.best_accuracy));
+                }
+                if (data.metrics.best_loss !== undefined) {
+                    $('#best-loss').text(formatNumber(data.metrics.best_loss));
+                }
+                
+                // Validation metrics
+                if (data.metrics.val_accuracy !== undefined) {
+                    $('#current-val-accuracy').text(formatNumber(data.metrics.val_accuracy));
+                }
+                if (data.metrics.val_loss !== undefined) {
+                    $('#current-val-loss').text(formatNumber(data.metrics.val_loss));
+                }
+                
+                // Best validation metrics
+                if (data.metrics.best_val_accuracy !== undefined) {
+                    $('#best-val-accuracy').text(formatNumber(data.metrics.best_val_accuracy));
+                }
+                if (data.metrics.best_val_loss !== undefined) {
+                    $('#best-val-loss').text(formatNumber(data.metrics.best_val_loss));
+                }
+            }
+            
+            // Update model information
+            if (data.model_info) {
+                $('#model-name').text(data.model_info.name || 'EfficientNet-B0');
+                $('#dataset-size').text(data.model_info.dataset_size || '-');
+                $('#num-classes').text(data.model_info.num_classes || '-');
+                $('#batch-size').text(data.model_info.batch_size || '-');
+                $('#learning-rate').text(data.model_info.learning_rate || '-');
+                $('#total-epochs').text(data.model_info.total_epochs || '-');
+            }
+            
+            // Check if training is completed
+            if (data.status === 'completed') {
+                $('#completed-section').show();
+                $('#download-model-link').attr('href', `/images/jobs/${jobId}/model?format=h5`);
+                $('#status-message').text('Training completed successfully!');
+                $('#status-message').closest('.alert').removeClass('alert-info').addClass('alert-success');
+            }
+            
+            // Check if training failed
+            if (data.status === 'failed') {
+                $('#failed-section').show();
+                $('#error-message').text(data.error || 'Unknown error occurred during training.');
+                $('#status-message').text('Training failed.');
+                $('#status-message').closest('.alert').removeClass('alert-info').addClass('alert-danger');
+            }
+        }
+        
+        // Function to poll job status
+        function pollJobStatus() {
+            if (!jobId) {
+                $('#training-status-spinner').hide();
+                $('#training-content').show();
+                $('#status-message').text('No job ID provided. Cannot track training status.');
+                $('#status-message').closest('.alert').removeClass('alert-info').addClass('alert-warning');
+                return;
+            }
+            
+            $.ajax({
+                url: `/images/job_status?job_id=${jobId}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    console.log('Job status data:', data);
+                    updateUI(data);
+                    
+                    // Continue polling if training is still in progress
+                    if (data.status !== 'completed' && data.status !== 'failed') {
+                        setTimeout(pollJobStatus, 3000);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error fetching job status:', error);
+                    $('#training-status-spinner').hide();
+                    $('#training-content').show();
+                    $('#status-message').text(`Error: Failed to fetch job status. ${xhr.responseText || error}`);
+                    $('#status-message').closest('.alert').removeClass('alert-info').addClass('alert-danger');
+                    
+                    // Try again after a longer delay
+                    setTimeout(pollJobStatus, 10000);
+                }
+            });
+        }
+        
+        $(document).ready(function() {
+            // Start polling job status
+            pollJobStatus();
+        });
+    </script>
+</body>
+</html> 
