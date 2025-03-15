@@ -1,535 +1,480 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Image Analysis - MedicAI</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">MedicAI</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/images">Images</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends 'base.html' %}
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-lg-12">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="card-title">
-                            <i class="fas fa-image me-2"></i>Medical Image Analysis
-                        </h5>
+{% block title %}Image Analysis - MedicAI{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title">
+                    <i class="fas fa-image me-2"></i>Medical Image Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Welcome to the Medical Image Analysis module. Upload medical images to analyze them with our AI models.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">Upload Images</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="image-upload-form" method="POST" action="/images/upload" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <label for="imageFile" class="form-label">Select Dataset Zip File</label>
+                                        <input class="form-control" type="file" id="imageFile" name="imageFile" accept=".zip">
+                                        <div class="form-text">Upload a ZIP file containing folders of images. Each folder name represents a category.</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="analysisType" class="form-label">Analysis Type</label>
+                                        <select class="form-select" id="analysisType" name="analysisType">
+                                            <option value="classification" selected>Classification</option>
+                                            <option value="segmentation">Segmentation</option>
+                                            <option value="detection">Object Detection</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="enablePrivacyMode" name="enablePrivacyMode" checked>
+                                            <label class="form-check-label" for="enablePrivacyMode">
+                                                Enable Privacy Mode (Process images locally)
+                                            </label>
+                                            <div class="form-text">When enabled, images are processed on your device and only feature data is sent to the server.</div>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="uploadButton" class="btn btn-primary">
+                                        <i class="fas fa-upload me-2"></i>Upload and Analyze
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Welcome to the Medical Image Analysis module. Upload medical images to analyze them with our AI models.
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card mb-3">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Upload Images</h6>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Services Status</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="services-status">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <span>Checking services status...</span>
                                     </div>
-                                    <div class="card-body">
-                                        <form id="image-upload-form" method="POST" action="/images/upload" enctype="multipart/form-data">
-                                            <div class="mb-3">
-                                                <label for="imageFile" class="form-label">Select Dataset Zip File</label>
-                                                <input class="form-control" type="file" id="imageFile" name="imageFile" accept=".zip">
-                                                <div class="form-text">Upload a ZIP file containing folders of images. Each folder name represents a category.</div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="analysisType" class="form-label">Analysis Type</label>
-                                                <select class="form-select" id="analysisType" name="analysisType">
-                                                    <option value="classification" selected>Classification</option>
-                                                    <option value="segmentation">Segmentation</option>
-                                                    <option value="detection">Object Detection</option>
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="enablePrivacyMode" name="enablePrivacyMode" checked>
-                                                    <label class="form-check-label" for="enablePrivacyMode">
-                                                        Enable Privacy Mode (Process images locally)
-                                                    </label>
-                                                    <div class="form-text">When enabled, images are processed on your device and only feature data is sent to the server.</div>
-                                                </div>
-                                            </div>
-                                            <button type="button" id="uploadButton" class="btn btn-primary">
-                                                <i class="fas fa-upload me-2"></i>Upload and Analyze
-                                            </button>
-                                        </form>
-                                    </div>
+                                    {% if services_status %}
+                                        <ul class="list-group">
+                                            {% for service, status in services_status.items() %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    {{ service }}
+                                                    {% if status == 'healthy' %}
+                                                        <span class="badge bg-success">Available</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Unavailable</span>
+                                                    {% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
                                 </div>
                             </div>
-                            
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Services Status</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="services-status">
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
-                                                </div>
-                                                <span>Checking services status...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Image Analysis Features</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="feature-item">
+                                            <div class="icon-wrapper">
+                                                <i class="fas fa-brain fa-2x text-primary"></i>
                                             </div>
+                                            <h5>Neural Networks</h5>
+                                            <p>Advanced deep learning models designed specifically for medical image analysis.</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="feature-item">
+                                            <div class="icon-wrapper">
+                                                <i class="fas fa-vial fa-2x text-primary"></i>
+                                            </div>
+                                            <h5>Medical Diagnostics</h5>
+                                            <p>Get preliminary diagnostic suggestions based on image analysis.</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="feature-item">
+                                            <div class="icon-wrapper">
+                                                <i class="fas fa-chart-line fa-2x text-primary"></i>
+                                            </div>
+                                            <h5>Report Generation</h5>
+                                            <p>Receive detailed reports with visualization of the image analysis results.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Image Analysis Features</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <div class="feature-item">
-                                                    <div class="icon-wrapper">
-                                                        <i class="fas fa-brain fa-2x text-primary"></i>
-                                                    </div>
-                                                    <h5>Neural Networks</h5>
-                                                    <p>Advanced deep learning models designed specifically for medical image analysis.</p>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="feature-item">
-                                                    <div class="icon-wrapper">
-                                                        <i class="fas fa-vial fa-2x text-primary"></i>
-                                                    </div>
-                                                    <h5>Medical Diagnostics</h5>
-                                                    <p>Get preliminary diagnostic suggestions based on image analysis.</p>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="feature-item">
-                                                    <div class="icon-wrapper">
-                                                        <i class="fas fa-chart-line fa-2x text-primary"></i>
-                                                    </div>
-                                                    <h5>Report Generation</h5>
-                                                    <p>Receive detailed reports with visualization of the image analysis results.</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    </div>
+                </div>
+                
+                <!-- Processing Status for local image processing -->
+                <div id="processing-status" class="mt-4" style="display: none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Local Processing Status</h6>
                         </div>
-                        
-                        <!-- Processing Status for local image processing -->
-                        <div id="processing-status" class="mt-4" style="display: none;">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="mb-0">Local Processing Status</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="progress mb-3">
-                                        <div id="extractionProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                                    </div>
-                                    <div id="statusMessage" class="text-center">Waiting to start...</div>
-                                </div>
+                        <div class="card-body">
+                            <div class="progress mb-3">
+                                <div id="extractionProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                             </div>
+                            <div id="statusMessage" class="text-center">Waiting to start...</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Global variables for feature extraction
-        let featureExtractionModel;
-        let modelLoaded = false;
-        let processingStartTime = 0;
-        let totalImages = 0;
-        let processedImages = 0;
-        
-        // Load the feature extraction model (MobileNet)
-        async function loadFeatureExtractionModel() {
-            try {
-                console.log("Loading feature extraction model...");
-                // Load mobilenet for feature extraction (smaller and faster than EfficientNet)
-                featureExtractionModel = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json');
-                console.log("Feature extraction model loaded successfully");
-                modelLoaded = true;
-                return true;
-            } catch (error) {
-                console.error("Error loading feature extraction model:", error);
-                return false;
-            }
+{% block scripts %}
+<!-- TensorFlow.js and other libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+    // Global variables for feature extraction
+    let featureExtractionModel;
+    let modelLoaded = false;
+    let processingStartTime = 0;
+    let totalImages = 0;
+    let processedImages = 0;
+    
+    // Load the feature extraction model (MobileNet)
+    async function loadFeatureExtractionModel() {
+        try {
+            console.log("Loading feature extraction model...");
+            // Load mobilenet for feature extraction (smaller and faster than EfficientNet)
+            featureExtractionModel = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_0.25_224/model.json');
+            console.log("Feature extraction model loaded successfully");
+            modelLoaded = true;
+            return true;
+        } catch (error) {
+            console.error("Error loading feature extraction model:", error);
+            return false;
         }
-        
-        // Process an image and extract features
-        async function extractFeaturesFromImage(imageFile, categoryName) {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    // Create image element
-                    const img = new Image();
-                    img.onload = async () => {
-                        try {
-                            // Check if model is loaded
-                            if (!modelLoaded || !featureExtractionModel) {
-                                // Try loading model one more time
-                                const loaded = await loadFeatureExtractionModel();
-                                if (!loaded) {
-                                    reject(new Error("Failed to load feature extraction model"));
-                                    return;
-                                }
+    }
+    
+    // Process an image and extract features
+    async function extractFeaturesFromImage(imageFile, categoryName) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // Create image element
+                const img = new Image();
+                img.onload = async () => {
+                    try {
+                        // Check if model is loaded
+                        if (!modelLoaded || !featureExtractionModel) {
+                            // Try loading model one more time
+                            const loaded = await loadFeatureExtractionModel();
+                            if (!loaded) {
+                                reject(new Error("Failed to load feature extraction model"));
+                                return;
                             }
-                            
-                            // Convert image to tensor
-                            const tensor = tf.browser.fromPixels(img)
-                                .resizeNearestNeighbor([224, 224]) // Resize to model input size
-                                .toFloat()
-                                .div(tf.scalar(255.0))  // Normalize to [0,1]
-                                .expandDims();          // Add batch dimension
-                            
-                            // Get features using model
-                            const features = featureExtractionModel.predict(tensor);
-                            
-                            // Convert to array and resolve
-                            const featureArray = await features.data();
-                            
-                            // Cleanup tensors
-                            tensor.dispose();
-                            features.dispose();
-                            
-                            resolve({
-                                features: Array.from(featureArray),
-                                category: categoryName,
-                                filename: imageFile.name
-                            });
-                        } catch (error) {
-                            reject(error);
                         }
-                    };
-                    
-                    img.onerror = () => {
-                        reject(new Error(`Failed to load image: ${imageFile.name}`));
-                    };
-                    
-                    // Load image from file
-                    img.src = URL.createObjectURL(imageFile);
-                } catch (error) {
-                    reject(error);
-                }
-            });
-        }
-        
-        // Update progress bar
-        function updateProgress(current, total) {
-            const percent = Math.round((current / total) * 100);
-            $('#extractionProgress').css('width', percent + '%').attr('aria-valuenow', percent).text(percent + '%');
-        }
-        
-        // Update status message
-        function updateStatusMessage(message) {
-            $('#statusMessage').text(message);
-        }
-        
-        // Extract features from zip file
-        async function processZipFile(zipFile) {
-            try {
-                processingStartTime = Date.now();
-                $('#processing-status').show();
-                updateStatusMessage("Extracting ZIP contents...");
-                
-                // Check if JSZip is loaded
-                if (typeof JSZip === 'undefined') {
-                    updateStatusMessage("Loading required libraries...");
-                    throw new Error("JSZip not loaded - please reload the page and try again");
-                }
-                
-                // Create a new instance of JSZip and load the file
-                updateStatusMessage("Reading ZIP file...");
-                const zip = new JSZip();
-                const zipContents = await zip.loadAsync(zipFile);
-                
-                // Process the zip file content
-                updateStatusMessage("Analyzing ZIP structure...");
-                const imageFiles = [];
-                const categories = new Set();
-                const extractedFeatures = {};
-                
-                // Find all image files organized by category
-                for (const filepath in zipContents.files) {
-                    // Skip directories and non-image files
-                    const file = zipContents.files[filepath];
-                    if (file.dir || !filepath.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                        continue;
-                    }
-                    
-                    // Extract category from path (first level directory)
-                    const pathParts = filepath.split('/');
-                    if (pathParts.length >= 2) {
-                        const category = pathParts[0];
-                        categories.add(category);
-                        imageFiles.push({
-                            path: filepath,
-                            zipObj: file,
-                            category: category
+                        
+                        // Convert image to tensor
+                        const tensor = tf.browser.fromPixels(img)
+                            .resizeNearestNeighbor([224, 224]) // Resize to model input size
+                            .toFloat()
+                            .div(tf.scalar(255.0))  // Normalize to [0,1]
+                            .expandDims();          // Add batch dimension
+                        
+                        // Get features using model
+                        const features = featureExtractionModel.predict(tensor);
+                        
+                        // Convert to array and resolve
+                        const featureArray = await features.data();
+                        
+                        // Cleanup tensors
+                        tensor.dispose();
+                        features.dispose();
+                        
+                        resolve({
+                            features: Array.from(featureArray),
+                            category: categoryName,
+                            filename: imageFile.name
                         });
-                    }
-                }
-                
-                if (imageFiles.length === 0) {
-                    throw new Error("No valid image files found in the ZIP. Make sure images are organized in category folders.");
-                }
-                
-                // Initialize feature storage
-                for (const category of categories) {
-                    extractedFeatures[category] = [];
-                }
-                
-                // Count total images
-                totalImages = imageFiles.length;
-                processedImages = 0;
-                
-                updateStatusMessage(`Found ${totalImages} images in ${categories.size} categories. Processing...`);
-                
-                // Load the model if not already loaded
-                if (!modelLoaded) {
-                    updateStatusMessage("Loading feature extraction model...");
-                    const loaded = await loadFeatureExtractionModel();
-                    if (!loaded) {
-                        throw new Error("Failed to load feature extraction model");
-                    }
-                }
-                
-                // Process each image and extract features
-                for (const imageFile of imageFiles) {
-                    try {
-                        // Get binary data from zip
-                        const blobData = await imageFile.zipObj.async("blob");
-                        
-                        // Extract features
-                        const result = await extractFeaturesFromImage(
-                            new File([blobData], imageFile.path.split('/').pop()),
-                            imageFile.category
-                        );
-                        
-                        // Store the features
-                        extractedFeatures[imageFile.category].push(result);
-                        
-                        // Update progress
-                        processedImages++;
-                        updateProgress(processedImages, totalImages);
-                        updateStatusMessage(`Processed ${processedImages} of ${totalImages} images`);
                     } catch (error) {
-                        console.error("Error processing image:", imageFile.path, error);
-                        // Continue with other images even if one fails
-                        processedImages++;
-                        updateProgress(processedImages, totalImages);
+                        reject(error);
                     }
-                }
-                
-                // All images processed
-                const processingTime = (Date.now() - processingStartTime) / 1000;
-                updateStatusMessage(`Completed feature extraction for ${totalImages} images in ${processingTime.toFixed(1)} seconds`);
-                
-                // Return the extracted features
-                return {
-                    features: extractedFeatures,
-                    categories: Array.from(categories),
-                    totalImages: totalImages,
-                    processingTime: processingTime
                 };
+                
+                img.onerror = () => {
+                    reject(new Error(`Failed to load image: ${imageFile.name}`));
+                };
+                
+                // Load image from file
+                img.src = URL.createObjectURL(imageFile);
             } catch (error) {
-                console.error("Error processing ZIP file:", error);
-                updateStatusMessage("Error: " + error.message);
-                throw error;
+                reject(error);
             }
+        });
+    }
+    
+    // Update progress bar
+    function updateProgress(current, total) {
+        const percent = Math.round((current / total) * 100);
+        $('#extractionProgress').css('width', percent + '%').attr('aria-valuenow', percent).text(percent + '%');
+    }
+    
+    // Update status message
+    function updateStatusMessage(message) {
+        $('#statusMessage').text(message);
+    }
+    
+    // Extract features from zip file
+    async function processZipFile(zipFile) {
+        try {
+            processingStartTime = Date.now();
+            $('#processing-status').show();
+            updateStatusMessage("Extracting ZIP contents...");
+            
+            // Check if JSZip is loaded
+            if (typeof JSZip === 'undefined') {
+                updateStatusMessage("Loading required libraries...");
+                throw new Error("JSZip not loaded - please reload the page and try again");
+            }
+            
+            // Create a new instance of JSZip and load the file
+            updateStatusMessage("Reading ZIP file...");
+            const zip = new JSZip();
+            const zipContents = await zip.loadAsync(zipFile);
+            
+            // Process the zip file content
+            updateStatusMessage("Analyzing ZIP structure...");
+            const imageFiles = [];
+            const categories = new Set();
+            const extractedFeatures = {};
+            
+            // Find all image files organized by category
+            for (const filepath in zipContents.files) {
+                // Skip directories and non-image files
+                const file = zipContents.files[filepath];
+                if (file.dir || !filepath.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                    continue;
+                }
+                
+                // Extract category from path (first level directory)
+                const pathParts = filepath.split('/');
+                if (pathParts.length >= 2) {
+                    const category = pathParts[0];
+                    categories.add(category);
+                    imageFiles.push({
+                        path: filepath,
+                        zipObj: file,
+                        category: category
+                    });
+                }
+            }
+            
+            if (imageFiles.length === 0) {
+                throw new Error("No valid image files found in the ZIP. Make sure images are organized in category folders.");
+            }
+            
+            // Initialize feature storage
+            for (const category of categories) {
+                extractedFeatures[category] = [];
+            }
+            
+            // Count total images
+            totalImages = imageFiles.length;
+            processedImages = 0;
+            
+            updateStatusMessage(`Found ${totalImages} images in ${categories.size} categories. Processing...`);
+            
+            // Load the model if not already loaded
+            if (!modelLoaded) {
+                updateStatusMessage("Loading feature extraction model...");
+                const loaded = await loadFeatureExtractionModel();
+                if (!loaded) {
+                    throw new Error("Failed to load feature extraction model");
+                }
+            }
+            
+            // Process each image and extract features
+            for (const imageFile of imageFiles) {
+                try {
+                    // Get binary data from zip
+                    const blobData = await imageFile.zipObj.async("blob");
+                    
+                    // Extract features
+                    const result = await extractFeaturesFromImage(
+                        new File([blobData], imageFile.path.split('/').pop()),
+                        imageFile.category
+                    );
+                    
+                    // Store the features
+                    extractedFeatures[imageFile.category].push(result);
+                    
+                    // Update progress
+                    processedImages++;
+                    updateProgress(processedImages, totalImages);
+                    updateStatusMessage(`Processed ${processedImages} of ${totalImages} images`);
+                } catch (error) {
+                    console.error("Error processing image:", imageFile.path, error);
+                    // Continue with other images even if one fails
+                    processedImages++;
+                    updateProgress(processedImages, totalImages);
+                }
+            }
+            
+            // All images processed
+            const processingTime = (Date.now() - processingStartTime) / 1000;
+            updateStatusMessage(`Completed feature extraction for ${totalImages} images in ${processingTime.toFixed(1)} seconds`);
+            
+            // Return the extracted features
+            return {
+                features: extractedFeatures,
+                categories: Array.from(categories),
+                totalImages: totalImages,
+                processingTime: processingTime
+            };
+        } catch (error) {
+            console.error("Error processing ZIP file:", error);
+            updateStatusMessage("Error: " + error.message);
+            throw error;
+        }
+    }
+    
+    $(document).ready(function() {
+        // Load the feature extraction model on page load
+        loadFeatureExtractionModel();
+        
+        // Function to fetch and update services status
+        function updateServicesStatus() {
+            $.get('/service_status', function(data) {
+                let html = '<ul class="list-group">';
+                for (const [service, status] of Object.entries(data)) {
+                    const badgeClass = status === 'healthy' ? 'bg-success' : 'bg-danger';
+                    const statusText = status === 'healthy' ? 'Available' : 'Unavailable';
+                    html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${service}
+                                <span class="badge ${badgeClass}">${statusText}</span>
+                            </li>`;
+                }
+                html += '</ul>';
+                $('#services-status').html(html);
+            });
         }
         
-        $(document).ready(function() {
-            // Load the feature extraction model on page load
-            loadFeatureExtractionModel();
+        // Update services status on page load
+        updateServicesStatus();
+        
+        // Periodically update services status
+        setInterval(updateServicesStatus, 30000);
+        
+        // Handle form submission with client-side processing
+        $('#uploadButton').click(async function() {
+            const zipFile = $('#imageFile')[0].files[0];
             
-            // Function to fetch and update services status
-            function updateServicesStatus() {
-                $.get('/service_status', function(data) {
-                    let html = '<ul class="list-group">';
-                    for (const [service, status] of Object.entries(data)) {
-                        const badgeClass = status === 'healthy' ? 'bg-success' : 'bg-danger';
-                        const statusText = status === 'healthy' ? 'Available' : 'Unavailable';
-                        html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                    ${service}
-                                    <span class="badge ${badgeClass}">${statusText}</span>
-                                </li>`;
-                    }
-                    html += '</ul>';
-                    $('#services-status').html(html);
-                });
+            if (!zipFile) {
+                alert("Please select a ZIP file containing your images.");
+                return;
             }
             
-            // Update services status on page load
-            updateServicesStatus();
+            const privacyModeEnabled = $('#enablePrivacyMode').is(':checked');
+            const analysisType = $('#analysisType').val();
             
-            // Periodically update services status
-            setInterval(updateServicesStatus, 30000);
-            
-            // Handle form submission with client-side processing
-            $('#uploadButton').click(async function() {
-                const zipFile = $('#imageFile')[0].files[0];
-                
-                if (!zipFile) {
-                    alert("Please select a ZIP file containing your images.");
-                    return;
+            // Show loading overlay
+            var overlay = $('<div/>', {
+                id: 'loading-overlay',
+                css: {
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'rgba(0,0,0,0.7)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
                 }
+            }).appendTo('body');
+            
+            var content = $('<div/>', {
+                css: {
+                    background: 'white',
+                    padding: '20px',
+                    borderRadius: '5px',
+                    textAlign: 'center'
+                }
+            }).appendTo(overlay);
+            
+            $('<div/>', {
+                class: 'spinner-border text-primary',
+                role: 'status'
+            }).appendTo(content);
+            
+            if (privacyModeEnabled) {
+                // Remove the overlay since we'll show progress in the UI
+                $('#loading-overlay').remove();
                 
-                const privacyModeEnabled = $('#enablePrivacyMode').is(':checked');
-                const analysisType = $('#analysisType').val();
-                
-                // Show loading overlay
-                var overlay = $('<div/>', {
-                    id: 'loading-overlay',
-                    css: {
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        background: 'rgba(0,0,0,0.7)',
-                        zIndex: 9999,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                    }
-                }).appendTo('body');
-                
-                var content = $('<div/>', {
-                    css: {
-                        background: 'white',
-                        padding: '20px',
-                        borderRadius: '5px',
-                        textAlign: 'center'
-                    }
-                }).appendTo(overlay);
-                
-                $('<div/>', {
-                    class: 'spinner-border text-primary',
-                    role: 'status'
-                }).appendTo(content);
-                
-                $('<p/>', {
-                    text: 'Processing...',
-                    css: {
-                        marginTop: '10px'
-                    }
-                }).appendTo(content);
-                
-                if (privacyModeEnabled) {
-                    // Remove the overlay since we'll show progress in the UI
-                    $('#loading-overlay').remove();
+                try {
+                    // Process the zip file on the client side
+                    const results = await processZipFile(zipFile);
                     
-                    try {
-                        // Process the zip file on the client side
-                        const results = await processZipFile(zipFile);
-                        
-                        // Add loading overlay again for server communication
-                        $('<div/>', {
-                            id: 'sending-overlay',
-                            css: {
-                                position: 'fixed',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                background: 'rgba(0,0,0,0.7)',
-                                zIndex: 9999,
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center'
+                    // Prepare form data with extracted features
+                    const formData = new FormData();
+                    formData.append('analysisType', analysisType);
+                    formData.append('privacyMode', 'enabled');
+                    formData.append('featureData', JSON.stringify(results));
+                    
+                    // Send extracted features to server
+                    $.ajax({
+                        url: '/images/process_features',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            console.log("Server response:", response);
+                            if(response.redirect) {
+                                window.location.href = response.redirect;
+                            } else {
+                                $('#loading-overlay').remove();
+                                alert("Processing successful but no redirect URL provided");
                             }
-                        }).appendTo('body');
-                        
-                        var sendingContent = $('<div/>', {
-                            css: {
-                                background: 'white',
-                                padding: '20px',
-                                borderRadius: '5px',
-                                textAlign: 'center'
-                            }
-                        }).appendTo('#sending-overlay');
-                        
-                        $('<div/>', {
-                            class: 'spinner-border text-primary',
-                            role: 'status'
-                        }).appendTo(sendingContent);
-                        
-                        $('<p/>', {
-                            text: 'Sending feature data to server...',
-                            css: {
-                                marginTop: '10px'
-                            }
-                        }).appendTo(sendingContent);
-                        
-                        // Prepare form data with extracted features
-                        const formData = new FormData();
-                        formData.append('analysisType', analysisType);
-                        formData.append('privacyMode', 'enabled');
-                        formData.append('featureData', JSON.stringify(results));
-                        
-                        // Send extracted features to server
-                        $.ajax({
-                            url: '/images/process_features',
-                            type: 'POST',
-                            data: formData,
-                            processData: false,
-                            contentType: false,
-                            success: function(response) {
-                                console.log("Server response:", response);
-                                if(response.redirect) {
-                                    window.location.href = response.redirect;
-                                } else {
-                                    $('#sending-overlay').remove();
-                                    alert("Processing successful but no redirect URL provided");
-                                }
-                            },
-                            error: function(xhr, status, error) {
-                                $('#sending-overlay').remove();
-                                $('#processing-status').hide();
-                                console.error("AJAX error:", xhr.responseText);
-                                alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || error));
-                            }
-                        });
-                    } catch (error) {
-                        $('#loading-overlay, #sending-overlay').remove();
-                        $('#processing-status').hide();
-                        alert("Error processing images: " + error.message);
-                    }
-                } else {
-                    // Traditional server-side processing - use the standard form
-                    $('#image-upload-form').submit();
+                        },
+                        error: function(xhr, status, error) {
+                            $('#loading-overlay').remove();
+                            $('#processing-status').hide();
+                            console.error("AJAX error:", xhr.responseText);
+                            alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || error));
+                        }
+                    });
+                } catch (error) {
+                    $('#processing-status').hide();
+                    alert("Error processing images: " + error.message);
                 }
-            });
+            } else {
+                // Traditional server-side processing - use the standard form
+                $('#image-upload-form').submit();
+            }
         });
-    </script>
-</body>
-</html> 
+    });
+</script>
+{% endblock %} 
