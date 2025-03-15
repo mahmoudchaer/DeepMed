@@ -12,6 +12,7 @@
             <li><strong>Models Trained:</strong> {{ overall_metrics.models_trained }}</li>
             <li><strong>Features Used:</strong> {{ overall_metrics.features_used }}</li>
             <li><strong>Test Size:</strong> {{ overall_metrics.test_size }}</li>
+            <li><strong>Metrics Shown:</strong> {{ overall_metrics.metrics_shown }}</li>
         </ul>
     </div>
 
@@ -19,21 +20,22 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0">Best Accuracy Model</h3>
+                    <h3 class="mb-0">Best Models by Metric</h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         {% for model in models %}
-                        <div class="col-md-6 offset-md-3 mb-4">
+                        <div class="col-md-6 col-lg-4 mb-4">
                             <div class="card h-100 border-success">
                                 <div class="card-header bg-success text-white"> 
                                     <h5 class="card-title mb-0">{{ model.model_name }}</h5>
                                 </div>
                                 <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Selected Model</h6>
+                                    <h6 class="card-subtitle mb-2 text-muted">Best {{ model.metric_name }}</h6>
                                     <p class="card-text">
                                         <strong>{{ model.metric_name }}:</strong> {{ "%.3f" | format(model.metric_value) }}
                                     </p>
+                                    <a href="{{ url_for('select_model', model_name=model.model_name, metric=model.metric_name) }}" class="btn btn-primary">Select Model</a>
                                 </div>
                             </div>
                         </div>
@@ -46,12 +48,16 @@
 
     <div class="card mb-3">
         <div class="card-header bg-light">
-            <h3>Model Information</h3>
+            <h3>Metrics Information</h3>
         </div>
         <div class="card-body">
-            <p class="lead">This model was selected based on accuracy:</p>
+            <p class="lead">Models are selected based on different metrics:</p>
             <ul>
                 <li><strong>Accuracy</strong>: Measures the overall performance when all classes are equally important</li>
+                <li><strong>Precision</strong>: Measures how accurate the positive predictions are (reducing false positives)</li>
+                <li><strong>Recall</strong>: Measures the ability to find all positive instances (reducing false negatives)</li>
+                <li><strong>F1 Score</strong>: Harmonic mean of precision and recall, balancing both metrics</li>
+                <li><strong>Specificity</strong>: Measures the ability to correctly identify negative cases</li>
             </ul>
         </div>
     </div>
@@ -72,6 +78,8 @@
                                 <th>Accuracy</th>
                                 <th>Precision</th>
                                 <th>Recall</th>
+                                <th>F1 Score</th>
+                                <th>Specificity</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -81,6 +89,8 @@
                                 <td>{{ "%.3f" | format(metrics.accuracy) if metrics.accuracy is defined else 'N/A' }}</td>
                                 <td>{{ "%.3f" | format(metrics.precision) if metrics.precision is defined else 'N/A' }}</td>
                                 <td>{{ "%.3f" | format(metrics.recall) if metrics.recall is defined else 'N/A' }}</td>
+                                <td>{{ "%.3f" | format(metrics.f1) if metrics.f1 is defined else 'N/A' }}</td>
+                                <td>{{ "%.3f" | format(metrics.specificity) if metrics.specificity is defined else 'N/A' }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
