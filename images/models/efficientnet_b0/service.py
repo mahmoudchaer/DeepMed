@@ -35,7 +35,16 @@ logger.debug("Flask app configured with MAX_CONTENT_LENGTH=1GB")
 # Import EfficientNet-B0 model API
 logger.info("Importing EfficientNet-B0 API module")
 try:
-    from api import efficientnet_bp, init_app
+    # Change the import statement to handle both direct and package imports
+    try:
+        # First try as a package
+        from efficientnet_b0.api import efficientnet_bp, init_app
+        logger.info("API module imported as package")
+    except ImportError:
+        # Then try direct import
+        from api import efficientnet_bp, init_app
+        logger.info("API module imported directly")
+    
     logger.info("API module imported successfully")
 except Exception as e:
     logger.error(f"Error importing API module: {str(e)}", exc_info=True)

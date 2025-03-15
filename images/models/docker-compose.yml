@@ -19,6 +19,7 @@ services:
       - TF_FORCE_GPU_ALLOW_GROWTH=true
       - PYTHONUNBUFFERED=1
       - LOGLEVEL=DEBUG
+      - PYTHONPATH=/app
     logging:
       driver: "json-file"
       options:
@@ -29,6 +30,7 @@ services:
       /bin/bash -c "
         mkdir -p /app/logs &&
         echo 'Starting EfficientNet-B0 service with verbose logging...' &&
+        cd /app &&
         python3 -u service.py 2>&1 | tee /app/logs/service.log
       "
     # If using GPU, uncomment the following lines

@@ -1,8 +1,12 @@
 """
-Image Model Collection for Medical Image Analysis
+Image Analysis Models Package
 
-This package contains various deep learning models for medical image analysis.
+This package contains implementations of different deep learning models
+for medical image analysis.
 """
+
+# Make submodules accessible
+__all__ = ['efficientnet_b0']
 
 import logging
 
