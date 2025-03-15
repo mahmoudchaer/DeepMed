@@ -316,6 +316,23 @@ def index():
     services_status = check_services()
     return render_template('index.html', services_status=services_status, logout_token=session['logout_token'])
 
+@app.route('/images')
+@login_required
+def images():
+    """Route for image-based analysis"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the image analysis.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    return render_template('images.html', services_status=services_status, logout_token=session['logout_token'])
+
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload():

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  efficientnet:
+    build:
+      context: ./efficientnet_b0
+      dockerfile: Dockerfile
+    image: medicai/efficientnet-b0:latest
+    container_name: efficientnet-b0
+    ports:
+      - "5100:5100"
+    volumes:
+      - ../data/datasets:/app/data/datasets
+      - ../data/trained_models:/app/data/trained_models
+    environment:
+      - MODEL_PORT=5100
+      - MODEL_HOST=0.0.0.0
+      - TF_FORCE_GPU_ALLOW_GROWTH=true 
