@@ -35,6 +35,10 @@
                            href="{{ url_for('prediction') }}">Prediction</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'images' %}active{% endif %}" 
+                           href="{{ url_for('images') }}">Images</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
                            href="{{ url_for('chat') }}">AI Assistant</a>
                     </li>

@@ -22,17 +22,45 @@
                     <h4 class="mb-0">Welcome to DeepMedVer</h4>
                 </div>
                 <div class="card-body">
-                    <h5>Upload Your Data</h5>
-                    <p>Get started by uploading your dataset for analysis. We accept CSV and Excel files.</p>
+                    <h5>Choose Analysis Type</h5>
+                    <p>Select the type of medical data you'd like to analyze with our AI system.</p>
                     
-                    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="mb-4" id="upload-form">
-                        <div class="mb-3">
-                            <label for="file" class="form-label">Select File</label>
-                            <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
-                            <div class="form-text">Maximum file size: 16MB</div>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-table fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Tabular Data Analysis</h5>
+                                    <p class="card-text">Analyze structured medical data from spreadsheets, clinical trials, or patient records.</p>
+                                    <button type="button" class="btn btn-primary" id="showTabularUpload">Select</button>
+                                </div>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" id="upload-btn">Upload and Analyze</button>
-                    </form>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-image fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Medical Image Analysis</h5>
+                                    <p class="card-text">Analyze medical images including X-rays, MRIs, CT scans, and other diagnostic imagery.</p>
+                                    <a href="{{ url_for('images') }}" class="btn btn-primary">Select</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="tabularUploadSection" style="display: none;">
+                        <h5>Upload Your Tabular Data</h5>
+                        <p>Get started by uploading your dataset for analysis. We accept CSV and Excel files.</p>
+                        
+                        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="mb-4" id="upload-form">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Select File</label>
+                                <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
+                                <div class="form-text">Maximum file size: 16MB</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="upload-btn">Upload and Analyze</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,6 +98,7 @@
                         <a href="{{ url_for('training') }}" class="btn btn-outline-primary">Training</a>
                         <a href="{{ url_for('model_selection') }}" class="btn btn-outline-primary">Models</a>
                         <a href="{{ url_for('prediction') }}" class="btn btn-outline-primary">Prediction</a>
+                        <a href="{{ url_for('images') }}" class="btn btn-outline-primary">Images</a>
                         <a href="{{ url_for('chat') }}" class="btn btn-outline-primary">AI Assistant</a>
                     </div>
                 </div>
@@ -85,6 +114,16 @@
         const form = document.getElementById('upload-form');
         const loadingOverlay = document.getElementById('loading-overlay');
         const uploadBtn = document.getElementById('upload-btn');
+        const showTabularUploadBtn = document.getElementById('showTabularUpload');
+        const tabularUploadSection = document.getElementById('tabularUploadSection');
+        
+        // Show tabular upload section when selected
+        showTabularUploadBtn.addEventListener('click', function() {
+            tabularUploadSection.style.display = 'block';
+            showTabularUploadBtn.classList.remove('btn-primary');
+            showTabularUploadBtn.classList.add('btn-success');
+            showTabularUploadBtn.textContent = 'Selected';
+        });
         
         form.addEventListener('submit', function(e) {
             // Check if a file was actually selected
