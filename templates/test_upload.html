@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test File Upload</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { border: 1px solid #ccc; padding: 20px; border-radius: 5px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        .btn { padding: 8px 16px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .response { margin-top: 20px; padding: 10px; border: 1px solid #ddd; min-height: 100px; }
+    </style>
+</head>
+<body>
+    <h1>Test File Upload</h1>
+    
+    <div class="container">
+        <h2>Direct Form Upload</h2>
+        <form id="direct-form" action="/images/upload" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="imageFile">Select ZIP File:</label>
+                <input type="file" id="imageFile" name="imageFile" accept=".zip">
+            </div>
+            <div class="form-group">
+                <label for="analysisType">Analysis Type:</label>
+                <select id="analysisType" name="analysisType">
+                    <option value="classification">Classification</option>
+                    <option value="segmentation">Segmentation</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Upload File</button>
+        </form>
+    </div>
+    
+    <div class="container" style="margin-top: 20px;">
+        <h2>AJAX Upload</h2>
+        <form id="ajax-form">
+            <div class="form-group">
+                <label for="ajaxFile">Select ZIP File:</label>
+                <input type="file" id="ajaxFile" name="imageFile" accept=".zip">
+            </div>
+            <div class="form-group">
+                <label for="ajaxAnalysisType">Analysis Type:</label>
+                <select id="ajaxAnalysisType" name="analysisType">
+                    <option value="classification">Classification</option>
+                    <option value="segmentation">Segmentation</option>
+                </select>
+            </div>
+            <button type="button" id="ajax-submit" class="btn">Upload via AJAX</button>
+        </form>
+        <div class="response" id="ajax-response">
+            <em>Response will appear here</em>
+        </div>
+    </div>
+    
+    <div class="container" style="margin-top: 20px;">
+        <h2>Test Routes</h2>
+        <button id="test-routes" class="btn">Test Routes</button>
+        <div class="response" id="routes-response">
+            <em>Response will appear here</em>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('ajax-submit').addEventListener('click', function() {
+            const fileInput = document.getElementById('ajaxFile');
+            const analysisType = document.getElementById('ajaxAnalysisType').value;
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('imageFile', fileInput.files[0]);
+            formData.append('analysisType', analysisType);
+            
+            fetch('/images/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.text();
+            })
+            .then(data => {
+                document.getElementById('ajax-response').innerHTML = 
+                    '<p>Status: Success</p>' +
+                    '<pre>' + data + '</pre>';
+            })
+            .catch(error => {
+                document.getElementById('ajax-response').innerHTML = 
+                    '<p>Status: Error</p>' +
+                    '<p>' + error.message + '</p>';
+            });
+        });
+        
+        document.getElementById('test-routes').addEventListener('click', function() {
+            fetch('/images/debug')
+            .then(response => response.json())
+            .then(data => {
+                let routesHtml = '<h3>Available Routes:</h3><ul>';
+                data.routes.forEach(route => {
+                    routesHtml += `<li>${route.rule} (${route.methods.join(', ')}) -> ${route.endpoint}</li>`;
+                });
+                routesHtml += '</ul>';
+                
+                document.getElementById('routes-response').innerHTML = 
+                    '<p><strong>Blueprint Info:</strong> ' + JSON.stringify(data.blueprint_info) + '</p>' +
+                    routesHtml;
+            })
+            .catch(error => {
+                document.getElementById('routes-response').innerHTML = 
+                    '<p>Error: ' + error.message + '</p>';
+            });
+        });
+    </script>
+</body>
+</html> 
