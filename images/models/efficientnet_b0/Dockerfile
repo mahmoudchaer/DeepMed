@@ -14,7 +14,9 @@ RUN apt-get update && \
         python3-dev \
         git \
         wget \
-        unzip && \
+        unzip \
+        vim \
+        less && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -22,11 +24,15 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create directories for datasets, trained models, and logs
+RUN mkdir -p /app/data/datasets /app/data/trained_models /app/logs
+
 # Copy model code
 COPY . .
 
-# Create directories for datasets and trained models
-RUN mkdir -p /app/data/datasets /app/data/trained_models
+# Make log files writable
+RUN touch /app/efficientnet_service.log /app/efficientnet_api.log && \
+    chmod 666 /app/efficientnet_service.log /app/efficientnet_api.log
 
 # Expose port for the service
 EXPOSE 5100
@@ -35,6 +41,7 @@ EXPOSE 5100
 ENV MODEL_PORT=5100
 ENV MODEL_HOST=0.0.0.0
 ENV PYTHONUNBUFFERED=1
+ENV LOGLEVEL=DEBUG
 
-# Command to run the service
-CMD ["python3", "service.py"] 
+# Command to run the service with verbose logging
+CMD ["bash", "-c", "echo 'Starting EfficientNet-B0 service with verbose logging...' && python3 -u service.py 2>&1 | tee -a /app/logs/service.log"] 

@@ -19,20 +19,27 @@ from . import images_bp
 from .utils import allowed_image_file, get_temp_filepath
 import logging
 
-# Set up logging
-logger = logging.getLogger(__name__)
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('images')
 
 # Directory for temporary uploaded files
 TEMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
 os.makedirs(TEMP_DIR, exist_ok=True)
+logger.info(f"Temp directory: {TEMP_DIR}")
 
 # Directory for datasets
 DATASET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'datasets')
 os.makedirs(DATASET_DIR, exist_ok=True)
+logger.info(f"Dataset directory: {DATASET_DIR}")
 
 # Directory for trained models
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'trained_models')
 os.makedirs(MODELS_DIR, exist_ok=True)
+logger.info(f"Models directory: {MODELS_DIR}")
 
 @images_bp.route('/', methods=['GET'])
 @login_required
@@ -267,33 +274,45 @@ def download_model():
 @images_bp.route('/process_features', methods=['POST'])
 def process_features():
     """Handle client-side extracted features for privacy-preserving model training."""
+    logger.info("Process features endpoint called")
+    
     try:
         analysis_type = request.form.get('analysisType', 'classification')
+        logger.info(f"Analysis type: {analysis_type}")
         
         # Check if we got the feature data
         if 'featureData' not in request.form:
+            logger.error("No feature data provided in request")
             return jsonify({'error': 'No feature data provided'}), 400
         
         # Get the feature data
+        logger.debug("Parsing feature data")
         feature_data = json.loads(request.form.get('featureData'))
+        logger.info(f"Received feature data with {len(feature_data.get('categories', []))} categories")
         
         # Create a unique ID for this analysis
         analysis_id = str(uuid.uuid4())
+        logger.info(f"Generated analysis ID: {analysis_id}")
         
         # Create a directory to store the feature data
         feature_dir = os.path.join(DATASET_DIR, f"features_{analysis_id}")
+        logger.debug(f"Creating feature directory: {feature_dir}")
         os.makedirs(feature_dir, exist_ok=True)
         
         # Save the feature data
-        with open(os.path.join(feature_dir, 'features.json'), 'w') as f:
+        feature_file = os.path.join(feature_dir, 'features.json')
+        logger.debug(f"Saving feature data to: {feature_file}")
+        with open(feature_file, 'w') as f:
             json.dump(feature_data, f)
         
         # Extract information from feature data
         categories = feature_data['categories']
         total_images = feature_data['totalImages']
+        logger.info(f"Feature data contains {len(categories)} categories and {total_images} images")
         
         # Set dynamic hyperparameters based on dataset size
         hyperparams = calculate_hyperparameters(total_images, len(categories))
+        logger.info(f"Calculated hyperparameters: {hyperparams}")
         
         # Store analysis info in session
         session['analysis'] = {
@@ -305,10 +324,13 @@ def process_features():
             'privacy_mode': True,
             'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
+        logger.debug("Analysis info stored in session")
         
         if analysis_type == 'classification':
+            logger.info("Starting feature-based EfficientNet training")
             # Initiate model training with features instead of raw images
             job_id = start_efficientnet_feature_training(feature_dir, hyperparams)
+            logger.info(f"Feature-based training job started with ID: {job_id}")
             
             # Store job info in session
             session['active_job'] = {
@@ -317,18 +339,21 @@ def process_features():
                 'type': analysis_type,
                 'status_url': f'/images/job_status?job_id={job_id}'
             }
+            logger.debug("Job info stored in session")
             
             return jsonify({
                 'message': 'Features processed and training initiated',
                 'redirect': url_for('images.training_status')
             })
         else:
+            logger.warning(f"Analysis type not yet implemented: {analysis_type}")
             return jsonify({
                 'message': 'Features processed. This analysis type is not yet implemented.',
                 'redirect': url_for('images.index')
             })
             
     except Exception as e:
+        logger.error(f"Error processing features: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error processing features: {str(e)}'}), 500
 
 def calculate_hyperparameters(total_images, num_categories):
@@ -342,6 +367,8 @@ def calculate_hyperparameters(total_images, num_categories):
     Returns:
         dict: Dictionary of hyperparameters
     """
+    logger.info(f"Calculating hyperparameters for {total_images} images in {num_categories} categories")
+    
     # Base hyperparameters
     hyperparams = {
         'img_size': 224,  # Default size for EfficientNet-B0
@@ -353,26 +380,34 @@ def calculate_hyperparameters(total_images, num_categories):
     
     # Adjust batch size based on total images
     if total_images < 100:
+        logger.debug("Small dataset detected, reducing batch size")
         hyperparams['batch_size'] = 16
     elif total_images > 1000:
+        logger.debug("Large dataset detected, increasing batch size")
         hyperparams['batch_size'] = 64
     
     # Adjust epochs based on total images
     if total_images < 200:
+        logger.debug("Small dataset detected, reducing epochs")
         hyperparams['epochs'] = 10
     elif total_images > 2000:
+        logger.debug("Large dataset detected, increasing epochs")
         hyperparams['epochs'] = 30
     
     # Adjust augmentation intensity based on dataset size
     if total_images < 300:
+        logger.debug("Small dataset detected, increasing augmentation intensity")
         hyperparams['augmentation_intensity'] = 'high'  # More augmentation for small datasets
     elif total_images > 1000:
+        logger.debug("Large dataset detected, reducing augmentation intensity")
         hyperparams['augmentation_intensity'] = 'low'   # Less augmentation for large datasets
     
     # Adjust learning rate based on number of categories
     if num_categories > 10:
+        logger.debug("Many categories detected, reducing learning rate")
         hyperparams['learning_rate'] = 0.0005
     
+    logger.info(f"Final hyperparameters: {hyperparams}")
     return hyperparams
 
 def start_efficientnet_training(dataset_path, hyperparams):
@@ -386,19 +421,31 @@ def start_efficientnet_training(dataset_path, hyperparams):
     Returns:
         str: Job ID
     """
+    logger.info(f"Starting EfficientNet training with dataset: {dataset_path}")
+    logger.debug(f"Hyperparameters: {hyperparams}")
+    
     # This would normally make an API call to the model service
     # For now, we'll simulate it
     job_id = str(uuid.uuid4())
+    logger.info(f"Generated job ID: {job_id}")
     
     # In a real implementation, this would be:
-    # response = requests.post(
-    #     'http://localhost:5100/models/efficientnet_b0/train',
-    #     json={
-    #         'dataset_path': dataset_path,
-    #         'hyperparameters': hyperparams
-    #     }
-    # )
-    # job_id = response.json().get('job_id')
+    try:
+        logger.info("Attempting to call model API")
+        # response = requests.post(
+        #     'http://localhost:5100/models/efficientnet_b0/train',
+        #     json={
+        #         'dataset_path': dataset_path,
+        #         'hyperparameters': hyperparams
+        #     }
+        # )
+        # job_id = response.json().get('job_id')
+        # logger.info(f"API response: {response.json()}")
+        
+        # For now, simulate the API call
+        logger.info("Using simulated API response")
+    except Exception as e:
+        logger.error(f"Error calling model API: {str(e)}", exc_info=True)
     
     return job_id
 
@@ -413,41 +460,83 @@ def start_efficientnet_feature_training(feature_dir, hyperparams):
     Returns:
         str: Job ID
     """
+    logger.info(f"Starting feature-based EfficientNet training with features from: {feature_dir}")
+    logger.debug(f"Hyperparameters: {hyperparams}")
+    
     # This would normally make an API call to the model service
     # For now, we'll simulate it
     job_id = str(uuid.uuid4())
+    logger.info(f"Generated job ID: {job_id}")
     
     # In a real implementation, this would be:
-    # response = requests.post(
-    #     'http://localhost:5100/models/efficientnet_b0/train_features',
-    #     json={
-    #         'feature_path': feature_dir,
-    #         'hyperparameters': hyperparams
-    #     }
-    # )
-    # job_id = response.json().get('job_id')
+    try:
+        logger.info("Attempting to call model API for feature training")
+        # response = requests.post(
+        #     'http://localhost:5100/models/efficientnet_b0/train_features',
+        #     json={
+        #         'feature_path': feature_dir,
+        #         'hyperparameters': hyperparams
+        #     }
+        # )
+        # job_id = response.json().get('job_id')
+        # logger.info(f"API response: {response.json()}")
+        
+        # For now, simulate the API call
+        logger.info("Using simulated API response")
+    except Exception as e:
+        logger.error(f"Error calling model API for feature training: {str(e)}", exc_info=True)
     
     return job_id
 
 @images_bp.route('/training_status')
 def training_status():
     """Show training status page."""
+    logger.info("Training status page requested")
+    
     if 'active_job' not in session:
+        logger.error("No active training job found in session")
         flash('No active training job found', 'warning')
         return redirect(url_for('images.index'))
     
+    logger.debug(f"Rendering training status page for job: {session['active_job'].get('id')}")
     return render_template('training_status.html')
 
 @images_bp.route('/download_model')
 def download_model():
     """Download the trained model."""
+    logger.info("Download model endpoint called")
+    
     if 'active_job' not in session:
+        logger.error("No active job found in session")
         flash('No active job found', 'warning')
         return redirect(url_for('images.index'))
     
     job_id = session['active_job'].get('id')
     model_format = request.args.get('format', 'keras')
+    logger.info(f"Download requested for job {job_id} in format {model_format}")
     
-    # This would normally make an API call to the model service
-    # For now, we'll return a placeholder
-    return "Model download API not implemented yet" 
+    try:
+        logger.info("Attempting to call model API for model download")
+        # This would normally make an API call to the model service
+        # For now, we'll return a placeholder
+        # In a real implementation, this would be:
+        # response = requests.get(
+        #     f'http://localhost:5100/models/efficientnet_b0/jobs/{job_id}/model?format={model_format}',
+        #     stream=True
+        # )
+        # if response.ok:
+        #     return send_file(
+        #         io.BytesIO(response.content),
+        #         as_attachment=True,
+        #         download_name=f'efficientnet_b0_{job_id}.{model_format}',
+        #         mimetype='application/octet-stream'
+        #     )
+        
+        logger.info("Model download API not implemented yet")
+        return "Model download API not implemented yet"
+    except Exception as e:
+        logger.error(f"Error downloading model: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Error downloading model: {str(e)}'}), 500
+
+# Add this at the end of the file
+logger.info("Images routes module loaded successfully") 
