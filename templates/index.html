@@ -1,151 +1,164 @@
-{% extends "base.html" %}
-
-{% block title %}DeepMedVer - Medical AI Platform{% endblock %}
-
-{% block content %}
-<!-- Add loading overlay -->
-<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 9999;">
-    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
-        <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MedicAI Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">MedicAI</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/images">Images</a>
+                    </li>
+                </ul>
+            </div>
         </div>
-        <h4 class="mt-3">Analyzing your data...</h4>
-        <p>Our AI is reviewing your dataset and generating recommendations.<br>This may take a few moments.</p>
-    </div>
-</div>
+    </nav>
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Welcome to DeepMedVer</h4>
-                </div>
-                <div class="card-body">
-                    <h5>Choose Analysis Type</h5>
-                    <p>Select the type of medical data you'd like to analyze with our AI system.</p>
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-table fa-3x text-primary mb-3"></i>
-                                    <h5 class="card-title">Tabular Data Analysis</h5>
-                                    <p class="card-text">Analyze structured medical data from spreadsheets, clinical trials, or patient records.</p>
-                                    <button type="button" class="btn btn-primary" id="showTabularUpload">Select</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-image fa-3x text-primary mb-3"></i>
-                                    <h5 class="card-title">Medical Image Analysis</h5>
-                                    <p class="card-text">Analyze medical images including X-rays, MRIs, CT scans, and other diagnostic imagery.</p>
-                                    <a href="{{ url_for('images') }}" class="btn btn-primary">Select</a>
-                                </div>
-                            </div>
-                        </div>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </h5>
                     </div>
-                    
-                    <div id="tabularUploadSection" style="display: none;">
-                        <h5>Upload Your Tabular Data</h5>
-                        <p>Get started by uploading your dataset for analysis. We accept CSV and Excel files.</p>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Welcome to MedicAI, your comprehensive platform for medical image analysis and diagnostics.
+                        </div>
                         
-                        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="mb-4" id="upload-form">
-                            <div class="mb-3">
-                                <label for="file" class="form-label">Select File</label>
-                                <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
-                                <div class="form-text">Maximum file size: 16MB</div>
+                        <div class="row mt-4">
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-image fa-3x text-primary mb-3"></i>
+                                        <h5 class="card-title">Image Analysis</h5>
+                                        <p class="card-text">Train and deploy deep learning models for medical image classification, segmentation, and detection.</p>
+                                        <a href="/images" class="btn btn-primary">Go to Images</a>
+                                    </div>
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="upload-btn">Upload and Analyze</button>
-                        </form>
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-brain fa-3x text-primary mb-3"></i>
+                                        <h5 class="card-title">Models</h5>
+                                        <p class="card-text">Access pre-trained models like EfficientNet-B0 for medical imagery or train custom models.</p>
+                                        <a href="#" class="btn btn-primary disabled">Coming Soon</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                        <h5 class="card-title">Analytics</h5>
+                                        <p class="card-text">View statistics and performance metrics for your trained models and datasets.</p>
+                                        <a href="#" class="btn btn-primary disabled">Coming Soon</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Services Status</h4>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group">
-                        {% for service, status in services_status.items() %}
-                            {% if status == "healthy" %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ service }}
-                                    <span class="badge bg-success rounded-pill">Active</span>
-                                </li>
-                            {% else %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ service }}
-                                    <span class="badge bg-danger rounded-pill">Offline</span>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Quick Actions</h4>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('training') }}" class="btn btn-outline-primary">Training</a>
-                        <a href="{{ url_for('model_selection') }}" class="btn btn-outline-primary">Models</a>
-                        <a href="{{ url_for('prediction') }}" class="btn btn-outline-primary">Prediction</a>
-                        <a href="{{ url_for('images') }}" class="btn btn-outline-primary">Images</a>
-                        <a href="{{ url_for('chat') }}" class="btn btn-outline-primary">AI Assistant</a>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-tasks me-2"></i>Getting Started
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <ol class="list-group list-group-numbered mb-0">
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Prepare Your Dataset</div>
+                                            Organize your medical images in a ZIP file with folders for each category.
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Upload to Image Analysis</div>
+                                            Navigate to the Images page and upload your dataset ZIP file.
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Train Your Model</div>
+                                            Choose an analysis type and privacy settings, then start training.
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Download and Deploy</div>
+                                            Download your trained model for use in your own applications.
+                                        </div>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-lightbulb me-2"></i>Quick Tips
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-warning mb-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Privacy Notice:</strong> Enable Privacy Mode to process images locally and only send extracted features to the server.
+                                </div>
+                                
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-folder-open me-2"></i>Dataset Structure</h6>
+                                        <p class="small mb-0">For best results, use a ZIP file with the following structure:</p>
+                                        <pre class="bg-light p-2 mt-2"><code>dataset.zip
+├── class1/
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   └── ...
+├── class2/
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   └── ...
+└── ...</code></pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-sliders-h me-2"></i>Model Selection</h6>
+                                        <p class="small mb-0">Current supported model: <span class="badge bg-info">EfficientNet-B0</span></p>
+                                        <p class="small mb-0">This model works best with datasets of 100-1000 images per class.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('upload-form');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const uploadBtn = document.getElementById('upload-btn');
-        const showTabularUploadBtn = document.getElementById('showTabularUpload');
-        const tabularUploadSection = document.getElementById('tabularUploadSection');
-        
-        // Show tabular upload section when selected
-        showTabularUploadBtn.addEventListener('click', function() {
-            tabularUploadSection.style.display = 'block';
-            showTabularUploadBtn.classList.remove('btn-primary');
-            showTabularUploadBtn.classList.add('btn-success');
-            showTabularUploadBtn.textContent = 'Selected';
-        });
-        
-        form.addEventListener('submit', function(e) {
-            // Check if a file was actually selected
-            const fileInput = document.getElementById('file');
-            if (fileInput.files.length > 0) {
-                // Show loading overlay
-                loadingOverlay.style.display = 'block';
-                
-                // Disable button and change text
-                uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-                uploadBtn.disabled = true;
-                
-                // Store in sessionStorage that we're processing data
-                sessionStorage.setItem('processing_data', 'true');
-            }
-        });
-        
-        // If we return to this page and processing_data is still set, clear it
-        // (this means user navigated back without completing the process)
-        if (sessionStorage.getItem('processing_data') === 'true') {
-            sessionStorage.removeItem('processing_data');
-        }
-    });
-</script>
-{% endblock %} 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
