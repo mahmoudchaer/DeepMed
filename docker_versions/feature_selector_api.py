@@ -3,10 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_selection import RFECV, mutual_info_classif
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, KBinsDiscretizer
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, make_scorer
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from itertools import combinations
 import json
 import openai
@@ -29,8 +30,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 class FeatureSelector:
-    def __init__(self, method='fallback', min_features_to_keep=5, performance_threshold=0.001):
-        """Initialize the feature selector with LLM capabilities."""
+    def __init__(self, method='fallback', min_features_to_keep=5, performance_threshold=0.001, 
+                 apply_scaling=True, scaling_method='standard', 
+                 apply_discretization=False, n_bins=5, 
+                 apply_feature_crossing=False, max_crossing_degree=2):
+        """Initialize the feature selector with LLM capabilities and enhanced preprocessing."""
         self.method = method
         self.min_features_to_keep = min_features_to_keep
         self.performance_threshold = performance_threshold
@@ -38,6 +42,19 @@ class FeatureSelector:
         self.feature_importances_ = {}
         self.label_encoders = {}
         self.id_columns = []
+        
+        # Feature enhancement settings
+        self.apply_scaling = apply_scaling
+        self.scaling_method = scaling_method  # 'standard' or 'minmax'
+        self.scalers = {}  # Store fitted scalers
+        
+        self.apply_discretization = apply_discretization
+        self.n_bins = n_bins
+        self.discretizers = {}  # Store fitted discretizers
+        
+        self.apply_feature_crossing = apply_feature_crossing
+        self.max_crossing_degree = max_crossing_degree
+        self.crossed_features = []  # Store names of crossed features
         
         # Initialize OpenAI client if available
         api_key = os.getenv("OPENAI_API_KEY")
@@ -238,6 +255,135 @@ class FeatureSelector:
             logger.error(f"🔴 Error getting target recommendations: {str(e)}")
             return None
 
+    def _apply_scaling(self, X, is_fitting=True):
+        """Apply feature scaling to numerical columns."""
+        X = X.copy()
+        numerical_cols = X.select_dtypes(include=np.number).columns.tolist()
+        
+        if not numerical_cols:
+            logger.info("No numerical columns found for scaling")
+            return X
+            
+        logger.info(f"🔄 Applying {self.scaling_method} scaling to {len(numerical_cols)} numerical features")
+        
+        for col in numerical_cols:
+            # Skip if all values are the same (standard deviation is zero)
+            if X[col].std() == 0:
+                continue
+                
+            if is_fitting:
+                if self.scaling_method == 'standard':
+                    self.scalers[col] = StandardScaler()
+                elif self.scaling_method == 'minmax':
+                    self.scalers[col] = MinMaxScaler()
+                
+                # Fit and transform
+                X[col] = self.scalers[col].fit_transform(X[col].values.reshape(-1, 1)).flatten()
+            else:
+                # Transform only if scaler exists
+                if col in self.scalers:
+                    X[col] = self.scalers[col].transform(X[col].values.reshape(-1, 1)).flatten()
+        
+        return X
+    
+    def _apply_discretization(self, X, is_fitting=True):
+        """Apply discretization to suitable numerical columns."""
+        X = X.copy()
+        
+        # Only apply to numerical columns with sufficient unique values
+        numerical_cols = X.select_dtypes(include=np.number).columns.tolist()
+        suitable_cols = [col for col in numerical_cols if X[col].nunique() > self.n_bins * 2]
+        
+        if not suitable_cols:
+            logger.info("No suitable columns found for discretization")
+            return X
+            
+        logger.info(f"🔄 Applying discretization to {len(suitable_cols)} suitable numerical features")
+        
+        for col in suitable_cols:
+            # Skip if standard deviation is zero
+            if X[col].std() == 0:
+                continue
+                
+            # Create column name for discretized version
+            disc_col_name = f"{col}_disc"
+            
+            if is_fitting:
+                # Use KBinsDiscretizer with quantile strategy for more balanced bins
+                self.discretizers[col] = KBinsDiscretizer(
+                    n_bins=min(self.n_bins, X[col].nunique() - 1),
+                    encode='ordinal',  # Use ordinal to maintain numeric representation
+                    strategy='quantile'  # Use quantile for more balanced bin sizes
+                )
+                
+                # Fit and transform, then add as a new column (preserving original)
+                X[disc_col_name] = self.discretizers[col].fit_transform(
+                    X[col].values.reshape(-1, 1)
+                ).flatten()
+            else:
+                # Transform only if discretizer exists
+                if col in self.discretizers:
+                    X[disc_col_name] = self.discretizers[col].transform(
+                        X[col].values.reshape(-1, 1)
+                    ).flatten()
+        
+        return X
+    
+    def _apply_feature_crossing(self, X, is_fitting=True):
+        """Create crossed features from numerical columns."""
+        X = X.copy()
+        
+        # Only consider numerical features for crossing to avoid dimensionality explosion
+        numerical_cols = X.select_dtypes(include=np.number).columns.tolist()
+        
+        # Limit to top 10 most correlated features if there are too many
+        if len(numerical_cols) > 10:
+            logger.info("Too many numerical features, limiting to 10 most important for crossing")
+            numerical_cols = numerical_cols[:10]
+        
+        if not numerical_cols or len(numerical_cols) < 2:
+            logger.info("Not enough suitable columns for feature crossing")
+            return X
+        
+        logger.info(f"🔄 Applying feature crossing to {len(numerical_cols)} numerical features")
+        
+        if is_fitting:
+            self.crossed_features = []
+            
+            # Generate combinations of features
+            for degree in range(2, min(self.max_crossing_degree + 1, len(numerical_cols) + 1)):
+                for combo in combinations(numerical_cols, degree):
+                    # Skip if any feature has zero standard deviation
+                    if any(X[col].std() == 0 for col in combo):
+                        continue
+                    
+                    # Create crossed feature name
+                    crossed_name = f"{'_x_'.join(combo)}"
+                    
+                    # Multiply the features together
+                    X[crossed_name] = 1.0
+                    for col in combo:
+                        X[crossed_name] *= X[col]
+                    
+                    self.crossed_features.append((crossed_name, combo))
+                    
+                    # Limit the number of crossed features to avoid explosion
+                    if len(self.crossed_features) >= 15:
+                        logger.info("Reached maximum number of crossed features")
+                        break
+                
+                if len(self.crossed_features) >= 15:
+                    break
+        else:
+            # Apply existing feature crossings
+            for crossed_name, combo in self.crossed_features:
+                if all(col in X.columns for col in combo):
+                    X[crossed_name] = 1.0
+                    for col in combo:
+                        X[crossed_name] *= X[col]
+        
+        return X
+
     def fit_transform(self, X, y=None):
         """Fit the feature selector and transform the data."""
         logger.info(f"Starting feature selection using method: {self.method}")
@@ -248,6 +394,21 @@ class FeatureSelector:
         # Prepare features (handle categorical variables)
         X = self._prepare_features(X)
         
+        # Apply feature engineering if enabled
+        if self.apply_scaling:
+            X = self._apply_scaling(X, is_fitting=True)
+            logger.info(f"✅ Applied scaling to numerical features")
+        
+        if self.apply_discretization:
+            X = self._apply_discretization(X, is_fitting=True)
+            logger.info(f"✅ Applied discretization to suitable numerical features")
+        
+        if self.apply_feature_crossing:
+            X = self._apply_feature_crossing(X, is_fitting=True)
+            logger.info(f"✅ Applied feature crossing, created {len(self.crossed_features)} new features")
+            logger.info(f"New data shape after feature engineering: {X.shape}")
+        
+        # Continue with feature selection
         if self.method == 'llm':
             logger.info("🤖 Using LLM-based feature selection")
             # Get LLM recommendations
@@ -284,7 +445,18 @@ class FeatureSelector:
             raise ValueError("Fit the feature selector first using fit_transform()")
         
         X = X.copy()
+        
+        # Apply same preprocessing as during fitting
         X = self._prepare_features(X)
+        
+        if self.apply_scaling:
+            X = self._apply_scaling(X, is_fitting=False)
+        
+        if self.apply_discretization:
+            X = self._apply_discretization(X, is_fitting=False)
+        
+        if self.apply_feature_crossing:
+            X = self._apply_feature_crossing(X, is_fitting=False)
         
         # Ensure all selected features are present
         missing_features = set(self.selected_features) - set(X.columns)
@@ -413,8 +585,15 @@ class FeatureSelector:
         
         return best_features
 
-# Create a global FeatureSelector instance
-feature_selector = FeatureSelector()
+# Create a global FeatureSelector instance with default settings
+feature_selector = FeatureSelector(
+    apply_scaling=True,          # Enable scaling by default
+    scaling_method='standard',   # Use standard scaling by default
+    apply_discretization=True,   # Enable discretization
+    n_bins=5,                    # Use 5 bins for discretization
+    apply_feature_crossing=True, # Enable feature crossing
+    max_crossing_degree=2        # Only create pairs of features
+)
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -512,6 +691,32 @@ def select_features():
                 feature_selector.min_features_to_keep = int(request_data['min_features'])
                 logger.info(f"Minimum features to keep set to: {feature_selector.min_features_to_keep}")
             
+            # Configure feature engineering options if provided
+            if 'apply_scaling' in request_data:
+                feature_selector.apply_scaling = bool(request_data['apply_scaling'])
+                logger.info(f"Feature scaling set to: {feature_selector.apply_scaling}")
+                
+            if 'scaling_method' in request_data:
+                if request_data['scaling_method'] in ['standard', 'minmax']:
+                    feature_selector.scaling_method = request_data['scaling_method']
+                    logger.info(f"Scaling method set to: {feature_selector.scaling_method}")
+            
+            if 'apply_discretization' in request_data:
+                feature_selector.apply_discretization = bool(request_data['apply_discretization'])
+                logger.info(f"Feature discretization set to: {feature_selector.apply_discretization}")
+                
+            if 'n_bins' in request_data:
+                feature_selector.n_bins = int(request_data['n_bins'])
+                logger.info(f"Discretization bins set to: {feature_selector.n_bins}")
+            
+            if 'apply_feature_crossing' in request_data:
+                feature_selector.apply_feature_crossing = bool(request_data['apply_feature_crossing'])
+                logger.info(f"Feature crossing set to: {feature_selector.apply_feature_crossing}")
+                
+            if 'max_crossing_degree' in request_data:
+                feature_selector.max_crossing_degree = int(request_data['max_crossing_degree'])
+                logger.info(f"Max crossing degree set to: {feature_selector.max_crossing_degree}")
+            
             # Select features
             logger.info("🔄 Starting feature selection process")
             X_selected = feature_selector.fit_transform(df, y)
@@ -522,7 +727,13 @@ def select_features():
                 "feature_importances": feature_selector.feature_importances_,
                 "transformed_data": X_selected.to_dict(orient='records'),
                 "message": "Features selected successfully",
-                "method_used": feature_selector.method
+                "method_used": feature_selector.method,
+                "feature_engineering": {
+                    "scaling": feature_selector.apply_scaling,
+                    "discretization": feature_selector.apply_discretization,
+                    "feature_crossing": feature_selector.apply_feature_crossing,
+                    "crossed_features": [name for name, _ in feature_selector.crossed_features] if feature_selector.apply_feature_crossing else []
+                }
             }
             
             # Include target recommendations if available

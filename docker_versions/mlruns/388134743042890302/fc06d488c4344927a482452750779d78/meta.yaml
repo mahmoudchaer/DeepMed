@@ -1,0 +1,15 @@
+artifact_uri: file:///app/mlruns/388134743042890302/fc06d488c4344927a482452750779d78/artifacts
+end_time: 1742047087742
+entry_point_name: ''
+experiment_id: '388134743042890302'
+lifecycle_stage: active
+run_id: fc06d488c4344927a482452750779d78
+run_name: naive_bayes
+run_uuid: fc06d488c4344927a482452750779d78
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1742047078446
+status: 3
+tags: []
+user_id: root

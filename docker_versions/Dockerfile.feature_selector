@@ -6,6 +6,9 @@ WORKDIR /app
 COPY requirements.feature_selector.txt .
 RUN pip install --no-cache-dir -r requirements.feature_selector.txt
 
+# Create logs directory
+RUN mkdir -p logs
+
 # Copy application code
 COPY feature_selector_api.py .
 
