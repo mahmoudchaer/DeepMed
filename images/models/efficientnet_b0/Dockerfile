@@ -3,6 +3,10 @@ FROM tensorflow/tensorflow:2.5.0-gpu
 # Set working directory
 WORKDIR /app
 
+# Fix the NVIDIA GPG key issue
+RUN apt-key del A4B469963BF863CC || true \
+    && curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub | apt-key add -
+
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y \
@@ -14,20 +18,17 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt /app/requirements.txt
-
-# Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Copy requirements file first to leverage Docker caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy model code
-COPY . /app/
+COPY . .
 
-# Create directories for data and trained models
-RUN mkdir -p /app/data/datasets
-RUN mkdir -p /app/data/trained_models
+# Create directories for datasets and trained models
+RUN mkdir -p /app/data/datasets /app/data/trained_models
 
-# Expose port
+# Expose port for the service
 EXPOSE 5100
 
 # Set environment variables
@@ -35,5 +36,5 @@ ENV MODEL_PORT=5100
 ENV MODEL_HOST=0.0.0.0
 ENV PYTHONUNBUFFERED=1
 
-# Run the service
+# Command to run the service
 CMD ["python3", "service.py"] 
