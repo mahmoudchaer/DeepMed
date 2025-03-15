@@ -6,12 +6,26 @@ This package contains the functionality for analyzing medical images.
 
 from flask import Blueprint, current_app
 import logging
+import os
 
 # Set up logging
 logger = logging.getLogger('images')
 logger.info("Initializing Images Module")
 
-# Create Blueprint for image-related routes
+# Create directories
+temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
+os.makedirs(temp_dir, exist_ok=True)
+logger.info(f"Created temp directory: {temp_dir}")
+
+dataset_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'datasets')
+os.makedirs(dataset_dir, exist_ok=True)
+logger.info(f"Created dataset directory: {dataset_dir}")
+
+models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'trained_models')
+os.makedirs(models_dir, exist_ok=True)
+logger.info(f"Created models directory: {models_dir}")
+
+# Create Blueprint with explicit name for image-related routes
 images_bp = Blueprint('images', __name__, url_prefix='/images')
 logger.info("Created images blueprint with url_prefix='/images'")
 
@@ -32,11 +46,12 @@ def init_app(app):
     app.register_blueprint(images_bp)
     logger.info("Registered images blueprint with Flask app")
     
-    # Log the available routes
-    logger.debug("Available routes in the images blueprint:")
-    for rule in app.url_map.iter_rules():
-        if rule.endpoint.startswith('images.'):
-            logger.debug(f"  {rule.rule} -> {rule.endpoint}")
+    # Log all available routes for debugging
+    @app.before_first_request
+    def log_routes():
+        logger.info("Available routes:")
+        for rule in sorted(app.url_map.iter_rules(), key=lambda x: str(x)):
+            logger.info(f"  {rule.endpoint} -> {rule.rule}")
     
     # Set up necessary directories and other initialization
     logger.info("Setting up directories and initialization")

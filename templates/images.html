@@ -451,11 +451,19 @@
                         processData: false,
                         contentType: false,
                         success: function(response) {
-                            window.location.href = response.redirect;
+                            console.log("Server response:", response);
+                            if(response.redirect) {
+                                window.location.href = response.redirect;
+                            } else {
+                                $('#loading-overlay').remove();
+                                alert("Processing successful but no redirect URL provided");
+                            }
                         },
                         error: function(xhr, status, error) {
+                            $('#loading-overlay').remove();
                             $('#processing-status').hide();
-                            alert("Error: " + xhr.responseText);
+                            console.error("AJAX error:", xhr.responseText);
+                            alert("Error: " + (xhr.responseJSON ? xhr.responseJSON.error : xhr.responseText || error));
                         }
                     });
                 } catch (error) {
