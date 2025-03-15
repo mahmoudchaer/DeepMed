@@ -14,9 +14,8 @@ import sys
 import traceback
 from flask import Blueprint, request, jsonify, send_file, current_app
 import shutil
-from .model import EfficientNetB0Classifier
 
-# Set up comprehensive logging
+# Set up comprehensive logging first
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -27,6 +26,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger('efficientnet_api')
 logger.info("EfficientNet-B0 API module initializing")
+
+# Try both ways to import the model
+try:
+    # First try relative import
+    from .model import EfficientNetB0Classifier
+    logger.info("Imported model using relative import")
+except ImportError:
+    # Then try direct import
+    from model import EfficientNetB0Classifier
+    logger.info("Imported model using direct import")
 
 # Create a Blueprint for the EfficientNet-B0 API routes
 logger.info("Creating EfficientNet-B0 Blueprint")

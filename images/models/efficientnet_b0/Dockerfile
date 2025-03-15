@@ -30,6 +30,9 @@ RUN mkdir -p /app/data/datasets /app/data/trained_models /app/logs
 # Copy model code
 COPY . .
 
+# Create an __init__.py file to make this directory a Python package
+RUN touch /app/__init__.py
+
 # Make log files writable
 RUN touch /app/efficientnet_service.log /app/efficientnet_api.log && \
     chmod 666 /app/efficientnet_service.log /app/efficientnet_api.log
@@ -42,6 +45,7 @@ ENV MODEL_PORT=5100
 ENV MODEL_HOST=0.0.0.0
 ENV PYTHONUNBUFFERED=1
 ENV LOGLEVEL=DEBUG
+ENV PYTHONPATH=/app
 
 # Command to run the service with verbose logging
 CMD ["bash", "-c", "echo 'Starting EfficientNet-B0 service with verbose logging...' && python3 -u service.py 2>&1 | tee -a /app/logs/service.log"] 

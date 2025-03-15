@@ -63,7 +63,7 @@ def index():
     }
     
     # Get active training jobs if any
-    active_job = session.get('active_job')
+    active_job = session.get('active_training_job')
     
     # If there's an active job, check its status
     job_status = None
@@ -157,24 +157,11 @@ def upload():
             if session['analysis_type'] == 'classification':
                 # Send request to the EfficientNet-B0 model API
                 try:
-                    # In a real implementation, this would be a request to the /models/efficientnet_b0/train endpoint
-                    # For now, we'll just simulate it by storing info in the session
-                    
-                    # Prepare the data for the API call
-                    train_data = {
-                        "dataset_path": extracted_dir,
-                        "hyperparameters": {
-                            "img_size": 224,
-                            "batch_size": 16,  # Smaller batch size for demo
-                            "epochs": 10       # Fewer epochs for demo
-                        }
-                    }
-                    
-                    # In a real implementation, this would be:
-                    # response = requests.post(url_for('efficientnet.train_model', _external=True), json=train_data)
-                    # Here we just simulate a successful response
+                    # Simulating a successful API response
+                    job_id = secrets.token_hex(8)
                     simulated_response = {
-                        'job_id': secrets.token_hex(8),
+                        'job_id': job_id,
+                        'id': job_id,  # Add an 'id' property for consistency
                         'status_url': url_for('images.job_status', _external=True),
                         'message': 'Training job started successfully'
                     }
@@ -333,8 +320,9 @@ def process_features():
             logger.info(f"Feature-based training job started with ID: {job_id}")
             
             # Store job info in session
-            session['active_job'] = {
+            session['active_training_job'] = {
                 'id': job_id,
+                'job_id': job_id,
                 'analysis_id': analysis_id,
                 'type': analysis_type,
                 'status_url': f'/images/job_status?job_id={job_id}'
@@ -493,12 +481,12 @@ def training_status():
     """Show training status page."""
     logger.info("Training status page requested")
     
-    if 'active_job' not in session:
+    if 'active_training_job' not in session:
         logger.error("No active training job found in session")
         flash('No active training job found', 'warning')
         return redirect(url_for('images.index'))
     
-    logger.debug(f"Rendering training status page for job: {session['active_job'].get('id')}")
+    logger.debug(f"Rendering training status page for job: {session['active_training_job'].get('id')}")
     return render_template('training_status.html')
 
 @images_bp.route('/download_model')
@@ -506,12 +494,12 @@ def download_model():
     """Download the trained model."""
     logger.info("Download model endpoint called")
     
-    if 'active_job' not in session:
+    if 'active_training_job' not in session:
         logger.error("No active job found in session")
         flash('No active job found', 'warning')
         return redirect(url_for('images.index'))
     
-    job_id = session['active_job'].get('id')
+    job_id = session['active_training_job'].get('id')
     model_format = request.args.get('format', 'keras')
     logger.info(f"Download requested for job {job_id} in format {model_format}")
     
