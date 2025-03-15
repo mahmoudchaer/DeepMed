@@ -22,7 +22,8 @@ import uuid
 import glob
 import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models.users import db, User
+from users import db, User
+import urllib.parse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -77,7 +78,17 @@ app.config['REMEMBER_COOKIE_DURATION'] = None  # Don't remember user login
 app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24  # 24 hours
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///deepmedver.db'  # Using SQLite for simplicity
+# Get credentials from environment variables with proper URL encoding for password
+MYSQL_USER = os.getenv('MYSQL_USER', 'root')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'passs')
+MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
+MYSQL_PORT = int(os.getenv('MYSQL_PORT', '3306'))
+MYSQL_DB = os.getenv('MYSQL_DB', 'deepmedver')
+
+# URL encode the password to handle special characters
+encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize the database
@@ -743,7 +754,9 @@ def model_selection():
     best_models = {  # Track best models by each metric
         'accuracy': {'model_name': '', 'metrics': {'accuracy': 0}},
         'precision': {'model_name': '', 'metrics': {'precision': 0}},
-        'recall': {'model_name': '', 'metrics': {'recall': 0}}
+        'recall': {'model_name': '', 'metrics': {'recall': 0}},
+        'f1': {'model_name': '', 'metrics': {'f1': 0}},
+        'specificity': {'model_name': '', 'metrics': {'specificity': 0}}
     }
     
     try:
@@ -774,7 +787,7 @@ def model_selection():
                             # Process metrics by type
                             for metric_name, metric_value in raw_metrics.items():
                                 # For numeric metrics, ensure they're properly stored
-                                if metric_name in ['accuracy', 'precision', 'recall', 'f1', 'cv_score_mean', 'cv_score_std']:
+                                if metric_name in ['accuracy', 'precision', 'recall', 'f1', 'specificity', 'cv_score_mean', 'cv_score_std']:
                                     # Convert to float if not already
                                     if not isinstance(metric_value, float):
                                         try:
@@ -790,18 +803,37 @@ def model_selection():
                                 'accuracy': 0.0,
                                 'precision': 0.0,
                                 'recall': 0.0,
-                                'f1': 0.0
+                                'f1': 0.0,
+                                'specificity': 0.0
                             }
                         
                         # Store model with metrics
                         all_models[model_name] = metrics
                         
+                        # If specificity is not provided but we have other metrics, calculate it
+                        # Specificity = TN / (TN + FP) = (1 - FPR)
+                        if 'specificity' not in metrics and 'accuracy' in metrics and 'precision' in metrics and 'recall' in metrics:
+                            # Try to estimate specificity using other available metrics
+                            # This is an approximation since we don't have direct access to TN and FP
+                            # For binary classification, can estimate: specificity ≈ (accuracy - recall * positive_rate) / (1 - positive_rate)
+                            # Assuming balanced classes (positive_rate = 0.5)
+                            accuracy = metrics.get('accuracy', 0.0)
+                            recall = metrics.get('recall', 0.0)
+                            # A simple estimation for specificity when true rate is unknown
+                            estimated_specificity = 2 * accuracy - recall
+                            # Cap between 0 and 1
+                            estimated_specificity = max(0.0, min(1.0, estimated_specificity))
+                            metrics['specificity'] = estimated_specificity
+                            all_models[model_name]['specificity'] = estimated_specificity
+                        
                         # Check if this model is best for any metric
                         accuracy = metrics.get('accuracy', 0.0)
                         precision = metrics.get('precision', 0.0)
                         recall = metrics.get('recall', 0.0)
+                        f1 = metrics.get('f1', 0.0)
+                        specificity = metrics.get('specificity', 0.0)
                         
-                        logger.info(f"Model {model_name} metrics - accuracy: {accuracy}, precision: {precision}, recall: {recall}")
+                        logger.info(f"Model {model_name} metrics - accuracy: {accuracy}, precision: {precision}, recall: {recall}, f1: {f1}, specificity: {specificity}")
                         
                         if accuracy > best_models['accuracy']['metrics'].get('accuracy', 0):
                             best_models['accuracy'] = {
@@ -817,6 +849,18 @@ def model_selection():
                             
                         if recall > best_models['recall']['metrics'].get('recall', 0):
                             best_models['recall'] = {
+                                'model_name': model_name,
+                                'metrics': metrics
+                            }
+                            
+                        if f1 > best_models['f1']['metrics'].get('f1', 0):
+                            best_models['f1'] = {
+                                'model_name': model_name,
+                                'metrics': metrics
+                            }
+                            
+                        if specificity > best_models['specificity']['metrics'].get('specificity', 0):
+                            best_models['specificity'] = {
                                 'model_name': model_name,
                                 'metrics': metrics
                             }
@@ -836,7 +880,7 @@ def model_selection():
                             # Process metrics by type
                             for metric_name, metric_value in raw_metrics.items():
                                 # For numeric metrics, ensure they're properly stored
-                                if metric_name in ['accuracy', 'precision', 'recall', 'f1', 'cv_score_mean', 'cv_score_std']:
+                                if metric_name in ['accuracy', 'precision', 'recall', 'f1', 'specificity', 'cv_score_mean', 'cv_score_std']:
                                     # Convert to float if not already
                                     if not isinstance(metric_value, float):
                                         try:
@@ -853,8 +897,10 @@ def model_selection():
                             accuracy = metrics.get('accuracy', 0.0)
                             precision = metrics.get('precision', 0.0)
                             recall = metrics.get('recall', 0.0)
+                            f1 = metrics.get('f1', 0.0)
+                            specificity = metrics.get('specificity', 0.0)
                             
-                            logger.info(f"Model {model_name} metrics (fallback) - accuracy: {accuracy}, precision: {precision}, recall: {recall}")
+                            logger.info(f"Model {model_name} metrics (fallback) - accuracy: {accuracy}, precision: {precision}, recall: {recall}, f1: {f1}, specificity: {specificity}")
                             
                             if accuracy > best_models['accuracy']['metrics'].get('accuracy', 0):
                                 best_models['accuracy'] = {
@@ -873,6 +919,18 @@ def model_selection():
                                     'model_name': model_name,
                                     'metrics': metrics
                                 }
+                                
+                            if f1 > best_models['f1']['metrics'].get('f1', 0):
+                                best_models['f1'] = {
+                                    'model_name': model_name,
+                                    'metrics': metrics
+                                }
+                                
+                            if specificity > best_models['specificity']['metrics'].get('specificity', 0):
+                                best_models['specificity'] = {
+                                    'model_name': model_name,
+                                    'metrics': metrics
+                                }
         
         # Log how many models were processed
         logger.info(f"Processed {len(all_models)} models")
@@ -886,11 +944,11 @@ def model_selection():
         flash('Error processing model data. Please try training again.', 'error')
         return redirect(url_for('training'))
     
-    # Prepare data for template display - ONLY THE TOP 3 MODELS
+    # Prepare data for template display - SHOWING THE TOP 5 MODELS BY DIFFERENT METRICS
     simplified_model_data = []
     
-    # Only include the model with best accuracy
-    if best_models['accuracy'].get('model_name'):  # Only include model with a name
+    # Include model with best accuracy
+    if best_models['accuracy'].get('model_name'):
         model_name = best_models['accuracy'].get('model_name', 'Unknown')
         metric_value = best_models['accuracy'].get('metrics', {}).get('accuracy', 0)
         
@@ -910,56 +968,122 @@ def model_selection():
             'is_best_for': 'accuracy'
         })
     
-    # If we still have no models for display, create entries for only the best accuracy model
-    if not simplified_model_data and all_models:
-        logger.info("No best models identified, creating display data from top model")
+    # Include model with best precision
+    if best_models['precision'].get('model_name'):
+        model_name = best_models['precision'].get('model_name', 'Unknown')
+        metric_value = best_models['precision'].get('metrics', {}).get('precision', 0)
         
-        # Find the top model by accuracy
-        top_accuracy = ('', 0)
+        # Ensure metric value is a float
+        if not isinstance(metric_value, float):
+            try:
+                metric_value = float(metric_value)
+            except (TypeError, ValueError):
+                metric_value = 0.0
         
-        for model_name, metrics in all_models.items():
-            accuracy = metrics.get('accuracy', 0)
-            
-            if accuracy > top_accuracy[1]:
-                top_accuracy = (model_name, accuracy)
+        logger.info(f"Adding best precision model: {model_name} with value {metric_value}")
         
-        # Add only the top accuracy model
-        model_name, value = top_accuracy
-        if model_name and value > 0:
-            simplified_model_data.append({
-                'model_name': model_name,
-                'metric_name': 'accuracy',
-                'metric_value': value,
-                'is_best_for': 'accuracy'
-            })
-    
-    # Create dummy data if absolutely nothing is available (for development/testing)
-    # NOTE: Now only creating the best accuracy model instead of top 3
-    if not simplified_model_data:
-        logger.warning("No models available, creating dummy data for display")
-        model_metrics = {
-            'random_forest': {'accuracy': 0.75, 'precision': 0.73, 'recall': 0.71},
-            'logistic_regression': {'accuracy': 0.78, 'precision': 0.79, 'recall': 0.75}, 
-            'decision_tree': {'accuracy': 0.81, 'precision': 0.80, 'recall': 0.79},
-            'svm': {'accuracy': 0.84, 'precision': 0.85, 'recall': 0.82},
-            'knn': {'accuracy': 0.87, 'precision': 0.86, 'recall': 0.85},
-            'naive_bayes': {'accuracy': 0.90, 'precision': 0.91, 'recall': 0.88}
-        }
-        
-        # Find the top model by accuracy
-        best_accuracy = max(model_metrics.items(), key=lambda x: x[1]['accuracy'])
-        
-        # Add only the best accuracy model
         simplified_model_data.append({
-            'model_name': best_accuracy[0],
-            'metric_name': 'accuracy',
-            'metric_value': best_accuracy[1]['accuracy'],
-            'is_best_for': 'accuracy'
+            'model_name': model_name,
+            'metric_name': 'precision',
+            'metric_value': metric_value,
+            'is_best_for': 'precision'
         })
+    
+    # Include model with best recall
+    if best_models['recall'].get('model_name'):
+        model_name = best_models['recall'].get('model_name', 'Unknown')
+        metric_value = best_models['recall'].get('metrics', {}).get('recall', 0)
+        
+        # Ensure metric value is a float
+        if not isinstance(metric_value, float):
+            try:
+                metric_value = float(metric_value)
+            except (TypeError, ValueError):
+                metric_value = 0.0
+        
+        logger.info(f"Adding best recall model: {model_name} with value {metric_value}")
+        
+        simplified_model_data.append({
+            'model_name': model_name,
+            'metric_name': 'recall',
+            'metric_value': metric_value,
+            'is_best_for': 'recall'
+        })
+    
+    # Include model with best F1 score
+    if best_models['f1'].get('model_name'):
+        model_name = best_models['f1'].get('model_name', 'Unknown')
+        metric_value = best_models['f1'].get('metrics', {}).get('f1', 0)
+        
+        # Ensure metric value is a float
+        if not isinstance(metric_value, float):
+            try:
+                metric_value = float(metric_value)
+            except (TypeError, ValueError):
+                metric_value = 0.0
+        
+        logger.info(f"Adding best F1 model: {model_name} with value {metric_value}")
+        
+        simplified_model_data.append({
+            'model_name': model_name,
+            'metric_name': 'f1',
+            'metric_value': metric_value,
+            'is_best_for': 'f1'
+        })
+    
+    # Include model with best specificity
+    if best_models['specificity'].get('model_name'):
+        model_name = best_models['specificity'].get('model_name', 'Unknown')
+        metric_value = best_models['specificity'].get('metrics', {}).get('specificity', 0)
+        
+        # Ensure metric value is a float
+        if not isinstance(metric_value, float):
+            try:
+                metric_value = float(metric_value)
+            except (TypeError, ValueError):
+                metric_value = 0.0
+        
+        logger.info(f"Adding best specificity model: {model_name} with value {metric_value}")
+        
+        simplified_model_data.append({
+            'model_name': model_name,
+            'metric_name': 'specificity',
+            'metric_value': metric_value,
+            'is_best_for': 'specificity'
+        })
+    
+    # If we still have no models for display, create entries for the 5 best models by different metrics
+    if not simplified_model_data and all_models:
+        logger.info("No best models identified, creating display data from top models")
+        
+        # Find the top models by different metrics
+        top_accuracy = max(all_models.items(), key=lambda x: x[1].get('accuracy', 0))
+        top_precision = max(all_models.items(), key=lambda x: x[1].get('precision', 0))
+        top_recall = max(all_models.items(), key=lambda x: x[1].get('recall', 0))
+        top_f1 = max(all_models.items(), key=lambda x: x[1].get('f1', 0))
+        top_specificity = max(all_models.items(), key=lambda x: x[1].get('specificity', 0))
+        
+        # Add the top models
+        top_models = [
+            {'name': top_accuracy[0], 'metric': 'accuracy', 'value': top_accuracy[1].get('accuracy', 0)},
+            {'name': top_precision[0], 'metric': 'precision', 'value': top_precision[1].get('precision', 0)},
+            {'name': top_recall[0], 'metric': 'recall', 'value': top_recall[1].get('recall', 0)},
+            {'name': top_f1[0], 'metric': 'f1', 'value': top_f1[1].get('f1', 0)},
+            {'name': top_specificity[0], 'metric': 'specificity', 'value': top_specificity[1].get('specificity', 0)}
+        ]
+        
+        for model in top_models:
+            if model['value'] > 0:
+                simplified_model_data.append({
+                    'model_name': model['name'],
+                    'metric_name': model['metric'],
+                    'metric_value': model['value'],
+                    'is_best_for': model['metric']
+                })
     
     # Create a simplified version of all models with key metrics
     simplified_model_metrics = {}
-    important_metrics = ['accuracy', 'precision', 'recall']
+    important_metrics = ['accuracy', 'precision', 'recall', 'f1', 'specificity']
     
     for model_name, metrics in all_models.items():
         # Only store the important metrics
@@ -974,6 +1098,17 @@ def model_selection():
                     except (TypeError, ValueError):
                         value = 0.0
                 simplified_metrics[metric] = value
+        
+        # Calculate specificity if it's missing but we have other metrics
+        if 'specificity' not in simplified_metrics and 'accuracy' in simplified_metrics and 'recall' in simplified_metrics:
+            accuracy = simplified_metrics['accuracy']
+            recall = simplified_metrics['recall']
+            # A simple estimation for specificity
+            estimated_specificity = 2 * accuracy - recall
+            # Cap between 0 and 1
+            estimated_specificity = max(0.0, min(1.0, estimated_specificity))
+            simplified_metrics['specificity'] = estimated_specificity
+            logger.info(f"Estimated specificity for {model_name}: {estimated_specificity}")
         
         simplified_model_metrics[model_name] = simplified_metrics
     
@@ -1002,7 +1137,8 @@ def model_selection():
         'models_trained': len(all_models),
         'models_displayed': len(simplified_model_data),  # Now matches the number of models displayed
         'features_used': features_count,
-        'test_size': session.get('test_size', 0.2)
+        'test_size': session.get('test_size', 0.2),
+        'metrics_shown': 'accuracy, precision, recall, f1, specificity'
     }
     
     return render_template('model_selection.html', 

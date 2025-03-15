@@ -2,18 +2,18 @@ import os
 from dotenv import load_dotenv
 import pymysql
 from flask import Flask
-from models.users import db, User
+from users import db, User
 import sys
-import urllib.parse  # Add this import for URL encoding
+import urllib.parse  # For URL encoding
 
 # Load environment variables
 load_dotenv()
 
 def setup_database():
-    """Setup MySQL database and tables"""
+    """Setup MySQL database"""
     # Database connection parameters
     MYSQL_USER = os.getenv('MYSQL_USER', 'root')
-    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'OMaHuss04@')
+    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'POSTgres2024')
     MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
     MYSQL_PORT = int(os.getenv('MYSQL_PORT', '3306'))
     MYSQL_DB = os.getenv('MYSQL_DB', 'deepmedver')
@@ -39,7 +39,7 @@ def setup_database():
         
         if not exists:
             print(f"Creating database {MYSQL_DB}...")
-            cursor.execute(f'CREATE DATABASE {MYSQL_DB}')
+            cursor.execute(f'CREATE DATABASE `{MYSQL_DB}`')
             print(f"Database {MYSQL_DB} created successfully!")
         else:
             print(f"Database {MYSQL_DB} already exists.")
@@ -59,7 +59,7 @@ def create_tables():
     try:
         # Get database connection parameters
         MYSQL_USER = os.getenv('MYSQL_USER', 'root')
-        MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'password')
+        MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'POSTgres2024')
         MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
         MYSQL_PORT = os.getenv('MYSQL_PORT', '3306')
         MYSQL_DB = os.getenv('MYSQL_DB', 'deepmedver')
@@ -92,7 +92,7 @@ def create_tables():
         return False
 
 if __name__ == "__main__":
-    print("Setting up DeepMedVer database...")
+    print("Setting up DeepMedVer database with MySQL...")
     if setup_database():
         create_tables()
     print("Database setup complete!") 
