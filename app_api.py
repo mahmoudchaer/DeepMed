@@ -24,6 +24,17 @@ import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from users import db, User
 import urllib.parse
+import zipfile  # Required for handling ZIP files in model training
+
+# For PyTorch model training - only import if not present
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torchvision import models, transforms, datasets
+    from torch.utils.data import DataLoader
+except ImportError:
+    pass  # We'll handle this in the route if needed
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -319,7 +330,7 @@ def index():
 @app.route('/images')
 @login_required
 def images():
-    """Route for image-based analysis"""
+    """Route for image-based analysis (model training)"""
     # Check if the user is logged in
     if not current_user.is_authenticated:
         flash('Please log in to access the image analysis.', 'info')
@@ -331,7 +342,7 @@ def images():
     
     # Check services health for status display
     services_status = check_services()
-    return render_template('images.html', services_status=services_status, logout_token=session['logout_token'])
+    return render_template('train_model.html', services_status=services_status, logout_token=session['logout_token'])
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -1740,6 +1751,45 @@ def logout():
         response.headers["Expires"] = "0"
         
         return response
+
+@app.route('/api/train_model', methods=['POST'])
+@login_required
+def api_train_model():
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    zip_file = request.files['zipFile']
+    try:
+        # Get hyperparameters from the form (default values provided)
+        epochs = int(request.form.get('epochs', 1))
+        batch_size = int(request.form.get('batchSize', 32))
+        learning_rate = float(request.form.get('learningRate', 0.001))
+        
+        # Import the train_model function from app.py
+        from app import train_model
+        
+        # Train the model on the provided data
+        model_bytes = train_model(zip_file, epochs, batch_size, learning_rate)
+        
+        # Return the model file as an attachment for download
+        # Use the appropriate parameter name based on Flask version
+        try:
+            # For newer Flask versions
+            return send_file(
+                model_bytes,
+                mimetype='application/octet-stream',
+                as_attachment=True,
+                download_name='trained_model.pt'
+            )
+        except TypeError:
+            # For older Flask versions
+            return send_file(
+                model_bytes,
+                mimetype='application/octet-stream',
+                as_attachment=True,
+                attachment_filename='trained_model.pt'
+            )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     print("Starting MedicAI with API services integration")
