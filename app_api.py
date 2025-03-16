@@ -25,6 +25,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from users import db, User
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
+from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
 
 # For PyTorch model training - only import if not present
 try:
@@ -1757,28 +1758,63 @@ def logout():
 def api_train_model():
     if 'zipFile' not in request.files:
         return jsonify({"error": "No ZIP file uploaded"}), 400
+    
     zip_file = request.files['zipFile']
     try:
         # Get parameters from the form
         num_classes = int(request.form.get('numClasses', 5))
         training_level = int(request.form.get('trainingLevel', 3))
         
-        # Import the train_model function from app.py
-        from app import train_model
+        # Forward the request to the dockerized model training service
+        model_service_url = "http://localhost:5010/train"
         
-        # Train the model on the provided data
-        model_bytes, metrics = train_model(zip_file, num_classes=num_classes, training_level=training_level)
+        # Create form data to send to the service
+        form_data = MultipartEncoder(
+            fields={
+                'zipFile': (zip_file.filename, zip_file.stream, zip_file.content_type),
+                'numClasses': str(num_classes),
+                'trainingLevel': str(training_level)
+            }
+        )
+        
+        # Make the request to the model service
+        response = requests.post(
+            model_service_url,
+            data=form_data,
+            headers={'Content-Type': form_data.content_type},
+            stream=True
+        )
+        
+        if response.status_code != 200:
+            error_message = "Error from model training service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                pass
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Get metrics from the response headers
+        metrics = {}
+        if 'X-Training-Metrics' in response.headers:
+            try:
+                metrics = json.loads(response.headers['X-Training-Metrics'])
+            except:
+                logger.error("Failed to parse metrics from model service response")
         
         # Create a response with both the model file and metrics
-        response = Response(model_bytes.getvalue())
-        response.headers["Content-Type"] = "application/octet-stream"
-        response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/octet-stream"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
         
-        # Add metrics as a JSON string in a custom header
-        response.headers["X-Training-Metrics"] = json.dumps(metrics)
+        # Add metrics header if available
+        if metrics:
+            flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
         
-        return response
+        return flask_response
     except Exception as e:
+        logger.error(f"Error in model training: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
