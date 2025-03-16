@@ -92,7 +92,7 @@ def create_tables():
         return False
 
 if __name__ == "__main__":
-    print("Setting up DeepMedVer database with MySQL...")
+    print("Setting up DeepMed database with MySQL...")
     if setup_database():
         create_tables()
     print("Database setup complete!") 
