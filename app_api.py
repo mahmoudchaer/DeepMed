@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, flash, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, flash, make_response, Response
 from werkzeug.utils import secure_filename
 import os
 import pandas as pd
@@ -1759,35 +1759,25 @@ def api_train_model():
         return jsonify({"error": "No ZIP file uploaded"}), 400
     zip_file = request.files['zipFile']
     try:
-        # Get hyperparameters from the form (default values provided)
-        epochs = int(request.form.get('epochs', 1))
-        batch_size = int(request.form.get('batchSize', 32))
-        learning_rate = float(request.form.get('learningRate', 0.001))
+        # Get parameters from the form
+        num_classes = int(request.form.get('numClasses', 5))
+        training_level = int(request.form.get('trainingLevel', 3))
         
         # Import the train_model function from app.py
         from app import train_model
         
         # Train the model on the provided data
-        model_bytes = train_model(zip_file, epochs, batch_size, learning_rate)
+        model_bytes, metrics = train_model(zip_file, num_classes=num_classes, training_level=training_level)
         
-        # Return the model file as an attachment for download
-        # Use the appropriate parameter name based on Flask version
-        try:
-            # For newer Flask versions
-            return send_file(
-                model_bytes,
-                mimetype='application/octet-stream',
-                as_attachment=True,
-                download_name='trained_model.pt'
-            )
-        except TypeError:
-            # For older Flask versions
-            return send_file(
-                model_bytes,
-                mimetype='application/octet-stream',
-                as_attachment=True,
-                attachment_filename='trained_model.pt'
-            )
+        # Create a response with both the model file and metrics
+        response = Response(model_bytes.getvalue())
+        response.headers["Content-Type"] = "application/octet-stream"
+        response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
+        
+        # Add metrics as a JSON string in a custom header
+        response.headers["X-Training-Metrics"] = json.dumps(metrics)
+        
+        return response
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
