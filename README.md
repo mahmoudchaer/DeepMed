@@ -1,4 +1,4 @@
-# DeepMedVer - Medical AI Platform
+# DeepMed - Medical AI Platform
 
 A comprehensive medical AI platform for training models on medical data, making predictions, and getting AI-assisted insights.
 
@@ -25,7 +25,7 @@ A comprehensive medical AI platform for training models on medical data, making 
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/DeepMedVer.git
-cd DeepMedVer
+cd DeepMed
 ```
 
 2. Create a virtual environment:
@@ -80,7 +80,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Project Structure
 
 ```
-DeepMedVer/
+DeepMed/
 ├── src/
 │   ├── app.py                 # Flask application entry point
 │   ├── models/                # Core model components

@@ -90,11 +90,11 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24  # 24 hours
 
 # Database configuration
 # Get credentials from environment variables with proper URL encoding for password
-MYSQL_USER = os.getenv('MYSQL_USER', 'root')
-MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'passs')
-MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
-MYSQL_PORT = int(os.getenv('MYSQL_PORT', '3306'))
-MYSQL_DB = os.getenv('MYSQL_DB', 'deepmedver')
+MYSQL_USER = os.getenv('MYSQL_USER')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
+MYSQL_HOST = os.getenv('MYSQL_HOST')
+MYSQL_PORT = int(os.getenv('MYSQL_PORT'))
+MYSQL_DB = os.getenv('MYSQL_DB')
 
 # URL encode the password to handle special characters
 encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
@@ -1792,7 +1792,7 @@ def api_train_model():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    print("Starting MedicAI with API services integration")
+    print("Starting DeepMed with API services integration")
     print("Service status:")
     status = check_services()
     for service, health in status.items():
