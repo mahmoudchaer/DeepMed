@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  model-training-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5010:5010"
+    restart: unless-stopped
+    volumes:
+      - ./model_service.py:/app/model_service.py
+    environment:
+      - PORT=5010
+    networks:
+      - deepmed-network
+
+networks:
+  deepmed-network:
+    driver: bridge 
