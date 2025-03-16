@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Train Model - DeepMed{% endblock %}
+{% block title %}Train Model - MedicAI{% endblock %}
 
 {% block content %}
 <div class="container">
     <h2>Train Your Model</h2>
-    <p>Upload a ZIP file containing folders of images. Each folder’s name will be used as the label for the images within.</p>
+    <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
     <form id="train-model-form" method="POST" enctype="multipart/form-data">
         <div class="mb-3">
             <label for="zipFile" class="form-label">Select Dataset ZIP File</label>
@@ -12,16 +12,20 @@
             <div class="form-text">Each folder in the ZIP represents a category label.</div>
         </div>
         <div class="mb-3">
-            <label for="epochs" class="form-label">Epochs</label>
-            <input type="number" class="form-control" id="epochs" name="epochs" value="1" min="1">
+            <label for="numClasses" class="form-label">Number of Classes</label>
+            <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
+            <div class="form-text">How many different categories/classes are in your dataset?</div>
         </div>
         <div class="mb-3">
-            <label for="batchSize" class="form-label">Batch Size</label>
-            <input type="number" class="form-control" id="batchSize" name="batchSize" value="32" min="1">
-        </div>
-        <div class="mb-3">
-            <label for="learningRate" class="form-label">Learning Rate</label>
-            <input type="number" step="any" class="form-control" id="learningRate" name="learningRate" value="0.001">
+            <label for="trainingLevel" class="form-label">Training Level</label>
+            <select class="form-select" id="trainingLevel" name="trainingLevel" required>
+                <option value="1">Level 1 - Fast training (low accuracy)</option>
+                <option value="2">Level 2 - Balanced training</option>
+                <option value="3" selected>Level 3 - Standard training</option>
+                <option value="4">Level 4 - Extended training</option>
+                <option value="5">Level 5 - Thorough training (highest accuracy)</option>
+            </select>
+            <div class="form-text">Higher levels take more time but produce better models.</div>
         </div>
         <button type="submit" class="btn btn-primary">Train Model</button>
     </form>
