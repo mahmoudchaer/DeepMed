@@ -1,93 +1,50 @@
-# Image Classification Services
+# Model Training Service Docker Container
 
-This folder contains Docker services for image classification model training with a modular architecture.
+This Docker container provides a service for training image classification models with PyTorch and EfficientNet B0.
 
-## Architecture
+## Contents
 
-The system follows a modular architecture with:
+- `model_service.py`: The Flask application that handles model training
+- `Dockerfile`: Instructions for building the Docker image
+- `docker-compose.yml`: Configuration for running the service
+- `requirements_efficientnet_b0.txt`: Python dependencies
 
-- **End-to-End Process (EEP)**: Coordinates the entire workflow for training image classification models
-- **Intermediate Engineering Processes (IEPs)**: Handle specific tasks in the training pipeline
+## Usage
 
-### Components
+1. Build and start the service:
 
-1. **Image Classification EEP** (Port 5020)
-   - Serves as the main entry point for the application
-   - Coordinates all the IEPs
-   - Returns the final trained model to the client
+```bash
+docker-compose up -d
+```
 
-2. **Data Processing IEP** (Port 5011)
-   - Splits the input data into training, validation, and testing sets
-   - Organizes data into a structure suitable for model training
-
-3. **Data Augmentation IEP** (Port 5012)
-   - Creates additional training samples by applying transformations
-   - Increases the effective size and diversity of the training set
-
-4. **Model Training IEP** (Port 5010)
-   - Trains an EfficientNet-B0 model on the processed data
-   - Provides metrics on training performance
-
-## Setup and Deployment
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3.9+
-
-### Building and Running
-
-1. Navigate to this directory:
-   ```
-   cd docker_for_images
-   ```
-
-2. Start all services using Docker Compose:
-   ```
-   docker-compose up -d
-   ```
-
-3. Check the status of all services:
-   ```
-   docker-compose ps
-   ```
+2. The service will be available at `http://localhost:5010`
 
 ## API Endpoints
 
-### EEP Service (Port 5020)
+### Health Check
 
-- **GET /health**: Health check
-- **POST /train**: Train a model with data preprocessing and optional augmentation
+- **URL**: `/health`
+- **Method**: `GET`
+- **Response**: JSON with service status
 
-### Data Processing Service (Port 5011)
+### Train Model
 
-- **GET /health**: Health check
-- **POST /process**: Process and split data into train/val/test sets
+- **URL**: `/train`
+- **Method**: `POST`
+- **Form Data Parameters**:
+  - `zipFile`: ZIP file containing folders of images (each folder represents a class)
+  - `numClasses`: Number of classes to train for (default: 5)
+  - `trainingLevel`: Training level from 1-5 (default: 3)
+- **Response**: 
+  - The trained model file
+  - Metrics in the `X-Training-Metrics` header
 
-### Data Augmentation Service (Port 5012)
+## Training Levels
 
-- **GET /health**: Health check
-- **POST /augment**: Create augmented versions of training images
+The service supports 5 different training levels:
 
-### Model Training Service (Port 5010)
-
-- **GET /health**: Health check
-- **POST /train**: Train a model on the prepared data
-
-## Communication Flow
-
-1. Client sends data to the EEP service
-2. EEP sends data to the Data Processing IEP
-3. If requested, EEP sends processed data to the Data Augmentation IEP
-4. EEP sends prepared data to the Model Training IEP
-5. EEP returns the trained model and metrics to the client
-
-## Configuration
-
-The training process can be configured with these parameters:
-
-- **numClasses**: Number of classes in the dataset (default: 5)
-- **trainingLevel**: Level of training from 1-5, higher is more thorough (default: 3)
-- **useAugmentation**: Whether to apply data augmentation (default: false)
-- **validationSplit**: Percentage of data to use for validation (default: 0.2)
-- **testSplit**: Percentage of data to use for testing (default: 0.1) 
+1. **Level 1**: Fast training, lowest accuracy (1 epoch)
+2. **Level 2**: Balanced speed/accuracy (2 epochs)
+3. **Level 3**: Standard training (3 epochs)
+4. **Level 4**: Extended training (5 epochs)
+5. **Level 5**: Thorough training, highest accuracy (8 epochs) 

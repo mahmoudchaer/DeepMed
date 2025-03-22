@@ -3,208 +3,199 @@ import io
 import zipfile
 import tempfile
 import json
-from PIL import Image
-import random
+import logging
+import shutil
+from PIL import Image, ImageOps, ImageEnhance
+import numpy as np
 from flask import Flask, request, jsonify, Response
-import torchvision.transforms as transforms
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+def augment_image(image, augmentation_level=3):
+    """Apply different augmentation techniques based on augmentation level"""
+    augmented_images = [image]  # Original image
+    
+    # Define augmentation techniques for each level
+    if augmentation_level >= 1:
+        # Level 1: Basic flips and rotations
+        augmented_images.append(ImageOps.flip(image))
+        augmented_images.append(ImageOps.mirror(image))
+        augmented_images.append(image.rotate(90))
+    
+    if augmentation_level >= 2:
+        # Level 2: Add color transformations
+        brightness_enhancer = ImageEnhance.Brightness(image)
+        augmented_images.append(brightness_enhancer.enhance(0.8))
+        augmented_images.append(brightness_enhancer.enhance(1.2))
+        
+        contrast_enhancer = ImageEnhance.Contrast(image)
+        augmented_images.append(contrast_enhancer.enhance(0.8))
+        augmented_images.append(contrast_enhancer.enhance(1.2))
+    
+    if augmentation_level >= 3:
+        # Level 3: Add more rotations and transforms
+        augmented_images.append(image.rotate(45))
+        augmented_images.append(image.rotate(135))
+        augmented_images.append(image.rotate(225))
+        augmented_images.append(image.rotate(315))
+    
+    if augmentation_level >= 4:
+        # Level 4: Add sharpness and color balance
+        sharpness_enhancer = ImageEnhance.Sharpness(image)
+        augmented_images.append(sharpness_enhancer.enhance(0.5))
+        augmented_images.append(sharpness_enhancer.enhance(1.5))
+        
+        color_enhancer = ImageEnhance.Color(image)
+        augmented_images.append(color_enhancer.enhance(0.7))
+        augmented_images.append(color_enhancer.enhance(1.3))
+    
+    if augmentation_level >= 5:
+        # Level 5: More extreme transforms
+        # Perspective transform
+        width, height = image.size
+        new_width, new_height = int(width * 0.8), int(height * 0.8)
+        left = (width - new_width) // 2
+        top = (height - new_height) // 2
+        right = left + new_width
+        bottom = top + new_height
+        augmented_images.append(image.crop((left, top, right, bottom)).resize((width, height)))
+        
+        # More extreme color changes
+        brightness_enhancer = ImageEnhance.Brightness(image)
+        augmented_images.append(brightness_enhancer.enhance(0.6))
+        augmented_images.append(brightness_enhancer.enhance(1.4))
+        
+        contrast_enhancer = ImageEnhance.Contrast(image)
+        augmented_images.append(contrast_enhancer.enhance(0.6))
+        augmented_images.append(contrast_enhancer.enhance(1.4))
+    
+    return augmented_images
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "service": "data-augmentation-service"})
 
-def apply_augmentation(image_path, output_dir, base_filename, augmentation_level=3):
-    """
-    Apply augmentation to an image and save multiple augmented versions
-    
-    Parameters:
-    - image_path: Path to the original image
-    - output_dir: Directory to save augmented images
-    - base_filename: Base name for the augmented files
-    - augmentation_level: Level of augmentation (1-5)
-    
-    Returns:
-    - List of paths to the augmented images
-    """
-    # Define number of augmentations based on level
-    num_augmentations = {
-        1: 1,  # Minimal augmentation
-        2: 2,  # Light augmentation
-        3: 3,  # Standard augmentation
-        4: 5,  # Extended augmentation
-        5: 8   # Heavy augmentation
-    }.get(augmentation_level, 3)
-    
-    # Load the image
-    try:
-        img = Image.open(image_path).convert('RGB')
-    except Exception as e:
-        print(f"Error loading image {image_path}: {str(e)}")
-        return []
-    
-    # Define various augmentation transforms
-    augmentations = [
-        # 1. Horizontal Flip
-        transforms.Compose([
-            transforms.RandomHorizontalFlip(p=1.0),
-        ]),
-        
-        # 2. Slight Rotation
-        transforms.Compose([
-            transforms.RandomRotation(15),
-        ]),
-        
-        # 3. Color Jitter
-        transforms.Compose([
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        ]),
-        
-        # 4. Crop and Resize
-        transforms.Compose([
-            transforms.RandomResizedCrop(size=(img.height, img.width), scale=(0.8, 1.0)),
-        ]),
-        
-        # 5. Gaussian Blur
-        transforms.Compose([
-            transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),
-        ]),
-        
-        # 6. Perspective Transform
-        transforms.Compose([
-            transforms.RandomPerspective(distortion_scale=0.2, p=1.0),
-        ]),
-        
-        # 7. Combination: Flip + Rotation
-        transforms.Compose([
-            transforms.RandomHorizontalFlip(p=1.0),
-            transforms.RandomRotation(10),
-        ]),
-        
-        # 8. Combination: Color Jitter + Crop
-        transforms.Compose([
-            transforms.ColorJitter(brightness=0.2, contrast=0.2),
-            transforms.RandomResizedCrop(size=(img.height, img.width), scale=(0.85, 1.0)),
-        ])
-    ]
-    
-    # Randomly select augmentations based on the desired number
-    selected_augmentations = random.sample(augmentations, min(num_augmentations, len(augmentations)))
-    
-    augmented_images = []
-    for i, augmentation in enumerate(selected_augmentations):
-        augmented_img = augmentation(img)
-        augmented_filename = f"{os.path.splitext(base_filename)[0]}_aug{i+1}{os.path.splitext(base_filename)[1]}"
-        augmented_path = os.path.join(output_dir, augmented_filename)
-        augmented_img.save(augmented_path)
-        augmented_images.append(augmented_path)
-    
-    return augmented_images
-
 @app.route('/augment', methods=['POST'])
 def augment_data():
-    """
-    Augment images in the training set by applying various transformations.
-    Input: ZIP file with train, val, and test folders (from data processing)
-    Output: ZIP file with augmented training images
-    """
+    """Augment data by applying various transformations to images"""
     if 'zipFile' not in request.files:
         return jsonify({"error": "No ZIP file uploaded"}), 400
     
     zip_file = request.files['zipFile']
     
-    # Get augmentation level (default is 3)
+    # Get parameters from the form
     augmentation_level = int(request.form.get('augmentationLevel', 3))
     
+    # Validate augmentation level
+    if augmentation_level < 1 or augmentation_level > 5:
+        return jsonify({"error": "Augmentation level must be between 1 and 5"}), 400
+    
     try:
-        # Create temporary directories for extraction and processing
-        with tempfile.TemporaryDirectory() as extract_dir, tempfile.TemporaryDirectory() as augment_dir:
-            # Extract the ZIP file to the extraction directory
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        # Create temporary directories
+        with tempfile.TemporaryDirectory() as extract_dir, tempfile.TemporaryDirectory() as output_dir:
+            # Save and extract the ZIP file
+            zip_path = os.path.join(extract_dir, "data.zip")
+            zip_file.save(zip_path)
+            
+            # Extract the contents
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
+                
+            # Get all class folders
+            class_folders = []
+            for item in os.listdir(extract_dir):
+                item_path = os.path.join(extract_dir, item)
+                if os.path.isdir(item_path) and not item.startswith('.'):
+                    class_folders.append(item)
             
-            # Copy the directory structure to the augmentation directory
-            for root, dirs, files in os.walk(extract_dir):
-                for directory in dirs:
-                    dir_path = os.path.join(root, directory)
-                    rel_path = os.path.relpath(dir_path, extract_dir)
-                    os.makedirs(os.path.join(augment_dir, rel_path), exist_ok=True)
+            # Create output directories for each class
+            for class_folder in class_folders:
+                os.makedirs(os.path.join(output_dir, class_folder), exist_ok=True)
             
-            # First, copy all original files to maintain the structure
-            for root, _, files in os.walk(extract_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(file_path, extract_dir)
-                    output_path = os.path.join(augment_dir, rel_path)
-                    
-                    # Ensure the directory exists
-                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                    
-                    # Copy the file
-                    with open(file_path, 'rb') as src, open(output_path, 'wb') as dst:
-                        dst.write(src.read())
-            
-            # Count files before augmentation
-            original_count = sum(1 for _ in os.walk(augment_dir) for _ in _[2])
-            
-            # Only augment images in the training set
-            train_dir = os.path.join(extract_dir, 'train')
-            if os.path.exists(train_dir):
-                # Process each class in the training set
-                for class_name in os.listdir(train_dir):
-                    class_dir = os.path.join(train_dir, class_name)
-                    if os.path.isdir(class_dir):
-                        # Create corresponding directory in augmentation directory
-                        augment_class_dir = os.path.join(augment_dir, 'train', class_name)
-                        os.makedirs(augment_class_dir, exist_ok=True)
-                        
-                        # Process each image file
-                        for file_name in os.listdir(class_dir):
-                            file_path = os.path.join(class_dir, file_name)
-                            if os.path.isfile(file_path):
-                                # Apply augmentation
-                                apply_augmentation(
-                                    file_path, 
-                                    augment_class_dir, 
-                                    file_name, 
-                                    augmentation_level
-                                )
-            
-            # Count files after augmentation
-            augmented_count = sum(1 for _ in os.walk(augment_dir) for _ in _[2])
-            
-            # Create a new ZIP file with the augmented data
-            augmented_zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(augmented_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as augmented_zip:
-                # Add all files from the augmentation directory to the ZIP
-                for root, _, files in os.walk(augment_dir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        # Get the relative path with respect to the augmentation directory
-                        rel_path = os.path.relpath(file_path, augment_dir)
-                        augmented_zip.write(file_path, rel_path)
-            
-            # Prepare the response
-            augmented_zip_buffer.seek(0)
-            response = Response(augmented_zip_buffer.getvalue())
-            response.headers["Content-Type"] = "application/zip"
-            response.headers["Content-Disposition"] = "attachment; filename=augmented_data.zip"
-            
-            # Add metrics as custom header
+            # Process and augment each image
             metrics = {
-                "original_files": original_count,
-                "augmented_files": augmented_count,
-                "new_files_created": augmented_count - original_count,
-                "augmentation_level": augmentation_level
+                "classes": len(class_folders),
+                "original_files": 0,
+                "augmented_files": 0,
+                "class_distribution": {}
             }
+            
+            for class_folder in class_folders:
+                src_class_dir = os.path.join(extract_dir, class_folder)
+                dst_class_dir = os.path.join(output_dir, class_folder)
+                
+                original_count = 0
+                augmented_count = 0
+                
+                # Process all image files in this class
+                for root, _, files in os.walk(src_class_dir):
+                    for file in files:
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff')):
+                            file_path = os.path.join(root, file)
+                            file_name = os.path.basename(file_path)
+                            file_name_without_ext, file_ext = os.path.splitext(file_name)
+                            
+                            try:
+                                # Open the original image
+                                with Image.open(file_path) as img:
+                                    img = img.convert('RGB')  # Convert to RGB to ensure consistency
+                                    
+                                    # Copy original image
+                                    original_file_path = os.path.join(dst_class_dir, file_name)
+                                    img.save(original_file_path)
+                                    original_count += 1
+                                    
+                                    # Generate augmented versions
+                                    augmented_images = augment_image(img, augmentation_level)
+                                    
+                                    # Save augmented images (skip the first one as it's the original)
+                                    for i, aug_img in enumerate(augmented_images[1:], 1):
+                                        aug_file_name = f"{file_name_without_ext}_aug{i}{file_ext}"
+                                        aug_file_path = os.path.join(dst_class_dir, aug_file_name)
+                                        aug_img.save(aug_file_path)
+                                        augmented_count += 1
+                            except Exception as e:
+                                logger.error(f"Error processing image {file_path}: {str(e)}")
+                                # Skip this image but continue with others
+                                continue
+                
+                # Update metrics
+                metrics["original_files"] += original_count
+                metrics["augmented_files"] += augmented_count
+                metrics["class_distribution"][class_folder] = {
+                    "original": original_count,
+                    "augmented": augmented_count,
+                    "total": original_count + augmented_count
+                }
+            
+            # Create a ZIP file with the augmented dataset
+            output_zip_path = os.path.join(output_dir, "augmented_data.zip")
+            with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(output_dir):
+                    for file in files:
+                        if file != "augmented_data.zip":  # Skip the zip file itself
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.relpath(file_path, output_dir)
+                            zipf.write(file_path, arcname)
+            
+            # Create a response with the augmented ZIP file
+            with open(output_zip_path, "rb") as f:
+                augmented_zip_bytes = io.BytesIO(f.read())
+            
+            response = Response(augmented_zip_bytes.getvalue())
+            response.headers["Content-Type"] = "application/octet-stream"
+            response.headers["Content-Disposition"] = "attachment; filename=augmented_data.zip"
             response.headers["X-Augmentation-Metrics"] = json.dumps(metrics)
             
             return response
-    
+            
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error augmenting data: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

@@ -1,68 +1,38 @@
 {% extends 'base.html' %}
-{% block title %}Train Model - MedicAI{% endblock %}
+{% block title %}Image Processing - MedicAI{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2>Train Your Model</h2>
-    <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
+    <h2>Image Processing</h2>
     
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Model Training Pipeline</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-header">Data Processing</div>
-                        <div class="card-body">
-                            <p><i class="fas fa-database"></i> Splits data into:</p>
-                            <ul>
-                                <li>Training set</li>
-                                <li>Validation set</li>
-                                <li>Test set</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-header">Data Augmentation (Optional)</div>
-                        <div class="card-body">
-                            <p><i class="fas fa-random"></i> Creates variations of training images:</p>
-                            <ul>
-                                <li>Rotation</li>
-                                <li>Flipping</li>
-                                <li>Color adjustments</li>
-                                <li>And more...</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-header">Model Training</div>
-                        <div class="card-body">
-                            <p><i class="fas fa-brain"></i> Trains an EfficientNet-B0 model using:</p>
-                            <ul>
-                                <li>Transfer learning</li>
-                                <li>Custom classifier head</li>
-                                <li>Optimized hyperparameters</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Tabs for different operations -->
+    <ul class="nav nav-tabs mb-4" id="operationTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="train-tab" data-bs-toggle="tab" data-bs-target="#train" type="button" role="tab" aria-controls="train" aria-selected="true">
+                Train Model
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="process-tab" data-bs-toggle="tab" data-bs-target="#process" type="button" role="tab" aria-controls="process" aria-selected="false">
+                Process Data
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="augment-tab" data-bs-toggle="tab" data-bs-target="#augment" type="button" role="tab" aria-controls="augment" aria-selected="false">
+                Augment Data
+            </button>
+        </li>
+    </ul>
     
-    <form id="train-model-form" method="POST" enctype="multipart/form-data">
-        <div class="card mb-4">
-            <div class="card-header">Dataset & Model Configuration</div>
-            <div class="card-body">
+    <!-- Tab content -->
+    <div class="tab-content" id="operationTabsContent">
+        <!-- Train Model Tab -->
+        <div class="tab-pane fade show active" id="train" role="tabpanel" aria-labelledby="train-tab">
+            <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
+            <form id="train-model-form" action="/api/train_model" method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label for="zipFile" class="form-label">Select Dataset ZIP File</label>
-                    <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                    <label for="trainZipFile" class="form-label">Select Dataset ZIP File</label>
+                    <input type="file" class="form-control" id="trainZipFile" name="zipFile" accept=".zip" required>
                     <div class="form-text">Each folder in the ZIP represents a category label.</div>
                 </div>
                 <div class="mb-3">
@@ -81,72 +51,97 @@
                     </select>
                     <div class="form-text">Higher levels take more time but produce better models.</div>
                 </div>
-            </div>
+                <button type="submit" class="btn btn-primary">Train Model</button>
+            </form>
+            <div id="training-status" class="mt-3"></div>
         </div>
         
-        <div class="card mb-4">
-            <div class="card-header">Data Processing Options</div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="validationSplit" class="form-label">Validation Split</label>
-                            <input type="range" class="form-range" id="validationSplit" name="validationSplit" min="0.1" max="0.3" step="0.05" value="0.2">
-                            <div class="d-flex justify-content-between">
-                                <span>10%</span>
-                                <span id="validationSplitValue">20%</span>
-                                <span>30%</span>
-                            </div>
-                            <div class="form-text">Percentage of data to use for validation during training.</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="testSplit" class="form-label">Test Split</label>
-                            <input type="range" class="form-range" id="testSplit" name="testSplit" min="0.05" max="0.2" step="0.05" value="0.1">
-                            <div class="d-flex justify-content-between">
-                                <span>5%</span>
-                                <span id="testSplitValue">10%</span>
-                                <span>20%</span>
-                            </div>
-                            <div class="form-text">Percentage of data to use for final testing.</div>
-                        </div>
-                    </div>
+        <!-- Process Data Tab -->
+        <div class="tab-pane fade" id="process" role="tabpanel" aria-labelledby="process-tab">
+            <p>Split your dataset into training, validation, and test sets. Upload a ZIP file containing folders of images.</p>
+            <form id="process-data-form" action="/api/process_data" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="processZipFile" class="form-label">Select Dataset ZIP File</label>
+                    <input type="file" class="form-control" id="processZipFile" name="zipFile" accept=".zip" required>
+                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
                 </div>
-            </div>
+                <div class="mb-3">
+                    <label for="testSize" class="form-label">Test Set Size</label>
+                    <input type="number" class="form-control" id="testSize" name="testSize" value="0.2" min="0.05" max="0.5" step="0.05" required>
+                    <div class="form-text">Proportion of the dataset to include in the test set (0.05 - 0.5).</div>
+                </div>
+                <div class="mb-3">
+                    <label for="valSize" class="form-label">Validation Set Size</label>
+                    <input type="number" class="form-control" id="valSize" name="valSize" value="0.1" min="0.05" max="0.5" step="0.05" required>
+                    <div class="form-text">Proportion of the dataset to include in the validation set (0.05 - 0.5).</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Process Data</button>
+            </form>
+            <div id="processing-status" class="mt-3"></div>
         </div>
         
-        <div class="card mb-4">
-            <div class="card-header">Data Augmentation Options</div>
-            <div class="card-body">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="useAugmentation" name="useAugmentation" value="true">
-                    <label class="form-check-label" for="useAugmentation">Enable Data Augmentation</label>
+        <!-- Augment Data Tab -->
+        <div class="tab-pane fade" id="augment" role="tabpanel" aria-labelledby="augment-tab">
+            <p>Enhance your dataset with image augmentation techniques. Upload a ZIP file containing folders of images.</p>
+            <form id="augment-data-form" action="/api/augment_data" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="augmentZipFile" class="form-label">Select Dataset ZIP File</label>
+                    <input type="file" class="form-control" id="augmentZipFile" name="zipFile" accept=".zip" required>
+                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
                 </div>
-                <div class="form-text">
-                    Data augmentation creates additional training samples by applying transformations like rotation, flipping, and color adjustments.
-                    This can improve model accuracy, especially for smaller datasets.
+                <div class="mb-3">
+                    <label for="augmentationLevel" class="form-label">Augmentation Level</label>
+                    <select class="form-select" id="augmentationLevel" name="augmentationLevel" required>
+                        <option value="1">Level 1 - Minimal Augmentation (flips, rotations)</option>
+                        <option value="2">Level 2 - Basic Augmentation (adds brightness/contrast changes)</option>
+                        <option value="3" selected>Level 3 - Standard Augmentation</option>
+                        <option value="4">Level 4 - Enhanced Augmentation</option>
+                        <option value="5">Level 5 - Maximum Augmentation</option>
+                    </select>
+                    <div class="form-text">Higher levels apply more transformations, generating more images.</div>
                 </div>
-            </div>
+                <button type="submit" class="btn btn-primary">Augment Data</button>
+            </form>
+            <div id="augmentation-status" class="mt-3"></div>
         </div>
-        
-        <button type="submit" class="btn btn-primary">Train Model</button>
-    </form>
-    <div id="training-status" class="mt-3"></div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/train_model.js"></script>
 <script>
-    // Update the validation split value display
-    document.getElementById('validationSplit').addEventListener('input', function() {
-        document.getElementById('validationSplitValue').textContent = (this.value * 100) + '%';
-    });
-    
-    // Update the test split value display
-    document.getElementById('testSplit').addEventListener('input', function() {
-        document.getElementById('testSplitValue').textContent = (this.value * 100) + '%';
+    // Add loading indicators for form submissions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create loading indicator function
+        function setupForm(formId, statusId) {
+            const form = document.getElementById(formId);
+            const statusDiv = document.getElementById(statusId);
+            
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const button = form.querySelector('button[type="submit"]');
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+                    
+                    statusDiv.innerHTML = '<div class="alert alert-info">Your request is being processed. This may take a few minutes. Please wait...</div>';
+                });
+            }
+        }
+        
+        // Setup all forms
+        setupForm('train-model-form', 'training-status');
+        setupForm('process-data-form', 'processing-status');
+        setupForm('augment-data-form', 'augmentation-status');
+        
+        // Set active tab based on URL hash
+        const hash = window.location.hash;
+        if (hash) {
+            const tab = document.querySelector(`#operationTabs button[data-bs-target="${hash}"]`);
+            if (tab) {
+                const tabEl = new bootstrap.Tab(tab);
+                tabEl.show();
+            }
+        }
     });
 </script>
 {% endblock %}

@@ -1,63 +1,66 @@
 version: '3'
 
 services:
-  model-training-service:
-    build:
+  model-training:
+    build: 
       context: .
-      dockerfile: Dockerfile.model_training
+      dockerfile: Dockerfile
     ports:
       - "5010:5010"
-    restart: unless-stopped
     volumes:
       - ./model_service.py:/app/model_service.py
     environment:
       - PORT=5010
+    restart: always
     networks:
       - deepmed-network
 
-  data-processing-service:
+  data-processing:
     build:
       context: .
-      dockerfile: Dockerfile.data_processing
+      dockerfile: Dockerfile.iep
     ports:
       - "5011:5011"
-    restart: unless-stopped
     volumes:
       - ./data_processing_service.py:/app/data_processing_service.py
     environment:
       - PORT=5011
+    restart: always
+    command: python data_processing_service.py
     networks:
       - deepmed-network
 
-  data-augmentation-service:
+  data-augmentation:
     build:
       context: .
-      dockerfile: Dockerfile.data_augmentation
+      dockerfile: Dockerfile.iep
     ports:
       - "5012:5012"
-    restart: unless-stopped
     volumes:
       - ./data_augmentation_service.py:/app/data_augmentation_service.py
     environment:
       - PORT=5012
+    restart: always
+    command: python data_augmentation_service.py
     networks:
       - deepmed-network
 
-  image-classification-eep:
+  image-processing-eep:
     build:
       context: .
-      dockerfile: Dockerfile.eep
+      dockerfile: Dockerfile.iep
     ports:
       - "5020:5020"
-    restart: unless-stopped
     volumes:
-      - ./eep_service.py:/app/eep_service.py
+      - ./image_processing_eep.py:/app/image_processing_eep.py
     environment:
       - PORT=5020
+    restart: always
+    command: python image_processing_eep.py
     depends_on:
-      - model-training-service
-      - data-processing-service
-      - data-augmentation-service
+      - model-training
+      - data-processing
+      - data-augmentation
     networks:
       - deepmed-network
 
