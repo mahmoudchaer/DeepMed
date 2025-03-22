@@ -26,7 +26,9 @@ from users import db, User
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
-from app import api_train_model  # Import the api_train_model function from app.py
+
+# Import the api_train_model function directly from images_side module
+from images_side.routes.api_routes import api_train_model
 
 # For PyTorch model training - only import if not present
 try:
@@ -1758,8 +1760,8 @@ def logout():
 @login_required
 def api_train_model_route():
     # Log that we're using the imported function
-    logger.info("Using imported api_train_model function from app.py")
-    # Call the imported function from app.py
+    logger.info("Using api_train_model function from images_side module")
+    # Call the imported function from images_side
     return api_train_model()
 
 if __name__ == '__main__':
