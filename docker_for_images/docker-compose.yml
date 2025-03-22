@@ -4,7 +4,7 @@ services:
   model-training-service:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.model_training
     ports:
       - "5010:5010"
     restart: unless-stopped
@@ -12,6 +12,52 @@ services:
       - ./model_service.py:/app/model_service.py
     environment:
       - PORT=5010
+    networks:
+      - deepmed-network
+
+  data-processing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.data_processing
+    ports:
+      - "5011:5011"
+    restart: unless-stopped
+    volumes:
+      - ./data_processing_service.py:/app/data_processing_service.py
+    environment:
+      - PORT=5011
+    networks:
+      - deepmed-network
+
+  data-augmentation-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.data_augmentation
+    ports:
+      - "5012:5012"
+    restart: unless-stopped
+    volumes:
+      - ./data_augmentation_service.py:/app/data_augmentation_service.py
+    environment:
+      - PORT=5012
+    networks:
+      - deepmed-network
+
+  image-classification-eep:
+    build:
+      context: .
+      dockerfile: Dockerfile.eep
+    ports:
+      - "5020:5020"
+    restart: unless-stopped
+    volumes:
+      - ./eep_service.py:/app/eep_service.py
+    environment:
+      - PORT=5020
+    depends_on:
+      - model-training-service
+      - data-processing-service
+      - data-augmentation-service
     networks:
       - deepmed-network
 

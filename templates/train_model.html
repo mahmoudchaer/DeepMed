@@ -5,28 +5,131 @@
 <div class="container">
     <h2>Train Your Model</h2>
     <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Model Training Pipeline</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-header">Data Processing</div>
+                        <div class="card-body">
+                            <p><i class="fas fa-database"></i> Splits data into:</p>
+                            <ul>
+                                <li>Training set</li>
+                                <li>Validation set</li>
+                                <li>Test set</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-header">Data Augmentation (Optional)</div>
+                        <div class="card-body">
+                            <p><i class="fas fa-random"></i> Creates variations of training images:</p>
+                            <ul>
+                                <li>Rotation</li>
+                                <li>Flipping</li>
+                                <li>Color adjustments</li>
+                                <li>And more...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-header">Model Training</div>
+                        <div class="card-body">
+                            <p><i class="fas fa-brain"></i> Trains an EfficientNet-B0 model using:</p>
+                            <ul>
+                                <li>Transfer learning</li>
+                                <li>Custom classifier head</li>
+                                <li>Optimized hyperparameters</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <form id="train-model-form" method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label for="zipFile" class="form-label">Select Dataset ZIP File</label>
-            <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
-            <div class="form-text">Each folder in the ZIP represents a category label.</div>
+        <div class="card mb-4">
+            <div class="card-header">Dataset & Model Configuration</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="zipFile" class="form-label">Select Dataset ZIP File</label>
+                    <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="numClasses" class="form-label">Number of Classes</label>
+                    <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
+                    <div class="form-text">How many different categories/classes are in your dataset?</div>
+                </div>
+                <div class="mb-3">
+                    <label for="trainingLevel" class="form-label">Training Level</label>
+                    <select class="form-select" id="trainingLevel" name="trainingLevel" required>
+                        <option value="1">Level 1 - Fast training (low accuracy)</option>
+                        <option value="2">Level 2 - Balanced training</option>
+                        <option value="3" selected>Level 3 - Standard training</option>
+                        <option value="4">Level 4 - Extended training</option>
+                        <option value="5">Level 5 - Thorough training (highest accuracy)</option>
+                    </select>
+                    <div class="form-text">Higher levels take more time but produce better models.</div>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="numClasses" class="form-label">Number of Classes</label>
-            <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
-            <div class="form-text">How many different categories/classes are in your dataset?</div>
+        
+        <div class="card mb-4">
+            <div class="card-header">Data Processing Options</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="validationSplit" class="form-label">Validation Split</label>
+                            <input type="range" class="form-range" id="validationSplit" name="validationSplit" min="0.1" max="0.3" step="0.05" value="0.2">
+                            <div class="d-flex justify-content-between">
+                                <span>10%</span>
+                                <span id="validationSplitValue">20%</span>
+                                <span>30%</span>
+                            </div>
+                            <div class="form-text">Percentage of data to use for validation during training.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="testSplit" class="form-label">Test Split</label>
+                            <input type="range" class="form-range" id="testSplit" name="testSplit" min="0.05" max="0.2" step="0.05" value="0.1">
+                            <div class="d-flex justify-content-between">
+                                <span>5%</span>
+                                <span id="testSplitValue">10%</span>
+                                <span>20%</span>
+                            </div>
+                            <div class="form-text">Percentage of data to use for final testing.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="trainingLevel" class="form-label">Training Level</label>
-            <select class="form-select" id="trainingLevel" name="trainingLevel" required>
-                <option value="1">Level 1 - Fast training (low accuracy)</option>
-                <option value="2">Level 2 - Balanced training</option>
-                <option value="3" selected>Level 3 - Standard training</option>
-                <option value="4">Level 4 - Extended training</option>
-                <option value="5">Level 5 - Thorough training (highest accuracy)</option>
-            </select>
-            <div class="form-text">Higher levels take more time but produce better models.</div>
+        
+        <div class="card mb-4">
+            <div class="card-header">Data Augmentation Options</div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="useAugmentation" name="useAugmentation" value="true">
+                    <label class="form-check-label" for="useAugmentation">Enable Data Augmentation</label>
+                </div>
+                <div class="form-text">
+                    Data augmentation creates additional training samples by applying transformations like rotation, flipping, and color adjustments.
+                    This can improve model accuracy, especially for smaller datasets.
+                </div>
+            </div>
         </div>
+        
         <button type="submit" class="btn btn-primary">Train Model</button>
     </form>
     <div id="training-status" class="mt-3"></div>
@@ -35,4 +138,15 @@
 
 {% block scripts %}
 <script src="/static/js/train_model.js"></script>
+<script>
+    // Update the validation split value display
+    document.getElementById('validationSplit').addEventListener('input', function() {
+        document.getElementById('validationSplitValue').textContent = (this.value * 100) + '%';
+    });
+    
+    // Update the test split value display
+    document.getElementById('testSplit').addEventListener('input', function() {
+        document.getElementById('testSplitValue').textContent = (this.value * 100) + '%';
+    });
+</script>
 {% endblock %}

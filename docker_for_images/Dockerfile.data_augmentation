@@ -1,0 +1,27 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install required packages
+RUN pip install --no-cache-dir \
+    flask==2.0.1 \
+    pillow==8.4.0 \
+    numpy==1.21.4 \
+    werkzeug==2.0.2 \
+    torch==1.10.0 \
+    torchvision==0.11.1
+
+# Copy application code
+COPY data_augmentation_service.py .
+
+# Expose port
+EXPOSE 5012
+
+# Run the application
+CMD ["python", "data_augmentation_service.py"] 

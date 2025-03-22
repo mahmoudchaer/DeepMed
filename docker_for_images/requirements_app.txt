@@ -1,0 +1,8 @@
+flask==2.0.1
+torch==1.10.0
+torchvision==0.11.1
+pillow==8.4.0
+numpy==1.21.4
+werkzeug==2.0.2
+requests==2.26.0
+requests-toolbelt==0.9.1 
