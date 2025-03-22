@@ -8,15 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements_efficientnet_b0.txt .
-RUN pip install --no-cache-dir -r requirements_efficientnet_b0.txt
+# Copy requirements
+COPY requirements_augmentation.txt .
+RUN pip install --no-cache-dir -r requirements_augmentation.txt
 
 # Copy application code
-COPY model_service.py .
+COPY data_augmentation_service.py .
 
 # Expose port
-EXPOSE 5010
+EXPOSE 5011
 
 # Run the application
-CMD ["python", "model_service.py"] 
+CMD ["python", "data_augmentation_service.py"] 

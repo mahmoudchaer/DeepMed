@@ -3,22 +3,219 @@ import io
 import zipfile
 import tempfile
 import json
-import logging
 import shutil
 import random
-
-# Add compatibility fix for Werkzeug/Flask version mismatch
-import werkzeug
-if not hasattr(werkzeug.urls, 'url_quote'):
-    werkzeug.urls.url_quote = werkzeug.urls.quote
+from pathlib import Path
+from collections import defaultdict
 
 from flask import Flask, request, jsonify, Response
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from torchvision import transforms
+from PIL import Image
+from sklearn.model_selection import train_test_split
 
 app = Flask(__name__)
+
+def process_data(zip_file, test_size=0.2, val_size=0.2):
+    """
+    Process image data by normalizing and splitting into train/validation/test sets
+    
+    Args:
+        zip_file: The ZIP file containing image folders
+        test_size: Proportion of data to use for testing (default 0.2)
+        val_size: Proportion of data to use for validation (default 0.2)
+        
+    Returns:
+        A BytesIO object containing the processed data as a ZIP file and metrics
+    """
+    # Validate the split parameters
+    test_size = float(test_size)
+    val_size = float(val_size)
+    
+    # Ensure test_size and val_size are valid
+    if test_size < 0 or test_size > 0.5:
+        test_size = 0.2  # Reset to default if invalid
+    if val_size < 0 or val_size > 0.5:
+        val_size = 0.2  # Reset to default if invalid
+    
+    # Calculate train size based on test and validation sizes
+    train_size = 1.0 - test_size - val_size
+    
+    # Adjust if train_size is too small
+    if train_size < 0.3:
+        # Recalculate to ensure at least 30% for training
+        train_size = 0.3
+        # Distribute the rest between val and test proportionally
+        total_val_test = test_size + val_size
+        test_size = 0.7 * (test_size / total_val_test)
+        val_size = 0.7 * (val_size / total_val_test)
+    
+    # Create temporary directories for processing
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Save the uploaded ZIP file
+        zip_path = os.path.join(tmpdir, "data.zip")
+        zip_file.save(zip_path)
+        
+        # Extract the ZIP file
+        extract_dir = os.path.join(tmpdir, "extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(extract_dir)
+        
+        # Create directories for processed data
+        processed_dir = os.path.join(tmpdir, "processed")
+        train_dir = os.path.join(processed_dir, "train")
+        val_dir = os.path.join(processed_dir, "val")
+        test_dir = os.path.join(processed_dir, "test")
+        
+        # Create the directories
+        for directory in [train_dir, val_dir, test_dir]:
+            os.makedirs(directory, exist_ok=True)
+        
+        # Find all class folders
+        class_folders = [f for f in os.listdir(extract_dir) 
+                        if os.path.isdir(os.path.join(extract_dir, f))]
+        
+        # Initialize metrics
+        metrics = {
+            "classes": len(class_folders),
+            "train_size": train_size,
+            "val_size": val_size,
+            "test_size": test_size,
+            "splits": {},
+            "class_counts": {}
+        }
+        
+        # Process each class folder
+        total_files = 0
+        train_files = 0
+        val_files = 0
+        test_files = 0
+        
+        for class_folder in class_folders:
+            # Create corresponding folders in train, val, and test directories
+            train_class_dir = os.path.join(train_dir, class_folder)
+            val_class_dir = os.path.join(val_dir, class_folder)
+            test_class_dir = os.path.join(test_dir, class_folder)
+            
+            for directory in [train_class_dir, val_class_dir, test_class_dir]:
+                os.makedirs(directory, exist_ok=True)
+            
+            # Get all image files in the class folder
+            src_dir = os.path.join(extract_dir, class_folder)
+            image_files = [f for f in os.listdir(src_dir) 
+                          if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff'))]
+            
+            # Skip if no images found
+            if not image_files:
+                print(f"No images found in class folder: {class_folder}")
+                continue
+                
+            # Shuffle the images to ensure random splits
+            random.shuffle(image_files)
+            
+            # Count images
+            class_total = len(image_files)
+            total_files += class_total
+            
+            # Split the image files into train, val, and test sets using stratified sampling
+            # Since we're working with file names, create dummy labels (all 0s)
+            dummy_labels = [0] * class_total
+            
+            # First split off the test set
+            train_val_files, test_files_list = train_test_split(
+                image_files, 
+                test_size=test_size, 
+                random_state=42
+            )
+            
+            # Then split the train_val set into train and val sets
+            # Recalculate val proportion relative to the remaining data
+            val_proportion = val_size / (train_size + val_size)
+            train_files_list, val_files_list = train_test_split(
+                train_val_files, 
+                test_size=val_proportion, 
+                random_state=42
+            )
+            
+            # Update metrics for this class
+            class_train = len(train_files_list)
+            class_val = len(val_files_list)
+            class_test = len(test_files_list)
+            
+            train_files += class_train
+            val_files += class_val
+            test_files += class_test
+            
+            metrics["class_counts"][class_folder] = {
+                "total": class_total,
+                "train": class_train,
+                "val": class_val,
+                "test": class_test
+            }
+            
+            # Define transformation for preprocessing images
+            preprocess = transforms.Compose([
+                transforms.Resize((224, 224)),  # Resize to standard size
+                transforms.ToTensor(),  # Convert to tensor
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],  # ImageNet means
+                    std=[0.229, 0.224, 0.225]     # ImageNet stds
+                )
+            ])
+            
+            # Helper function to process and save an image
+            def process_and_save_image(img_file, output_dir):
+                try:
+                    # Load the image
+                    img_path = os.path.join(src_dir, img_file)
+                    img = Image.open(img_path).convert('RGB')
+                    
+                    # No need to apply full preprocessing here - just resize for consistency
+                    # We'll save in the original format because we're creating a reusable dataset
+                    img_resized = transforms.Resize((224, 224))(img)
+                    
+                    # Save the processed image
+                    output_path = os.path.join(output_dir, img_file)
+                    img_resized.save(output_path)
+                    
+                    return True
+                except Exception as e:
+                    print(f"Error processing image {img_file}: {str(e)}")
+                    return False
+            
+            # Process and save train images
+            for img_file in train_files_list:
+                process_and_save_image(img_file, train_class_dir)
+            
+            # Process and save validation images
+            for img_file in val_files_list:
+                process_and_save_image(img_file, val_class_dir)
+            
+            # Process and save test images
+            for img_file in test_files_list:
+                process_and_save_image(img_file, test_class_dir)
+        
+        # Update overall metrics
+        metrics["total_images"] = total_files
+        metrics["splits"] = {
+            "train": train_files,
+            "val": val_files,
+            "test": test_files
+        }
+        
+        # Create a ZIP file with the processed data
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_out:
+            for root, _, files in os.walk(processed_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, processed_dir)
+                    zip_out.write(file_path, arcname)
+        
+        # Reset buffer position
+        zip_buffer.seek(0)
+        
+        return zip_buffer, metrics
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -26,148 +223,38 @@ def health():
     return jsonify({"status": "healthy", "service": "data-processing-service"})
 
 @app.route('/process', methods=['POST'])
-def process_data():
-    """Process data by splitting it into training, validation, and test sets"""
+def api_process_data():
+    """API endpoint for data processing"""
     if 'zipFile' not in request.files:
         return jsonify({"error": "No ZIP file uploaded"}), 400
     
     zip_file = request.files['zipFile']
-    
-    # Get parameters from the form
-    test_size = float(request.form.get('testSize', 0.2))
-    val_size = float(request.form.get('valSize', 0.1))
-    
-    # Validate sizes
-    if test_size <= 0 or test_size >= 1:
-        return jsonify({"error": "Test size must be between 0 and 1"}), 400
-    
-    if val_size <= 0 or val_size >= 1:
-        return jsonify({"error": "Validation size must be between 0 and 1"}), 400
-    
-    if test_size + val_size >= 1:
-        return jsonify({"error": "Sum of test and validation sizes must be less than 1"}), 400
-    
     try:
-        # Create temporary directories
-        with tempfile.TemporaryDirectory() as extract_dir, tempfile.TemporaryDirectory() as output_dir:
-            # Save and extract the ZIP file
-            zip_path = os.path.join(extract_dir, "data.zip")
-            zip_file.save(zip_path)
-            
-            # Extract the contents
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
-                
-            # Get class folders (assuming each folder is a class)
-            class_folders = []
-            for item in os.listdir(extract_dir):
-                item_path = os.path.join(extract_dir, item)
-                if os.path.isdir(item_path) and not item.startswith('.'):
-                    class_folders.append(item)
-            
-            # Create output directories
-            train_dir = os.path.join(output_dir, "train")
-            val_dir = os.path.join(output_dir, "val")
-            test_dir = os.path.join(output_dir, "test")
-            
-            os.makedirs(train_dir, exist_ok=True)
-            os.makedirs(val_dir, exist_ok=True)
-            os.makedirs(test_dir, exist_ok=True)
-            
-            # Create class subdirectories in each split
-            for class_folder in class_folders:
-                os.makedirs(os.path.join(train_dir, class_folder), exist_ok=True)
-                os.makedirs(os.path.join(val_dir, class_folder), exist_ok=True)
-                os.makedirs(os.path.join(test_dir, class_folder), exist_ok=True)
-            
-            # Process each class
-            metrics = {
-                "classes": len(class_folders),
-                "class_distribution": {},
-                "total_files": 0,
-                "train_files": 0,
-                "val_files": 0,
-                "test_files": 0
-            }
-            
-            for class_folder in class_folders:
-                src_class_dir = os.path.join(extract_dir, class_folder)
-                
-                # Get all image files
-                image_files = []
-                for root, _, files in os.walk(src_class_dir):
-                    for file in files:
-                        if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff')):
-                            image_files.append(os.path.join(root, file))
-                
-                # Shuffle the files for random splitting
-                random.shuffle(image_files)
-                
-                # Calculate split sizes
-                total_files = len(image_files)
-                test_count = int(total_files * test_size)
-                val_count = int(total_files * val_size)
-                train_count = total_files - test_count - val_count
-                
-                # Split indices
-                train_end = train_count
-                val_end = train_count + val_count
-                
-                # Copy files to respective directories
-                for i, src_file in enumerate(image_files):
-                    file_name = os.path.basename(src_file)
-                    
-                    if i < train_end:
-                        # Train split
-                        dst_file = os.path.join(train_dir, class_folder, file_name)
-                        shutil.copy2(src_file, dst_file)
-                        metrics["train_files"] += 1
-                    elif i < val_end:
-                        # Validation split
-                        dst_file = os.path.join(val_dir, class_folder, file_name)
-                        shutil.copy2(src_file, dst_file)
-                        metrics["val_files"] += 1
-                    else:
-                        # Test split
-                        dst_file = os.path.join(test_dir, class_folder, file_name)
-                        shutil.copy2(src_file, dst_file)
-                        metrics["test_files"] += 1
-                
-                # Update metrics
-                metrics["class_distribution"][class_folder] = {
-                    "total": total_files,
-                    "train": train_count,
-                    "val": val_count,
-                    "test": test_count
-                }
-                metrics["total_files"] += total_files
-            
-            # Create a new ZIP file containing the processed data
-            output_zip_path = os.path.join(output_dir, "processed_data.zip")
-            with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                # Add each folder's files to the ZIP
-                for folder in ["train", "val", "test"]:
-                    for root, _, files in os.walk(os.path.join(output_dir, folder)):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, output_dir)
-                            zipf.write(file_path, arcname)
-            
-            # Create a response with the processed ZIP file
-            with open(output_zip_path, "rb") as f:
-                processed_zip_bytes = io.BytesIO(f.read())
-            
-            response = Response(processed_zip_bytes.getvalue())
-            response.headers["Content-Type"] = "application/octet-stream"
-            response.headers["Content-Disposition"] = "attachment; filename=processed_data.zip"
-            response.headers["X-Processing-Metrics"] = json.dumps(metrics)
-            
-            return response
-            
+        # Get parameters from the form
+        test_size = float(request.form.get('testSize', 0.2))
+        val_size = float(request.form.get('valSize', 0.2))
+        
+        # Process the data
+        processed_zip, metrics = process_data(
+            zip_file, 
+            test_size=test_size, 
+            val_size=val_size
+        )
+        
+        # Create a response with the processed data ZIP and metrics
+        response = Response(processed_zip.getvalue())
+        response.headers["Content-Type"] = "application/zip"
+        response.headers["Content-Disposition"] = "attachment; filename=processed_data.zip"
+        
+        # Add metrics as a JSON string in a custom header
+        response.headers["X-Processing-Metrics"] = json.dumps(metrics)
+        
+        return response
     except Exception as e:
-        logger.error(f"Error processing data: {str(e)}", exc_info=True)
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5101))
+    port = int(os.environ.get('PORT', 5012))
     app.run(host='0.0.0.0', port=port, debug=False) 

@@ -1,66 +1,67 @@
 version: '3'
 
 services:
-  model-training:
-    build: 
+  # End-to-End Process (EEP)
+  image-eep-service:
+    build:
+      context: .
+      dockerfile: eep.Dockerfile
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    volumes:
+      - ./image_eep.py:/app/image_eep.py
+    environment:
+      - PORT=5000
+    networks:
+      - deepmed-network
+    depends_on:
+      - model-training-service
+      - data-augmentation-service
+      - data-processing-service
+
+  # Existing Model Training Service (IEP)
+  model-training-service:
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5100:5100"
+      - "5010:5010"
+    restart: unless-stopped
     volumes:
       - ./model_service.py:/app/model_service.py
     environment:
-      - PORT=5100
-    restart: always
+      - PORT=5010
     networks:
       - deepmed-network
 
-  data-processing:
+  # Data Augmentation Service (IEP)
+  data-augmentation-service:
     build:
       context: .
-      dockerfile: Dockerfile.iep
+      dockerfile: augmentation.Dockerfile
     ports:
-      - "5101:5101"
-    volumes:
-      - ./data_processing_service.py:/app/data_processing_service.py
-    environment:
-      - PORT=5101
-    restart: always
-    command: python data_processing_service.py
-    networks:
-      - deepmed-network
-
-  data-augmentation:
-    build:
-      context: .
-      dockerfile: Dockerfile.iep
-    ports:
-      - "5102:5102"
+      - "5011:5011"
+    restart: unless-stopped
     volumes:
       - ./data_augmentation_service.py:/app/data_augmentation_service.py
     environment:
-      - PORT=5102
-    restart: always
-    command: python data_augmentation_service.py
+      - PORT=5011
     networks:
       - deepmed-network
 
-  image-processing-eep:
+  # Data Processing Service (IEP)
+  data-processing-service:
     build:
       context: .
-      dockerfile: Dockerfile.iep
+      dockerfile: processing.Dockerfile
     ports:
-      - "5103:5103"
+      - "5012:5012"
+    restart: unless-stopped
     volumes:
-      - ./image_processing_eep.py:/app/image_processing_eep.py
+      - ./data_processing_service.py:/app/data_processing_service.py
     environment:
-      - PORT=5103
-    restart: always
-    command: python image_processing_eep.py
-    depends_on:
-      - model-training
-      - data-processing
-      - data-augmentation
+      - PORT=5012
     networks:
       - deepmed-network
 

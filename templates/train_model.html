@@ -1,26 +1,20 @@
 {% extends 'base.html' %}
-{% block title %}Image Processing - MedicAI{% endblock %}
+{% block title %}Image Analysis - MedicAI{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2>Image Processing</h2>
+    <h2>Image Analysis Tools</h2>
     
-    <!-- Tabs for different operations -->
-    <ul class="nav nav-tabs mb-4" id="operationTabs" role="tablist">
+    <!-- Navigation tabs for different operations -->
+    <ul class="nav nav-tabs" id="operationTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="train-tab" data-bs-toggle="tab" data-bs-target="#train" type="button" role="tab" aria-controls="train" aria-selected="true">
-                Train Model
-            </button>
+            <button class="nav-link active" id="train-tab" data-bs-toggle="tab" data-bs-target="#train" type="button" role="tab" aria-controls="train" aria-selected="true">Train Model</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="process-tab" data-bs-toggle="tab" data-bs-target="#process" type="button" role="tab" aria-controls="process" aria-selected="false">
-                Process Data
-            </button>
+            <button class="nav-link" id="augment-tab" data-bs-toggle="tab" data-bs-target="#augment" type="button" role="tab" aria-controls="augment" aria-selected="false">Data Augmentation</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="augment-tab" data-bs-toggle="tab" data-bs-target="#augment" type="button" role="tab" aria-controls="augment" aria-selected="false">
-                Augment Data
-            </button>
+            <button class="nav-link" id="process-tab" data-bs-toggle="tab" data-bs-target="#process" type="button" role="tab" aria-controls="process" aria-selected="false">Data Processing</button>
         </li>
     </ul>
     
@@ -28,81 +22,90 @@
     <div class="tab-content" id="operationTabsContent">
         <!-- Train Model Tab -->
         <div class="tab-pane fade show active" id="train" role="tabpanel" aria-labelledby="train-tab">
-            <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
-            <form id="train-model-form" action="/api/train_model" method="POST" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <label for="trainZipFile" class="form-label">Select Dataset ZIP File</label>
-                    <input type="file" class="form-control" id="trainZipFile" name="zipFile" accept=".zip" required>
-                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
-                </div>
-                <div class="mb-3">
-                    <label for="numClasses" class="form-label">Number of Classes</label>
-                    <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
-                    <div class="form-text">How many different categories/classes are in your dataset?</div>
-                </div>
-                <div class="mb-3">
-                    <label for="trainingLevel" class="form-label">Training Level</label>
-                    <select class="form-select" id="trainingLevel" name="trainingLevel" required>
-                        <option value="1">Level 1 - Fast training (low accuracy)</option>
-                        <option value="2">Level 2 - Balanced training</option>
-                        <option value="3" selected>Level 3 - Standard training</option>
-                        <option value="4">Level 4 - Extended training</option>
-                        <option value="5">Level 5 - Thorough training (highest accuracy)</option>
-                    </select>
-                    <div class="form-text">Higher levels take more time but produce better models.</div>
-                </div>
-                <button type="submit" class="btn btn-primary">Train Model</button>
-            </form>
-            <div id="training-status" class="mt-3"></div>
+            <div class="p-3 border-start border-end border-bottom mb-4">
+                <h3>Train Your Model</h3>
+                <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
+                <form id="train-model-form" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="trainZipFile" class="form-label">Select Dataset ZIP File</label>
+                        <input type="file" class="form-control" id="trainZipFile" name="zipFile" accept=".zip" required>
+                        <div class="form-text">Each folder in the ZIP represents a category label.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="numClasses" class="form-label">Number of Classes</label>
+                        <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
+                        <div class="form-text">How many different categories/classes are in your dataset?</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="trainingLevel" class="form-label">Training Level</label>
+                        <select class="form-select" id="trainingLevel" name="trainingLevel" required>
+                            <option value="1">Level 1 - Fast training (low accuracy)</option>
+                            <option value="2">Level 2 - Balanced training</option>
+                            <option value="3" selected>Level 3 - Standard training</option>
+                            <option value="4">Level 4 - Extended training</option>
+                            <option value="5">Level 5 - Thorough training (highest accuracy)</option>
+                        </select>
+                        <div class="form-text">Higher levels take more time but produce better models.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Train Model</button>
+                </form>
+                <div id="training-status" class="mt-3"></div>
+            </div>
         </div>
         
-        <!-- Process Data Tab -->
-        <div class="tab-pane fade" id="process" role="tabpanel" aria-labelledby="process-tab">
-            <p>Split your dataset into training, validation, and test sets. Upload a ZIP file containing folders of images.</p>
-            <form id="process-data-form" action="/api/process_data" method="POST" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <label for="processZipFile" class="form-label">Select Dataset ZIP File</label>
-                    <input type="file" class="form-control" id="processZipFile" name="zipFile" accept=".zip" required>
-                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
-                </div>
-                <div class="mb-3">
-                    <label for="testSize" class="form-label">Test Set Size</label>
-                    <input type="number" class="form-control" id="testSize" name="testSize" value="0.2" min="0.05" max="0.5" step="0.05" required>
-                    <div class="form-text">Proportion of the dataset to include in the test set (0.05 - 0.5).</div>
-                </div>
-                <div class="mb-3">
-                    <label for="valSize" class="form-label">Validation Set Size</label>
-                    <input type="number" class="form-control" id="valSize" name="valSize" value="0.1" min="0.05" max="0.5" step="0.05" required>
-                    <div class="form-text">Proportion of the dataset to include in the validation set (0.05 - 0.5).</div>
-                </div>
-                <button type="submit" class="btn btn-primary">Process Data</button>
-            </form>
-            <div id="processing-status" class="mt-3"></div>
-        </div>
-        
-        <!-- Augment Data Tab -->
+        <!-- Data Augmentation Tab -->
         <div class="tab-pane fade" id="augment" role="tabpanel" aria-labelledby="augment-tab">
-            <p>Enhance your dataset with image augmentation techniques. Upload a ZIP file containing folders of images.</p>
-            <form id="augment-data-form" action="/api/augment_data" method="POST" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <label for="augmentZipFile" class="form-label">Select Dataset ZIP File</label>
-                    <input type="file" class="form-control" id="augmentZipFile" name="zipFile" accept=".zip" required>
-                    <div class="form-text">Each folder in the ZIP represents a category label.</div>
-                </div>
-                <div class="mb-3">
-                    <label for="augmentationLevel" class="form-label">Augmentation Level</label>
-                    <select class="form-select" id="augmentationLevel" name="augmentationLevel" required>
-                        <option value="1">Level 1 - Minimal Augmentation (flips, rotations)</option>
-                        <option value="2">Level 2 - Basic Augmentation (adds brightness/contrast changes)</option>
-                        <option value="3" selected>Level 3 - Standard Augmentation</option>
-                        <option value="4">Level 4 - Enhanced Augmentation</option>
-                        <option value="5">Level 5 - Maximum Augmentation</option>
-                    </select>
-                    <div class="form-text">Higher levels apply more transformations, generating more images.</div>
-                </div>
-                <button type="submit" class="btn btn-primary">Augment Data</button>
-            </form>
-            <div id="augmentation-status" class="mt-3"></div>
+            <div class="p-3 border-start border-end border-bottom mb-4">
+                <h3>Augment Your Dataset</h3>
+                <p>Upload a ZIP file containing folders of images to generate additional transformed images, increasing your dataset size.</p>
+                <form id="augment-data-form" action="/api/augment_data" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="augmentZipFile" class="form-label">Select Dataset ZIP File</label>
+                        <input type="file" class="form-control" id="augmentZipFile" name="zipFile" accept=".zip" required>
+                        <div class="form-text">Each folder in the ZIP represents a category of images to augment.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="augmentationLevel" class="form-label">Augmentation Level</label>
+                        <select class="form-select" id="augmentationLevel" name="augmentationLevel" required>
+                            <option value="1">Level 1 - Minimal augmentation (1 variation per image)</option>
+                            <option value="2">Level 2 - Light augmentation (2 variations per image)</option>
+                            <option value="3" selected>Level 3 - Standard augmentation (3 variations per image)</option>
+                            <option value="4">Level 4 - Advanced augmentation (4 variations per image)</option>
+                            <option value="5">Level 5 - Extensive augmentation (5 variations per image)</option>
+                        </select>
+                        <div class="form-text">Higher levels generate more variations of each image.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Augment Data</button>
+                </form>
+                <div id="augmentation-status" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Data Processing Tab -->
+        <div class="tab-pane fade" id="process" role="tabpanel" aria-labelledby="process-tab">
+            <div class="p-3 border-start border-end border-bottom mb-4">
+                <h3>Process Your Dataset</h3>
+                <p>Upload a ZIP file containing folders of images to normalize and split into training, validation, and test sets.</p>
+                <form id="process-data-form" action="/api/process_data" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="processZipFile" class="form-label">Select Dataset ZIP File</label>
+                        <input type="file" class="form-control" id="processZipFile" name="zipFile" accept=".zip" required>
+                        <div class="form-text">Each folder in the ZIP represents a category of images to process.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="testSize" class="form-label">Test Set Size</label>
+                        <input type="number" class="form-control" id="testSize" name="testSize" value="0.2" step="0.05" min="0.1" max="0.5" required>
+                        <div class="form-text">Proportion of data to use for testing (0.1 - 0.5)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="valSize" class="form-label">Validation Set Size</label>
+                        <input type="number" class="form-control" id="valSize" name="valSize" value="0.2" step="0.05" min="0.1" max="0.5" required>
+                        <div class="form-text">Proportion of data to use for validation (0.1 - 0.5)</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Process Data</button>
+                </form>
+                <div id="processing-status" class="mt-3"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -110,38 +113,251 @@
 
 {% block scripts %}
 <script>
-    // Add loading indicators for form submissions
-    document.addEventListener('DOMContentLoaded', function() {
-        // Create loading indicator function
-        function setupForm(formId, statusId) {
-            const form = document.getElementById(formId);
-            const statusDiv = document.getElementById(statusId);
-            
-            if (form) {
-                form.addEventListener('submit', function() {
-                    const button = form.querySelector('button[type="submit"]');
-                    button.disabled = true;
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-                    
-                    statusDiv.innerHTML = '<div class="alert alert-info">Your request is being processed. This may take a few minutes. Please wait...</div>';
+document.addEventListener('DOMContentLoaded', function() {
+    // Train Model Form
+    const trainForm = document.getElementById('train-model-form');
+    const trainingStatus = document.getElementById('training-status');
+    
+    trainForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        trainingStatus.innerHTML = '<div class="alert alert-info">Training in progress... Please wait, this may take a few minutes.</div>';
+        
+        const formData = new FormData(trainForm);
+        
+        fetch('/api/train_model', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Training failed');
                 });
             }
-        }
-        
-        // Setup all forms
-        setupForm('train-model-form', 'training-status');
-        setupForm('process-data-form', 'processing-status');
-        setupForm('augment-data-form', 'augmentation-status');
-        
-        // Set active tab based on URL hash
-        const hash = window.location.hash;
-        if (hash) {
-            const tab = document.querySelector(`#operationTabs button[data-bs-target="${hash}"]`);
-            if (tab) {
-                const tabEl = new bootstrap.Tab(tab);
-                tabEl.show();
+            
+            // Get metrics from header
+            const metrics = response.headers.get('X-Training-Metrics');
+            let metricsObj = {};
+            if (metrics) {
+                metricsObj = JSON.parse(metrics);
             }
-        }
+            
+            // Handle successful model download
+            const disposition = response.headers.get('Content-Disposition');
+            const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : 'trained_model.pt';
+            
+            return response.blob().then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                
+                // Show success message with metrics
+                let metricsHtml = '';
+                if (metricsObj) {
+                    metricsHtml = '<h4 class="mt-3">Training Metrics</h4><ul class="list-group">';
+                    if ('training_accuracy' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Training Accuracy: ${(metricsObj.training_accuracy).toFixed(2)}%</li>`;
+                    }
+                    if ('final_loss' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Final Loss: ${metricsObj.final_loss.toFixed(4)}</li>`;
+                    }
+                    if ('epochs' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Epochs: ${metricsObj.epochs}</li>`;
+                    }
+                    if ('num_images' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Images Processed: ${metricsObj.num_images}</li>`;
+                    }
+                    metricsHtml += '</ul>';
+                }
+                
+                trainingStatus.innerHTML = `
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">Training Complete!</h4>
+                        <p>Your model has been trained successfully. Click the button below to download it.</p>
+                        <button class="btn btn-primary download-btn">Download Model</button>
+                    </div>
+                    ${metricsHtml}
+                `;
+                
+                // Attach download function to button
+                document.querySelector('.download-btn').addEventListener('click', function() {
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                });
+            });
+        })
+        .catch(error => {
+            trainingStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
     });
+
+    // Data Augmentation Form
+    const augmentForm = document.getElementById('augment-data-form');
+    const augmentationStatus = document.getElementById('augmentation-status');
+    
+    augmentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        augmentationStatus.innerHTML = '<div class="alert alert-info">Augmentation in progress... Please wait.</div>';
+        
+        const formData = new FormData(augmentForm);
+        
+        fetch('/api/augment_data', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Augmentation failed');
+                });
+            }
+            
+            // Get metrics from header
+            const metrics = response.headers.get('X-Augmentation-Metrics');
+            let metricsObj = {};
+            if (metrics) {
+                metricsObj = JSON.parse(metrics);
+            }
+            
+            // Handle successful ZIP download
+            const disposition = response.headers.get('Content-Disposition');
+            const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : 'augmented_data.zip';
+            
+            return response.blob().then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                
+                // Show success message with metrics
+                let metricsHtml = '';
+                if (metricsObj) {
+                    metricsHtml = '<h4 class="mt-3">Augmentation Metrics</h4><ul class="list-group">';
+                    if ('original_images' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Original Images: ${metricsObj.original_images}</li>`;
+                    }
+                    if ('augmented_images' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Generated Images: ${metricsObj.augmented_images}</li>`;
+                    }
+                    if ('total_images' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Total Images: ${metricsObj.total_images}</li>`;
+                    }
+                    if ('classes' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Classes Found: ${metricsObj.classes}</li>`;
+                    }
+                    metricsHtml += '</ul>';
+                }
+                
+                augmentationStatus.innerHTML = `
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">Augmentation Complete!</h4>
+                        <p>Your data has been augmented successfully. Click the button below to download it.</p>
+                        <button class="btn btn-primary augment-download-btn">Download Augmented Data</button>
+                    </div>
+                    ${metricsHtml}
+                `;
+                
+                // Attach download function to button
+                document.querySelector('.augment-download-btn').addEventListener('click', function() {
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                });
+            });
+        })
+        .catch(error => {
+            augmentationStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+    });
+
+    // Data Processing Form
+    const processForm = document.getElementById('process-data-form');
+    const processingStatus = document.getElementById('processing-status');
+    
+    processForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        processingStatus.innerHTML = '<div class="alert alert-info">Processing in progress... Please wait.</div>';
+        
+        const formData = new FormData(processForm);
+        
+        fetch('/api/process_data', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Processing failed');
+                });
+            }
+            
+            // Get metrics from header
+            const metrics = response.headers.get('X-Processing-Metrics');
+            let metricsObj = {};
+            if (metrics) {
+                metricsObj = JSON.parse(metrics);
+            }
+            
+            // Handle successful ZIP download
+            const disposition = response.headers.get('Content-Disposition');
+            const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : 'processed_data.zip';
+            
+            return response.blob().then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                
+                // Show success message with metrics
+                let metricsHtml = '';
+                if (metricsObj) {
+                    metricsHtml = '<h4 class="mt-3">Processing Metrics</h4><ul class="list-group">';
+                    if ('total_images' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Total Images: ${metricsObj.total_images}</li>`;
+                    }
+                    if ('splits' in metricsObj) {
+                        if ('train' in metricsObj.splits) {
+                            metricsHtml += `<li class="list-group-item">Training Images: ${metricsObj.splits.train}</li>`;
+                        }
+                        if ('val' in metricsObj.splits) {
+                            metricsHtml += `<li class="list-group-item">Validation Images: ${metricsObj.splits.val}</li>`;
+                        }
+                        if ('test' in metricsObj.splits) {
+                            metricsHtml += `<li class="list-group-item">Test Images: ${metricsObj.splits.test}</li>`;
+                        }
+                    }
+                    if ('classes' in metricsObj) {
+                        metricsHtml += `<li class="list-group-item">Classes Found: ${metricsObj.classes}</li>`;
+                    }
+                    metricsHtml += '</ul>';
+                }
+                
+                processingStatus.innerHTML = `
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">Processing Complete!</h4>
+                        <p>Your data has been processed and split into train/val/test sets. Click the button below to download it.</p>
+                        <button class="btn btn-primary process-download-btn">Download Processed Data</button>
+                    </div>
+                    ${metricsHtml}
+                `;
+                
+                // Attach download function to button
+                document.querySelector('.process-download-btn').addEventListener('click', function() {
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                });
+            });
+        })
+        .catch(error => {
+            processingStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+    });
+});
 </script>
 {% endblock %}
