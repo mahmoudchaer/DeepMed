@@ -20,19 +20,20 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Define IEP service URLs
-DATA_PROCESSING_URL = "http://localhost:5011/process"
-DATA_AUGMENTATION_URL = "http://localhost:5012/augment"
-MODEL_TRAINING_URL = "http://localhost:5010/train"  # Original model service
+# Define IEP service URLs using container names from docker-compose.yml
+DATA_PROCESSING_URL = "http://data-processing:5101/process"
+DATA_AUGMENTATION_URL = "http://data-augmentation:5102/augment"
+MODEL_TRAINING_URL = "http://model-training:5100/train"  # Original model service
 
 def is_service_available(service_url):
     """Check if a service is available by calling its health endpoint"""
     try:
         # Extract base URL without endpoint
         base_url = "/".join(service_url.split("/")[:-1])
-        response = requests.get(f"{base_url}/health", timeout=2)
+        response = requests.get(f"{base_url}/health", timeout=5)
         return response.status_code == 200
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Service connection error: {str(e)}")
         return False
 
 @app.route('/health', methods=['GET'])
@@ -210,5 +211,5 @@ def train_model():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5020))
+    port = int(os.environ.get('PORT', 5103))
     app.run(host='0.0.0.0', port=port, debug=False) 

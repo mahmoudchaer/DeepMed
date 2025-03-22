@@ -4,6 +4,11 @@ import zipfile
 import tempfile
 import json
 
+# Add compatibility fix for Werkzeug/Flask version mismatch
+import werkzeug
+if not hasattr(werkzeug.urls, 'url_quote'):
+    werkzeug.urls.url_quote = werkzeug.urls.quote
+
 from flask import Flask, request, jsonify, Response
 import torch
 import torch.nn as nn
@@ -146,5 +151,5 @@ def api_train_model():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5010))
+    port = int(os.environ.get('PORT', 5100))
     app.run(host='0.0.0.0', port=port, debug=False) 
