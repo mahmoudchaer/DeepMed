@@ -24,32 +24,32 @@
         <div class="tab-pane fade show active" id="train" role="tabpanel" aria-labelledby="train-tab">
             <div class="p-3 border-start border-end border-bottom mb-4">
                 <h3>Train Your Model</h3>
-                <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
-                <form id="train-model-form" method="POST" enctype="multipart/form-data">
-                    <div class="mb-3">
+    <p>Upload a ZIP file containing folders of images. Each folder's name will be used as the label for the images within.</p>
+    <form id="train-model-form" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
                         <label for="trainZipFile" class="form-label">Select Dataset ZIP File</label>
                         <input type="file" class="form-control" id="trainZipFile" name="zipFile" accept=".zip" required>
-                        <div class="form-text">Each folder in the ZIP represents a category label.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="numClasses" class="form-label">Number of Classes</label>
-                        <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
-                        <div class="form-text">How many different categories/classes are in your dataset?</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="trainingLevel" class="form-label">Training Level</label>
-                        <select class="form-select" id="trainingLevel" name="trainingLevel" required>
-                            <option value="1">Level 1 - Fast training (low accuracy)</option>
-                            <option value="2">Level 2 - Balanced training</option>
-                            <option value="3" selected>Level 3 - Standard training</option>
-                            <option value="4">Level 4 - Extended training</option>
-                            <option value="5">Level 5 - Thorough training (highest accuracy)</option>
-                        </select>
-                        <div class="form-text">Higher levels take more time but produce better models.</div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Train Model</button>
-                </form>
-                <div id="training-status" class="mt-3"></div>
+            <div class="form-text">Each folder in the ZIP represents a category label.</div>
+        </div>
+        <div class="mb-3">
+            <label for="numClasses" class="form-label">Number of Classes</label>
+            <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
+            <div class="form-text">How many different categories/classes are in your dataset?</div>
+        </div>
+        <div class="mb-3">
+            <label for="trainingLevel" class="form-label">Training Level</label>
+            <select class="form-select" id="trainingLevel" name="trainingLevel" required>
+                <option value="1">Level 1 - Fast training (low accuracy)</option>
+                <option value="2">Level 2 - Balanced training</option>
+                <option value="3" selected>Level 3 - Standard training</option>
+                <option value="4">Level 4 - Extended training</option>
+                <option value="5">Level 5 - Thorough training (highest accuracy)</option>
+            </select>
+            <div class="form-text">Higher levels take more time but produce better models.</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Train Model</button>
+    </form>
+    <div id="training-status" class="mt-3"></div>
             </div>
         </div>
         

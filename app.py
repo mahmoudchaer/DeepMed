@@ -23,21 +23,60 @@ app = Flask(__name__)
 # Define URL for the EEP service
 EEP_SERVICE_URL = "http://localhost:5100"  # This will be our new EEP service
 
+# Alternative URLs to try if localhost doesn't work
+ALTERNATIVE_EEP_URLS = [
+    "http://127.0.0.1:5100",
+    "http://0.0.0.0:5100",
+    "http://image-eep-service:5100",  # Docker service name
+    "http://host.docker.internal:5100"  # Special Docker DNS name for host
+]
+
 def check_model_service_health():
     """Check if the model service is running and healthy"""
+    model_service_url = "http://localhost:5110/health"
+    logger.info(f"Checking model service health at {model_service_url}")
+    
     try:
-        response = requests.get("http://localhost:5110/health", timeout=5)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
+        response = requests.get(model_service_url, timeout=5)
+        healthy = response.status_code == 200
+        logger.info(f"Model service health check result: {healthy}")
+        return healthy
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error connecting to model service: {str(e)}")
         return False
 
 def check_eep_service_health():
-    """Check if the EEP service is running and healthy"""
+    """Check if the EEP service is running and healthy using multiple URLs"""
+    # Try primary URL first
+    health_url = f"{EEP_SERVICE_URL}/health"
+    logger.info(f"Checking EEP service health at {health_url}")
+    
     try:
-        response = requests.get(f"{EEP_SERVICE_URL}/health", timeout=5)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
-        return False
+        response = requests.get(health_url, timeout=5)
+        if response.status_code == 200:
+            logger.info(f"EEP service health check successful at {health_url}")
+            return True
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error connecting to primary EEP service: {str(e)}")
+    
+    # Try alternative URLs
+    for url in ALTERNATIVE_EEP_URLS:
+        alt_health_url = f"{url}/health"
+        logger.info(f"Trying alternative EEP service URL: {alt_health_url}")
+        try:
+            response = requests.get(alt_health_url, timeout=5)
+            if response.status_code == 200:
+                logger.info(f"EEP service health check successful at {alt_health_url}")
+                # Update the main URL to the working one
+                global EEP_SERVICE_URL
+                EEP_SERVICE_URL = url
+                logger.info(f"Updated primary EEP service URL to: {EEP_SERVICE_URL}")
+                return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error connecting to alternative EEP service at {url}: {str(e)}")
+    
+    logger.error("All EEP service URLs failed health checks")
+    return False
 
 def train_model(zip_file, num_classes=5, training_level=3):
     """
@@ -94,14 +133,16 @@ def train_model(zip_file, num_classes=5, training_level=3):
 
 def augment_data(zip_file, augmentation_level=3):
     """
-    Send data to the EEP for data augmentation
+    Send data to the EEP for data augmentation with retry logic
     """
-    # Check if the EEP service is healthy
+    # First check if the primary EEP service is healthy
     if not check_eep_service_health():
+        # This will already have attempted alternative URLs
         raise Exception("EEP service is not available. Please ensure the Docker containers are running.")
     
     # The URL for data augmentation through the EEP
     augmentation_url = f"{EEP_SERVICE_URL}/data_augmentation"
+    logger.info(f"Sending augmentation request to {augmentation_url}")
     
     # Create form data to send to the service using MultipartEncoder
     form_data = MultipartEncoder(
@@ -112,47 +153,64 @@ def augment_data(zip_file, augmentation_level=3):
     )
     
     # Make the request to the EEP service
-    response = requests.post(
-        augmentation_url,
-        data=form_data,
-        headers={'Content-Type': form_data.content_type},
-        stream=True
-    )
-    
-    if response.status_code != 200:
-        error_message = "Error from data augmentation service"
-        try:
-            error_data = response.json()
-            if 'error' in error_data:
-                error_message = error_data['error']
-        except:
-            pass
-        raise Exception(error_message)
-    
-    # Get metrics from response header
-    metrics = {}
-    if 'X-Augmentation-Metrics' in response.headers:
-        try:
-            metrics = json.loads(response.headers['X-Augmentation-Metrics'])
-        except:
-            logger.error("Failed to parse metrics from augmentation service response")
-    
-    # Convert the response content (ZIP file) to BytesIO
-    augmented_zip = io.BytesIO(response.content)
-    augmented_zip.seek(0)
-    
-    return augmented_zip, metrics
+    try:
+        logger.info(f"Attempting to send request to {augmentation_url}")
+        response = requests.post(
+            augmentation_url,
+            data=form_data,
+            headers={'Content-Type': form_data.content_type},
+            stream=True,
+            timeout=30  # Increased timeout
+        )
+        
+        # Log the response details
+        logger.info(f"Received response from {augmentation_url}: Status {response.status_code}")
+        
+        if response.status_code != 200:
+            error_message = "Error from data augmentation service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+                logger.error(f"Error details: {error_data}")
+            except:
+                logger.error(f"Could not parse error response: {response.text[:200]}")
+            raise Exception(error_message)
+        
+        # Get metrics from response header
+        metrics = {}
+        if 'X-Augmentation-Metrics' in response.headers:
+            try:
+                metrics = json.loads(response.headers['X-Augmentation-Metrics'])
+                logger.info(f"Received metrics: {metrics}")
+            except:
+                logger.error("Failed to parse metrics from augmentation service response")
+        
+        # Convert the response content (ZIP file) to BytesIO
+        logger.info("Successfully received augmented data")
+        augmented_zip = io.BytesIO(response.content)
+        augmented_zip.seek(0)
+        
+        return augmented_zip, metrics
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error when connecting to {augmentation_url}: {str(e)}")
+        raise Exception(f"Failed to connect to augmentation service: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during augmentation: {str(e)}", exc_info=True)
+        raise
 
 def process_data(zip_file, test_size=0.2, val_size=0.2):
     """
-    Send data to the EEP for data processing
+    Send data to the EEP for data processing with retry logic
     """
-    # Check if the EEP service is healthy
+    # First check if the primary EEP service is healthy
     if not check_eep_service_health():
+        # This will already have attempted alternative URLs
         raise Exception("EEP service is not available. Please ensure the Docker containers are running.")
     
     # The URL for data processing through the EEP
     processing_url = f"{EEP_SERVICE_URL}/data_processing"
+    logger.info(f"Sending processing request to {processing_url}")
     
     # Create form data to send to the service using MultipartEncoder
     form_data = MultipartEncoder(
@@ -164,36 +222,51 @@ def process_data(zip_file, test_size=0.2, val_size=0.2):
     )
     
     # Make the request to the EEP service
-    response = requests.post(
-        processing_url,
-        data=form_data,
-        headers={'Content-Type': form_data.content_type},
-        stream=True
-    )
-    
-    if response.status_code != 200:
-        error_message = "Error from data processing service"
-        try:
-            error_data = response.json()
-            if 'error' in error_data:
-                error_message = error_data['error']
-        except:
-            pass
-        raise Exception(error_message)
-    
-    # Get metrics from response header
-    metrics = {}
-    if 'X-Processing-Metrics' in response.headers:
-        try:
-            metrics = json.loads(response.headers['X-Processing-Metrics'])
-        except:
-            logger.error("Failed to parse metrics from processing service response")
-    
-    # Convert the response content (ZIP file) to BytesIO
-    processed_zip = io.BytesIO(response.content)
-    processed_zip.seek(0)
-    
-    return processed_zip, metrics
+    try:
+        logger.info(f"Attempting to send request to {processing_url}")
+        response = requests.post(
+            processing_url,
+            data=form_data,
+            headers={'Content-Type': form_data.content_type},
+            stream=True,
+            timeout=30  # Increased timeout
+        )
+        
+        # Log the response details
+        logger.info(f"Received response from {processing_url}: Status {response.status_code}")
+        
+        if response.status_code != 200:
+            error_message = "Error from data processing service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+                logger.error(f"Error details: {error_data}")
+            except:
+                logger.error(f"Could not parse error response: {response.text[:200]}")
+            raise Exception(error_message)
+        
+        # Get metrics from response header
+        metrics = {}
+        if 'X-Processing-Metrics' in response.headers:
+            try:
+                metrics = json.loads(response.headers['X-Processing-Metrics'])
+                logger.info(f"Received metrics: {metrics}")
+            except:
+                logger.error("Failed to parse metrics from processing service response")
+        
+        # Convert the response content (ZIP file) to BytesIO
+        logger.info("Successfully received processed data")
+        processed_zip = io.BytesIO(response.content)
+        processed_zip.seek(0)
+        
+        return processed_zip, metrics
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error when connecting to {processing_url}: {str(e)}")
+        raise Exception(f"Failed to connect to processing service: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during processing: {str(e)}", exc_info=True)
+        raise
 
 @app.route('/')
 def index():
@@ -230,13 +303,21 @@ def api_train_model():
 
 @app.route('/api/augment_data', methods=['POST'])
 def api_augment_data():
+    logger.info("Received request to /api/augment_data")
+    
     if 'zipFile' not in request.files:
+        logger.error("No ZIP file in request")
         return jsonify({"error": "No ZIP file uploaded"}), 400
     
     zip_file = request.files['zipFile']
     try:
         # Get parameters from the form
         augmentation_level = int(request.form.get('augmentationLevel', 3))
+        logger.info(f"Augmentation level: {augmentation_level}")
+        
+        # Log EEP service status
+        eep_healthy = check_eep_service_health()
+        logger.info(f"EEP service health check: {'Healthy' if eep_healthy else 'Unhealthy'}")
         
         # Augment the data via the EEP
         augmented_zip, metrics = augment_data(zip_file, augmentation_level=augmentation_level)
@@ -250,6 +331,7 @@ def api_augment_data():
         if metrics:
             flask_response.headers["X-Augmentation-Metrics"] = json.dumps(metrics)
         
+        logger.info("Successfully processed augmentation request")
         return flask_response
     except Exception as e:
         logger.error(f"Error in data augmentation: {str(e)}", exc_info=True)
@@ -257,7 +339,10 @@ def api_augment_data():
 
 @app.route('/api/process_data', methods=['POST'])
 def api_process_data():
+    logger.info("Received request to /api/process_data")
+    
     if 'zipFile' not in request.files:
+        logger.error("No ZIP file in request")
         return jsonify({"error": "No ZIP file uploaded"}), 400
     
     zip_file = request.files['zipFile']
@@ -265,6 +350,11 @@ def api_process_data():
         # Get parameters from the form
         test_size = float(request.form.get('testSize', 0.2))
         val_size = float(request.form.get('valSize', 0.2))
+        logger.info(f"Test size: {test_size}, Validation size: {val_size}")
+        
+        # Log EEP service status
+        eep_healthy = check_eep_service_health()
+        logger.info(f"EEP service health check: {'Healthy' if eep_healthy else 'Unhealthy'}")
         
         # Process the data via the EEP
         processed_zip, metrics = process_data(zip_file, test_size=test_size, val_size=val_size)
@@ -278,6 +368,7 @@ def api_process_data():
         if metrics:
             flask_response.headers["X-Processing-Metrics"] = json.dumps(metrics)
         
+        logger.info("Successfully processed data processing request")
         return flask_response
     except Exception as e:
         logger.error(f"Error in data processing: {str(e)}", exc_info=True)
@@ -296,4 +387,8 @@ def check_health():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Make sure all routes are registered
+    print("Starting application with registered routes:")
+    for rule in app.url_map.iter_rules():
+        print(f"Route: {rule.endpoint} - {rule.rule}")
+    app.run(debug=True, host='0.0.0.0')
