@@ -6,6 +6,12 @@ import json
 import logging
 import shutil
 import random
+
+# Add compatibility fix for Werkzeug/Flask version mismatch
+import werkzeug
+if not hasattr(werkzeug.urls, 'url_quote'):
+    werkzeug.urls.url_quote = werkzeug.urls.quote
+
 from flask import Flask, request, jsonify, Response
 
 # Configure logging

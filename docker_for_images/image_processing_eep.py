@@ -4,6 +4,12 @@ import zipfile
 import tempfile
 import json
 import logging
+
+# Add compatibility fix for Werkzeug/Flask version mismatch
+import werkzeug
+if not hasattr(werkzeug.urls, 'url_quote'):
+    werkzeug.urls.url_quote = werkzeug.urls.quote
+
 from flask import Flask, request, jsonify, Response
 import requests
 from requests_toolbelt.multipart.encoder import MultipartEncoder

@@ -5,6 +5,12 @@ import tempfile
 import json
 import logging
 import shutil
+
+# Add compatibility fix for Werkzeug/Flask version mismatch
+import werkzeug
+if not hasattr(werkzeug.urls, 'url_quote'):
+    werkzeug.urls.url_quote = werkzeug.urls.quote
+
 from PIL import Image, ImageOps, ImageEnhance
 import numpy as np
 from flask import Flask, request, jsonify, Response
