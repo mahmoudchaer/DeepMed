@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements_augmentation.txt
 COPY data_augmentation_service.py .
 
 # Expose port
-EXPOSE 5011
+EXPOSE 5111
 
 # Run the application
 CMD ["python", "data_augmentation_service.py"] 

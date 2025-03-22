@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements_processing.txt
 COPY data_processing_service.py .
 
 # Expose port
-EXPOSE 5012
+EXPOSE 5112
 
 # Run the application
 CMD ["python", "data_processing_service.py"] 

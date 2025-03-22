@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Define URL for the EEP service
-EEP_SERVICE_URL = "http://localhost:5000"  # This will be our new EEP service
+EEP_SERVICE_URL = "http://localhost:5100"  # This will be our new EEP service
 
 def check_model_service_health():
     """Check if the model service is running and healthy"""
     try:
-        response = requests.get("http://localhost:5010/health", timeout=5)
+        response = requests.get("http://localhost:5110/health", timeout=5)
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
@@ -49,7 +49,7 @@ def train_model(zip_file, num_classes=5, training_level=3):
         raise Exception("Model service is not available. Please ensure the Docker container is running.")
     
     # The URL of the model training service (Docker container)
-    model_service_url = "http://localhost:5010/train"
+    model_service_url = "http://localhost:5110/train"
     
     # Create form data to send to the service using MultipartEncoder
     form_data = MultipartEncoder(

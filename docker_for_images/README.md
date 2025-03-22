@@ -14,7 +14,7 @@ The system follows an End-to-End Process (EEP) and Intermediate Engineering Proc
 
 ## Services
 
-### Image EEP Service (5000)
+### Image EEP Service (5100)
 
 Acts as the main entry point for the Docker services. Receives requests from the main application and forwards them to the appropriate IEP.
 
@@ -24,7 +24,7 @@ Acts as the main entry point for the Docker services. Receives requests from the
   - `/data_augmentation`: Forwards requests to the Data Augmentation service
   - `/data_processing`: Forwards requests to the Data Processing service
 
-### Model Training Service (5010)
+### Model Training Service (5110)
 
 Trains an EfficientNet-B0 model on the provided dataset.
 
@@ -37,7 +37,7 @@ Trains an EfficientNet-B0 model on the provided dataset.
   - `numClasses`: Number of classes (default: 5)
   - `trainingLevel`: Training intensity level from 1-5 (default: 3)
 
-### Data Augmentation Service (5011)
+### Data Augmentation Service (5111)
 
 Augments an image dataset by applying various transformations to increase dataset size.
 
@@ -49,7 +49,7 @@ Augments an image dataset by applying various transformations to increase datase
   - `zipFile`: ZIP file containing folders of images (each folder represents a class)
   - `augmentationLevel`: Augmentation intensity level from 1-5 (default: 3)
 
-### Data Processing Service (5012)
+### Data Processing Service (5112)
 
 Processes an image dataset by normalizing images and splitting into train/validation/test sets.
 
@@ -83,7 +83,7 @@ The main application interacts with the EEP service, which then forwards request
 ### Train Model
 
 ```
-POST http://localhost:5000/model_training
+POST http://localhost:5100/model_training
 Content-Type: multipart/form-data
 
 Form Data:
@@ -95,7 +95,7 @@ Form Data:
 ### Augment Data
 
 ```
-POST http://localhost:5000/data_augmentation
+POST http://localhost:5100/data_augmentation
 Content-Type: multipart/form-data
 
 Form Data:
@@ -106,7 +106,7 @@ Form Data:
 ### Process Data
 
 ```
-POST http://localhost:5000/data_processing
+POST http://localhost:5100/data_processing
 Content-Type: multipart/form-data
 
 Form Data:

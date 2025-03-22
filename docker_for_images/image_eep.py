@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Define service URLs for IEPs
-MODEL_TRAINING_URL = "http://model-training-service:5010"
-DATA_AUGMENTATION_URL = "http://data-augmentation-service:5011"
-DATA_PROCESSING_URL = "http://data-processing-service:5012"
+MODEL_TRAINING_URL = "http://model-training-service:5110"
+DATA_AUGMENTATION_URL = "http://data-augmentation-service:5111"
+DATA_PROCESSING_URL = "http://data-processing-service:5112"
 
 def check_service_health(service_url):
     """Check if a service is running and healthy"""
@@ -208,5 +208,5 @@ def data_processing():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5100))
     app.run(host='0.0.0.0', port=port, debug=False) 

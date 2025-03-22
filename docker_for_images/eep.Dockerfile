@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements_eep.txt
 COPY image_eep.py .
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5100
 
 # Run the application
 CMD ["python", "image_eep.py"] 
