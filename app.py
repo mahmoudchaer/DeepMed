@@ -47,6 +47,8 @@ def check_model_service_health():
 
 def check_eep_service_health():
     """Check if the EEP service is running and healthy using multiple URLs"""
+    global EEP_SERVICE_URL  # Move global declaration to the beginning of the function
+    
     # Try primary URL first
     health_url = f"{EEP_SERVICE_URL}/health"
     logger.info(f"Checking EEP service health at {health_url}")
@@ -68,7 +70,6 @@ def check_eep_service_health():
             if response.status_code == 200:
                 logger.info(f"EEP service health check successful at {alt_health_url}")
                 # Update the main URL to the working one
-                global EEP_SERVICE_URL
                 EEP_SERVICE_URL = url
                 logger.info(f"Updated primary EEP service URL to: {EEP_SERVICE_URL}")
                 return True
@@ -160,31 +161,54 @@ def augment_data(zip_file, augmentation_level=3):
             data=form_data,
             headers={'Content-Type': form_data.content_type},
             stream=True,
-            timeout=30  # Increased timeout
+            timeout=60  # Increased timeout for large datasets
         )
         
         # Log the response details
         logger.info(f"Received response from {augmentation_url}: Status {response.status_code}")
+        logger.info(f"Response Content-Type: {response.headers.get('Content-Type', 'None')}")
         
         if response.status_code != 200:
             error_message = "Error from data augmentation service"
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-                logger.error(f"Error details: {error_data}")
-            except:
-                logger.error(f"Could not parse error response: {response.text[:200]}")
+                # Check content type before trying to parse as JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_message = error_data['error']
+                    logger.error(f"Error details: {error_data}")
+                else:
+                    # If not JSON, log the response text
+                    error_text = response.text[:200] if response.text else "No response text"
+                    logger.error(f"Non-JSON error response: {error_text}")
+                    error_message = f"Error {response.status_code} from augmentation service: {error_text}"
+            except Exception as json_error:
+                logger.error(f"Could not parse error response: {str(json_error)}")
+                # Try to get some of the raw response as a string
+                try:
+                    error_text = response.text[:200] if response.text else "No response text"
+                    error_message = f"Error {response.status_code}: {error_text}"
+                except:
+                    error_message = f"Error status {response.status_code} from augmentation service"
+            
             raise Exception(error_message)
+        
+        # Verify the content type is what we expect
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/zip' not in content_type:
+            logger.warning(f"Unexpected content type received: {content_type}, expected application/zip")
         
         # Get metrics from response header
         metrics = {}
         if 'X-Augmentation-Metrics' in response.headers:
             try:
-                metrics = json.loads(response.headers['X-Augmentation-Metrics'])
+                metrics_json = response.headers['X-Augmentation-Metrics']
+                logger.info(f"Raw metrics header: {metrics_json[:100]}")
+                metrics = json.loads(metrics_json)
                 logger.info(f"Received metrics: {metrics}")
-            except:
-                logger.error("Failed to parse metrics from augmentation service response")
+            except Exception as metrics_error:
+                logger.error(f"Failed to parse metrics from augmentation service response: {str(metrics_error)}")
         
         # Convert the response content (ZIP file) to BytesIO
         logger.info("Successfully received augmented data")

@@ -3,8 +3,10 @@ import io
 import zipfile
 import tempfile
 import json
-import shutil
+import logging
 import random
+import shutil
+import numpy as np
 from pathlib import Path
 from collections import defaultdict
 
@@ -12,8 +14,14 @@ from flask import Flask, request, jsonify, Response
 from torchvision import transforms
 from PIL import Image
 from sklearn.model_selection import train_test_split
+from flask_cors import CORS  # Import CORS for cross-origin support
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 def process_data(zip_file, test_size=0.2, val_size=0.2):
     """
@@ -220,41 +228,47 @@ def process_data(zip_file, test_size=0.2, val_size=0.2):
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
+    logger.info("Health check request received")
     return jsonify({"status": "healthy", "service": "data-processing-service"})
 
 @app.route('/process', methods=['POST'])
-def api_process_data():
-    """API endpoint for data processing"""
+def process():
+    """
+    Process a ZIP file containing image folders and return processed dataset
+    """
+    logger.info("Received /process request")
+    
     if 'zipFile' not in request.files:
+        logger.error("No zipFile in request")
         return jsonify({"error": "No ZIP file uploaded"}), 400
     
-    zip_file = request.files['zipFile']
     try:
-        # Get parameters from the form
+        zip_file = request.files['zipFile']
         test_size = float(request.form.get('testSize', 0.2))
         val_size = float(request.form.get('valSize', 0.2))
         
-        # Process the data
-        processed_zip, metrics = process_data(
-            zip_file, 
-            test_size=test_size, 
-            val_size=val_size
-        )
+        logger.info(f"Processing data with test_size={test_size}, val_size={val_size}")
         
-        # Create a response with the processed data ZIP and metrics
+        # Process the data
+        processed_zip, metrics = process_data(zip_file, test_size=test_size, val_size=val_size)
+        
+        # Create response with the processed data
         response = Response(processed_zip.getvalue())
         response.headers["Content-Type"] = "application/zip"
         response.headers["Content-Disposition"] = "attachment; filename=processed_data.zip"
         
-        # Add metrics as a JSON string in a custom header
+        # Add metrics as a custom header
         response.headers["X-Processing-Metrics"] = json.dumps(metrics)
         
+        logger.info(f"Processing complete: {metrics}")
         return response
+    
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error in processing: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+# Run the Flask app
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5112))
+    logger.info(f"Starting data processing service on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False) 
