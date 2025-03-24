@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-COPY requirements.model_coordinator.txt .
+COPY docker_versions/requirements.model_coordinator.txt .
 RUN pip install --no-cache-dir -r requirements.model_coordinator.txt
 RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 
