@@ -370,6 +370,11 @@ def train_models():
                         metrics = model_result['model']['metrics']
                         print(f"Successfully trained {model_name} model. Metrics: {metrics}")
                         
+                        # Enhanced debugging for metrics
+                        print(f"DETAILED METRICS FOR {model_name}:")
+                        for metric_name, metric_value in metrics.items():
+                            print(f"  - {metric_name}: {metric_value} (type: {type(metric_value)})")
+                        
                         # Debug - print types of metrics values
                         for metric_name, metric_value in metrics.items():
                             print(f"Metric {metric_name} is of type {type(metric_value)}")
@@ -415,9 +420,20 @@ def train_models():
             print(f"ERROR: Failed to train any models. Errors: {all_errors}")
             return jsonify({'error': f'Failed to train any models: {all_errors}'}), 500
         
-        # Find best models for each metric
+        # Successfully trained models - find and save the best
+        print(f"Successfully trained {len(models_results)} models")
+        
+        # Verify metrics for all model services - this is for debugging
+        available_services = get_model_services()
+        verify_model_metrics(available_services)
+        
+        # Find the absolute best models for each metric across all architectures
         best_models = find_best_models(models_results)
+        print(f"Found {len(best_models)} best models by metric")
+        
+        # Save only the 4 best models (one for each metric) to Azure Blob Storage
         saved_best_models = save_best_models(best_models, user_id, run_id)
+        print(f"Saved {len(saved_best_models)} best models to Azure Blob Storage")
         
         # Return combined results
         return jsonify({
@@ -716,29 +732,77 @@ def validate_data(data):
         return False
 
 def find_best_models(models_results):
-    """Find the best models for each metric"""
+    """Find the absolute best models for each metric across all architectures"""
     try:
-        # Metrics we're interested in
-        metrics = ['accuracy', 'precision', 'recall', 'f1', 'specificity']
+        # Only include the 4 main metrics we want to save
+        metrics = ['accuracy', 'precision', 'recall', 'f1']
         best_models = {}
         
-        # Extract models with their metrics
+        # First, collect all models with their metrics
         all_models = {}
-        for model_result in models_results:
-            if 'model' in model_result:
-                model_info = model_result['model']
-                model_name = model_info.get('model_name', 'unknown')
-                if 'metrics' in model_info:
-                    all_models[model_name] = model_info['metrics']
         
-        # Find best model for each metric
+        logger.info(f"Finding absolute best models across all architectures for metrics: {metrics}")
+        logger.info(f"Processing results from {len(models_results)} model architectures")
+        
+        for model_index, model_result in enumerate(models_results):
+            if 'model' in model_result:
+                # Handle the nested structure
+                model_info = model_result['model']
+                
+                # Extract the actual model name (architecture name)
+                if 'model' in model_info and 'model_name' in model_info['model']:
+                    model_name = model_info['model']['model_name']
+                elif 'model_name' in model_info:
+                    model_name = model_info['model_name']
+                else:
+                    model_name = f"unknown_model_{model_index}"
+                
+                # Extract metrics
+                metrics_data = {}
+                
+                # Try different paths to find metrics
+                if 'model' in model_info and 'metrics' in model_info['model']:
+                    # Common case - metrics in nested structure
+                    raw_metrics = model_info['model']['metrics']
+                    logger.info(f"Found metrics in nested structure for {model_name}")
+                elif 'metrics' in model_info:
+                    # Alternative path
+                    raw_metrics = model_info['metrics']
+                    logger.info(f"Found metrics in direct structure for {model_name}")
+                else:
+                    logger.warning(f"No metrics found for {model_name}")
+                    continue
+                
+                # Process and clean the metrics
+                for metric in metrics:
+                    if metric in raw_metrics:
+                        # Ensure metric value is a float
+                        try:
+                            metric_value = float(raw_metrics[metric])
+                            metrics_data[metric] = metric_value
+                        except (ValueError, TypeError):
+                            logger.warning(f"Invalid {metric} value for {model_name}: {raw_metrics[metric]}")
+                            metrics_data[metric] = 0.0
+                
+                # Only store if we have metrics
+                if metrics_data:
+                    all_models[model_name] = metrics_data
+                    logger.info(f"Processed {model_name} with metrics: {metrics_data}")
+        
+        # Log all collected models
+        logger.info(f"Collected metrics for {len(all_models)} models:")
+        for model_name, model_metrics in all_models.items():
+            metric_values = [f"{m}: {v:.4f}" for m, v in model_metrics.items()]
+            logger.info(f"  - {model_name}: {', '.join(metric_values)}")
+        
+        # Find best model for each metric across all architectures
         for metric in metrics:
             best_metric_value = -1
             best_model_name = None
             
             for model_name, model_metrics in all_models.items():
                 if metric in model_metrics:
-                    metric_value = float(model_metrics[metric])
+                    metric_value = model_metrics[metric]
                     if metric_value > best_metric_value:
                         best_metric_value = metric_value
                         best_model_name = model_name
@@ -748,33 +812,49 @@ def find_best_models(models_results):
                     'model_name': best_model_name,
                     'value': best_metric_value
                 }
+                logger.info(f"Best model for {metric}: {best_model_name} with value {best_metric_value:.4f}")
         
-        logger.info(f"Best models by metric: {best_models}")
         return best_models
     except Exception as e:
         logger.error(f"Error finding best models: {str(e)}")
         return {}
 
 def save_best_models(best_models, user_id, run_id):
-    """Save the best models to blob storage and database"""
+    """Save only the 4 absolute best models to blob storage and database - one for each metric"""
     try:
         saved_models = {}
+        metrics_to_save = ['accuracy', 'precision', 'recall', 'f1']
         
-        # For each best model by metric
-        for metric, model_info in best_models.items():
+        logger.info(f"Saving only the absolute best models for metrics: {metrics_to_save}")
+        logger.info(f"Best models identified: {list(best_models.keys())}")
+        
+        # Only process the 4 main metrics we care about
+        for metric in metrics_to_save:
+            if metric not in best_models:
+                logger.warning(f"No best model found for metric: {metric}")
+                continue
+                
+            model_info = best_models[metric]
             model_name = model_info['model_name']
+            metric_value = model_info['value']
             
-            # Find the model data in the trained models
+            logger.info(f"Processing best {metric} model: {model_name} with value {metric_value}")
+            
+            # Find the model data for this architecture in the trained models
             for service_name, service_url in get_model_services().items():
                 if service_name == model_name:
                     try:
                         # Get model data from the model service
+                        logger.info(f"Fetching model data from {service_name} for metric {metric}")
                         info_response = requests.get(f"{service_url}/model_info", timeout=5)
+                        
                         if info_response.status_code == 200:
                             model_data = info_response.json()
                             
                             # Save as best model for this metric
                             display_name = f"best_model_for_{metric}"
+                            logger.info(f"Saving {model_name} as {display_name}")
+                            
                             blob_url, blob_filename = save_model_to_blob(model_data, model_name, metric)
                             
                             if blob_url:
@@ -785,11 +865,24 @@ def save_best_models(best_models, user_id, run_id):
                                         'model_name': model_name,
                                         'display_name': display_name,
                                         'url': blob_url,
-                                        'filename': blob_filename
+                                        'filename': blob_filename,
+                                        'value': metric_value
                                     }
+                                    logger.info(f"Successfully saved {display_name} to blob: {blob_url}")
+                                else:
+                                    logger.error(f"Failed to save {display_name} to database")
+                            else:
+                                logger.error(f"Failed to save {display_name} to blob storage")
                     except Exception as e:
                         logger.error(f"Error saving best model for {metric}: {str(e)}")
         
+        if not saved_models:
+            logger.warning("No models were saved to blob storage!")
+        else:
+            logger.info(f"Successfully saved {len(saved_models)} best models to blob storage")
+            for metric, model in saved_models.items():
+                logger.info(f"  - {metric}: {model['model_name']} (score: {model['value']})")
+                
         return saved_models
     except Exception as e:
         logger.error(f"Error in save_best_models: {str(e)}")
@@ -901,6 +994,72 @@ def predict_with_blob():
     except Exception as e:
         logger.error(f"Error in predict_with_blob endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# Helper function to verify model metrics (for debugging)
+def verify_model_metrics(model_services):
+    """Verify and debug metrics for each model service"""
+    results = {}
+    
+    logger.info("Verifying metrics from all model services...")
+    
+    for model_name, service_url in model_services.items():
+        try:
+            logger.info(f"Requesting metrics from {model_name} at {service_url}")
+            response = requests.get(f"{service_url}/model_info", timeout=5)
+            
+            if response.status_code == 200:
+                model_info = response.json()
+                
+                # Determine where metrics are stored in the response
+                metrics_data = None
+                if 'metrics' in model_info:
+                    metrics_data = model_info['metrics']
+                    logger.info(f"Found metrics directly in model_info for {model_name}")
+                elif 'model' in model_info and 'metrics' in model_info['model']:
+                    metrics_data = model_info['model']['metrics']
+                    logger.info(f"Found metrics in nested model for {model_name}")
+                
+                if metrics_data:
+                    # Log detailed metrics
+                    logger.info(f"Metrics for {model_name}:")
+                    for metric_name, metric_value in metrics_data.items():
+                        logger.info(f"  - {metric_name}: {metric_value} (type: {type(metric_value).__name__})")
+                    
+                    # Store metrics for comparison
+                    results[model_name] = metrics_data
+                else:
+                    logger.warning(f"No metrics found for {model_name}")
+            else:
+                logger.error(f"Error from {model_name}: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error verifying metrics for {model_name}: {str(e)}")
+    
+    # Compare metrics across models
+    if results:
+        logger.info("=== METRICS COMPARISON ACROSS MODELS ===")
+        for metric in ['accuracy', 'precision', 'recall', 'f1']:
+            best_model = None
+            best_value = -1
+            
+            logger.info(f"\nComparison for {metric}:")
+            for model_name, metrics in results.items():
+                if metric in metrics:
+                    try:
+                        value = float(metrics[metric])
+                        logger.info(f"  - {model_name}: {value:.4f}")
+                        
+                        if value > best_value:
+                            best_value = value
+                            best_model = model_name
+                    except:
+                        logger.warning(f"  - {model_name}: {metrics[metric]} (invalid format)")
+            
+            if best_model:
+                logger.info(f"  → Best for {metric}: {best_model} ({best_value:.4f})")
+            else:
+                logger.info(f"  → No valid models found for {metric}")
+    
+    return results
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
