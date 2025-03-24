@@ -1,6 +1,7 @@
 flask==2.0.1
 werkzeug==2.0.1
 flask-sqlalchemy==2.5.1
+sqlalchemy==1.4.46
 flask-login==0.6.2
 pymysql==1.0.2
 cryptography==38.0.4
