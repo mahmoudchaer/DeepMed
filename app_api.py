@@ -574,7 +574,9 @@ def training():
                 {
                     "data": X_data,
                     "target": y_data,
-                    "test_size": session['test_size']
+                    "test_size": session['test_size'],
+                    "user_id": current_user.id,
+                    "run_name": f"Training Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 },
                 timeout=1800  # Model training can take time
             )
@@ -1323,11 +1325,34 @@ def prediction():
                 
                 logger.info(f"Making prediction with payload for metric: {metric}")
                 
-                response = safe_requests_post(
-                    f"{MODEL_COORDINATOR_URL}/predict",
-                    payload,
-                    timeout=60
-                )
+                # Get the best model URL for this metric from the database
+                best_model_record = TrainingModel.query.filter_by(
+                    model_name=f"best_model_for_{metric}"
+                ).order_by(TrainingModel.created_at.desc()).first()
+                
+                if best_model_record:
+                    # Use the new predict_with_blob endpoint
+                    logger.info(f"Using blob-stored model for prediction: {best_model_record.model_url}")
+                    
+                    payload = {
+                        "data": prediction_data,
+                        "model_url": best_model_record.model_url,
+                        "user_id": current_user.id
+                    }
+                    
+                    response = safe_requests_post(
+                        f"{MODEL_COORDINATOR_URL}/predict_with_blob",
+                        payload,
+                        timeout=60
+                    )
+                else:
+                    # Fall back to the original prediction method
+                    logger.info("No blob-stored model found, using classic prediction endpoint")
+                    response = safe_requests_post(
+                        f"{MODEL_COORDINATOR_URL}/predict",
+                        payload,
+                        timeout=60
+                    )
                 
                 if response.status_code != 200:
                     raise Exception(f"Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
