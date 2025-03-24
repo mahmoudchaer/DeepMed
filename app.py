@@ -17,7 +17,7 @@ app = Flask(__name__)
 def check_model_service_health():
     """Check if the model service is running and healthy"""
     try:
-        response = requests.get("http://localhost:5020/health", timeout=5)
+        response = requests.get("http://localhost:5021/health", timeout=5)
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
@@ -32,7 +32,7 @@ def train_model(zip_file, num_classes=5, training_level=3):
         raise Exception("Model service is not available. Please ensure the Docker container is running.")
     
     # The URL of the model training service (Docker container)
-    model_service_url = "http://localhost:5020/train"
+    model_service_url = "http://localhost:5021/train"
     
     # Create a new form with the file and parameters
     files = {'zipFile': (zip_file.filename, zip_file, 'application/zip')}
