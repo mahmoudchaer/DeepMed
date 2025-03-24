@@ -17,7 +17,7 @@ This Docker container provides a service for training image classification model
 docker-compose up -d
 ```
 
-2. The service will be available at `http://localhost:5010`
+2. The service will be available at `http://localhost:5020`
 
 ## API Endpoints
 

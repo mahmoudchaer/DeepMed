@@ -22,7 +22,7 @@ import uuid
 import glob
 import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from users import db, User
+from db.users import db, User
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
@@ -1766,7 +1766,7 @@ def api_train_model():
         training_level = int(request.form.get('trainingLevel', 3))
         
         # Forward the request to the dockerized model training service
-        model_service_url = "http://localhost:5010/train"
+        model_service_url = "http://localhost:5020/train"
         
         # Create form data to send to the service
         form_data = MultipartEncoder(

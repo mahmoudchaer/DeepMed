@@ -6,12 +6,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5010:5010"
+      - "5020:5020"
     restart: unless-stopped
     volumes:
       - ./model_service.py:/app/model_service.py
     environment:
-      - PORT=5010
+      - PORT=5020
     networks:
       - deepmed-network
 
