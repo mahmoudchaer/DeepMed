@@ -1766,7 +1766,7 @@ def api_train_model():
         training_level = int(request.form.get('trainingLevel', 3))
         
         # Forward the request to the dockerized model training service
-        model_service_url = "http://localhost:5020/train"
+        model_service_url = "http://localhost:5021/train"
         
         # Create form data to send to the service
         form_data = MultipartEncoder(

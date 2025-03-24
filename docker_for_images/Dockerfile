@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements_efficientnet_b0.txt
 COPY model_service.py .
 
 # Expose port
-EXPOSE 5020
+EXPOSE 5021
 
 # Run the application
 CMD ["python", "model_service.py"] 
