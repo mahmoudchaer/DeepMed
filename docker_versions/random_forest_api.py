@@ -97,23 +97,22 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 
 class RandomForestTrainer:
     def __init__(self, test_size=0.2):
-        self.model = None
-        self.best_model = None
         self.test_size = test_size
-        self.scaler = StandardScaler()
+        self.best_model = None
+        self.best_model_info = None
         self.label_encoder = LabelEncoder()
         
-        # Define model with hyperparameters for grid search - REDUCED
+        # Define model and parameters
         self.model_config = {
             'model': RandomForestClassifier(random_state=42),
             'params': {
-                'classifier__n_estimators': [50, 100],  # Reduced from more options
-                'classifier__max_depth': [5, None],     # Reduced from more options
-                'classifier__min_samples_split': [5],   # Fixed value instead of range
-                'classifier__class_weight': ['balanced']
+                'classifier__n_estimators': [50, 100],
+                'classifier__max_depth': [None, 10, 20],
+                'classifier__min_samples_split': [2, 5],
+                'classifier__class_weight': ['balanced', None]
             },
-            'scoring': ['accuracy', 'precision_weighted', 'recall_weighted'],  # Removed f1
-            'refit': 'accuracy'
+            'scoring': 'accuracy',  # Default scoring
+            'refit': 'accuracy'    # Could be 'f1' or other metric depending on need
         }
     
     def _handle_imbalance(self, X, y):
