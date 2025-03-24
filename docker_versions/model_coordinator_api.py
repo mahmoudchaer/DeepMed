@@ -120,8 +120,8 @@ def init_mlflow():
         except AttributeError:
             # Fallback for older MLflow versions
             try:
-                experiment_names = [exp.name for exp in client.list_experiments()]
-                logger.info(f"Connected to MLflow. Available experiments: {experiment_names}")
+        experiment_names = [exp.name for exp in client.list_experiments()]
+        logger.info(f"Connected to MLflow. Available experiments: {experiment_names}")
             except AttributeError:
                 logger.warning("Could not list MLflow experiments. Proceeding anyway.")
         
@@ -152,16 +152,22 @@ MODEL_SERVICES = {
 def create_training_run(user_id, run_name):
     """Create a new training run entry in the database"""
     try:
-        with app.app_context():
-            # Explicitly set SQLALCHEMY_TRACK_MODIFICATIONS to avoid errors
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        try:
+            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
-            # Check if user exists
-            user = None
+            # Verify database connection
             try:
-                user = User.query.get(user_id)
-            except Exception as e:
-                logger.warning(f"Could not query user: {str(e)}")
+                # Simple database ping to verify connection
+                db.session.execute("SELECT 1")
+                logger.info("Database connection verified successfully")
+            except Exception as db_error:
+                logger.error(f"Database connection failed: {str(db_error)}")
+                return int(time.time())  # Return timestamp as fallback ID
             
             # Create training run
             training_run = TrainingRun(
@@ -169,18 +175,30 @@ def create_training_run(user_id, run_name):
                 run_name=run_name
             )
             
+            # Add and commit in separate try blocks to pinpoint errors
             try:
                 db.session.add(training_run)
-                db.session.commit()
-                logger.info(f"Created training run {training_run.id} for user {user_id}")
-                return training_run.id
-            except Exception as db_error:
+                logger.info(f"Added training run to session")
+            except Exception as add_error:
+                logger.error(f"Error adding training run to session: {str(add_error)}")
                 db.session.rollback()
-                logger.error(f"Database error creating training run: {str(db_error)}")
-                # Create a placeholder ID for non-DB environments
                 return int(time.time())
+                
+            try:
+                db.session.commit()
+                logger.info(f"Committed training run with ID {training_run.id}")
+                # Return the actual generated ID
+                return training_run.id
+            except Exception as commit_error:
+                logger.error(f"Error committing training run: {str(commit_error)}")
+                db.session.rollback()
+                return int(time.time())
+        finally:
+            # Always pop the context
+            ctx.pop()
+            
     except Exception as e:
-        logger.error(f"Error creating training run: {str(e)}")
+        logger.error(f"Error in create_training_run: {str(e)}")
         # Return a timestamp as a fallback ID
         return int(time.time())
 
@@ -216,10 +234,25 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
 def save_model_to_db(user_id, run_id, model_name, model_url):
     """Save model reference to database"""
     try:
-        with app.app_context():
-            # Explicitly set SQLALCHEMY_TRACK_MODIFICATIONS to avoid errors
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        try:
+            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
+            # Verify database connection
+            try:
+                # Simple database ping to verify connection
+                db.session.execute("SELECT 1")
+                logger.info("Database connection verified successfully")
+            except Exception as db_error:
+                logger.error(f"Database connection failed: {str(db_error)}")
+                # Still return True since the model is in blob storage even if DB failed
+                return True
+            
+            # Create model record
             model_record = TrainingModel(
                 user_id=user_id,
                 run_id=run_id,
@@ -227,18 +260,29 @@ def save_model_to_db(user_id, run_id, model_name, model_url):
                 model_url=model_url
             )
             
+            # Add and commit in separate try blocks for better error identification
             try:
                 db.session.add(model_record)
-                db.session.commit()
-                logger.info(f"Saved model {model_name} to database with ID {model_record.id}")
-                return True
-            except Exception as db_error:
+                logger.info(f"Added model {model_name} to session")
+            except Exception as add_error:
+                logger.error(f"Error adding model to session: {str(add_error)}")
                 db.session.rollback()
-                logger.error(f"Database error saving model: {str(db_error)}")
-                # Still return True since the model is in blob storage even if DB failed
                 return True
+                
+            try:
+                db.session.commit()
+                logger.info(f"Committed model {model_name} with ID {model_record.id}")
+                return True
+            except Exception as commit_error:
+                logger.error(f"Error committing model: {str(commit_error)}")
+                db.session.rollback()
+                return True
+        finally:
+            # Always pop the context
+            ctx.pop()
+            
     except Exception as e:
-        logger.error(f"Error saving model to database: {str(e)}")
+        logger.error(f"Error in save_model_to_db: {str(e)}")
         # We still return True because the blob storage worked even if DB failed
         return True
 
@@ -1061,11 +1105,140 @@ def verify_model_metrics(model_services):
     
     return results
 
+@app.route('/init_db', methods=['GET'])
+def init_database():
+    """Initialize database tables - for troubleshooting only"""
+    try:
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        try:
+            # Create all tables
+            db.create_all()
+            logger.info("Database tables created successfully")
+            
+            # Verify that we can access the tables
+            try:
+                # Try to count users
+                user_count = User.query.count()
+                # Try to count training runs
+                run_count = TrainingRun.query.count()
+                # Try to count models
+                model_count = TrainingModel.query.count()
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Database initialized successfully",
+                    "stats": {
+                        "users": user_count,
+                        "training_runs": run_count,
+                        "models": model_count
+                    }
+                })
+            except Exception as query_error:
+                logger.error(f"Error querying tables: {str(query_error)}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Error querying tables: {str(query_error)}"
+                }), 500
+        finally:
+            # Always pop the context
+            ctx.pop()
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/db_diagnostics', methods=['GET'])
+def db_diagnostics():
+    """Run database diagnostics to help troubleshoot connectivity issues"""
+    try:
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        diagnostics = {
+            "database_config": {
+                "host": os.getenv("MYSQL_HOST", "Not set"),
+                "port": os.getenv("MYSQL_PORT", "Not set"),
+                "user": os.getenv("MYSQL_USER", "Not set"),
+                "database": os.getenv("MYSQL_DB", "Not set"),
+                "password": "********" if os.getenv("MYSQL_PASSWORD") else "Not set"
+            },
+            "connection_string": app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured'),
+            "blob_storage": {
+                "account": os.getenv("AZURE_STORAGE_ACCOUNT", "Not set"),
+                "container": os.getenv("AZURE_CONTAINER", "Not set"),
+                "key_configured": "Yes" if os.getenv("AZURE_STORAGE_KEY") else "No"
+            }
+        }
+        
+        # Test database connection
+        try:
+            # Try a simple query
+            db.session.execute("SELECT 1")
+            diagnostics["database_connection"] = "Success"
+            
+            # Check if tables exist
+            diagnostics["tables"] = {}
+            
+            # Check User table
+            try:
+                user_count = User.query.count()
+                diagnostics["tables"]["users"] = {"exists": True, "count": user_count}
+            except Exception as e:
+                diagnostics["tables"]["users"] = {"exists": False, "error": str(e)}
+                
+            # Check TrainingRun table
+            try:
+                run_count = TrainingRun.query.count()
+                diagnostics["tables"]["training_runs"] = {"exists": True, "count": run_count}
+            except Exception as e:
+                diagnostics["tables"]["training_runs"] = {"exists": False, "error": str(e)}
+                
+            # Check TrainingModel table
+            try:
+                model_count = TrainingModel.query.count()
+                diagnostics["tables"]["training_models"] = {"exists": True, "count": model_count}
+            except Exception as e:
+                diagnostics["tables"]["training_models"] = {"exists": False, "error": str(e)}
+                
+        except Exception as e:
+            diagnostics["database_connection"] = f"Failed: {str(e)}"
+            
+        # Always pop the context
+        ctx.pop()
+        
+        return jsonify(diagnostics)
+    except Exception as e:
+        logger.error(f"Error running database diagnostics: {str(e)}")
+        return jsonify({
+            "error": str(e)
+        }), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
     
     # Set Docker flag based on environment
     IS_DOCKER = os.environ.get('IS_DOCKER', 'false').lower() == 'true'
     logger.info(f"Running in {'Docker' if IS_DOCKER else 'local'} mode")
+    
+    # Initialize database tables on startup
+    try:
+        with app.app_context():
+            db.create_all()
+            logger.info("Database tables created successfully")
+            
+            # Verify tables by counting entries
+            user_count = User.query.count()
+            run_count = TrainingRun.query.count()
+            model_count = TrainingModel.query.count()
+            logger.info(f"Database stats: {user_count} users, {run_count} training runs, {model_count} models")
+    except Exception as e:
+        logger.error(f"Error initializing database tables: {str(e)}")
+        logger.warning("Some database operations may not work correctly.")
     
     serve(app, host='0.0.0.0', port=port) 
