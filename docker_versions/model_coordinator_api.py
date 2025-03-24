@@ -271,7 +271,7 @@ def train_models():
         run_id = create_training_run(user_id, run_name)
         if not run_id:
             return jsonify({'error': 'Failed to create training run in database'}), 500
-            
+        
         # Enhanced debug logging
         print(f"Training data shape: {len(data['data'].keys())} features, target shape: {len(data['target'])} samples")
         print(f"Available features: {list(data['data'].keys())}")
@@ -647,7 +647,7 @@ def validate_data(data):
         # Validate features is a dict with keys as feature names
         if not isinstance(features, dict):
             return False
-            
+        
         # Check if each feature has the same length
         feature_lengths = []
         for feature_name, feature_values in features.items():
@@ -658,7 +658,7 @@ def validate_data(data):
         # All features should have the same length
         if len(set(feature_lengths)) != 1:
             return False
-            
+        
         # Target should be a list with same length as features
         if not isinstance(target, list) or len(target) != feature_lengths[0]:
             return False
@@ -850,7 +850,7 @@ def predict_with_blob():
         except Exception as e:
             logger.error(f"Error setting up for prediction: {str(e)}")
             return jsonify({"error": f"Error setting up for prediction: {str(e)}"}), 500
-        
+    
     except Exception as e:
         logger.error(f"Error in predict_with_blob endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
