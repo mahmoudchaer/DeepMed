@@ -73,8 +73,8 @@ services:
   # Model Coordinator (orchestrates model services)
   model_coordinator:
     build:
-      context: .
-      dockerfile: Dockerfile.model_coordinator
+      context: ..
+      dockerfile: docker_versions/Dockerfile.model_coordinator
     container_name: model_coordinator
     ports:
       - "5020:5020"
@@ -88,6 +88,9 @@ services:
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
