@@ -10,6 +10,22 @@ from mlflow.tracking import MlflowClient
 import shutil
 from pathlib import Path
 from waitress import serve
+import time
+import io
+import uuid
+import pandas as pd
+import numpy as np
+import sys
+
+# Add parent directory to path for imports
+PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(PARENT_DIR)
+
+# Import for Azure Blob Storage
+from storage import upload_to_blob, get_blob_url, delete_blob
+
+# Import database models
+from db.users import db, User, TrainingRun, TrainingModel
 
 # Set up logging
 logging.basicConfig(
@@ -21,6 +37,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Configure the database
+def configure_db():
+    """Configure the database connection"""
+    try:
+        # Get database credentials from environment variables
+        MYSQL_USER = os.getenv("MYSQL_USER")
+        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+        MYSQL_HOST = os.getenv("MYSQL_HOST")
+        MYSQL_PORT = os.getenv("MYSQL_PORT")
+        MYSQL_DB = os.getenv("MYSQL_DB")
+        
+        # URL encode the password to handle special characters
+        import urllib.parse
+        encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
+        
+        # Configure SQLAlchemy
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        
+        # Initialize the database
+        db.init_app(app)
+        logger.info("Database configured successfully")
+    except Exception as e:
+        logger.error(f"Error configuring database: {str(e)}")
+
+# Configure the database on startup
+configure_db()
 
 # Set up MLflow tracking
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
@@ -87,6 +131,70 @@ MODEL_SERVICES = {
     'naive_bayes': {'url': 'http://naive_bayes:5015', 'local_url': 'http://localhost:5015'}
 }
 
+# Database functions for model storage
+def create_training_run(user_id, run_name):
+    """Create a new training run entry in the database"""
+    try:
+        with app.app_context():
+            training_run = TrainingRun(
+                user_id=user_id,
+                run_name=run_name
+            )
+            db.session.add(training_run)
+            db.session.commit()
+            logger.info(f"Created training run {training_run.id} for user {user_id}")
+            return training_run.id
+    except Exception as e:
+        logger.error(f"Error creating training run: {str(e)}")
+        return None
+
+def save_model_to_blob(model_data, model_name, metric_name=None):
+    """Save model to Azure Blob Storage and return the URL"""
+    try:
+        # Generate a unique filename
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4())[:8]
+        if metric_name:
+            filename = f"{model_name}_{metric_name}_{timestamp}_{unique_id}.joblib"
+        else:
+            filename = f"{model_name}_{timestamp}_{unique_id}.joblib"
+            
+        # Convert model to bytes
+        model_bytes = io.BytesIO()
+        import joblib
+        joblib.dump(model_data, model_bytes)
+        model_bytes.seek(0)
+        
+        # Upload to blob storage
+        blob_url = upload_to_blob(model_bytes, filename)
+        if blob_url:
+            logger.info(f"Saved model {model_name} to blob storage: {blob_url}")
+            return blob_url, filename
+        else:
+            logger.error(f"Failed to save model {model_name} to blob storage")
+            return None, None
+    except Exception as e:
+        logger.error(f"Error saving model to blob: {str(e)}")
+        return None, None
+
+def save_model_to_db(user_id, run_id, model_name, model_url):
+    """Save model reference to database"""
+    try:
+        with app.app_context():
+            model_record = TrainingModel(
+                user_id=user_id,
+                run_id=run_id,
+                model_name=model_name,
+                model_url=model_url
+            )
+            db.session.add(model_record)
+            db.session.commit()
+            logger.info(f"Saved model {model_name} to database with ID {model_record.id}")
+            return True
+    except Exception as e:
+        logger.error(f"Error saving model to database: {str(e)}")
+        return False
+
 # Flag to determine if running in Docker or locally
 IS_DOCKER = os.getenv('IS_DOCKER', 'false').lower() == 'true'
 
@@ -152,10 +260,23 @@ def train_models():
         if not data or 'data' not in data or 'target' not in data:
             return jsonify({'error': 'Missing required data fields'}), 400
         
+        # Get user_id and run_name (required for database tracking)
+        user_id = data.get('user_id')
+        run_name = data.get('run_name', f"training_run_{time.strftime('%Y%m%d_%H%M%S')}")
+        
+        if not user_id:
+            return jsonify({'error': 'Missing user_id in request'}), 400
+            
+        # Create training run in database
+        run_id = create_training_run(user_id, run_name)
+        if not run_id:
+            return jsonify({'error': 'Failed to create training run in database'}), 500
+            
         # Enhanced debug logging
         print(f"Training data shape: {len(data['data'].keys())} features, target shape: {len(data['target'])} samples")
         print(f"Available features: {list(data['data'].keys())}")
         print(f"First few target values: {data['target'][:5]}")
+        print(f"Created training run with ID {run_id} for user {user_id}")
         
         # Get test_size parameter (default to 0.2)
         test_size = data.get('test_size', 0.2)
@@ -220,6 +341,14 @@ def train_models():
                         
                         # Replace original metrics with clean metrics
                         model_result['model']['metrics'] = clean_metrics
+                        
+                        # Save model to blob storage
+                        model_data = model_result['model']
+                        blob_url, blob_filename = save_model_to_blob(model_data, model_name)
+                        
+                        if blob_url:
+                            # Save model reference to database
+                            save_model_to_db(user_id, run_id, model_name, blob_url)
                     
                     models_results.append({
                         'model': model_result['model']
@@ -239,9 +368,16 @@ def train_models():
             print(f"ERROR: Failed to train any models. Errors: {all_errors}")
             return jsonify({'error': f'Failed to train any models: {all_errors}'}), 500
         
+        # Find best models for each metric
+        best_models = find_best_models(models_results)
+        saved_best_models = save_best_models(best_models, user_id, run_id)
+        
         # Return combined results
         return jsonify({
             'models': models_results,
+            'best_models': best_models,
+            'saved_best_models': saved_best_models,
+            'run_id': run_id,
             'errors': errors
         })
         
@@ -497,54 +633,227 @@ def get_model_services():
     return available_services
 
 def validate_data(data):
-    """Validate data format"""
+    """Validate the data structure for training"""
     try:
-        print("Validating data format...")
+        if not isinstance(data, dict):
+            return False
         
-        # Check basic structure
         if 'data' not in data or 'target' not in data:
-            print("ERROR: Missing 'data' or 'target' keys")
             return False
-        
-        # Check that data is a dictionary of features
-        if not isinstance(data['data'], dict):
-            print(f"ERROR: 'data' should be a dictionary, got {type(data['data'])}")
-            return False
-        
-        # Check that target is a list
-        if not isinstance(data['target'], list):
-            print(f"ERROR: 'target' should be a list, got {type(data['target'])}")
-            return False
-        
-        # Check that there is data
-        if not data['data'] or not data['target']:
-            print("ERROR: Empty data or target")
-            return False
-        
-        # Check that all feature values are lists
-        for feature, values in data['data'].items():
-            if not isinstance(values, list):
-                print(f"ERROR: Feature '{feature}' values should be a list, got {type(values)}")
-                return False
             
-            # Check that all feature lists have the same length
-            if len(values) != len(data['target']):
-                print(f"ERROR: Feature '{feature}' has {len(values)} values, but target has {len(data['target'])} values")
+        features = data['data']
+        target = data['target']
+        
+        # Validate features is a dict with keys as feature names
+        if not isinstance(features, dict):
+            return False
+            
+        # Check if each feature has the same length
+        feature_lengths = []
+        for feature_name, feature_values in features.items():
+            if not isinstance(feature_values, list):
                 return False
-        
-        # Check for non-numeric values
-        for feature, values in data['data'].items():
-            for i, value in enumerate(values):
-                if value is not None and not isinstance(value, (int, float)):
-                    print(f"ERROR: Non-numeric value in feature '{feature}' at index {i}: {value} (type: {type(value)})")
-                    return False
-        
-        print("Data validation PASSED")
+            feature_lengths.append(len(feature_values))
+            
+        # All features should have the same length
+        if len(set(feature_lengths)) != 1:
+            return False
+            
+        # Target should be a list with same length as features
+        if not isinstance(target, list) or len(target) != feature_lengths[0]:
+            return False
+            
         return True
-    
     except Exception as e:
-        print(f"Exception during data validation: {str(e)}")
+        logger.error(f"Error validating data: {str(e)}")
         return False
+
+def find_best_models(models_results):
+    """Find the best models for each metric"""
+    try:
+        # Metrics we're interested in
+        metrics = ['accuracy', 'precision', 'recall', 'f1', 'specificity']
+        best_models = {}
+        
+        # Extract models with their metrics
+        all_models = {}
+        for model_result in models_results:
+            if 'model' in model_result:
+                model_info = model_result['model']
+                model_name = model_info.get('model_name', 'unknown')
+                if 'metrics' in model_info:
+                    all_models[model_name] = model_info['metrics']
+        
+        # Find best model for each metric
+        for metric in metrics:
+            best_metric_value = -1
+            best_model_name = None
+            
+            for model_name, model_metrics in all_models.items():
+                if metric in model_metrics:
+                    metric_value = float(model_metrics[metric])
+                    if metric_value > best_metric_value:
+                        best_metric_value = metric_value
+                        best_model_name = model_name
+            
+            if best_model_name:
+                best_models[metric] = {
+                    'model_name': best_model_name,
+                    'value': best_metric_value
+                }
+        
+        logger.info(f"Best models by metric: {best_models}")
+        return best_models
+    except Exception as e:
+        logger.error(f"Error finding best models: {str(e)}")
+        return {}
+
+def save_best_models(best_models, user_id, run_id):
+    """Save the best models to blob storage and database"""
+    try:
+        saved_models = {}
+        
+        # For each best model by metric
+        for metric, model_info in best_models.items():
+            model_name = model_info['model_name']
+            
+            # Find the model data in the trained models
+            for service_name, service_url in get_model_services().items():
+                if service_name == model_name:
+                    try:
+                        # Get model data from the model service
+                        info_response = requests.get(f"{service_url}/model_info", timeout=5)
+                        if info_response.status_code == 200:
+                            model_data = info_response.json()
+                            
+                            # Save as best model for this metric
+                            display_name = f"best_model_for_{metric}"
+                            blob_url, blob_filename = save_model_to_blob(model_data, model_name, metric)
+                            
+                            if blob_url:
+                                # Save to database
+                                saved = save_model_to_db(user_id, run_id, display_name, blob_url)
+                                if saved:
+                                    saved_models[metric] = {
+                                        'model_name': model_name,
+                                        'display_name': display_name,
+                                        'url': blob_url,
+                                        'filename': blob_filename
+                                    }
+                    except Exception as e:
+                        logger.error(f"Error saving best model for {metric}: {str(e)}")
+        
+        return saved_models
+    except Exception as e:
+        logger.error(f"Error in save_best_models: {str(e)}")
+        return {}
+
+@app.route('/predict_with_blob', methods=['POST'])
+def predict_with_blob():
+    """
+    Get predictions using models stored in blob storage
+    
+    Expected JSON input:
+    {
+        "data": {...},  # Features in JSON format
+        "model_url": "...",  # URL to the model in blob storage
+        "user_id": 123  # Optional - for access control
+    }
+    
+    Returns:
+    {
+        "predictions": [...],
+        "probabilities": [...],
+        "message": "Predictions made successfully"
+    }
+    """
+    try:
+        request_data = request.json
+        
+        if not request_data or 'data' not in request_data or 'model_url' not in request_data:
+            return jsonify({"error": "Invalid request. Missing 'data' or 'model_url'."}), 400
+        
+        model_url = request_data['model_url']
+        user_id = request_data.get('user_id')
+        
+        # Optional access control if user_id is provided
+        if user_id:
+            # Check if user has access to this model
+            with app.app_context():
+                model_record = TrainingModel.query.filter_by(model_url=model_url, user_id=user_id).first()
+                if not model_record:
+                    return jsonify({"error": "Access denied or model not found"}), 403
+        
+        # Download the model from blob storage
+        try:
+            # Convert URL to filename
+            # Example URL: https://accountname.blob.core.windows.net/container/filename
+            model_filename = model_url.split('/')[-1]
+            
+            # Create a temporary file to store the model
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            temp_model_path = os.path.join(temp_dir, model_filename)
+            
+            try:
+                # Download the model
+                import requests
+                response = requests.get(model_url, stream=True)
+                response.raise_for_status()
+                
+                with open(temp_model_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                # Load the model
+                import joblib
+                model_data = joblib.load(temp_model_path)
+                
+                # Make predictions
+                X = pd.DataFrame.from_dict(request_data['data'])
+                
+                # Get the actual model from the model data
+                if 'model' in model_data:
+                    model = model_data['model']
+                else:
+                    model = model_data
+                    
+                # Make predictions
+                predictions = model.predict(X)
+                
+                # Get probabilities if available
+                probabilities = None
+                try:
+                    if hasattr(model, 'predict_proba'):
+                        probabilities = model.predict_proba(X).tolist()
+                except Exception as prob_error:
+                    logger.warning(f"Could not get probabilities: {str(prob_error)}")
+                
+                return jsonify({
+                    "predictions": predictions.tolist() if isinstance(predictions, (np.ndarray, pd.Series)) else predictions,
+                    "probabilities": probabilities,
+                    "message": "Predictions made successfully"
+                })
+                
+            except Exception as e:
+                logger.error(f"Error making predictions with blob model: {str(e)}")
+                return jsonify({"error": f"Error making predictions: {str(e)}"}), 500
+            finally:
+                # Always clean up the temporary directory
+                try:
+                    if os.path.exists(temp_dir):
+                        shutil.rmtree(temp_dir)
+                        logger.info(f"Cleaned up temporary directory: {temp_dir}")
+                except Exception as cleanup_error:
+                    logger.error(f"Error cleaning up temporary directory: {str(cleanup_error)}")
+                
+        except Exception as e:
+            logger.error(f"Error setting up for prediction: {str(e)}")
+            return jsonify({"error": f"Error setting up for prediction: {str(e)}"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error in predict_with_blob endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))

@@ -2,22 +2,28 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Copy requirements file
-COPY requirements.model_coordinator.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
+COPY requirements.model_coordinator.txt .
 RUN pip install --no-cache-dir -r requirements.model_coordinator.txt
+RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 
-# Copy source code
+# Copy application code and required files
 COPY model_coordinator_api.py .
+COPY storage.py .
+COPY db/ ./db/
 
-# Set environment variable to indicate running in Docker
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=5020
 ENV IS_DOCKER=true
 
-# Set PORT environment variable with default
-ENV PORT=5020
+# Expose the port
+EXPOSE ${PORT}
 
-# Use environment variables in command with better error reporting
-CMD python -u model_coordinator_api.py 2>&1
-
-EXPOSE 5020 
+# Run the application
+CMD ["python", "model_coordinator_api.py"] 
