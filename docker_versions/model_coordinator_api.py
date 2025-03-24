@@ -120,8 +120,8 @@ def init_mlflow():
         except AttributeError:
             # Fallback for older MLflow versions
             try:
-        experiment_names = [exp.name for exp in client.list_experiments()]
-        logger.info(f"Connected to MLflow. Available experiments: {experiment_names}")
+                experiment_names = [exp.name for exp in client.list_experiments()]
+                logger.info(f"Connected to MLflow. Available experiments: {experiment_names}")
             except AttributeError:
                 logger.warning("Could not list MLflow experiments. Proceeding anyway.")
         
@@ -1237,6 +1237,11 @@ if __name__ == '__main__':
             run_count = TrainingRun.query.count()
             model_count = TrainingModel.query.count()
             logger.info(f"Database stats: {user_count} users, {run_count} training runs, {model_count} models")
+            
+            # MLflow setup
+            mlflow_client = MlflowClient()
+            experiment_names = [exp.name for exp in mlflow_client.list_experiments()]
+            logger.info(f"MLflow experiments: {experiment_names}")
     except Exception as e:
         logger.error(f"Error initializing database tables: {str(e)}")
         logger.warning("Some database operations may not work correctly.")
