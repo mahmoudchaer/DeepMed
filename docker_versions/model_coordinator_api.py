@@ -438,13 +438,8 @@ def train_models():
                         # Replace original metrics with clean metrics
                         model_result['model']['metrics'] = clean_metrics
                         
-                        # Save model to blob storage
+                        # Store model data for later saving if it's one of the best
                         model_data = model_result['model']
-                        blob_url, blob_filename = save_model_to_blob(model_data, model_name)
-                        
-                        if blob_url:
-                            # Save model reference to database
-                            save_model_to_db(user_id, run_id, model_name, blob_url)
                     
                     models_results.append({
                         'model': model_result['model']
