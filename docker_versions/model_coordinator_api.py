@@ -883,35 +883,51 @@ def save_best_models(best_models, user_id, run_id):
             for service_name, service_url in get_model_services().items():
                 if service_name == model_name:
                     try:
-                        # Get model data from the model service
-                        logger.info(f"Fetching model data from {service_name} for metric {metric}")
+                        # First get model metadata for reference
+                        logger.info(f"Fetching model metadata from {service_name} for metric {metric}")
                         info_response = requests.get(f"{service_url}/model_info", timeout=5)
                         
-                        if info_response.status_code == 200:
-                            model_data = info_response.json()
+                        if info_response.status_code != 200:
+                            logger.error(f"Failed to get model info from {service_name}: {info_response.text}")
+                            continue
+                        
+                        # Get the actual model binary data using download_model endpoint
+                        logger.info(f"Downloading model binary from {service_name}")
+                        download_response = requests.get(f"{service_url}/download_model", timeout=60)
+                        
+                        if download_response.status_code != 200:
+                            logger.error(f"Failed to download model from {service_name}: {download_response.text}")
+                            continue
                             
-                            # Save as best model for this metric
-                            display_name = f"best_model_for_{metric}"
-                            logger.info(f"Saving {model_name} as {display_name}")
-                            
-                            blob_url, blob_filename = save_model_to_blob(model_data, model_name, metric)
-                            
-                            if blob_url:
-                                # Save to database
-                                saved = save_model_to_db(user_id, run_id, display_name, blob_url)
-                                if saved:
-                                    saved_models[metric] = {
-                                        'model_name': model_name,
-                                        'display_name': display_name,
-                                        'url': blob_url,
-                                        'filename': blob_filename,
-                                        'value': metric_value
-                                    }
-                                    logger.info(f"Successfully saved {display_name} to blob: {blob_url}")
-                                else:
-                                    logger.error(f"Failed to save {display_name} to database")
+                        # Save as best model for this metric
+                        display_name = f"best_model_for_{metric}"
+                        logger.info(f"Saving {model_name} as {display_name}")
+                        
+                        # Generate a unique filename
+                        timestamp = int(time.time())
+                        unique_id = str(uuid.uuid4())[:8]
+                        filename = f"{model_name}_{metric}_{timestamp}_{unique_id}.joblib"
+                        
+                        # Upload to blob storage directly
+                        model_bytes = io.BytesIO(download_response.content)
+                        blob_url = upload_to_blob(model_bytes, filename)
+                        
+                        if blob_url:
+                            # Save to database
+                            saved = save_model_to_db(user_id, run_id, display_name, blob_url)
+                            if saved:
+                                saved_models[metric] = {
+                                    'model_name': model_name,
+                                    'display_name': display_name,
+                                    'url': blob_url,
+                                    'filename': filename,
+                                    'value': metric_value
+                                }
+                                logger.info(f"Successfully saved {display_name} to blob: {blob_url}")
                             else:
-                                logger.error(f"Failed to save {display_name} to blob storage")
+                                logger.error(f"Failed to save {display_name} to database")
+                        else:
+                            logger.error(f"Failed to save {display_name} to blob storage")
                     except Exception as e:
                         logger.error(f"Error saving best model for {metric}: {str(e)}")
         
