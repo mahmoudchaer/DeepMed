@@ -135,9 +135,6 @@ class LogisticRegressionTrainer:
                 mlflow.log_params(grid_search.best_params_)
                 mlflow.log_metrics(metrics)
                 
-                # Log model
-                mlflow.sklearn.log_model(self.best_model, MODEL_NAME)
-                
                 # Store model and info
                 model_info = {
                     'model': self.best_model,
