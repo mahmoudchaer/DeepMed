@@ -598,10 +598,13 @@ def training():
                     )
                     db.session.add(training_run)
                     db.session.commit()
-                    logger.info(f"Directly added training run to database with ID {training_run.id}")
+                    
+                    # Store the run_id for model saving
+                    local_run_id = training_run.id
+                    logger.info(f"Directly added training run to database with ID {local_run_id}")
                     
                     # Verify entry was created by checking the database
-                    verification = db.session.query(TrainingRun).filter_by(id=training_run.id).first()
+                    verification = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
                     if verification:
                         logger.info(f"Verified training run in database: {verification.id}, {verification.run_name}")
                     else:
@@ -645,12 +648,14 @@ def training():
                         (user_id, run_name)
                     )
                     conn.commit()
-                    logger.info(f"Added training run using direct SQL: {cursor.lastrowid}")
+                    local_run_id = cursor.lastrowid
+                    logger.info(f"Added training run using direct SQL: {local_run_id}")
                     
                     cursor.close()
                     conn.close()
                 except Exception as sql_error:
                     logger.error(f"Error with direct SQL approach: {str(sql_error)}")
+                    local_run_id = None
 
             # Use our safe request method
             response = safe_requests_post(
@@ -670,6 +675,55 @@ def training():
             
             # Store the complete model results in session
             model_result = response.json()
+            
+            # Log the run_id from the model coordinator response
+            if 'run_id' in model_result:
+                model_coordinator_run_id = model_result['run_id']
+                logger.info(f"Model coordinator created run with ID: {model_coordinator_run_id}")
+                
+                # If we have our own run_id and it doesn't match the coordinator's,
+                # make sure we also save the models to our run_id
+                if local_run_id and local_run_id != model_coordinator_run_id:
+                    logger.info(f"Local run_id {local_run_id} doesn't match coordinator run_id {model_coordinator_run_id}")
+                    
+                    # If we have saved best models, save them to our database too
+                    if 'saved_best_models' in model_result and model_result['saved_best_models']:
+                        try:
+                            from db.users import TrainingModel
+                            with app.app_context():
+                                # Process each of the 4 best models (accuracy, precision, recall, f1)
+                                for metric, model_info in model_result['saved_best_models'].items():
+                                    if 'url' in model_info and 'filename' in model_info:
+                                        # Create a model record
+                                        model_record = TrainingModel(
+                                            user_id=user_id,
+                                            run_id=local_run_id,  # Use our own run_id
+                                            model_name=f"best_model_for_{metric}",
+                                            model_url=model_info['url'],
+                                            file_name=model_info['filename']  # Add the filename
+                                        )
+                                        db.session.add(model_record)
+                                        logger.info(f"Added model for {metric} to database with run_id {local_run_id}")
+                                
+                                # Commit all model records
+                                db.session.commit()
+                                logger.info(f"Committed all model records to database for run_id {local_run_id}")
+                        except Exception as model_save_error:
+                            logger.error(f"Error saving models to database: {str(model_save_error)}")
+            
+            # Check if we need to ensure models are saved for the coordinator's run_id
+            if 'saved_best_models' in model_result and model_result['saved_best_models']:
+                # Use either the coordinator's run_id or our local one
+                run_id_to_use = model_result.get('run_id', local_run_id)
+                if run_id_to_use:
+                    # Ensure all 4 models are properly saved to the database
+                    ensure_training_models_saved(user_id, run_id_to_use, model_result)
+                    
+                    # If we have our local run_id, also ensure models are saved for it
+                    if local_run_id and local_run_id != run_id_to_use:
+                        ensure_training_models_saved(user_id, local_run_id, model_result)
+                else:
+                    logger.warning("No run_id available to save models")
             
             # CRITICAL: Process and fix any metric values to ensure they're properly serialized
             if 'models' in model_result:
@@ -1926,6 +1980,88 @@ def api_train_model():
         logger.error(f"Error in model training: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+def ensure_training_models_saved(user_id, run_id, model_result):
+    """Ensure that all 4 best models are saved to the TrainingModel table"""
+    try:
+        # Check if we have saved_best_models in the result
+        if 'saved_best_models' not in model_result or not model_result['saved_best_models']:
+            logger.warning("No saved_best_models found in model result")
+            return False
+            
+        # Get the saved models
+        saved_models = model_result['saved_best_models']
+        metrics = ['accuracy', 'precision', 'recall', 'f1']
+        
+        # Import required models
+        from db.users import TrainingModel, db
+        
+        with app.app_context():
+            # Check if models already exist for this run
+            existing_models = TrainingModel.query.filter_by(run_id=run_id).count()
+            if existing_models >= 4:
+                logger.info(f"Found {existing_models} models already saved for run_id {run_id}")
+                return True
+                
+            # Save each model
+            for metric in metrics:
+                if metric not in saved_models:
+                    logger.warning(f"No saved model found for metric {metric}")
+                    continue
+                    
+                model_info = saved_models[metric]
+                
+                # Check if we have the URL
+                if 'url' not in model_info:
+                    logger.warning(f"No URL found for saved model {metric}")
+                    continue
+                    
+                # Create model record
+                model_name = f"best_model_for_{metric}"
+                model_url = model_info['url']
+                
+                # Extract filename from URL or use the one from the model_info
+                if 'filename' in model_info:
+                    filename = model_info['filename']
+                else:
+                    # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
+                    filename = model_url.split('/')[-1]
+                
+                # Check if this model is already saved
+                existing_model = TrainingModel.query.filter_by(
+                    run_id=run_id,
+                    model_name=model_name
+                ).first()
+                
+                if existing_model:
+                    logger.info(f"Model {model_name} already exists for run_id {run_id}")
+                    continue
+                    
+                # Create and save the model record
+                model_record = TrainingModel(
+                    user_id=user_id,
+                    run_id=run_id,
+                    model_name=model_name,
+                    model_url=model_url,
+                    file_name=filename  # Save the filename too
+                )
+                
+                db.session.add(model_record)
+                logger.info(f"Added model {model_name} to database for run_id {run_id}")
+            
+            # Commit all changes
+            db.session.commit()
+            logger.info(f"Committed training models to database for run_id {run_id}")
+            
+            # Verify models were saved
+            saved_count = TrainingModel.query.filter_by(run_id=run_id).count()
+            logger.info(f"Verified {saved_count} models saved for run_id {run_id}")
+            
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error ensuring training models are saved: {str(e)}")
+        return False
+
 if __name__ == '__main__':
     print("Starting DeepMed with API services integration")
     print("Service status:")
@@ -1937,6 +2073,22 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         print("Database tables created/verified")
+        
+        # Check if file_name column exists in training_model table
+        try:
+            # Try to add file_name column if it doesn't exist
+            inspector = db.inspect(db.engine)
+            columns = inspector.get_columns('training_model')
+            column_names = [column['name'] for column in columns]
+            
+            if 'file_name' not in column_names:
+                print("Adding file_name column to training_model table")
+                db.engine.execute('ALTER TABLE training_model ADD COLUMN file_name VARCHAR(255)')
+                print("Successfully added file_name column")
+            else:
+                print("file_name column already exists in training_model table")
+        except Exception as e:
+            print(f"Error checking/adding file_name column: {str(e)}")
     
     try:
         app.run(debug=True, host='0.0.0.0', port=5000)

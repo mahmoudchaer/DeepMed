@@ -109,15 +109,6 @@ def create_tables():
             run_name = db.Column(db.String(255), nullable=False)
             created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
-        class DataCleaner(db.Model):
-            """Table for storing data cleaner files for each training run."""
-            id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-            user_id = db.Column(db.Integer, nullable=False)
-            run_id = db.Column(db.Integer, nullable=False)
-            file_name = db.Column(db.String(255), nullable=False)
-            file_url = db.Column(db.Text, nullable=False)
-            created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
-
         class TrainingModel(db.Model):
             """Table for storing trained models from each run."""
             id = db.Column(db.Integer, primary_key=True, autoincrement=True)

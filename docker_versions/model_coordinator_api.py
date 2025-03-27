@@ -231,7 +231,7 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
         logger.error(f"Error saving model to blob: {str(e)}")
         return None, None
 
-def save_model_to_db(user_id, run_id, model_name, model_url):
+def save_model_to_db(user_id, run_id, model_name, model_url, filename=None):
     """Save model reference to database"""
     try:
         # Create a custom app context
@@ -252,12 +252,18 @@ def save_model_to_db(user_id, run_id, model_name, model_url):
                 # Still return True since the model is in blob storage even if DB failed
                 return True
             
+            # If filename is None, extract it from the URL
+            if filename is None and model_url:
+                # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
+                filename = model_url.split('/')[-1]
+            
             # Create model record
             model_record = TrainingModel(
                 user_id=user_id,
                 run_id=run_id,
                 model_name=model_name,
-                model_url=model_url
+                model_url=model_url,
+                file_name=filename
             )
             
             # Add and commit in separate try blocks for better error identification
@@ -914,7 +920,7 @@ def save_best_models(best_models, user_id, run_id):
                         
                         if blob_url:
                             # Save to database
-                            saved = save_model_to_db(user_id, run_id, display_name, blob_url)
+                            saved = save_model_to_db(user_id, run_id, display_name, blob_url, filename)
                             if saved:
                                 saved_models[metric] = {
                                     'model_name': model_name,
