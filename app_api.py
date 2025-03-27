@@ -22,7 +22,7 @@ import uuid
 import glob
 import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from db.users import db, User
+from db.users import db, User, TrainingRun
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
@@ -568,6 +568,90 @@ def training():
             X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
             y_data = y.tolist()
 
+            # Extract original dataset filename from the temporary filepath
+            import re
+            temp_filepath = session.get('uploaded_file', '')
+            # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
+            # Extract the original filename portion
+            original_filename = ""
+            if temp_filepath:
+                # Match the pattern uuid_originalfilename
+                match = re.search(r'[a-f0-9-]+_(.+)$', os.path.basename(temp_filepath))
+                if match:
+                    original_filename = match.group(1)
+                else:
+                    # Fallback to just basename if pattern doesn't match
+                    original_filename = os.path.basename(temp_filepath)
+
+            # Add direct SQL insert to ensure training_run is populated
+            run_name = original_filename if original_filename else f"Training Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            user_id = current_user.id
+            
+            # Direct database connection to ensure the training run is saved
+            try:
+                # Create a temporary app context for database operations
+                with app.app_context():
+                    # Create training run entry
+                    training_run = TrainingRun(
+                        user_id=user_id,
+                        run_name=run_name
+                    )
+                    db.session.add(training_run)
+                    db.session.commit()
+                    logger.info(f"Directly added training run to database with ID {training_run.id}")
+                    
+                    # Verify entry was created by checking the database
+                    verification = db.session.query(TrainingRun).filter_by(id=training_run.id).first()
+                    if verification:
+                        logger.info(f"Verified training run in database: {verification.id}, {verification.run_name}")
+                    else:
+                        logger.warning(f"Could not verify training run in database after commit")
+                    
+                    # Try to diagnose the issue if verification failed
+                    if not verification:
+                        # Check if database is accessible
+                        db.session.execute("SELECT 1")
+                        logger.info("Database connection is working")
+                        
+                        # Check table structure
+                        logger.info("Attempting to check training_run table structure")
+                        table_info = db.session.execute("DESCRIBE training_run").fetchall()
+                        logger.info(f"Table structure: {table_info}")
+            except Exception as e:
+                logger.error(f"Error adding training run directly to database: {str(e)}")
+                # Try with direct SQL as a fallback
+                try:
+                    import pymysql
+                    # Get database credentials from environment variables
+                    MYSQL_USER = os.getenv("MYSQL_USER")
+                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+                    MYSQL_HOST = os.getenv("MYSQL_HOST")
+                    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+                    MYSQL_DB = os.getenv("MYSQL_DB")
+                    
+                    # Connect to database
+                    conn = pymysql.connect(
+                        host=MYSQL_HOST,
+                        user=MYSQL_USER,
+                        password=MYSQL_PASSWORD,
+                        port=MYSQL_PORT,
+                        database=MYSQL_DB
+                    )
+                    cursor = conn.cursor()
+                    
+                    # Insert training run
+                    cursor.execute(
+                        "INSERT INTO training_run (user_id, run_name, created_at) VALUES (%s, %s, NOW())",
+                        (user_id, run_name)
+                    )
+                    conn.commit()
+                    logger.info(f"Added training run using direct SQL: {cursor.lastrowid}")
+                    
+                    cursor.close()
+                    conn.close()
+                except Exception as sql_error:
+                    logger.error(f"Error with direct SQL approach: {str(sql_error)}")
+
             # Use our safe request method
             response = safe_requests_post(
                 f"{MODEL_COORDINATOR_URL}/train",
@@ -576,7 +660,7 @@ def training():
                     "target": y_data,
                     "test_size": session['test_size'],
                     "user_id": current_user.id,
-                    "run_name": f"Training Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    "run_name": run_name
                 },
                 timeout=1800  # Model training can take time
             )
