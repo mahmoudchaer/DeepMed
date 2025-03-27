@@ -45,16 +45,6 @@ class TrainingRun(db.Model):
     run_name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
-# Model for storing data cleaner files
-class DataCleaner(db.Model):
-    """Table for storing data cleaner files for each training run."""
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    run_id = db.Column(db.Integer, nullable=False)
-    file_name = db.Column(db.String(255), nullable=False)
-    file_url = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
-
 # Model for storing trained models
 class TrainingModel(db.Model):
     """Table for storing trained models from each run."""
@@ -63,4 +53,5 @@ class TrainingModel(db.Model):
     run_id = db.Column(db.Integer, nullable=False)
     model_name = db.Column(db.String(255), nullable=False)
     model_url = db.Column(db.Text, nullable=False)
+    file_name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp()) 
