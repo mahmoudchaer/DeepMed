@@ -1,6 +1,5 @@
 venv/
 docker_versions/logs/
-docker_versions/saved_models/
 *.log
 .env
 docker_versions/.env
