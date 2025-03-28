@@ -4,3 +4,40 @@ docker_versions/saved_models/
 *.log
 .env
 docker_versions/.env
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+myenv/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+*.cover
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Database files
+*.db
+*.sqlite3
+
+# Static files that should be collected in deployment
+static/collected/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Docker
+docker-compose.override.yml
