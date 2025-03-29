@@ -22,7 +22,7 @@ import uuid
 import glob
 import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from db.users import db, User, TrainingRun
+from db.users import db, User, TrainingRun, TrainingModel
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
@@ -690,7 +690,6 @@ def training():
                     # If we have saved best models, save them to our database too
                     if 'saved_best_models' in model_result and model_result['saved_best_models']:
                         try:
-                            from db.users import TrainingModel
                             with app.app_context():
                                 # Process each of the 4 best models (accuracy, precision, recall, f1)
                                 for metric, model_info in model_result['saved_best_models'].items():
@@ -1401,16 +1400,39 @@ def prediction():
                 pred_data, _ = load_data(filepath)
                 target_column = session.get('target_column')
                 
+                # Try to get the cleaning prompt from the training run associated with the model
+                cleaning_prompt = None
+                if best_model_record:
+                    run_id = best_model_record.run_id
+                    try:
+                        # Get the cleaning prompt from the training run
+                        training_run = TrainingRun.query.filter_by(id=run_id).first()
+                        if training_run and training_run.prompt:
+                            cleaning_prompt = training_run.prompt
+                            logger.info(f"Retrieved cleaning prompt from training run {run_id}")
+                        else:
+                            logger.info(f"No cleaning prompt found for training run {run_id}")
+                    except Exception as e:
+                        logger.error(f"Error retrieving cleaning prompt: {str(e)}")
+                
                 # 1. Clean data using Data Cleaner API
                 logger.info(f"Sending prediction data to Data Cleaner API")
                 pred_data_records = pred_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(pred_data), None).to_dict(orient='records')
                 
+                # Prepare payload for data cleaner
+                cleaner_payload = {
+                    "data": pred_data_records,
+                    "target_column": target_column
+                }
+                
+                # Add cleaning prompt if available
+                if cleaning_prompt:
+                    cleaner_payload["prompt"] = cleaning_prompt
+                    logger.info("Using stored cleaning prompt for consistent data cleaning")
+                
                 response = safe_requests_post(
                     f"{DATA_CLEANER_URL}/clean",
-                    {
-                        "data": pred_data_records,
-                        "target_column": target_column
-                    },
+                    cleaner_payload,
                     timeout=60
                 )
                 
@@ -1992,9 +2014,6 @@ def ensure_training_models_saved(user_id, run_id, model_result):
         # Get the saved models
         saved_models = model_result['saved_best_models']
         metrics = ['accuracy', 'precision', 'recall', 'f1']
-        
-        # Import required models
-        from db.users import TrainingModel, db
         
         with app.app_context():
             # Check if models already exist for this run

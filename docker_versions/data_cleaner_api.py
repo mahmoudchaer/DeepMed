@@ -91,6 +91,7 @@ class DataCleaner:
             self.has_openai = False
             
         self.scaler = StandardScaler()
+        self.last_cleaning_prompt = None  # Store the last used cleaning instructions
         
     def _test_openai_connection(self):
         """Test if OpenAI client is working correctly"""
@@ -118,21 +119,28 @@ class DataCleaner:
                         (df[column] >= mean - (n_std * std))]
         return df
 
-    def handle_missing_values(self, df):
+    def handle_missing_values(self, df, previous_prompt=None):
         """
         Handle missing values using LLM-based cleaning.
         This method extracts metadata, generates a prompt, calls the LLM,
         parses the cleaning instructions, and applies missing-value handling
         and conversion to numeric values (without normalization).
+        
+        Args:
+            df: DataFrame to clean
+            previous_prompt: Optional prompt describing previous cleaning strategy
+        
+        Returns:
+            cleaned_df: Cleaned DataFrame
         """
-        return self._llm_clean(df)
+        return self._llm_clean(df, previous_prompt)
 
     def scale_features(self, df, columns):
         """Scale numerical features using StandardScaler."""
         df[columns] = self.scaler.fit_transform(df[columns])
         return df
 
-    def clean_data(self, df, target_column):
+    def clean_data(self, df, target_column, previous_prompt=None):
         """
         Main method to clean the data.
         The interface is the same as your old version:
@@ -141,6 +149,14 @@ class DataCleaner:
           - Removes outliers from numeric columns (excluding the target).
           - Scales numeric features.
         Returns a fully numeric DataFrame.
+        
+        Args:
+            df: DataFrame to clean
+            target_column: Name of the target column
+            previous_prompt: Optional prompt describing previous cleaning strategy
+        
+        Returns:
+            cleaned_df: Cleaned DataFrame
         """
         df = df.copy()
         # Determine numeric columns excluding the target.
@@ -148,7 +164,7 @@ class DataCleaner:
         numeric_columns = numeric_columns[numeric_columns != target_column]
         
         # Apply LLM-based missing value handling and numeric conversion.
-        df = self.handle_missing_values(df)
+        df = self.handle_missing_values(df, previous_prompt)
         # Remove outliers on the numeric columns.
         df = self.remove_outliers(df, numeric_columns)
         # Scale the numeric features.
@@ -169,11 +185,12 @@ class DataCleaner:
             }
         return metadata
 
-    def _generate_prompt(self, metadata: dict) -> str:
+    def _generate_prompt(self, metadata: dict, previous_prompt: str = None) -> str:
         """
         Build a prompt for the LLM using the extracted metadata.
+        If previous_prompt is provided, include it to ensure consistent cleaning.
         """
-        prompt = (
+        base_prompt = (
             "You are an expert data cleaning assistant. Below is metadata for a dataset extracted from a tabular file. "
             "For each column, provide detailed instructions regarding:\n\n"
             "1. Missing values: Specify if rows should be dropped (action: 'drop') or if missing values should be replaced (action: 'replace'). "
@@ -185,10 +202,22 @@ class DataCleaner:
             '  "column_name": {"missing": {"action": "drop/replace", "value": <value if replace>}, "normalize": false, "encoding": "none/onehot/label"},\n'
             "  ...\n"
             "}\n\n"
-            "Here is the metadata:\n"
         )
-        prompt += json.dumps(metadata, indent=2)
-        return prompt
+        
+        if previous_prompt:
+            prompt = (
+                "You are an expert data cleaning assistant. You previously cleaned a dataset with these instructions:\n\n"
+                f"{previous_prompt}\n\n"
+                "I need to clean a new dataset using the SAME STRATEGY to ensure consistency. "
+                "Apply the same logic, even if it's not optimal for this new data.\n\n"
+                "Here is the metadata for the new dataset:\n"
+            )
+            prompt += json.dumps(metadata, indent=2)
+            return prompt
+        else:
+            prompt = base_prompt + "Here is the metadata:\n"
+            prompt += json.dumps(metadata, indent=2)
+            return prompt
 
     def _call_llm(self, prompt: str) -> str:
         """Call the LLM via the OpenAI API using the prompt."""
@@ -312,7 +341,44 @@ class DataCleaner:
         df_final = df_clean.apply(pd.to_numeric, errors='coerce')
         return df_final
 
-    def _llm_clean(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _generate_cleaning_summary(self, instructions: dict) -> str:
+        """
+        Generate a human-readable summary of the cleaning instructions.
+        This will be returned as part of the API response for future reference.
+        """
+        if not instructions or 'error' in instructions:
+            return "Applied default cleaning: filled numeric columns with mean values and categorical columns with mode values, then converted all to numeric."
+            
+        summary = []
+        for col, instr in instructions.items():
+            col_summary = []
+            
+            # Missing values handling
+            missing_instr = instr.get("missing", {})
+            action = missing_instr.get("action", "").lower()
+            if action == "drop":
+                col_summary.append(f"dropped rows with missing values")
+            elif action == "replace":
+                replacement = missing_instr.get("value", None)
+                if replacement is not None:
+                    col_summary.append(f"replaced missing values with {replacement}")
+            
+            # Encoding
+            encoding = instr.get("encoding", "none").lower()
+            if encoding == "onehot":
+                col_summary.append("one-hot encoded")
+            elif encoding == "label":
+                col_summary.append("label encoded")
+                
+            if col_summary:
+                summary.append(f"Column '{col}': {', '.join(col_summary)}")
+        
+        if not summary:
+            return "Applied default cleaning strategy based on column data types."
+            
+        return "Cleaning strategy:\n" + "\n".join(summary)
+
+    def _llm_clean(self, df: pd.DataFrame, previous_prompt: str = None) -> pd.DataFrame:
         """
         Full LLM-based cleaning pipeline:
           - Extract metadata.
@@ -321,12 +387,19 @@ class DataCleaner:
           - Parse instructions.
           - Apply cleaning (handle missing values and convert to numeric).
         Returns a fully numeric DataFrame.
+        
+        Args:
+            df: DataFrame to clean
+            previous_prompt: Optional prompt describing previous cleaning strategy
+            
+        Returns:
+            cleaned_df: Cleaned DataFrame
         """
         try:
             metadata = self._extract_metadata(df)
             logging.info("Extracted metadata for %d columns", len(metadata))
             
-            prompt = self._generate_prompt(metadata)
+            prompt = self._generate_prompt(metadata, previous_prompt)
             logging.info("Generated prompt for LLM.")
             
             llm_response = self._call_llm(prompt)
@@ -337,6 +410,13 @@ class DataCleaner:
             
             df_clean = self._apply_cleaning(df, instructions)
             logging.info("Applied cleaning instructions successfully.")
+            
+            # Save the cleaning instructions for the response
+            if previous_prompt:
+                self.last_cleaning_prompt = previous_prompt
+            else:
+                # Generate a human-readable summary of the cleaning performed
+                self.last_cleaning_prompt = self._generate_cleaning_summary(instructions)
             
             return df_clean
         except Exception as e:
@@ -352,6 +432,9 @@ class DataCleaner:
                     mode_val = df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Unknown"
                     df_clean[col] = df_clean[col].fillna(mode_val)
                     df_clean[col] = df_clean[col].astype("category").cat.codes
+            
+            # Set a default cleaning summary
+            self.last_cleaning_prompt = "Applied default cleaning: filled numeric columns with mean values and categorical columns with mode values, then converted all to numeric."
             
             return df_clean
 
@@ -370,13 +453,15 @@ def clean_data():
     Expected JSON input:
     {
         "data": {...},  # Data in JSON format that can be loaded into a pandas DataFrame
-        "target_column": "column_name"  # Name of the target column
+        "target_column": "column_name",  # Name of the target column
+        "prompt": "..."  # Optional: Previous cleaning instructions to ensure consistency
     }
     
     Returns:
     {
         "data": {...},  # Cleaned data in JSON format
-        "message": "Data cleaned successfully"
+        "message": "Data cleaned successfully",
+        "prompt": "..."  # Cleaning instructions used (either the input prompt or a newly generated one)
     }
     """
     try:
@@ -393,14 +478,19 @@ def clean_data():
             return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
         
         target_column = request_data['target_column']
+        previous_prompt = request_data.get('prompt')  # May be None
         
-        # Clean data
-        cleaned_data = cleaner.clean_data(df, target_column)
+        # Clean data with optional previous prompt
+        cleaned_data = cleaner.clean_data(df, target_column, previous_prompt)
         
-        # Convert DataFrame to JSON
+        # Get the cleaning prompt (either the previous one or a new one)
+        cleaning_prompt = cleaner.last_cleaning_prompt
+        
+        # Convert DataFrame to JSON and include the prompt
         return jsonify({
             "data": cleaned_data.to_dict(orient='records'),
-            "message": "Data cleaned successfully"
+            "message": "Data cleaned successfully",
+            "prompt": cleaning_prompt
         })
     
     except Exception as e:

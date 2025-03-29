@@ -389,6 +389,52 @@ def train_models():
         X_data = data['data']
         y_data = data['target']
         
+        # If data cleaning is needed, send to data cleaner API
+        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        if data_cleaner_url:
+            try:
+                print(f"Sending data to data cleaner at {data_cleaner_url}")
+                
+                # Check if we have a previous prompt to use for consistent cleaning
+                previous_prompt = data.get('prompt')
+                
+                # Prepare payload for data cleaner
+                cleaner_payload = {
+                    'data': X_data,
+                    'target_column': 'target'  # We need to know which column is the target
+                }
+                
+                # Add previous prompt if available
+                if previous_prompt:
+                    cleaner_payload['prompt'] = previous_prompt
+                
+                # Send to data cleaner
+                response = requests.post(
+                    f"{data_cleaner_url}/clean",
+                    json=cleaner_payload,
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    cleaner_result = response.json()
+                    X_data = cleaner_result['data']
+                    
+                    # Extract and save the cleaning prompt
+                    cleaning_prompt = cleaner_result.get('prompt')
+                    if cleaning_prompt and run_id:
+                        try:
+                            # Save the prompt to the training_run table
+                            print(f"Saving cleaning prompt to training run {run_id}")
+                            save_cleaning_prompt(run_id, cleaning_prompt)
+                        except Exception as prompt_error:
+                            print(f"Error saving cleaning prompt: {str(prompt_error)}")
+                            
+                    print("Data cleaned successfully")
+                else:
+                    print(f"Data cleaner error: {response.text}")
+            except Exception as e:
+                print(f"Error with data cleaner: {str(e)}")
+        
         # Get available model services
         model_services = get_model_services()
         print(f"Available model services: {list(model_services.keys())}")
@@ -1236,6 +1282,41 @@ def db_diagnostics():
         return jsonify({
             "error": str(e)
         }), 500
+
+def save_cleaning_prompt(run_id, prompt):
+    """Save the cleaning prompt to the training run record"""
+    try:
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        try:
+            # Find the training run
+            training_run = TrainingRun.query.filter_by(id=run_id).first()
+            
+            if training_run:
+                # Update the prompt field
+                training_run.prompt = prompt
+                
+                # Commit the change
+                try:
+                    db.session.commit()
+                    logger.info(f"Saved cleaning prompt to training run {run_id}")
+                    return True
+                except Exception as commit_error:
+                    logger.error(f"Error committing prompt: {str(commit_error)}")
+                    db.session.rollback()
+                    return False
+            else:
+                logger.error(f"Training run {run_id} not found")
+                return False
+        finally:
+            # Always pop the context
+            ctx.pop()
+            
+    except Exception as e:
+        logger.error(f"Error in save_cleaning_prompt: {str(e)}")
+        return False
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
