@@ -39,6 +39,40 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Wait for MySQL to be ready
+def wait_for_mysql(max_retries=30, retry_interval=5):
+    """Wait for MySQL to be available before continuing"""
+    # Get database credentials from environment variables
+    MYSQL_USER = os.getenv("MYSQL_USER")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+    MYSQL_HOST = os.getenv("MYSQL_HOST")
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+    MYSQL_DB = os.getenv("MYSQL_DB")
+    
+    logger.info(f"Waiting for MySQL to be ready at {MYSQL_HOST}:{MYSQL_PORT}...")
+    
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Try to connect to MySQL
+            connection = pymysql.connect(
+                host=MYSQL_HOST,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                port=MYSQL_PORT,
+                connect_timeout=5
+            )
+            connection.close()
+            logger.info("MySQL is ready!")
+            return True
+        except Exception as e:
+            logger.warning(f"MySQL not ready yet. Retry {retries+1}/{max_retries}. Error: {str(e)}")
+            retries += 1
+            time.sleep(retry_interval)
+    
+    logger.error(f"MySQL not available after {max_retries} retries")
+    return False
+
 # Configure the database
 def configure_db():
     """Configure the database connection"""
@@ -1310,56 +1344,67 @@ def save_cleaning_prompt(run_id, prompt):
     print(f"Direct MySQL Connection to save prompt:")
     print(f"Host: {MYSQL_HOST}, Port: {MYSQL_PORT}, DB: {MYSQL_DB}")
     
-    try:
-        # Connect directly to MySQL
-        connection = pymysql.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            database=MYSQL_DB,
-            port=MYSQL_PORT,
-            connect_timeout=5
-        )
-        
-        # Create cursor and execute update
-        with connection.cursor() as cursor:
-            # Check if the run exists
-            cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
-            if not cursor.fetchone():
-                print(f"Training run {run_id} not found")
-                # Return True anyway to allow process to continue
-                return True
-                
-            # Update the prompt
-            cursor.execute(
-                "UPDATE training_run SET prompt = %s WHERE id = %s",
-                (prompt, run_id)
+    # Add retry logic
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Connect directly to MySQL
+            connection = pymysql.connect(
+                host=MYSQL_HOST,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DB,
+                port=MYSQL_PORT,
+                connect_timeout=10
             )
             
-            # Commit the transaction
-            connection.commit()
-            
-            # Verify it worked
-            cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
-            result = cursor.fetchone()
-            
-            if result and result[0]:
-                print(f"Successfully updated prompt for run {run_id}")
-                return True
-            else:
-                print(f"Failed to verify prompt update for run {run_id}")
-                # Return True anyway to allow process to continue
-                return True
+            # Create cursor and execute update
+            with connection.cursor() as cursor:
+                # Check if the run exists
+                cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
+                if not cursor.fetchone():
+                    print(f"Training run {run_id} not found")
+                    # Return True anyway to allow process to continue
+                    return True
+                    
+                # Update the prompt
+                cursor.execute(
+                    "UPDATE training_run SET prompt = %s WHERE id = %s",
+                    (prompt, run_id)
+                )
                 
-    except Exception as e:
-        print(f"Error saving prompt: {str(e)}")
-        # Return True to allow process to continue despite DB errors
-        # This matches the behavior in save_model_to_db
-        return True
-    finally:
-        # Close connection if it exists and is open
-        if 'connection' in locals() and connection:
-            connection.close()
+                # Commit the transaction
+                connection.commit()
+                
+                # Verify it worked
+                cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
+                result = cursor.fetchone()
+                
+                if result and result[0]:
+                    print(f"Successfully updated prompt for run {run_id}")
+                    return True
+                else:
+                    print(f"Failed to verify prompt update for run {run_id}")
+                    # Return True anyway to allow process to continue
+                    return True
+                    
+        except Exception as e:
+            retry_count += 1
+            print(f"Error saving prompt (attempt {retry_count}/{max_retries}): {str(e)}")
+            time.sleep(2)  # Wait before retrying
+            
+            # If this was the last retry, return True anyway
+            if retry_count >= max_retries:
+                print("Maximum retries reached, continuing anyway")
+                # Return True to allow process to continue despite DB errors
+                # This matches the behavior in save_model_to_db
+                return True
+        finally:
+            # Close connection if it exists and is open
+            if 'connection' in locals() and connection:
+                connection.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
@@ -1367,6 +1412,10 @@ if __name__ == '__main__':
     # Set Docker flag based on environment
     IS_DOCKER = os.environ.get('IS_DOCKER', 'false').lower() == 'true'
     logger.info(f"Running in {'Docker' if IS_DOCKER else 'local'} mode")
+    
+    # Wait for MySQL to be ready if in Docker mode
+    if IS_DOCKER:
+        wait_for_mysql()
     
     # Initialize database tables on startup
     try:
