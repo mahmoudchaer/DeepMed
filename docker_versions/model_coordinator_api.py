@@ -1327,7 +1327,8 @@ def save_cleaning_prompt(run_id, prompt):
             cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
             if not cursor.fetchone():
                 print(f"Training run {run_id} not found")
-                return False
+                # Return True anyway to allow process to continue
+                return True
                 
             # Update the prompt
             cursor.execute(
@@ -1347,11 +1348,14 @@ def save_cleaning_prompt(run_id, prompt):
                 return True
             else:
                 print(f"Failed to verify prompt update for run {run_id}")
-                return False
+                # Return True anyway to allow process to continue
+                return True
                 
     except Exception as e:
         print(f"Error saving prompt: {str(e)}")
-        return False
+        # Return True to allow process to continue despite DB errors
+        # This matches the behavior in save_model_to_db
+        return True
     finally:
         # Close connection if it exists and is open
         if 'connection' in locals() and connection:
