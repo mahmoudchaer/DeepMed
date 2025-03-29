@@ -425,17 +425,23 @@ def train_models():
                     X_data = cleaner_result['data']
                     
                     # Extract and save the cleaning prompt
+                    print("Data cleaning completed successfully")
                     cleaning_prompt = cleaner_result.get('prompt')
                     if cleaning_prompt and run_id:
-                        try:
-                            # Save the prompt to the training_run table
-                            print(f"Saving cleaning prompt to training run {run_id}")
-                            success = save_cleaning_prompt(run_id, cleaning_prompt)
-                            print(f"Prompt saved: {success}")
-                        except Exception as e:
-                            print(f"Error saving cleaning prompt: {str(e)}")
+                        print(f"Received cleaning prompt - length: {len(cleaning_prompt)}")
+                        print(f"First 100 chars: {cleaning_prompt[:100]}...")
+                        
+                        # Save prompt to database
+                        print(f"Saving prompt to database for run_id {run_id}")
+                        result = save_cleaning_prompt(run_id, cleaning_prompt)
+                        print(f"Prompt save result: {'Success' if result else 'Failed'}")
+                    else:
+                        if not cleaning_prompt:
+                            print("No cleaning prompt was returned from data cleaner")
+                        if not run_id:
+                            print("No run_id is available")
                     
-                    print("Data cleaned successfully")
+                    print("Proceeding with model training")
                 else:
                     print(f"Data cleaner error: {response.text}")
             except Exception as e:
@@ -1290,59 +1296,66 @@ def db_diagnostics():
         }), 500
 
 def save_cleaning_prompt(run_id, prompt):
-    """Save the cleaning prompt to the training run record using the same approach as save_model_to_db"""
+    """
+    Save the cleaning prompt directly using PyMySQL without SQLAlchemy
+    """
+    # Get database credentials directly from environment
+    MYSQL_USER = os.getenv("MYSQL_USER")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+    MYSQL_HOST = os.getenv("MYSQL_HOST")
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+    MYSQL_DB = os.getenv("MYSQL_DB")
+    
+    # Print connection info for debugging
+    print(f"Direct MySQL Connection to save prompt:")
+    print(f"Host: {MYSQL_HOST}, Port: {MYSQL_PORT}, DB: {MYSQL_DB}")
+    
     try:
-        # Create a custom app context
-        ctx = app.app_context()
-        ctx.push()
+        # Connect directly to MySQL
+        connection = pymysql.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DB,
+            port=MYSQL_PORT,
+            connect_timeout=5
+        )
         
-        try:
-            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
-            app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-            
-            # Verify database connection
-            try:
-                # Simple database ping to verify connection
-                db.session.execute("SELECT 1")
-                logger.info("Database connection verified successfully")
-            except Exception as db_error:
-                logger.error(f"Database connection failed: {str(db_error)}")
-                # Still return True since we'll continue even if DB failed
-                return False
-            
-            # Find the training run by ID
-            training_run = TrainingRun.query.filter_by(id=run_id).first()
-            
-            if not training_run:
-                logger.error(f"Training run with ID {run_id} not found")
-                return False
-            
-            # Update the prompt field
-            training_run.prompt = prompt
-            
-            # Add and commit in separate try blocks for better error identification
-            try:
-                logger.info(f"Updating prompt for training run {run_id}")
-            except Exception as add_error:
-                logger.error(f"Error updating prompt: {str(add_error)}")
-                db.session.rollback()
+        # Create cursor and execute update
+        with connection.cursor() as cursor:
+            # Check if the run exists
+            cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
+            if not cursor.fetchone():
+                print(f"Training run {run_id} not found")
                 return False
                 
-            try:
-                db.session.commit()
-                logger.info(f"Committed prompt update for training run {run_id}")
-                return True
-            except Exception as commit_error:
-                logger.error(f"Error committing prompt update: {str(commit_error)}")
-                db.session.rollback()
-                return False
-        finally:
-            # Always pop the context
-            ctx.pop()
+            # Update the prompt
+            cursor.execute(
+                "UPDATE training_run SET prompt = %s WHERE id = %s",
+                (prompt, run_id)
+            )
             
+            # Commit the transaction
+            connection.commit()
+            
+            # Verify it worked
+            cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
+            result = cursor.fetchone()
+            
+            if result and result[0]:
+                print(f"Successfully updated prompt for run {run_id}")
+                return True
+            else:
+                print(f"Failed to verify prompt update for run {run_id}")
+                return False
+                
     except Exception as e:
-        logger.error(f"Error in save_cleaning_prompt: {str(e)}")
+        print(f"Error saving prompt: {str(e)}")
         return False
+    finally:
+        # Close connection if it exists and is open
+        if 'connection' in locals() and connection:
+            connection.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
