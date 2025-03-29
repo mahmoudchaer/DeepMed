@@ -372,14 +372,18 @@ def train_models():
             
         # Create training run in database
         run_id = create_training_run(user_id, run_name)
+        
+        # Even if run_id creation fails, generate a fallback ID to continue training
         if not run_id:
-            return jsonify({'error': 'Failed to create training run in database'}), 500
+            run_id = int(time.time())  # Use timestamp as fallback ID
+            print(f"WARNING: Using fallback run_id {run_id} because database operation failed")
+        else:
+            print(f"Created training run with ID {run_id} for user {user_id}")
         
         # Enhanced debug logging
         print(f"Training data shape: {len(data['data'].keys())} features, target shape: {len(data['target'])} samples")
         print(f"Available features: {list(data['data'].keys())}")
         print(f"First few target values: {data['target'][:5]}")
-        print(f"Created training run with ID {run_id} for user {user_id}")
         
         # Get test_size parameter (default to 0.2)
         test_size = data.get('test_size', 0.2)
@@ -433,8 +437,13 @@ def train_models():
                         
                         # Save prompt to database
                         print(f"Saving prompt to database for run_id {run_id}")
-                        result = save_cleaning_prompt(run_id, cleaning_prompt)
-                        print(f"Prompt save result: {'Success' if result else 'Failed'}")
+                        prompt_save_result = save_cleaning_prompt(run_id, cleaning_prompt)
+                        
+                        # Log the prompt save result
+                        if prompt_save_result:
+                            print("✅ Successfully saved cleaning prompt to database")
+                        else:
+                            print("⚠️ Failed to save cleaning prompt to database, but continuing with model training")
                     else:
                         if not cleaning_prompt:
                             print("No cleaning prompt was returned from data cleaner")
@@ -446,6 +455,7 @@ def train_models():
                     print(f"Data cleaner error: {response.text}")
             except Exception as e:
                 print(f"Error with data cleaner: {str(e)}")
+                print("Continuing with model training using uncleaned data")
         
         # Get available model services
         model_services = get_model_services()
@@ -1303,15 +1313,168 @@ def save_cleaning_prompt(run_id, prompt):
     MYSQL_USER = os.getenv("MYSQL_USER")
     MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
     MYSQL_HOST = os.getenv("MYSQL_HOST")
-    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+    MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
     MYSQL_DB = os.getenv("MYSQL_DB")
     
     # Print connection info for debugging
     print(f"Direct MySQL Connection to save prompt:")
     print(f"Host: {MYSQL_HOST}, Port: {MYSQL_PORT}, DB: {MYSQL_DB}")
     
+    # Try multiple connection strategies
+    connection = None
+    
+    # Strategy 1: Try with host.docker.internal
+    if MYSQL_HOST == "host.docker.internal":
+        try:
+            # First try to resolve IP through socket
+            import socket
+            try:
+                # Try to resolve the IP for host.docker.internal
+                docker_host_ip = socket.gethostbyname('host.docker.internal')
+                print(f"Resolved host.docker.internal to IP: {docker_host_ip}")
+                
+                # Connect using the resolved IP
+                connection = pymysql.connect(
+                    host=docker_host_ip,
+                    user=MYSQL_USER,
+                    password=MYSQL_PASSWORD,
+                    database=MYSQL_DB,
+                    port=MYSQL_PORT,
+                    connect_timeout=5
+                )
+                print(f"Connected successfully using resolved IP")
+            except socket.gaierror:
+                print("Could not resolve host.docker.internal, trying alternative strategies")
+        except Exception as e:
+            print(f"Error using resolved IP: {str(e)}")
+    
+    # Strategy 2: Try with direct IP if Strategy 1 didn't work
+    if connection is None:
+        try:
+            # Try alternative direct IP for host machine (common Docker default gateway)
+            gateway_ip = "172.17.0.1"  # Common Docker default gateway
+            print(f"Trying connection with Docker gateway IP: {gateway_ip}")
+            
+            connection = pymysql.connect(
+                host=gateway_ip,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DB,
+                port=MYSQL_PORT,
+                connect_timeout=5
+            )
+            print(f"Connected successfully using Docker gateway IP")
+        except Exception as e:
+            print(f"Error connecting with gateway IP: {str(e)}")
+    
+    # Strategy 3: Try with localhost if all else failed
+    if connection is None:
+        try:
+            print("Trying connection with 'localhost'")
+            connection = pymysql.connect(
+                host="localhost",
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DB,
+                port=MYSQL_PORT,
+                connect_timeout=5
+            )
+            print("Connected successfully using localhost")
+        except Exception as e:
+            print(f"Error connecting with localhost: {str(e)}")
+    
+    # Strategy 4: Try with original host value as last resort
+    if connection is None and MYSQL_HOST != "host.docker.internal" and MYSQL_HOST != "localhost":
+        try:
+            print(f"Trying connection with original host: {MYSQL_HOST}")
+            connection = pymysql.connect(
+                host=MYSQL_HOST,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DB,
+                port=MYSQL_PORT,
+                connect_timeout=5
+            )
+            print("Connected successfully using original host")
+        except Exception as e:
+            print(f"Error connecting with original host: {str(e)}")
+    
+    # If we have a connection, proceed with saving the prompt
+    if connection:
+        try:
+            # Create cursor and execute update
+            with connection.cursor() as cursor:
+                # Check if the run exists
+                cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
+                if not cursor.fetchone():
+                    print(f"Training run {run_id} not found")
+                    return False
+                    
+                # Update the prompt
+                cursor.execute(
+                    "UPDATE training_run SET prompt = %s WHERE id = %s",
+                    (prompt, run_id)
+                )
+                
+                # Commit the transaction
+                connection.commit()
+                
+                # Verify it worked
+                cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
+                result = cursor.fetchone()
+                
+                if result and result[0]:
+                    print(f"Successfully updated prompt for run {run_id}")
+                    return True
+                else:
+                    print(f"Failed to verify prompt update for run {run_id}")
+                    return False
+        except Exception as e:
+            print(f"Error saving prompt: {str(e)}")
+            return False
+        finally:
+            # Close connection
+            connection.close()
+    else:
+        print("Could not establish database connection using any strategy")
+        return False
+
+@app.route('/test_db_connection', methods=['GET'])
+def test_db_connection():
+    """Test endpoint to verify database connectivity using various methods"""
+    results = {
+        "sqlalchemy": {"success": False, "error": None},
+        "pymysql_direct": {"success": False, "error": None},
+        "pymysql_strategies": []
+    }
+    
+    # Test 1: SQLAlchemy connection
     try:
-        # Connect directly to MySQL
+        # Create app context
+        ctx = app.app_context()
+        ctx.push()
+        
+        try:
+            # Simple database ping to verify connection
+            db.session.execute("SELECT 1")
+            results["sqlalchemy"]["success"] = True
+        except Exception as e:
+            results["sqlalchemy"]["error"] = str(e)
+        finally:
+            ctx.pop()
+    except Exception as e:
+        results["sqlalchemy"]["error"] = f"Context error: {str(e)}"
+    
+    # Test 2: Direct PyMySQL connection with original host
+    try:
+        # Get database credentials directly from environment
+        MYSQL_USER = os.getenv("MYSQL_USER")
+        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+        MYSQL_HOST = os.getenv("MYSQL_HOST")
+        MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+        MYSQL_DB = os.getenv("MYSQL_DB")
+        
+        # Connect directly to MySQL with original host
         connection = pymysql.connect(
             host=MYSQL_HOST,
             user=MYSQL_USER,
@@ -1321,41 +1484,75 @@ def save_cleaning_prompt(run_id, prompt):
             connect_timeout=5
         )
         
-        # Create cursor and execute update
+        # Test connection
         with connection.cursor() as cursor:
-            # Check if the run exists
-            cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
-            if not cursor.fetchone():
-                print(f"Training run {run_id} not found")
-                return False
-                
-            # Update the prompt
-            cursor.execute(
-                "UPDATE training_run SET prompt = %s WHERE id = %s",
-                (prompt, run_id)
+            cursor.execute("SELECT 1")
+            results["pymysql_direct"]["success"] = True
+        
+        # Close connection
+        connection.close()
+    except Exception as e:
+        results["pymysql_direct"]["error"] = str(e)
+    
+    # Test 3: Try different connection strategies
+    connection_strategies = [
+        {"name": "original_host", "host": MYSQL_HOST},
+        {"name": "host.docker.internal", "host": "host.docker.internal"},
+        {"name": "localhost", "host": "localhost"},
+        {"name": "127.0.0.1", "host": "127.0.0.1"},
+        {"name": "docker_gateway", "host": "172.17.0.1"}
+    ]
+    
+    # Try to resolve host.docker.internal to IP
+    try:
+        import socket
+        docker_host_ip = socket.gethostbyname('host.docker.internal')
+        connection_strategies.append({"name": "resolved_docker_host", "host": docker_host_ip})
+    except:
+        pass
+    
+    # Test each strategy
+    for strategy in connection_strategies:
+        result = {
+            "strategy": strategy["name"],
+            "host": strategy["host"],
+            "success": False,
+            "error": None
+        }
+        
+        try:
+            # Connect with this strategy
+            connection = pymysql.connect(
+                host=strategy["host"],
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DB,
+                port=MYSQL_PORT,
+                connect_timeout=3
             )
             
-            # Commit the transaction
-            connection.commit()
+            # Test connection
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result["success"] = True
             
-            # Verify it worked
-            cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
-            result = cursor.fetchone()
-            
-            if result and result[0]:
-                print(f"Successfully updated prompt for run {run_id}")
-                return True
-            else:
-                print(f"Failed to verify prompt update for run {run_id}")
-                return False
-                
-    except Exception as e:
-        print(f"Error saving prompt: {str(e)}")
-        return False
-    finally:
-        # Close connection if it exists and is open
-        if 'connection' in locals() and connection:
+            # Close connection
             connection.close()
+        except Exception as e:
+            result["error"] = str(e)
+        
+        results["pymysql_strategies"].append(result)
+    
+    # Add environment info to results
+    results["environment"] = {
+        "MYSQL_HOST": MYSQL_HOST,
+        "MYSQL_PORT": MYSQL_PORT,
+        "MYSQL_DB": MYSQL_DB,
+        "MYSQL_USER": MYSQL_USER,
+        "IS_DOCKER": os.getenv("IS_DOCKER", "false")
+    }
+    
+    return jsonify(results)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
