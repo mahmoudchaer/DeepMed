@@ -43,19 +43,22 @@ app = Flask(__name__)
 def configure_db():
     """Configure the database connection"""
     try:
-        # Get database credentials from environment variables
+        # Get database credentials from environment variables (no defaults)
         MYSQL_USER = os.getenv("MYSQL_USER")
         MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
         MYSQL_HOST = os.getenv("MYSQL_HOST")
         MYSQL_PORT = os.getenv("MYSQL_PORT")
         MYSQL_DB = os.getenv("MYSQL_DB")
         
+        # Log the database configuration (without password)
+        logger.info(f"Database configuration: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
+        
         # Check if all required environment variables are set
         if not all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
             logger.warning("Missing database environment variables. Database operations will not work.")
             return
         
-        # URL encode the password to handle special characters - fix the encoding issue
+        # URL encode the password to handle special characters
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
         
@@ -66,6 +69,7 @@ def configure_db():
         # Initialize the database
         db.init_app(app)
         logger.info("Database configured successfully")
+        
     except Exception as e:
         logger.error(f"Error configuring database: {str(e)}")
 
@@ -440,12 +444,12 @@ def train_models():
                                 try:
                                     import pymysql
                                     
-                                    # Get database credentials from environment variables
-                                    MYSQL_USER = os.getenv("MYSQL_USER", "root")
-                                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "pass")
-                                    MYSQL_HOST = os.getenv("MYSQL_HOST", "host.docker.internal")
-                                    MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
-                                    MYSQL_DB = os.getenv("MYSQL_DB", "deepmedver")
+                                    # Get database credentials from environment variables (no defaults)
+                                    MYSQL_USER = os.getenv("MYSQL_USER")
+                                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+                                    MYSQL_HOST = os.getenv("MYSQL_HOST")
+                                    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+                                    MYSQL_DB = os.getenv("MYSQL_DB")
                                     
                                     print(f"EMERGENCY DIRECT DB: Connecting to {MYSQL_HOST}:{MYSQL_PORT}")
                                     
@@ -1342,27 +1346,51 @@ def save_cleaning_prompt(run_id, prompt):
 def save_cleaning_prompt_direct(run_id, prompt):
     """Save cleaning prompt using direct MySQL connection as fallback"""
     try:
-        # Get database credentials from environment variables
-        MYSQL_USER = os.getenv("MYSQL_USER", "root")
-        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "pass")
-        MYSQL_HOST = os.getenv("MYSQL_HOST", "host.docker.internal")
-        MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
-        MYSQL_DB = os.getenv("MYSQL_DB", "deepmedver")
+        # Get database credentials from environment variables (no defaults)
+        MYSQL_USER = os.getenv("MYSQL_USER")
+        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+        MYSQL_HOST = os.getenv("MYSQL_HOST")
+        MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+        MYSQL_DB = os.getenv("MYSQL_DB")
+        
+        # Print detailed connection info for debugging
+        print(f"MySQL CONNECTION DETAILS:")
+        print(f" - Host: {MYSQL_HOST}")
+        print(f" - Port: {MYSQL_PORT}")
+        print(f" - User: {MYSQL_USER}")
+        print(f" - Database: {MYSQL_DB}")
+        print(f" - Password length: {len(MYSQL_PASSWORD) if MYSQL_PASSWORD else 0}")
         
         print(f"Direct MySQL: Connecting to {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB} as {MYSQL_USER}")
         logger.info(f"Direct MySQL: Connecting to {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB} as {MYSQL_USER}")
         
-        # Connect to database
-        conn = pymysql.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            port=MYSQL_PORT,
-            database=MYSQL_DB
-        )
-        print("Direct MySQL: Connection successful!")
-        logger.info("Direct MySQL: Connection successful!")
-        
+        # Try to connect to the database
+        try:
+            conn = pymysql.connect(
+                host=MYSQL_HOST,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                port=MYSQL_PORT,
+                database=MYSQL_DB,
+                connect_timeout=10  # Add timeout for better error messages
+            )
+            print("Direct MySQL: Connection successful!")
+            logger.info("Direct MySQL: Connection successful!")
+        except pymysql.err.OperationalError as conn_error:
+            error_code, error_message = conn_error.args
+            print(f"MySQL CONNECTION ERROR ({error_code}): {error_message}")
+            logger.error(f"MySQL CONNECTION ERROR ({error_code}): {error_message}")
+            
+            # Try to diagnose the error
+            if error_code == 2003:  # Can't connect to MySQL server
+                print("DIAGNOSIS: Can't reach MySQL server. If running in Docker, make sure host.docker.internal is used.")
+            elif error_code == 1045:  # Access denied
+                print("DIAGNOSIS: Access denied. Check username and password.")
+            elif error_code == 1049:  # Unknown database
+                print("DIAGNOSIS: Database does not exist.")
+                
+            return False
+            
         cursor = conn.cursor()
         
         # Check if the training run exists first
@@ -1407,6 +1435,12 @@ def save_cleaning_prompt_direct(run_id, prompt):
     except Exception as e:
         print(f"Direct MySQL Error: {str(e)}")
         logger.error(f"Direct MySQL Error: {str(e)}")
+        
+        # Print exception details for better debugging
+        import traceback
+        print("Exception traceback:")
+        traceback.print_exc()
+        
         return False
 
 if __name__ == '__main__':
