@@ -425,15 +425,60 @@ def train_models():
                     if cleaning_prompt and run_id:
                         try:
                             # Save the prompt to the training_run table
-                            print(f"Saving cleaning prompt to training run {run_id}")
-                            print(f"Cleaning prompt content (first 100 chars): {cleaning_prompt[:100]}...")
+                            print(f"CLEANING PROMPT: Received prompt from cleaner for run_id {run_id}")
+                            print(f"CLEANING PROMPT: Prompt length: {len(cleaning_prompt)} characters")
+                            print(f"CLEANING PROMPT: First 100 chars: {cleaning_prompt[:100]}...")
+                            
                             prompt_saved = save_cleaning_prompt(run_id, cleaning_prompt)
+                            
                             if prompt_saved:
-                                print(f"Successfully saved cleaning prompt to training run {run_id}")
+                                print(f"CLEANING PROMPT: Successfully saved prompt to training run {run_id}")
                             else:
-                                print(f"Failed to save cleaning prompt to training run {run_id}")
+                                print(f"CLEANING PROMPT: Failed to save prompt to training run {run_id}")
+                                
+                                # Try one more direct SQL attempt for redundancy
+                                try:
+                                    import pymysql
+                                    
+                                    # Get database credentials from environment variables
+                                    MYSQL_USER = os.getenv("MYSQL_USER", "root")
+                                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "pass")
+                                    MYSQL_HOST = os.getenv("MYSQL_HOST", "host.docker.internal")
+                                    MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
+                                    MYSQL_DB = os.getenv("MYSQL_DB", "deepmedver")
+                                    
+                                    print(f"EMERGENCY DIRECT DB: Connecting to {MYSQL_HOST}:{MYSQL_PORT}")
+                                    
+                                    # Connect directly to the database
+                                    conn = pymysql.connect(
+                                        host=MYSQL_HOST,
+                                        user=MYSQL_USER,
+                                        password=MYSQL_PASSWORD,
+                                        port=MYSQL_PORT,
+                                        database=MYSQL_DB
+                                    )
+                                    cursor = conn.cursor()
+                                    
+                                    # Update the training run with the prompt
+                                    cursor.execute(
+                                        "UPDATE training_run SET prompt = %s WHERE id = %s",
+                                        (cleaning_prompt, run_id)
+                                    )
+                                    conn.commit()
+                                    affected_rows = cursor.rowcount
+                                    print(f"EMERGENCY DIRECT DB: Updated {affected_rows} rows")
+                                    
+                                    cursor.close()
+                                    conn.close()
+                                except Exception as emergency_error:
+                                    print(f"EMERGENCY DIRECT DB ERROR: {str(emergency_error)}")
                         except Exception as prompt_error:
-                            print(f"Error in initial attempt to save prompt: {str(prompt_error)}")
+                            print(f"CLEANING PROMPT ERROR: {str(prompt_error)}")
+                    else:
+                        if not cleaning_prompt:
+                            print("CLEANING PROMPT: No prompt received from data cleaner")
+                        if not run_id:
+                            print("CLEANING PROMPT: No run_id available")
                             
                     print("Data cleaned successfully")
                 else:
@@ -1291,54 +1336,8 @@ def db_diagnostics():
 
 def save_cleaning_prompt(run_id, prompt):
     """Save the cleaning prompt to the training run record"""
-    try:
-        # Create a custom app context
-        ctx = app.app_context()
-        ctx.push()
-        
-        try:
-            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
-            app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-            
-            # Verify database connection
-            try:
-                # Simple database ping to verify connection
-                db.session.execute("SELECT 1")
-                logger.info("Database connection verified successfully")
-            except Exception as db_error:
-                logger.error(f"Database connection failed: {str(db_error)}")
-                # Try direct MySQL connection as a fallback
-                return save_cleaning_prompt_direct(run_id, prompt)
-            
-            # Find the training run
-            training_run = TrainingRun.query.filter_by(id=run_id).first()
-            
-            if training_run:
-                # Update the prompt field
-                training_run.prompt = prompt
-                logger.info(f"Setting prompt for training run {run_id}")
-                
-                # Commit the change
-                try:
-                    db.session.commit()
-                    logger.info(f"Saved cleaning prompt to training run {run_id}")
-                    return True
-                except Exception as commit_error:
-                    logger.error(f"Error committing prompt: {str(commit_error)}")
-                    db.session.rollback()
-                    # Try direct MySQL connection as a fallback
-                    return save_cleaning_prompt_direct(run_id, prompt)
-            else:
-                logger.error(f"Training run {run_id} not found")
-                return False
-        finally:
-            # Always pop the context
-            ctx.pop()
-            
-    except Exception as e:
-        logger.error(f"Error in save_cleaning_prompt: {str(e)}")
-        # Try direct MySQL connection as a fallback
-        return save_cleaning_prompt_direct(run_id, prompt)
+    # Skip the ORM approach which has connection issues and go straight to direct SQL
+    return save_cleaning_prompt_direct(run_id, prompt)
 
 def save_cleaning_prompt_direct(run_id, prompt):
     """Save cleaning prompt using direct MySQL connection as fallback"""
@@ -1350,7 +1349,8 @@ def save_cleaning_prompt_direct(run_id, prompt):
         MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
         MYSQL_DB = os.getenv("MYSQL_DB", "deepmedver")
         
-        logger.info(f"Attempting direct MySQL connection to {MYSQL_HOST}:{MYSQL_PORT}")
+        print(f"Direct MySQL: Connecting to {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB} as {MYSQL_USER}")
+        logger.info(f"Direct MySQL: Connecting to {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB} as {MYSQL_USER}")
         
         # Connect to database
         conn = pymysql.connect(
@@ -1360,23 +1360,53 @@ def save_cleaning_prompt_direct(run_id, prompt):
             port=MYSQL_PORT,
             database=MYSQL_DB
         )
+        print("Direct MySQL: Connection successful!")
+        logger.info("Direct MySQL: Connection successful!")
+        
         cursor = conn.cursor()
         
-        # Update training run
+        # Check if the training run exists first
+        cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
+        run_exists = cursor.fetchone()
+        
+        if not run_exists:
+            print(f"Direct MySQL: Training run {run_id} not found!")
+            logger.error(f"Direct MySQL: Training run {run_id} not found!")
+            return False
+            
+        # Print the prompt for debugging
+        print(f"Direct MySQL: Saving prompt (first 50 chars): {prompt[:50]}...")
+        logger.info(f"Direct MySQL: Saving prompt (first 50 chars): {prompt[:50]}...")
+        
+        # Update training run with the prompt
         cursor.execute(
             "UPDATE training_run SET prompt = %s WHERE id = %s",
             (prompt, run_id)
         )
         conn.commit()
         affected_rows = cursor.rowcount
-        logger.info(f"Updated {affected_rows} rows with prompt using direct SQL")
+        
+        print(f"Direct MySQL: Updated {affected_rows} rows with prompt using direct SQL")
+        logger.info(f"Direct MySQL: Updated {affected_rows} rows with prompt using direct SQL")
+        
+        # Verify the update
+        cursor.execute("SELECT prompt FROM training_run WHERE id = %s", (run_id,))
+        updated_prompt = cursor.fetchone()
+        
+        if updated_prompt and updated_prompt[0]:
+            print(f"Direct MySQL: Verified prompt was saved (first 50 chars): {updated_prompt[0][:50]}...")
+            logger.info(f"Direct MySQL: Verified prompt was saved (first 50 chars): {updated_prompt[0][:50]}...")
+        else:
+            print("Direct MySQL: Could not verify prompt was saved!")
+            logger.error("Direct MySQL: Could not verify prompt was saved!")
         
         cursor.close()
         conn.close()
         
         return affected_rows > 0
     except Exception as e:
-        logger.error(f"Error in direct MySQL prompt save: {str(e)}")
+        print(f"Direct MySQL Error: {str(e)}")
+        logger.error(f"Direct MySQL Error: {str(e)}")
         return False
 
 if __name__ == '__main__':
