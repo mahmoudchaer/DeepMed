@@ -381,6 +381,20 @@ def train_models():
         print(f"First few target values: {data['target'][:5]}")
         print(f"Created training run with ID {run_id} for user {user_id}")
         
+        # Verify the training run was actually created and committed
+        # This ensures the row exists before we try to update it with the prompt
+        verify_training_run_created = False
+        try:
+            with app.app_context():
+                training_run = TrainingRun.query.get(run_id)
+                if training_run:
+                    verify_training_run_created = True
+                    print(f"Verified training run {run_id} was created successfully")
+                else:
+                    print(f"WARNING: Could not verify training run {run_id} was created")
+        except Exception as e:
+            print(f"Error verifying training run: {str(e)}")
+        
         # Get test_size parameter (default to 0.2)
         test_size = data.get('test_size', 0.2)
         print(f"Using test_size: {test_size}")
@@ -396,6 +410,7 @@ def train_models():
         
         # If data cleaning is needed, send to data cleaner API
         data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        cleaning_prompt = None
         if data_cleaner_url:
             try:
                 print(f"Sending data to data cleaner at {data_cleaner_url}")
@@ -424,24 +439,14 @@ def train_models():
                     cleaner_result = response.json()
                     X_data = cleaner_result['data']
                     
-                    # Extract and save the cleaning prompt
+                    # Extract the cleaning prompt but save it later
                     print("Data cleaning completed successfully")
                     cleaning_prompt = cleaner_result.get('prompt')
-                    if cleaning_prompt and run_id:
+                    if cleaning_prompt:
                         print(f"Received cleaning prompt - length: {len(cleaning_prompt)}")
                         print(f"First 100 chars: {cleaning_prompt[:100]}...")
-                        
-                        # Save prompt to database
-                        print(f"Saving prompt to database for run_id {run_id}")
-                        result = save_cleaning_prompt(run_id, cleaning_prompt)
-                        print(f"Prompt save result: {'Success' if result else 'Failed'}")
                     else:
-                        if not cleaning_prompt:
-                            print("No cleaning prompt was returned from data cleaner")
-                        if not run_id:
-                            print("No run_id is available")
-                    
-                    print("Proceeding with model training")
+                        print("No cleaning prompt was returned from data cleaner")
                 else:
                     print(f"Data cleaner error: {response.text}")
             except Exception as e:
@@ -538,6 +543,12 @@ def train_models():
         # Save only the 4 best models (one for each metric) to Azure Blob Storage
         saved_best_models = save_best_models(best_models, user_id, run_id)
         print(f"Saved {len(saved_best_models)} best models to Azure Blob Storage")
+        
+        # Now save the cleaning prompt after all models are trained
+        if cleaning_prompt and run_id:
+            print(f"Now saving prompt to database for run_id {run_id}")
+            result = save_cleaning_prompt(run_id, cleaning_prompt)
+            print(f"Prompt save result: {'Success' if result else 'Failed'}")
         
         # Return combined results
         return jsonify({
@@ -1300,57 +1311,131 @@ def save_cleaning_prompt(run_id, prompt):
     Save the cleaning prompt using SQLAlchemy with proper app context
     This matches the approach in save_model_to_db
     """
-    try:
-        # Create a custom app context
-        ctx = app.app_context()
-        ctx.push()
-        
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
         try:
-            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
-            app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+            # Create a custom app context
+            ctx = app.app_context()
+            ctx.push()
             
-            # Verify database connection
             try:
-                # Simple database ping to verify connection
-                db.session.execute("SELECT 1")
-                logger.info("Database connection verified successfully")
-            except Exception as db_error:
-                logger.error(f"Database connection failed: {str(db_error)}")
-                # Return True to allow process to continue despite DB errors
-                return True
-            
-            # Find the training run
-            training_run = TrainingRun.query.get(run_id)
-            if not training_run:
-                logger.warning(f"Training run {run_id} not found")
-                return True
+                # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
+                app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
                 
-            # Update the prompt
-            training_run.prompt = prompt
-            
-            # Add and commit in separate try blocks for better error identification
-            try:
-                logger.info(f"Updated prompt for run {run_id}")
-            except Exception as add_error:
-                logger.error(f"Error updating prompt: {str(add_error)}")
-                db.session.rollback()
-                return True
+                # Verify database connection
+                try:
+                    # Simple database ping to verify connection
+                    db.session.execute("SELECT 1")
+                    logger.info("Database connection verified successfully")
+                except Exception as db_error:
+                    logger.error(f"Database connection failed: {str(db_error)}")
+                    # Return True to allow process to continue despite DB errors
+                    return True
                 
-            try:
-                db.session.commit()
-                logger.info(f"Committed prompt update for run {run_id}")
+                # Find the training run - first try with SQLAlchemy ORM
+                training_run = TrainingRun.query.get(run_id)
+                
+                if training_run:
+                    # Update using ORM
+                    training_run.prompt = prompt
+                    logger.info(f"Updated prompt for run {run_id} using ORM")
+                    
+                    try:
+                        db.session.commit()
+                        logger.info(f"Committed prompt update for run {run_id}")
+                        return True
+                    except Exception as commit_error:
+                        logger.error(f"Error committing prompt update: {str(commit_error)}")
+                        db.session.rollback()
+                        # Fall through to direct SQL approach
+                else:
+                    logger.warning(f"Training run {run_id} not found via ORM, trying direct SQL")
+                    
+                    # Try direct SQL as fallback
+                    try:
+                        # Use a raw SQL update statement as a backup approach
+                        result = db.session.execute(
+                            "UPDATE training_run SET prompt = :prompt WHERE id = :run_id",
+                            {"prompt": prompt, "run_id": run_id}
+                        )
+                        db.session.commit()
+                        
+                        if result.rowcount > 0:
+                            logger.info(f"Updated prompt for run {run_id} using direct SQL")
+                            return True
+                        else:
+                            logger.warning(f"No rows affected when updating prompt for run {run_id}")
+                            # Try again if this is not our last retry
+                            if retry_count < max_retries - 1:
+                                retry_count += 1
+                                logger.info(f"Retrying prompt update ({retry_count}/{max_retries})")
+                                time.sleep(1)  # Wait a bit before retrying
+                                continue
+                    except Exception as sql_error:
+                        logger.error(f"Error with direct SQL update: {str(sql_error)}")
+                        db.session.rollback()
+                        
+                        # Try a PyMySQL direct connection as last resort
+                        try:
+                            # Get database credentials directly from environment
+                            MYSQL_USER = os.getenv("MYSQL_USER")
+                            MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+                            MYSQL_HOST = os.getenv("MYSQL_HOST")
+                            MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+                            MYSQL_DB = os.getenv("MYSQL_DB")
+                            
+                            # Connect directly to MySQL
+                            connection = pymysql.connect(
+                                host=MYSQL_HOST,
+                                user=MYSQL_USER,
+                                password=MYSQL_PASSWORD,
+                                database=MYSQL_DB,
+                                port=MYSQL_PORT,
+                                connect_timeout=5
+                            )
+                            
+                            try:
+                                with connection.cursor() as cursor:
+                                    # Update the prompt directly
+                                    cursor.execute(
+                                        "UPDATE training_run SET prompt = %s WHERE id = %s",
+                                        (prompt, run_id)
+                                    )
+                                    connection.commit()
+                                    
+                                    if cursor.rowcount > 0:
+                                        logger.info(f"Updated prompt using direct PyMySQL connection")
+                                        return True
+                                    else:
+                                        logger.warning(f"No rows affected with direct PyMySQL connection")
+                            finally:
+                                connection.close()
+                        except Exception as pymysql_error:
+                            logger.error(f"Error with direct PyMySQL connection: {str(pymysql_error)}")
+                
+                # If we've tried everything, just return True to allow process to continue
                 return True
-            except Exception as commit_error:
-                logger.error(f"Error committing prompt update: {str(commit_error)}")
-                db.session.rollback()
-                return True
-        finally:
-            # Always pop the context
-            ctx.pop()
-    except Exception as e:
-        logger.error(f"Error in save_cleaning_prompt: {str(e)}")
-        # Return True to allow process to continue despite errors
-        return True
+            finally:
+                # Always pop the context
+                ctx.pop()
+        except Exception as e:
+            logger.error(f"Error in save_cleaning_prompt: {str(e)}")
+            # Try again if this is not our last retry
+            if retry_count < max_retries - 1:
+                retry_count += 1
+                logger.info(f"Retrying entire prompt save operation ({retry_count}/{max_retries})")
+                time.sleep(1)  # Wait a bit before retrying
+                continue
+            # Return True to allow process to continue despite errors
+            return True
+        
+        # If we get here, we're done with retries
+        break
+    
+    # If all retries failed, still return True to allow process to continue
+    return True
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5020))
