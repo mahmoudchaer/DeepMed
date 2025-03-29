@@ -107,6 +107,7 @@ def create_tables():
             id = db.Column(db.Integer, primary_key=True, autoincrement=True)
             user_id = db.Column(db.Integer, nullable=False)
             run_name = db.Column(db.String(255), nullable=False)
+            prompt = db.Column(db.Text, nullable=True)
             created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
         class TrainingModel(db.Model):

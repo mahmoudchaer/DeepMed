@@ -172,7 +172,8 @@ def create_training_run(user_id, run_name):
             # Create training run
             training_run = TrainingRun(
                 user_id=user_id,
-                run_name=run_name
+                run_name=run_name,
+                prompt=None
             )
             
             # Add and commit in separate try blocks to pinpoint errors
