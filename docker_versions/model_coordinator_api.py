@@ -547,8 +547,20 @@ def train_models():
         # Now save the cleaning prompt after all models are trained
         if cleaning_prompt and run_id:
             print(f"Now saving prompt to database for run_id {run_id}")
-            result = save_cleaning_prompt(run_id, cleaning_prompt)
-            print(f"Prompt save result: {'Success' if result else 'Failed'}")
+            # Add a small delay to ensure the database transaction for creating the run has completed
+            time.sleep(0.5)
+            # Try up to 3 times to save the prompt with increasing delays
+            for attempt in range(3):
+                try:
+                    result = save_cleaning_prompt(run_id, cleaning_prompt)
+                    print(f"Prompt save result (attempt {attempt+1}): {'Success' if result else 'Failed'}")
+                    if result:
+                        break
+                    # Increase wait time on each retry
+                    time.sleep(1 * (attempt + 1))
+                except Exception as e:
+                    print(f"Error saving prompt (attempt {attempt+1}): {str(e)}")
+                    time.sleep(1 * (attempt + 1))
         
         # Return combined results
         return jsonify({
