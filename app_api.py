@@ -594,7 +594,8 @@ def training():
                     # Create training run entry
                     training_run = TrainingRun(
                         user_id=user_id,
-                        run_name=run_name
+                        run_name=run_name,
+                        prompt=None
                     )
                     db.session.add(training_run)
                     db.session.commit()
@@ -644,8 +645,8 @@ def training():
                     
                     # Insert training run
                     cursor.execute(
-                        "INSERT INTO training_run (user_id, run_name, created_at) VALUES (%s, %s, NOW())",
-                        (user_id, run_name)
+                        "INSERT INTO training_run (user_id, run_name, prompt, created_at) VALUES (%s, %s, %s, NOW())",
+                        (user_id, run_name, None)
                     )
                     conn.commit()
                     local_run_id = cursor.lastrowid
