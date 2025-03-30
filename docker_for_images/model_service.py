@@ -45,23 +45,50 @@ def train_model(zip_file, num_classes=5, training_level=3):
         ])
         dataset = datasets.ImageFolder(root=extract_dir, transform=transform)
         
-        # Split dataset into training, validation, and test sets
-        dataset_size = len(dataset)
-        train_size = int(0.7 * dataset_size)
-        val_size = int(0.15 * dataset_size)
-        test_size = dataset_size - train_size - val_size
-        
-        train_dataset, val_dataset, test_dataset = random_split(
-            dataset, [train_size, val_size, test_size],
-            generator=torch.Generator().manual_seed(42)
-        )
-        
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-        
         # Use the user-specified number of classes
         num_classes = int(num_classes)
+        
+        # Calculate minimum dataset size needed for meaningful splits
+        # We want at least 10 samples per class for training and 3 each for val/test
+        min_samples_per_class = 16  # 10 for training + 3 for val + 3 for test
+        min_dataset_size = num_classes * min_samples_per_class
+        
+        dataset_size = len(dataset)
+        print(f"Dataset size: {dataset_size}, Minimum recommended: {min_dataset_size}")
+        
+        # Determine whether to split the dataset
+        should_split = dataset_size >= min_dataset_size
+        
+        if should_split:
+            # Split dataset into training, validation, and test sets
+            train_size = int(0.7 * dataset_size)
+            val_size = int(0.15 * dataset_size)
+            test_size = dataset_size - train_size - val_size
+            
+            train_dataset, val_dataset, test_dataset = random_split(
+                dataset, [train_size, val_size, test_size],
+                generator=torch.Generator().manual_seed(42)
+            )
+            
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+            
+            print(f"Split dataset: Train={train_size}, Validation={val_size}, Test={test_size}")
+        else:
+            # Use the entire dataset for training and evaluation
+            train_size = dataset_size
+            val_size = 0
+            test_size = 0
+            
+            train_dataset = dataset
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            
+            # Create empty loaders for validation and testing
+            # We'll use the training set for evaluation when these are empty
+            val_loader = test_loader = None
+            
+            print(f"Using entire dataset ({dataset_size} images) for both training and evaluation")
         
         # Load EfficientNet-B0 with pretrained weights
         model = models.efficientnet_b0(pretrained=True)
@@ -108,28 +135,35 @@ def train_model(zip_file, num_classes=5, training_level=3):
             epoch_losses.append(train_loss)
             
             # Validation phase
-            model.eval()
-            val_loss = 0.0
-            val_correct = 0
-            val_total = 0
-            
-            with torch.no_grad():
-                for images, labels in val_loader:
-                    images, labels = images.to(device), labels.to(device)
-                    outputs = model(images)
-                    loss = criterion(outputs, labels)
-                    val_loss += loss.item()
-                    
-                    # Calculate validation accuracy
-                    _, predicted = torch.max(outputs.data, 1)
-                    val_total += labels.size(0)
-                    val_correct += (predicted == labels).sum().item()
-            
-            val_loss = val_loss / len(val_loader)
-            val_acc = 100 * val_correct / val_total
+            if should_split and val_loader:
+                model.eval()
+                val_loss = 0.0
+                val_correct = 0
+                val_total = 0
+                
+                with torch.no_grad():
+                    for images, labels in val_loader:
+                        images, labels = images.to(device), labels.to(device)
+                        outputs = model(images)
+                        loss = criterion(outputs, labels)
+                        val_loss += loss.item()
+                        
+                        # Calculate validation accuracy
+                        _, predicted = torch.max(outputs.data, 1)
+                        val_total += labels.size(0)
+                        val_correct += (predicted == labels).sum().item()
+                
+                val_loss = val_loss / len(val_loader)
+                val_acc = 100 * val_correct / val_total
+            else:
+                # Use training metrics as validation metrics when no separate validation set
+                val_loss = train_loss
+                val_acc = train_acc
+                
             val_losses.append(val_loss)
             
-            print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+            print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%" + 
+                 (f", Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%" if should_split else ""))
             
             # Save the best model based on validation loss
             if val_loss < best_val_loss:
@@ -141,25 +175,30 @@ def train_model(zip_file, num_classes=5, training_level=3):
             model.load_state_dict(best_model_state)
         
         # Test phase
-        model.eval()
-        test_loss = 0.0
-        test_correct = 0
-        test_total = 0
-        
-        with torch.no_grad():
-            for images, labels in test_loader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-                test_loss += loss.item()
-                
-                # Calculate test accuracy
-                _, predicted = torch.max(outputs.data, 1)
-                test_total += labels.size(0)
-                test_correct += (predicted == labels).sum().item()
-        
-        test_loss = test_loss / len(test_loader)
-        test_acc = 100 * test_correct / test_total
+        if should_split and test_loader:
+            model.eval()
+            test_loss = 0.0
+            test_correct = 0
+            test_total = 0
+            
+            with torch.no_grad():
+                for images, labels in test_loader:
+                    images, labels = images.to(device), labels.to(device)
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    test_loss += loss.item()
+                    
+                    # Calculate test accuracy
+                    _, predicted = torch.max(outputs.data, 1)
+                    test_total += labels.size(0)
+                    test_correct += (predicted == labels).sum().item()
+            
+            test_loss = test_loss / len(test_loader)
+            test_acc = 100 * test_correct / test_total
+        else:
+            # Use training metrics as test metrics when no separate test set
+            test_loss = train_loss
+            test_acc = train_acc
         
         # Calculate final metrics
         final_metrics = {
@@ -178,7 +217,8 @@ def train_model(zip_file, num_classes=5, training_level=3):
             "num_train_images": train_size,
             "num_val_images": val_size,
             "num_test_images": test_size,
-            "training_level": training_level
+            "training_level": training_level,
+            "data_was_split": should_split
         }
         
         # Save the trained model to an in-memory bytes object
