@@ -2127,20 +2127,42 @@ def process_augmentation():
         if not is_service_available(f"{AUGMENTATION_SERVICE_URL}/health"):
             return jsonify({"error": "Augmentation service is not available. Please try again later."}), 503
         
-        # Prepare the request to the augmentation service
-        files = {'zipFile': (zip_file.filename, zip_file.stream, zip_file.mimetype)}
-        data = {
-            'level': level,
-            'numAugmentations': num_augmentations
-        }
+        logger.info(f"Starting augmentation process for file: {zip_file.filename}")
         
-        # Forward the request to the augmentation service
-        response = requests.post(
-            f"{AUGMENTATION_SERVICE_URL}/augment",
-            files=files,
-            data=data,
-            stream=True  # Stream the response to handle large files
-        )
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create a proper multipart request
+        with open(temp_file.name, 'rb') as f:
+            # Setup multipart form data with optimized buffering for large files
+            m = MultipartEncoder(
+                fields={
+                    'zipFile': (zip_file.filename, f, 'application/zip'),
+                    'level': level,
+                    'numAugmentations': num_augmentations
+                }
+            )
+            
+            # Forward the request to the augmentation service
+            headers = {
+                'Content-Type': m.content_type
+            }
+            
+            # Stream the upload to the service and stream the response back
+            response = requests.post(
+                f"{AUGMENTATION_SERVICE_URL}/augment",
+                data=m,
+                headers=headers,
+                stream=True
+            )
+        
+        # Clean up temporary file
+        try:
+            os.unlink(temp_file.name)
+        except:
+            pass
         
         # If there's an error, return it
         if response.status_code != 200:
@@ -2151,17 +2173,32 @@ def process_augmentation():
                     error_msg = error_data.get('error', error_msg)
                 except:
                     pass
+            logger.error(f"Augmentation service returned error: {error_msg}")
             return jsonify({"error": error_msg}), response.status_code
         
-        # Stream the response back to the client
+        # Create a file-like object from the response content
+        result = io.BytesIO()
+        
+        # Stream the response in chunks
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                result.write(chunk)
+        
+        # Reset the file pointer to the beginning
+        result.seek(0)
+        
+        # Log successful completion
+        logger.info(f"Augmentation process completed for file: {zip_file.filename}")
+        
+        # Return the augmented dataset
         return send_file(
-            io.BytesIO(response.content),
+            result,
             mimetype='application/zip',
             as_attachment=True,
             download_name='augmented_dataset.zip'
         )
     except Exception as e:
-        logging.error(f"Error in augmentation process: {str(e)}")
+        logger.error(f"Error in augmentation process: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 def is_service_available(url):

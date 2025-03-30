@@ -13,6 +13,7 @@
                     <h4>Image Data Augmentation</h4>
                     <p>Upload a ZIP file containing image data organized in folders by class to augment your dataset.</p>
                     <p>The service will generate additional images with variations to help improve model training.</p>
+                    <p><strong>Note:</strong> All processing is performed on the server for optimal performance.</p>
                 </div>
             </div>
         </div>
@@ -137,6 +138,15 @@
             statusMessage.textContent = 'Uploading and processing your dataset...';
             progressBar.style.width = '10%';
             
+            // Set progress update interval for server processing
+            let progress = 10;
+            let progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.floor(Math.random() * 5) + 1;
+                    progressBar.style.width = `${progress}%`;
+                }
+            }, 2000);
+            
             // Send request to server
             fetch('/augment/process', {
                 method: 'POST',
@@ -146,6 +156,9 @@
                 }
             })
             .then(response => {
+                // Clear progress interval
+                clearInterval(progressInterval);
+                
                 if (!response.ok) {
                     if (response.headers.get('Content-Type').includes('application/json')) {
                         return response.json().then(data => {
@@ -188,6 +201,8 @@
                 });
             })
             .catch(error => {
+                // Clear progress interval
+                clearInterval(progressInterval);
                 showError(error.message || 'An unexpected error occurred');
             });
         });
