@@ -208,6 +208,9 @@ def api_train_model():
         # Train the model on the provided data
         model_bytes, metrics = train_model(zip_file, num_classes=num_classes, training_level=training_level)
         
+        # Log metrics for debugging
+        print(f"Training metrics: {metrics}")
+        
         # Create a response with both the model file and metrics
         response = Response(model_bytes.getvalue())
         response.headers["Content-Type"] = "application/octet-stream"
@@ -215,6 +218,16 @@ def api_train_model():
         
         # Add metrics as a JSON string in a custom header
         response.headers["X-Training-Metrics"] = json.dumps(metrics)
+        
+        # Add CORS headers to ensure all custom headers are exposed
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
+        
+        # Log header information
+        print("Response headers set:")
+        for header, value in response.headers.items():
+            print(f"  {header}: {value[:100]}{'...' if len(str(value)) > 100 else ''}")
         
         return response
     except Exception as e:

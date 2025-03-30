@@ -28,13 +28,23 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => {
             // Extract metrics from headers
             let metrics = {};
-            if (response.headers.has('X-Training-Metrics')) {
-                try {
-                    metrics = JSON.parse(response.headers.get('X-Training-Metrics'));
-                } catch (error) {
-                    console.error('Error parsing metrics:', error);
+            
+            // Log all headers for debugging
+            console.log('Response headers:');
+            response.headers.forEach((value, name) => {
+                console.log(`${name}: ${value}`);
+                // Check for metrics in any header that might contain them
+                if (name.toLowerCase().includes('metrics') || name.toLowerCase().includes('training')) {
+                    try {
+                        const parsedValue = JSON.parse(value);
+                        if (typeof parsedValue === 'object') {
+                            metrics = parsedValue;
+                        }
+                    } catch (error) {
+                        console.error(`Error parsing ${name} header:`, error);
+                    }
                 }
-            }
+            });
             
             if (!response.ok) {
                 return response.json().then(errData => { throw new Error(errData.error || 'Training failed'); });
@@ -65,12 +75,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Main metrics in first column
                 metricsHtml += '<div class="col-md-6"><h6>Training Results:</h6><ul class="list-group">';
+                
+                // Check for different possible metric names
                 if ('training_accuracy' in metrics) {
-                    metricsHtml += `<li class="list-group-item">Accuracy: ${metrics.training_accuracy.toFixed(2)}%</li>`;
+                    metricsHtml += `<li class="list-group-item">Training Accuracy: ${metrics.training_accuracy.toFixed(2)}%</li>`;
+                } else if ('train_accuracy' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Training Accuracy: ${metrics.train_accuracy.toFixed(2)}%</li>`;
                 }
-                if ('final_loss' in metrics) {
+                
+                if ('validation_accuracy' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Validation Accuracy: ${metrics.validation_accuracy.toFixed(2)}%</li>`;
+                } else if ('val_accuracy' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Validation Accuracy: ${metrics.val_accuracy.toFixed(2)}%</li>`;
+                }
+                
+                if ('test_accuracy' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Test Accuracy: ${metrics.test_accuracy.toFixed(2)}%</li>`;
+                }
+                
+                if ('final_train_loss' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Final Training Loss: ${metrics.final_train_loss.toFixed(4)}</li>`;
+                } else if ('final_loss' in metrics) {
                     metricsHtml += `<li class="list-group-item">Final Loss: ${metrics.final_loss.toFixed(4)}</li>`;
                 }
+                
+                if ('final_val_loss' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Validation Loss: ${metrics.final_val_loss.toFixed(4)}</li>`;
+                }
+                
+                if ('test_loss' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Test Loss: ${metrics.test_loss.toFixed(4)}</li>`;
+                }
+                
                 metricsHtml += '</ul></div>';
                 
                 // Parameters in second column
@@ -78,20 +114,51 @@ document.addEventListener('DOMContentLoaded', function() {
                 if ('num_classes' in metrics) {
                     metricsHtml += `<li class="list-group-item">Classes: ${metrics.num_classes}</li>`;
                 }
-                if ('num_images' in metrics) {
+                
+                if ('num_total_images' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Total Images: ${metrics.num_total_images}</li>`;
+                } else if ('num_images' in metrics) {
                     metricsHtml += `<li class="list-group-item">Images Processed: ${metrics.num_images}</li>`;
                 }
+                
+                if ('num_train_images' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Training Images: ${metrics.num_train_images}</li>`;
+                }
+                
+                if ('num_val_images' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Validation Images: ${metrics.num_val_images}</li>`;
+                }
+                
+                if ('num_test_images' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Test Images: ${metrics.num_test_images}</li>`;
+                }
+                
                 if ('epochs' in metrics) {
                     metricsHtml += `<li class="list-group-item">Epochs: ${metrics.epochs}</li>`;
                 }
+                
+                if ('batch_size' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Batch Size: ${metrics.batch_size}</li>`;
+                }
+                
                 if ('device' in metrics) {
                     metricsHtml += `<li class="list-group-item">Device: ${metrics.device}</li>`;
                 }
+                
+                if ('learning_rate' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Learning Rate: ${metrics.learning_rate}</li>`;
+                }
+                
+                if ('training_level' in metrics) {
+                    metricsHtml += `<li class="list-group-item">Training Level: ${metrics.training_level}</li>`;
+                }
+                
                 metricsHtml += '</ul></div>';
                 
                 metricsHtml += '</div>'; // End row
             } else {
-                metricsHtml += '<p>No metrics available</p>';
+                console.warn('No metrics available or metrics object is empty', metrics);
+                metricsHtml += '<p>No metrics available. This could happen if the model training service did not return complete metrics information.</p>';
             }
             
             metricsHtml += '</div>'; // End card-body
