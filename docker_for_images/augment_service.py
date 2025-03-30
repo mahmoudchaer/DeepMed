@@ -5,8 +5,12 @@ import tempfile
 from flask import Flask, request, jsonify, send_file
 from data_augmentation import ClassificationDatasetAugmentor
 import traceback
+import atexit
 
 app = Flask(__name__)
+
+# Track temp files for cleanup
+temp_files = []
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -48,9 +52,15 @@ def augment_dataset():
         zip_file.save(temp_input_zip.name)
         temp_input_zip.close()
         
+        # Add to the list of files to clean up
+        temp_files.append(temp_input_zip.name)
+        
         # Create a temporary output zip file
         temp_output_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
         temp_output_zip.close()
+        
+        # Add to the list of files to clean up
+        temp_files.append(temp_output_zip.name)
         
         # Initialize the augmentor
         augmentor = ClassificationDatasetAugmentor(
@@ -68,28 +78,44 @@ def augment_dataset():
             num_augmentations=num_augmentations
         )
         
-        # Return the augmented dataset
+        # Read the file into memory
+        with open(temp_output_zip.name, 'rb') as f:
+            file_data = io.BytesIO(f.read())
+        
+        # Clean up the temporary files immediately
+        cleanup_temp_files([temp_input_zip.name, temp_output_zip.name])
+        
+        # Return the file from memory
         return send_file(
-            temp_output_zip.name,
+            file_data,
             mimetype='application/zip',
             as_attachment=True,
-            download_name='augmented_dataset.zip',
-            # Clean up temporary files after sending
-            after_request=lambda: cleanup_temp_files([temp_input_zip.name, temp_output_zip.name])
+            download_name='augmented_dataset.zip'
         )
     except Exception as e:
         error_msg = traceback.format_exc()
         print(f"Error: {error_msg}")
         return jsonify({"error": str(e), "details": error_msg}), 500
 
-def cleanup_temp_files(file_list):
+def cleanup_temp_files(file_list=None):
     """Clean up temporary files"""
+    global temp_files
+    
+    if file_list is None:
+        file_list = temp_files
+    
     for file_path in file_list:
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
+                if file_path in temp_files:
+                    temp_files.remove(file_path)
+                print(f"Cleaned up temporary file: {file_path}")
         except Exception as e:
             print(f"Error cleaning up {file_path}: {e}")
+
+# Register cleanup function to run at exit
+atexit.register(cleanup_temp_files)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5023))
