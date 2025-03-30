@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import models, transforms, datasets
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 app = Flask(__name__)
 
@@ -44,7 +44,21 @@ def train_model(zip_file, num_classes=5, training_level=3):
             transforms.ToTensor(),
         ])
         dataset = datasets.ImageFolder(root=extract_dir, transform=transform)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        
+        # Split dataset into training, validation, and test sets
+        dataset_size = len(dataset)
+        train_size = int(0.7 * dataset_size)
+        val_size = int(0.15 * dataset_size)
+        test_size = dataset_size - train_size - val_size
+        
+        train_dataset, val_dataset, test_dataset = random_split(
+            dataset, [train_size, val_size, test_size],
+            generator=torch.Generator().manual_seed(42)
+        )
+        
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
         
         # Use the user-specified number of classes
         num_classes = int(num_classes)
@@ -63,15 +77,19 @@ def train_model(zip_file, num_classes=5, training_level=3):
         
         # Track metrics during training
         epoch_losses = []
+        val_losses = []
+        best_val_loss = float('inf')
+        best_model_state = None
         final_metrics = {}
         
-        model.train()
         for epoch in range(epochs):
+            # Training phase
+            model.train()
             running_loss = 0.0
             correct = 0
             total = 0
             
-            for images, labels in dataloader:
+            for images, labels in train_loader:
                 images, labels = images.to(device), labels.to(device)
                 optimizer.zero_grad()
                 outputs = model(images)
@@ -80,27 +98,86 @@ def train_model(zip_file, num_classes=5, training_level=3):
                 optimizer.step()
                 running_loss += loss.item()
                 
-                # Calculate accuracy
+                # Calculate training accuracy
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
             
-            epoch_loss = running_loss/len(dataloader)
-            epoch_acc = 100 * correct / total
-            epoch_losses.append(epoch_loss)
+            train_loss = running_loss/len(train_loader)
+            train_acc = 100 * correct / total
+            epoch_losses.append(train_loss)
             
-            print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%")
+            # Validation phase
+            model.eval()
+            val_loss = 0.0
+            val_correct = 0
+            val_total = 0
+            
+            with torch.no_grad():
+                for images, labels in val_loader:
+                    images, labels = images.to(device), labels.to(device)
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    val_loss += loss.item()
+                    
+                    # Calculate validation accuracy
+                    _, predicted = torch.max(outputs.data, 1)
+                    val_total += labels.size(0)
+                    val_correct += (predicted == labels).sum().item()
+            
+            val_loss = val_loss / len(val_loader)
+            val_acc = 100 * val_correct / val_total
+            val_losses.append(val_loss)
+            
+            print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+            
+            # Save the best model based on validation loss
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_state = model.state_dict()
+        
+        # Load the best model for final testing
+        if best_model_state is not None:
+            model.load_state_dict(best_model_state)
+        
+        # Test phase
+        model.eval()
+        test_loss = 0.0
+        test_correct = 0
+        test_total = 0
+        
+        with torch.no_grad():
+            for images, labels in test_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                test_loss += loss.item()
+                
+                # Calculate test accuracy
+                _, predicted = torch.max(outputs.data, 1)
+                test_total += labels.size(0)
+                test_correct += (predicted == labels).sum().item()
+        
+        test_loss = test_loss / len(test_loader)
+        test_acc = 100 * test_correct / test_total
         
         # Calculate final metrics
         final_metrics = {
-            "final_loss": epoch_losses[-1],
-            "training_accuracy": epoch_acc,
+            "final_train_loss": epoch_losses[-1],
+            "final_val_loss": val_losses[-1],
+            "test_loss": test_loss,
+            "train_accuracy": train_acc,
+            "validation_accuracy": val_acc,
+            "test_accuracy": test_acc,
             "epochs": epochs,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
             "device": str(device),
             "num_classes": num_classes,
-            "num_images": len(dataset),
+            "num_total_images": dataset_size,
+            "num_train_images": train_size,
+            "num_val_images": val_size,
+            "num_test_images": test_size,
             "training_level": training_level
         }
         
