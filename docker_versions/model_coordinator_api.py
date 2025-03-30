@@ -248,6 +248,22 @@ def save_model_to_db(user_id, run_id, model_name, model_url, filename=None):
             # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
+            # Force using host.docker.internal for testing
+            MYSQL_USER = os.getenv("MYSQL_USER")
+            MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+            MYSQL_PORT = os.getenv("MYSQL_PORT")
+            MYSQL_DB = os.getenv("MYSQL_DB")
+            
+            # Hardcode the host for testing
+            MYSQL_HOST = "host.docker.internal"
+            
+            # URL encode the password
+            import urllib.parse
+            encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+            
+            # Configure connection string with hardcoded host
+            app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+            
             # Verify database connection
             try:
                 # Simple database ping to verify connection
@@ -1316,65 +1332,90 @@ def save_cleaning_prompt(run_id, prompt):
         ctx.push()
         
         try:
-            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
-            app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-            
             # Force using host.docker.internal for testing
             MYSQL_USER = os.getenv("MYSQL_USER")
             MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
             MYSQL_PORT = os.getenv("MYSQL_PORT")
             MYSQL_DB = os.getenv("MYSQL_DB")
             
-            # Override host with hardcoded value for testing
+            # Always hardcode the host to host.docker.internal
             MYSQL_HOST = "host.docker.internal"
+            
+            print(f"DEBUG: Directly connecting to MySQL at {MYSQL_HOST}:{MYSQL_PORT}")
+            
+            # Create a direct connection to verify it's accessible
+            try:
+                # Direct connection test
+                connection = pymysql.connect(
+                    host=MYSQL_HOST,
+                    user=MYSQL_USER,
+                    password=MYSQL_PASSWORD,
+                    database=MYSQL_DB,
+                    port=int(MYSQL_PORT),
+                    connect_timeout=5
+                )
+                
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    print(f"DEBUG: Direct MySQL connection test successful")
+                    
+                    # Update directly with raw PyMySQL
+                    cursor.execute("UPDATE training_run SET prompt = %s WHERE id = %s", (prompt, run_id))
+                    connection.commit()
+                    print(f"DEBUG: Directly updated prompt for run {run_id}")
+                    connection.close()
+                    return True
+                    
+            except Exception as direct_error:
+                print(f"DEBUG: Direct MySQL connection failed: {str(direct_error)}")
+                # Fall through to SQLAlchemy method
             
             # URL encode the password
             import urllib.parse
             encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
             
             # Configure connection string with hardcoded host
-            app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+            new_uri = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+            print(f"DEBUG: Setting SQLAlchemy URI to: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
+            app.config['SQLALCHEMY_DATABASE_URI'] = new_uri
+            
+            # Re-initialize the db with the app to apply the new connection string
+            print("DEBUG: Re-initializing database connection")
+            db.init_app(app)
             
             # Verify database connection
             try:
                 # Simple database ping to verify connection
                 db.session.execute("SELECT 1")
-                logger.info("Database connection verified successfully")
+                print("DEBUG: SQLAlchemy database connection verified successfully")
             except Exception as db_error:
-                logger.error(f"Database connection failed: {str(db_error)}")
-                # Still return True to allow process to continue
+                print(f"DEBUG: SQLAlchemy database connection failed: {str(db_error)}")
+                # Return True to allow process to continue
                 return True
             
             # Find the training run
             training_run = TrainingRun.query.get(run_id)
             if not training_run:
-                logger.warning(f"Training run {run_id} not found")
+                print(f"DEBUG: Training run {run_id} not found in database")
                 return True
                 
             # Update the prompt
+            print(f"DEBUG: Found training run {run_id}, updating prompt")
             training_run.prompt = prompt
             
-            # Add and commit in separate try blocks for better error identification
-            try:
-                logger.info(f"Updated prompt for run {run_id}")
-            except Exception as add_error:
-                logger.error(f"Error updating prompt: {str(add_error)}")
-                db.session.rollback()
-                return True
-                
             try:
                 db.session.commit()
-                logger.info(f"Committed prompt update for run {run_id}")
+                print(f"DEBUG: Successfully committed prompt update for run {run_id}")
                 return True
             except Exception as commit_error:
-                logger.error(f"Error committing prompt update: {str(commit_error)}")
+                print(f"DEBUG: Error committing prompt update: {str(commit_error)}")
                 db.session.rollback()
                 return True
         finally:
             # Always pop the context
             ctx.pop()
     except Exception as e:
-        logger.error(f"Error in save_cleaning_prompt: {str(e)}")
+        print(f"DEBUG: Error in save_cleaning_prompt: {str(e)}")
         # Still return True to allow process to continue
         return True
 
