@@ -1989,8 +1989,14 @@ def api_train_model():
         if 'X-Training-Metrics' in response.headers:
             try:
                 metrics = json.loads(response.headers['X-Training-Metrics'])
-            except:
-                logger.error("Failed to parse metrics from model service response")
+                logger.info(f"Successfully parsed metrics from model service: {metrics}")
+            except Exception as e:
+                logger.error(f"Failed to parse metrics from model service response: {str(e)}")
+                
+        # Debug log all response headers
+        logger.info("All headers from model service response:")
+        for header, value in response.headers.items():
+            logger.info(f"  {header}: {value[:100]}{'...' if len(value) > 100 else ''}")
         
         # Create a response with both the model file and metrics
         flask_response = Response(response.content)
@@ -2000,6 +2006,15 @@ def api_train_model():
         # Add metrics header if available
         if metrics:
             flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
+            # Debug log to verify metrics are being added to the response
+            logger.info(f"Added X-Training-Metrics header to response: {metrics}")
+        else:
+            logger.warning("No metrics available to add to response headers")
+            
+        # Check for Access-Control-Expose-Headers and add it if needed
+        if 'Access-Control-Expose-Headers' not in flask_response.headers:
+            flask_response.headers['Access-Control-Expose-Headers'] = 'X-Training-Metrics'
+            logger.info("Added Access-Control-Expose-Headers to response")
         
         return flask_response
     except Exception as e:
