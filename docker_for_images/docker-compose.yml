@@ -15,6 +15,21 @@ services:
     networks:
       - deepmed-network
 
+  augmentation-service:
+    build:
+      context: .
+      dockerfile: Dockerfile_augment
+    ports:
+      - "5023:5023"
+    restart: unless-stopped
+    volumes:
+      - ./data_augmentation.py:/app/data_augmentation.py
+      - ./augment_service.py:/app/augment_service.py
+    environment:
+      - PORT=5023
+    networks:
+      - deepmed-network
+
 networks:
   deepmed-network:
     driver: bridge 

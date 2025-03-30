@@ -67,6 +67,7 @@ FEATURE_SELECTOR_URL = "http://localhost:5002"
 ANOMALY_DETECTOR_URL = "http://localhost:5003"
 MODEL_COORDINATOR_URL = "http://localhost:5020"  # New model coordinator URL instead of MODEL_TRAINER_URL
 MEDICAL_ASSISTANT_URL = "http://localhost:5005"
+AUGMENTATION_SERVICE_URL = "http://localhost:5023"
 
 # Update service URLs dictionary with proper health endpoints
 SERVICES = {
@@ -74,7 +75,8 @@ SERVICES = {
     "Feature Selector": {"url": FEATURE_SELECTOR_URL, "endpoint": "/health"},
     "Anomaly Detector": {"url": ANOMALY_DETECTOR_URL, "endpoint": "/health"},
     "Model Coordinator": {"url": MODEL_COORDINATOR_URL, "endpoint": "/health"},
-    "Medical Assistant": {"url": MEDICAL_ASSISTANT_URL, "endpoint": "/health"}
+    "Medical Assistant": {"url": MEDICAL_ASSISTANT_URL, "endpoint": "/health"},
+    "Augmentation Service": {"url": AUGMENTATION_SERVICE_URL, "endpoint": "/health"}
 }
 
 # Setup Flask app
@@ -198,7 +200,8 @@ def check_services():
         "Feature Selector": FEATURE_SELECTOR_URL,
         "Anomaly Detector": ANOMALY_DETECTOR_URL,
         "Model Coordinator": MODEL_COORDINATOR_URL,
-        "Medical Assistant": MEDICAL_ASSISTANT_URL
+        "Medical Assistant": MEDICAL_ASSISTANT_URL,
+        "Augmentation Service": AUGMENTATION_SERVICE_URL
     }
     
     status = {}
@@ -2080,6 +2083,93 @@ def ensure_training_models_saved(user_id, run_id, model_result):
             
     except Exception as e:
         logger.error(f"Error ensuring training models are saved: {str(e)}")
+        return False
+
+@app.route('/augment')
+@login_required
+def augment():
+    """Route for data augmentation page"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the data augmentation page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    return render_template('augment.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/augment/process', methods=['POST'])
+@login_required
+def process_augmentation():
+    """Process dataset augmentation and return results"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+        
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
+    # Get form parameters
+    level = request.form.get('level', '3')
+    num_augmentations = request.form.get('numAugmentations', '2')
+    
+    try:
+        # Check if the augmentation service is available
+        if not is_service_available(f"{AUGMENTATION_SERVICE_URL}/health"):
+            return jsonify({"error": "Augmentation service is not available. Please try again later."}), 503
+        
+        # Prepare the request to the augmentation service
+        files = {'zipFile': (zip_file.filename, zip_file.stream, zip_file.mimetype)}
+        data = {
+            'level': level,
+            'numAugmentations': num_augmentations
+        }
+        
+        # Forward the request to the augmentation service
+        response = requests.post(
+            f"{AUGMENTATION_SERVICE_URL}/augment",
+            files=files,
+            data=data,
+            stream=True  # Stream the response to handle large files
+        )
+        
+        # If there's an error, return it
+        if response.status_code != 200:
+            error_msg = "Error from augmentation service"
+            if response.headers.get('Content-Type') == 'application/json':
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', error_msg)
+                except:
+                    pass
+            return jsonify({"error": error_msg}), response.status_code
+        
+        # Stream the response back to the client
+        return send_file(
+            io.BytesIO(response.content),
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='augmented_dataset.zip'
+        )
+    except Exception as e:
+        logging.error(f"Error in augmentation process: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+def is_service_available(url):
+    """Check if a service endpoint is available"""
+    try:
+        response = requests.get(url, timeout=2)
+        return response.status_code == 200
+    except:
         return False
 
 if __name__ == '__main__':

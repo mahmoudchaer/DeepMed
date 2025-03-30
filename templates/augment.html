@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Data Augmentation{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Data Augmentation</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Image Data Augmentation</h4>
+                    <p>Upload a ZIP file containing image data organized in folders by class to augment your dataset.</p>
+                    <p>The service will generate additional images with variations to help improve model training.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Dataset</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="augmentForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="zipFile" class="form-label">Dataset ZIP File</label>
+                                <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                                <div class="form-text">ZIP file containing folders of images (one folder per class)</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="level" class="form-label">Augmentation Level</label>
+                                <select class="form-select" id="level" name="level">
+                                    <option value="1">Level 1 - Light (minimal changes)</option>
+                                    <option value="2">Level 2 - Moderate (slight geometric and color changes)</option>
+                                    <option value="3" selected>Level 3 - Medium (more geometric and color changes)</option>
+                                    <option value="4">Level 4 - Strong (significant changes)</option>
+                                    <option value="5">Level 5 - Very Strong (extreme changes)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="numAugmentations" class="form-label">Augmentations Per Image</label>
+                                <input type="number" class="form-control" id="numAugmentations" name="numAugmentations" min="1" max="10" value="2">
+                                <div class="form-text">Number of augmented versions to create for each image (1-10)</div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary w-100" id="augmentButton">
+                                <i class="fas fa-magic me-2"></i>Augment Dataset
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Augmentation Process</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusBox" class="d-none">
+                            <div class="alert alert-info mb-3">
+                                <span id="statusMessage">Processing your dataset...</span>
+                            </div>
+                            
+                            <div class="progress mb-3">
+                                <div id="augmentProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            
+                            <div id="resultMessage" class="d-none alert alert-success">
+                                <p>Augmentation complete! <a id="downloadLink" href="#" class="alert-link">Download augmented dataset</a></p>
+                            </div>
+                        </div>
+                        
+                        <div id="initialInfo">
+                            <h5>Augmentation Levels Explained:</h5>
+                            <ul class="list-group mb-3">
+                                <li class="list-group-item"><strong>Level 1:</strong> Basic flips and minimal brightness/contrast changes</li>
+                                <li class="list-group-item"><strong>Level 2:</strong> Flips, slight rotations, and moderate brightness/contrast</li>
+                                <li class="list-group-item"><strong>Level 3:</strong> More rotation, scaling, shifting, and color adjustments</li>
+                                <li class="list-group-item"><strong>Level 4:</strong> Elastic transforms, noise, and significant geometric changes</li>
+                                <li class="list-group-item"><strong>Level 5:</strong> Maximum variation with all possible transforms</li>
+                            </ul>
+                            
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Higher levels create more diverse images but may introduce artifacts or unrealistic variations.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('augmentForm');
+        const augmentButton = document.getElementById('augmentButton');
+        const statusBox = document.getElementById('statusBox');
+        const initialInfo = document.getElementById('initialInfo');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressBar = document.getElementById('augmentProgress');
+        const resultMessage = document.getElementById('resultMessage');
+        const downloadLink = document.getElementById('downloadLink');
+        
+        // Function to show error message
+        function showError(message) {
+            statusBox.classList.remove('d-none');
+            initialInfo.classList.add('d-none');
+            statusMessage.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+            augmentButton.disabled = false;
+            augmentButton.innerHTML = '<i class="fas fa-magic me-2"></i>Augment Dataset';
+        }
+        
+        // Handle form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(form);
+            
+            // Show status box and hide initial info
+            statusBox.classList.remove('d-none');
+            initialInfo.classList.add('d-none');
+            resultMessage.classList.add('d-none');
+            
+            // Update button and status
+            augmentButton.disabled = true;
+            augmentButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            statusMessage.textContent = 'Uploading and processing your dataset...';
+            progressBar.style.width = '10%';
+            
+            // Send request to server
+            fetch('/augment/process', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.headers.get('Content-Type').includes('application/json')) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Augmentation failed');
+                        });
+                    }
+                    throw new Error('Network response was not ok');
+                }
+                
+                // Check if response is JSON (error) or blob (file)
+                const contentType = response.headers.get('Content-Type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json().then(data => {
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+                        return data;
+                    });
+                }
+                
+                // It's a file download
+                return response.blob().then(blob => {
+                    // Create object URL for the blob
+                    const url = window.URL.createObjectURL(blob);
+                    
+                    // Update download link
+                    downloadLink.href = url;
+                    downloadLink.download = "augmented_dataset.zip";
+                    
+                    // Show success message
+                    progressBar.style.width = '100%';
+                    statusMessage.textContent = 'Augmentation completed successfully!';
+                    resultMessage.classList.remove('d-none');
+                    
+                    // Re-enable button
+                    augmentButton.disabled = false;
+                    augmentButton.innerHTML = '<i class="fas fa-magic me-2"></i>Augment Dataset';
+                    
+                    return { success: true };
+                });
+            })
+            .catch(error => {
+                showError(error.message || 'An unexpected error occurred');
+            });
+        });
+    });
+</script>
+{% endblock %} 
