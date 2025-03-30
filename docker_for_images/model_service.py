@@ -49,8 +49,8 @@ def train_model(zip_file, num_classes=5, training_level=3):
         num_classes = int(num_classes)
         
         # Calculate minimum dataset size needed for meaningful splits
-        # We want at least 10 samples per class for training and 3 each for val/test
-        min_samples_per_class = 16  # 10 for training + 3 for val + 3 for test
+        # We want at least 30 samples per class for training and 10 each for val/test
+        min_samples_per_class = 50  # 30 for training + 10 for val + 10 for test
         min_dataset_size = num_classes * min_samples_per_class
         
         dataset_size = len(dataset)
