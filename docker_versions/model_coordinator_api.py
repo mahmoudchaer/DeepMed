@@ -240,55 +240,75 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
 def save_model_to_db(user_id, run_id, model_name, model_url, filename=None):
     """Save model reference to database"""
     try:
-        # Get database credentials directly from environment
-        MYSQL_USER = os.getenv("MYSQL_USER")
-        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-        MYSQL_HOST = os.getenv("MYSQL_HOST")
-        MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-        MYSQL_DB = os.getenv("MYSQL_DB")
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
         
-        logger.info(f"Saving model {model_name} to database at {MYSQL_HOST}:{MYSQL_PORT}")
-        
-        # Extract filename from URL if not provided
-        if filename is None and model_url:
-            # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
-            filename = model_url.split('/')[-1]
-            
-        # Try direct PyMySQL connection first
         try:
-            connection = pymysql.connect(
-                host=MYSQL_HOST,
-                user=MYSQL_USER,
-                password=MYSQL_PASSWORD,
-                database=MYSQL_DB,
-                port=MYSQL_PORT,
-                connect_timeout=10
+            # Ensure SQLALCHEMY_TRACK_MODIFICATIONS is set
+            app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+            
+            # Force using host.docker.internal for testing
+            MYSQL_USER = os.getenv("MYSQL_USER")
+            MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+            MYSQL_PORT = os.getenv("MYSQL_PORT")
+            MYSQL_DB = os.getenv("MYSQL_DB")
+            
+            # Hardcode the host for testing
+            MYSQL_HOST = "host.docker.internal"
+            
+            # URL encode the password
+            import urllib.parse
+            encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+            
+            # Configure connection string with hardcoded host
+            app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+            
+            # Verify database connection
+            try:
+                # Simple database ping to verify connection
+                db.session.execute("SELECT 1")
+                logger.info("Database connection verified successfully")
+            except Exception as db_error:
+                logger.error(f"Database connection failed: {str(db_error)}")
+                # Still return True since the model is in blob storage even if DB failed
+                return True
+            
+            # If filename is None, extract it from the URL
+            if filename is None and model_url:
+                # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
+                filename = model_url.split('/')[-1]
+            
+            # Create model record
+            model_record = TrainingModel(
+                user_id=user_id,
+                run_id=run_id,
+                model_name=model_name,
+                model_url=model_url,
+                file_name=filename
             )
             
-            with connection.cursor() as cursor:
-                # Insert the model record
-                cursor.execute(
-                    """
-                    INSERT INTO training_model 
-                    (user_id, run_id, model_name, model_url, file_name) 
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (user_id, run_id, model_name, model_url, filename)
-                )
-                connection.commit()
-                
-                logger.info(f"Successfully saved model {model_name} to database")
+            # Add and commit in separate try blocks for better error identification
+            try:
+                db.session.add(model_record)
+                logger.info(f"Added model {model_name} to session")
+            except Exception as add_error:
+                logger.error(f"Error adding model to session: {str(add_error)}")
+                db.session.rollback()
                 return True
                 
-        except Exception as e:
-            logger.error(f"Error saving model to database: {str(e)}")
-            # Return True since the model is saved to blob storage
-            return True
+            try:
+                db.session.commit()
+                logger.info(f"Committed model {model_name} with ID {model_record.id}")
+                return True
+            except Exception as commit_error:
+                logger.error(f"Error committing model: {str(commit_error)}")
+                db.session.rollback()
+                return True
         finally:
-            # Close connection if it exists
-            if 'connection' in locals() and connection:
-                connection.close()
-    
+            # Always pop the context
+            ctx.pop()
+            
     except Exception as e:
         logger.error(f"Error in save_model_to_db: {str(e)}")
         # We still return True because the blob storage worked even if DB failed
@@ -1304,62 +1324,99 @@ def db_diagnostics():
 
 def save_cleaning_prompt(run_id, prompt):
     """
-    Save the cleaning prompt directly to the database using PyMySQL
+    Save the cleaning prompt using SQLAlchemy with the same approach as save_model_to_db
     """
     try:
-        # Get database credentials directly from environment
-        MYSQL_USER = os.getenv("MYSQL_USER")
-        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-        MYSQL_HOST = os.getenv("MYSQL_HOST")
-        MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-        MYSQL_DB = os.getenv("MYSQL_DB")
+        # Create a custom app context
+        ctx = app.app_context()
+        ctx.push()
         
-        print(f"DEBUG: Directly connecting to MySQL at {MYSQL_HOST}:{MYSQL_PORT}")
-        
-        # Create a direct connection to update the prompt
         try:
-            connection = pymysql.connect(
-                host=MYSQL_HOST,
-                user=MYSQL_USER,
-                password=MYSQL_PASSWORD,
-                database=MYSQL_DB,
-                port=MYSQL_PORT,
-                connect_timeout=10
-            )
+            # Force using host.docker.internal for testing
+            MYSQL_USER = os.getenv("MYSQL_USER")
+            MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+            MYSQL_PORT = os.getenv("MYSQL_PORT")
+            MYSQL_DB = os.getenv("MYSQL_DB")
             
-            with connection.cursor() as cursor:
-                # Verify connection
-                cursor.execute("SELECT 1")
-                print(f"DEBUG: Direct MySQL connection successful")
-                
-                # Check if the run exists
-                cursor.execute("SELECT id FROM training_run WHERE id = %s", (run_id,))
-                if not cursor.fetchone():
-                    print(f"DEBUG: Training run {run_id} not found")
-                    return True
-                
-                # Update the prompt
-                cursor.execute(
-                    "UPDATE training_run SET prompt = %s WHERE id = %s",
-                    (prompt, run_id)
+            # Always hardcode the host to host.docker.internal
+            MYSQL_HOST = "host.docker.internal"
+            
+            print(f"DEBUG: Directly connecting to MySQL at {MYSQL_HOST}:{MYSQL_PORT}")
+            
+            # Create a direct connection to verify it's accessible
+            try:
+                # Direct connection test
+                connection = pymysql.connect(
+                    host=MYSQL_HOST,
+                    user=MYSQL_USER,
+                    password=MYSQL_PASSWORD,
+                    database=MYSQL_DB,
+                    port=int(MYSQL_PORT),
+                    connect_timeout=5
                 )
-                connection.commit()
                 
-                print(f"DEBUG: Successfully updated prompt for run {run_id}")
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    print(f"DEBUG: Direct MySQL connection test successful")
+                    
+                    # Update directly with raw PyMySQL
+                    cursor.execute("UPDATE training_run SET prompt = %s WHERE id = %s", (prompt, run_id))
+                    connection.commit()
+                    print(f"DEBUG: Directly updated prompt for run {run_id}")
+                    connection.close()
+                    return True
+                    
+            except Exception as direct_error:
+                print(f"DEBUG: Direct MySQL connection failed: {str(direct_error)}")
+                # Fall through to SQLAlchemy method
+            
+            # URL encode the password
+            import urllib.parse
+            encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+            
+            # Configure connection string with hardcoded host
+            new_uri = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+            print(f"DEBUG: Setting SQLAlchemy URI to: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
+            app.config['SQLALCHEMY_DATABASE_URI'] = new_uri
+            
+            # Re-initialize the db with the app to apply the new connection string
+            print("DEBUG: Re-initializing database connection")
+            db.init_app(app)
+            
+            # Verify database connection
+            try:
+                # Simple database ping to verify connection
+                db.session.execute("SELECT 1")
+                print("DEBUG: SQLAlchemy database connection verified successfully")
+            except Exception as db_error:
+                print(f"DEBUG: SQLAlchemy database connection failed: {str(db_error)}")
+                # Return True to allow process to continue
+                return True
+            
+            # Find the training run
+            training_run = TrainingRun.query.get(run_id)
+            if not training_run:
+                print(f"DEBUG: Training run {run_id} not found in database")
                 return True
                 
-        except Exception as e:
-            print(f"DEBUG: Error saving prompt: {str(e)}")
-            # Return True to continue process despite errors
-            return True
+            # Update the prompt
+            print(f"DEBUG: Found training run {run_id}, updating prompt")
+            training_run.prompt = prompt
+            
+            try:
+                db.session.commit()
+                print(f"DEBUG: Successfully committed prompt update for run {run_id}")
+                return True
+            except Exception as commit_error:
+                print(f"DEBUG: Error committing prompt update: {str(commit_error)}")
+                db.session.rollback()
+                return True
         finally:
-            # Close connection if it exists
-            if 'connection' in locals() and connection:
-                connection.close()
-    
+            # Always pop the context
+            ctx.pop()
     except Exception as e:
         print(f"DEBUG: Error in save_cleaning_prompt: {str(e)}")
-        # Return True to continue process despite errors
+        # Still return True to allow process to continue
         return True
 
 if __name__ == '__main__':
