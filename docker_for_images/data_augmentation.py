@@ -10,7 +10,7 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 import time
 import torch
-from typing import Tuple, Optional, Union
+from typing import Tuple, Optional, Union, List
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from functools import partial
@@ -329,6 +329,38 @@ class ClassificationDatasetAugmentor:
             
         return class_folder.name, total_processed, len(image_files)
     
+    def _find_class_directories(self, base_dir: Path) -> List[Path]:
+        """
+        Recursively find all directories containing image files
+        
+        Args:
+            base_dir: Base directory to search in
+            
+        Returns:
+            List of directories containing images
+        """
+        class_dirs = []
+        
+        # First check if the base_dir itself contains images
+        image_files = [f for f in base_dir.glob("*") 
+                      if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']]
+        if image_files:
+            return [base_dir]
+        
+        # Check immediate subdirectories
+        for subdir in base_dir.iterdir():
+            if subdir.is_dir():
+                # Check if this directory contains images
+                image_files = [f for f in subdir.glob("*") 
+                              if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']]
+                if image_files:
+                    class_dirs.append(subdir)
+                else:
+                    # If not, recursively check its subdirectories
+                    class_dirs.extend(self._find_class_directories(subdir))
+        
+        return class_dirs
+    
     def process_dataset(self, zip_path: str, output_zip: str, level: int, num_augmentations: int = 2):
         """
         Process a zipped classification dataset and create a zip file of the augmented dataset
@@ -349,29 +381,32 @@ class ClassificationDatasetAugmentor:
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Get list of class folders
-        class_folders = [f for f in input_dir.iterdir() if f.is_dir()]
+        # Find all directories containing images (these are our class folders)
+        class_folders = self._find_class_directories(input_dir)
         
         if not class_folders:
-            raise ValueError("No class folders found in the dataset. The zip file should contain folders named by class.")
+            raise ValueError("No class folders with images found. Please ensure the ZIP contains folders with images.")
         
-        print(f"Found {len(class_folders)} classes: {[f.name for f in class_folders]}")
+        print(f"Found {len(class_folders)} classes: {[f.relative_to(input_dir) for f in class_folders]}")
         print(f"Starting augmentation with level {level} using {self.num_workers} workers")
         print(f"Number of augmentations per image: {num_augmentations}")
         
         start_time = time.time()
         
         # Prepare arguments for parallel processing
-        args_list = [
-            (
-                class_folder, 
-                output_dir / class_folder.name, 
-                level, 
+        args_list = []
+        for class_folder in class_folders:
+            # Maintain the same directory structure in the output
+            relative_path = class_folder.relative_to(input_dir)
+            output_class_folder = output_dir / relative_path
+            
+            args_list.append((
+                class_folder,
+                output_class_folder,
+                level,
                 num_augmentations,
                 self.batch_size
-            ) 
-            for class_folder in class_folders
-        ]
+            ))
         
         # Process classes in parallel
         total_images = 0
