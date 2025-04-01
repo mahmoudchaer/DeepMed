@@ -61,13 +61,14 @@ def safe_requests_post(url, json_data, **kwargs):
 # Load environment variables from .env file
 load_dotenv()
 
-# Define service URLs
-DATA_CLEANER_URL = "http://localhost:5001"
-FEATURE_SELECTOR_URL = "http://localhost:5002"
-ANOMALY_DETECTOR_URL = "http://localhost:5003"
-MODEL_COORDINATOR_URL = "http://localhost:5020"  # New model coordinator URL instead of MODEL_TRAINER_URL
-MEDICAL_ASSISTANT_URL = "http://localhost:5005"
-AUGMENTATION_SERVICE_URL = "http://localhost:5023"
+# Define service URLs with Docker container names instead of localhost
+DATA_CLEANER_URL = os.getenv('DATA_CLEANER_URL', 'http://data-cleaner:5001')
+FEATURE_SELECTOR_URL = os.getenv('FEATURE_SELECTOR_URL', 'http://feature-selector:5002')
+ANOMALY_DETECTOR_URL = os.getenv('ANOMALY_DETECTOR_URL', 'http://anomaly-detector:5003')
+MODEL_COORDINATOR_URL = os.getenv('MODEL_COORDINATOR_URL', 'http://model-coordinator:5020')  # New model coordinator URL instead of MODEL_TRAINER_URL
+MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://medical-assistant:5005')
+AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://augmentation-service:5023')
+MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://model-training-service:5021')
 
 # Update service URLs dictionary with proper health endpoints
 SERVICES = {
@@ -76,7 +77,8 @@ SERVICES = {
     "Anomaly Detector": {"url": ANOMALY_DETECTOR_URL, "endpoint": "/health"},
     "Model Coordinator": {"url": MODEL_COORDINATOR_URL, "endpoint": "/health"},
     "Medical Assistant": {"url": MEDICAL_ASSISTANT_URL, "endpoint": "/health"},
-    "Augmentation Service": {"url": AUGMENTATION_SERVICE_URL, "endpoint": "/health"}
+    "Augmentation Service": {"url": AUGMENTATION_SERVICE_URL, "endpoint": "/health"},
+    "Model Training Service": {"url": MODEL_TRAINING_SERVICE_URL, "endpoint": "/health"}
 }
 
 # Setup Flask app
@@ -195,24 +197,18 @@ def cleanup_session_files():
 
 # Check service health
 def check_services():
-    services = {
-        "Data Cleaner": DATA_CLEANER_URL,
-        "Feature Selector": FEATURE_SELECTOR_URL,
-        "Anomaly Detector": ANOMALY_DETECTOR_URL,
-        "Model Coordinator": MODEL_COORDINATOR_URL,
-        "Medical Assistant": MEDICAL_ASSISTANT_URL,
-        "Augmentation Service": AUGMENTATION_SERVICE_URL
-    }
-    
     status = {}
-    for name, url in services.items():
+    for name, service_info in SERVICES.items():
+        url = service_info["url"]
+        endpoint = service_info["endpoint"]
         try:
-            response = requests.get(f"{url}/health", timeout=2)
+            response = requests.get(f"{url}{endpoint}", timeout=2)
             if response.status_code == 200:
                 status[name] = "healthy"
             else:
                 status[name] = f"unhealthy - {response.status_code}"
         except Exception as e:
+            logger.error(f"Error checking {name} health: {str(e)}")
             status[name] = f"unreachable - {str(e)[:50]}"  # Truncate long error messages
     
     return status
@@ -251,9 +247,18 @@ def load_data(file_path):
 def is_service_available(service_url):
     """Check if a service is available"""
     try:
+        # Parse the service URL to determine the endpoint
+        for name, service_info in SERVICES.items():
+            if service_info["url"] == service_url:
+                endpoint = service_info["endpoint"]
+                response = requests.get(f"{service_url}{endpoint}", timeout=1)
+                return response.status_code == 200
+        
+        # If URL not found in SERVICES, fall back to /health
         response = requests.get(f"{service_url}/health", timeout=1)
         return response.status_code == 200
-    except:
+    except Exception as e:
+        logger.error(f"Service unavailable ({service_url}): {str(e)}")
         return False
 
 def clean_data_for_json(data):
@@ -1955,7 +1960,7 @@ def api_train_model():
         training_level = int(request.form.get('trainingLevel', 3))
         
         # Forward the request to the dockerized model training service
-        model_service_url = "http://localhost:5021/train"
+        model_service_url = f"{MODEL_TRAINING_SERVICE_URL}/train"
         
         # Create form data to send to the service
         form_data = MultipartEncoder(
@@ -2226,15 +2231,25 @@ def is_service_available(url):
 
 if __name__ == '__main__':
     print("Starting DeepMed with API services integration")
-    print("Service status:")
-    status = check_services()
-    for service, health in status.items():
-        print(f"- {service}: {health}")
+    
+    # Log service URLs for debugging
+    logger.info("Service URLs configuration:")
+    for name, info in SERVICES.items():
+        logger.info(f"  {name}: {info['url']}{info['endpoint']}")
+    
+    # Check service health on startup
+    service_status = check_services()
+    logger.info("Service health check results:")
+    for name, status in service_status.items():
+        logger.info(f"  {name}: {status}")
+    
+    # Debug info
+    logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     
     # Create database tables if they don't exist
     with app.app_context():
         db.create_all()
-        print("Database tables created/verified")
+        logger.info("Database tables created/verified")
         
         # Check if file_name column exists in training_model table
         try:
@@ -2244,16 +2259,26 @@ if __name__ == '__main__':
             column_names = [column['name'] for column in columns]
             
             if 'file_name' not in column_names:
-                print("Adding file_name column to training_model table")
+                logger.info("Adding file_name column to training_model table")
                 db.engine.execute('ALTER TABLE training_model ADD COLUMN file_name VARCHAR(255)')
-                print("Successfully added file_name column")
+                logger.info("Successfully added file_name column")
             else:
-                print("file_name column already exists in training_model table")
+                logger.info("file_name column already exists in training_model table")
         except Exception as e:
-            print(f"Error checking/adding file_name column: {str(e)}")
+            logger.error(f"Error checking/adding file_name column: {str(e)}")
+    
+    # Check for database connection
+    try:
+        with db.engine.connect() as connection:
+            logger.info("Database connection successful")
+            user_count = db.session.query(User).count()
+            logger.info(f"Total users in database: {user_count}")
+    except Exception as e:
+        logger.error(f"Database connection failed: {str(e)}")
     
     try:
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        # Start the application
+        app.run(host='0.0.0.0', port=5000, debug=False)
     finally:
         # Clean up all temporary files when the application stops
-        cleanup_temp_files() 
+        cleanup_temp_files()
