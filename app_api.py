@@ -244,23 +244,6 @@ def load_data(file_path):
         logger.error(f"Error loading file: {str(e)}")
         return None, f"Error loading file: {str(e)}"
 
-def is_service_available(service_url):
-    """Check if a service is available"""
-    try:
-        # Parse the service URL to determine the endpoint
-        for name, service_info in SERVICES.items():
-            if service_info["url"] == service_url:
-                endpoint = service_info["endpoint"]
-                response = requests.get(f"{service_url}{endpoint}", timeout=1)
-                return response.status_code == 200
-        
-        # If URL not found in SERVICES, fall back to /health
-        response = requests.get(f"{service_url}/health", timeout=1)
-        return response.status_code == 200
-    except Exception as e:
-        logger.error(f"Service unavailable ({service_url}): {str(e)}")
-        return False
-
 def clean_data_for_json(data):
     """Clean DataFrame to make it JSON serializable by replacing non-compliant values"""
     if isinstance(data, pd.DataFrame):
@@ -433,10 +416,22 @@ def training():
                 "Model Coordinator": MODEL_COORDINATOR_URL  # Changed from Model Trainer to Model Coordinator
             }
             
+            logger.info("Checking required services before training:")
+            unavailable_services = []
+            
             for service_name, service_url in required_services.items():
+                logger.info(f"Checking service: {service_name} at {service_url}")
                 if not is_service_available(service_url):
-                    flash(f"The {service_name} service is not available. Cannot proceed with training.", 'error')
-                    return redirect(url_for('training'))
+                    logger.error(f"Service {service_name} at {service_url} is not available")
+                    unavailable_services.append(service_name)
+                else:
+                    logger.info(f"Service {service_name} is available")
+            
+            if unavailable_services:
+                error_message = f"The following services are not available: {', '.join(unavailable_services)}. Cannot proceed with training."
+                logger.error(error_message)
+                flash(error_message, 'error')
+                return redirect(url_for('training'))
             
             # DEBUG: Check which model services are available through the coordinator
             try:
@@ -2221,12 +2216,36 @@ def process_augmentation():
         logger.error(f"Error in augmentation process: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-def is_service_available(url):
-    """Check if a service endpoint is available"""
+def is_service_available(service_url):
+    """Check if a service is available"""
     try:
-        response = requests.get(url, timeout=2)
-        return response.status_code == 200
-    except:
+        # Parse the service URL to determine the endpoint
+        endpoint = "/health"  # Default endpoint
+        
+        # Find the matching service in our SERVICES dictionary
+        for name, service_info in SERVICES.items():
+            if service_info["url"] == service_url:
+                endpoint = service_info["endpoint"]
+                logger.info(f"Checking service {name} at {service_url}{endpoint}")
+                break
+        
+        # Make the request with increased timeout (5 seconds instead of 1)
+        logger.info(f"Sending health check to {service_url}{endpoint}")
+        response = requests.get(f"{service_url}{endpoint}", timeout=5)
+        
+        # Log the response
+        logger.info(f"Health check response from {service_url}{endpoint}: {response.status_code}")
+        if response.status_code == 200:
+            try:
+                # Try to parse the response for additional info
+                response_json = response.json()
+                logger.info(f"Health check response content: {response_json}")
+            except:
+                pass
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Service unavailable ({service_url}): {str(e)}")
         return False
 
 if __name__ == '__main__':
