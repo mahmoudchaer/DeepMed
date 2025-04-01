@@ -61,14 +61,14 @@ def safe_requests_post(url, json_data, **kwargs):
 # Load environment variables from .env file
 load_dotenv()
 
-# Define service URLs with Docker container names instead of localhost
-DATA_CLEANER_URL = os.getenv('DATA_CLEANER_URL', 'http://data-cleaner:5001')
-FEATURE_SELECTOR_URL = os.getenv('FEATURE_SELECTOR_URL', 'http://feature-selector:5002')
-ANOMALY_DETECTOR_URL = os.getenv('ANOMALY_DETECTOR_URL', 'http://anomaly-detector:5003')
-MODEL_COORDINATOR_URL = os.getenv('MODEL_COORDINATOR_URL', 'http://model-coordinator:5020')  # New model coordinator URL instead of MODEL_TRAINER_URL
-MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://medical-assistant:5005')
-AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://augmentation-service:5023')
-MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://model-training-service:5021')
+# Define service URLs with localhost and ports for host machine access
+DATA_CLEANER_URL = os.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
+FEATURE_SELECTOR_URL = os.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
+ANOMALY_DETECTOR_URL = os.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
+MODEL_COORDINATOR_URL = os.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')  # New model coordinator URL instead of MODEL_TRAINER_URL
+MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
+AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
+MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
 
 # Update service URLs dictionary with proper health endpoints
 SERVICES = {
