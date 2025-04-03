@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}My Models{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">My Trained Models</h1>
+    
+    <div class="alert alert-info mb-4">
+        <h5><i class="fas fa-info-circle"></i> About My Models</h5>
+        <p>This page shows all models you've trained. Click on any training run to view and download the top models for that run.</p>
+        <p>Models are stored in the cloud and can be downloaded for use in external applications.</p>
+    </div>
+    
+    {% if training_runs|length > 0 %}
+        <div class="accordion" id="trainingRunsAccordion">
+            {% for run in training_runs %}
+                <div class="accordion-item mb-3 border {% if run.models|length > 0 %}border-primary{% else %}border-secondary{% endif %}">
+                    <h2 class="accordion-header" id="heading{{ run.id }}">
+                        <button class="accordion-button collapsed {% if run.models|length > 0 %}bg-light{% else %}bg-light text-muted{% endif %}" 
+                                type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse{{ run.id }}" aria-expanded="false" 
+                                aria-controls="collapse{{ run.id }}">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge {% if run.models|length > 0 %}bg-primary{% else %}bg-secondary{% endif %} me-2">Run #{{ run.id }}</span>
+                                    <strong>{{ run.run_name }}</strong>
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="fas fa-calendar-alt me-1"></i> {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    <span class="badge bg-info ms-2">{{ run.models|length }} models</span>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse{{ run.id }}" class="accordion-collapse collapse" 
+                         aria-labelledby="heading{{ run.id }}" data-bs-parent="#trainingRunsAccordion">
+                        <div class="accordion-body">
+                            {% if run.prompt %}
+                                <div class="mb-3">
+                                    <h6>Training Parameters:</h6>
+                                    <div class="card">
+                                        <div class="card-body bg-light">
+                                            <pre class="mb-0"><code>{{ run.prompt }}</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            {% if run.models|length > 0 %}
+                                <h6>Available Models:</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Model Name</th>
+                                                <th>Created At</th>
+                                                <th class="text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for model in run.models %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ model.model_name }}</strong>
+                                                    </td>
+                                                    <td>{{ model.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                                    <td class="text-center">
+                                                        <a href="{{ url_for('download_model', model_id=model.id) }}" 
+                                                           class="btn btn-sm btn-primary" 
+                                                           data-bs-toggle="tooltip" 
+                                                           title="Download model file">
+                                                            <i class="fas fa-download me-1"></i> Download
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    No models available for this run.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <h4><i class="fas fa-info-circle me-2"></i>No trained models found</h4>
+            <p>You haven't trained any models yet. Go to the <a href="{{ url_for('training') }}" class="alert-link">Training</a> page to train your first model.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+        
+        // Add loading indicator when download button is clicked
+        var baseUrl = "{{ url_for('download_model', model_id=0) }}".replace('/0', '/');
+        var downloadButtons = document.querySelectorAll('a[href^="' + baseUrl + '"]');
+        downloadButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Downloading...';
+                this.classList.add('disabled');
+                
+                // Reset button after 3 seconds (in case download starts in a new tab)
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                    this.classList.remove('disabled');
+                }, 3000);
+            });
+        });
+    });
+</script>
+{% endblock %} 
