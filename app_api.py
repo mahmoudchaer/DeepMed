@@ -26,6 +26,7 @@ from db.users import db, User, TrainingRun, TrainingModel
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
+from werkzeug.utils import after_this_request
 
 # For PyTorch model training - only import if not present
 try:
@@ -2247,6 +2248,103 @@ def is_service_available(service_url):
     except Exception as e:
         logger.error(f"Service unavailable ({service_url}): {str(e)}")
         return False
+
+@app.route('/my_models')
+@login_required
+def my_models():
+    """Route to display user's trained models."""
+    user_id = current_user.id
+    
+    # Get all training runs for the current user with their models
+    training_runs = TrainingRun.query.filter_by(user_id=user_id).order_by(TrainingRun.created_at.desc()).all()
+    
+    # For each training run, get up to top 4 models
+    for run in training_runs:
+        run.models = TrainingModel.query.filter_by(run_id=run.id).order_by(TrainingModel.created_at.desc()).limit(4).all()
+    
+    return render_template('my_models.html', training_runs=training_runs)
+
+@app.route('/download_model/<int:model_id>')
+@login_required
+def download_model(model_id):
+    """Download a model file."""
+    import requests
+    from flask import send_file
+    import tempfile
+    import os
+    
+    # Get model info from database
+    model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first_or_404()
+    
+    # Create temp file to store downloaded model
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.joblib')
+    temp_filename = temp_file.name
+    temp_file.close()
+    
+    try:
+        # Get the model from blob storage
+        model_url = model.model_url
+        
+        if not model_url:
+            raise ValueError("Model URL not found in database")
+        
+        # Download the model file
+        try:
+            response = requests.get(model_url, stream=True, timeout=30)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+        except requests.RequestException as e:
+            raise ValueError(f"Error downloading model from storage: {str(e)}")
+        
+        # Ensure we got some content
+        if not response.content:
+            raise ValueError("Downloaded model file is empty")
+        
+        # Write the model to a temporary file
+        with open(temp_filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:  # Filter out keep-alive new chunks
+                    f.write(chunk)
+        
+        # Determine the appropriate filename
+        filename = model.file_name
+        if not filename:
+            filename = f"{model.model_name}_{model.id}.joblib"
+        
+        # Check if the file was written successfully
+        if not os.path.exists(temp_filename) or os.path.getsize(temp_filename) == 0:
+            raise ValueError("Failed to save model file")
+        
+        # Register a callback to remove the file after sending it
+        @after_this_request
+        def remove_file(response):
+            try:
+                if os.path.exists(temp_filename):
+                    os.remove(temp_filename)
+                    logger.info(f"Temporary model file removed: {temp_filename}")
+            except Exception as e:
+                logger.error(f"Error removing temporary file: {str(e)}")
+            return response
+        
+        # Send the file to the client
+        return send_file(
+            temp_filename,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/octet-stream'
+        )
+        
+    except Exception as e:
+        # Clean up the file if download fails
+        try:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
+        except Exception as cleanup_error:
+            logger.error(f"Error cleaning up temp file: {str(cleanup_error)}")
+            
+        # Log the error
+        logger.error(f"Error downloading model (ID: {model_id}): {str(e)}")
+        flash(f"Error downloading model: {str(e)}", "danger")
+        return redirect(url_for('my_models'))
 
 if __name__ == '__main__':
     print("Starting DeepMed with API services integration")
