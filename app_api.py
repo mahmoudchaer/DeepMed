@@ -2272,6 +2272,7 @@ def download_model(model_id):
     from flask import send_file
     import tempfile
     import os
+    import atexit
     
     # Get model info from database
     model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first_or_404()
@@ -2314,16 +2315,16 @@ def download_model(model_id):
         if not os.path.exists(temp_filename) or os.path.getsize(temp_filename) == 0:
             raise ValueError("Failed to save model file")
         
-        # Register a callback to remove the file after sending it
-        @after_this_request
-        def remove_file(response):
+        # Register a function to remove the temp file at application exit
+        def remove_temp_file():
             try:
                 if os.path.exists(temp_filename):
                     os.remove(temp_filename)
                     logger.info(f"Temporary model file removed: {temp_filename}")
             except Exception as e:
                 logger.error(f"Error removing temporary file: {str(e)}")
-            return response
+                
+        atexit.register(remove_temp_file)
         
         # Send the file to the client
         return send_file(
