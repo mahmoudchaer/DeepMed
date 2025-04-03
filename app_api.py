@@ -26,6 +26,7 @@ from db.users import db, User, TrainingRun, TrainingModel
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
+from storage import download_blob
 
 # For PyTorch model training - only import if not present
 try:
@@ -2267,10 +2268,8 @@ def my_models():
 @login_required
 def download_model(model_id):
     """Download a model file."""
-    import requests
     from flask import send_file
-    import tempfile
-    import os
+    import io
     
     # Get model info from database
     model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first_or_404()
@@ -2282,19 +2281,14 @@ def download_model(model_id):
         if not model_url:
             raise ValueError("Model URL not found in database")
         
-        # Download the model file
-        try:
-            response = requests.get(model_url, stream=True, timeout=30)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-        except requests.RequestException as e:
-            raise ValueError(f"Error downloading model from storage: {str(e)}")
+        # Download the model using our authenticated function
+        blob_data = download_blob(model_url)
         
-        # Ensure we got some content
-        if not response.content:
-            raise ValueError("Downloaded model file is empty")
+        if not blob_data:
+            raise ValueError("Failed to download model from storage")
         
-        # Create a BytesIO object to hold the downloaded file in memory
-        model_data = io.BytesIO(response.content)
+        # Create a BytesIO object to hold the model data
+        model_data = io.BytesIO(blob_data)
         model_data.seek(0)
         
         # Determine the appropriate filename
@@ -2302,7 +2296,7 @@ def download_model(model_id):
         if not filename:
             filename = f"{model.model_name}_{model.id}.joblib"
         
-        # Send the file directly from memory without saving to disk
+        # Send the file directly from memory
         return send_file(
             model_data,
             as_attachment=True,

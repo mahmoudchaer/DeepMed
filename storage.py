@@ -67,3 +67,38 @@ def delete_blob(filename):
     except Exception as e:
         logger.error(f"Error deleting file: {str(e)}")
         return False
+
+def download_blob(blob_url):
+    """Downloads a file from Azure Blob Storage using authentication.
+    
+    Args:
+        blob_url (str): The full URL of the blob to download
+        
+    Returns:
+        bytes: The contents of the blob as bytes
+    """
+    if blob_service_client is None:
+        logger.error("Azure Blob Storage client not initialized. Cannot download file.")
+        return None
+    
+    try:
+        # Extract the blob name from the URL
+        parts = blob_url.split('/')
+        if len(parts) < 5:
+            logger.error(f"Invalid blob URL format: {blob_url}")
+            return None
+            
+        blob_name = '/'.join(parts[4:])  # Everything after the container name
+        
+        # Get a blob client for the specific blob
+        blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=blob_name)
+        
+        # Download the blob content
+        download_stream = blob_client.download_blob()
+        blob_data = download_stream.readall()
+        
+        logger.info(f"Blob '{blob_name}' downloaded successfully!")
+        return blob_data
+    except Exception as e:
+        logger.error(f"Error downloading blob: {str(e)}")
+        return None
