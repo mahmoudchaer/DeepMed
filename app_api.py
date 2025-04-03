@@ -26,7 +26,6 @@ from db.users import db, User, TrainingRun, TrainingModel
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
-from werkzeug.utils import after_this_request
 
 # For PyTorch model training - only import if not present
 try:
@@ -2272,15 +2271,9 @@ def download_model(model_id):
     from flask import send_file
     import tempfile
     import os
-    import atexit
     
     # Get model info from database
     model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first_or_404()
-    
-    # Create temp file to store downloaded model
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.joblib')
-    temp_filename = temp_file.name
-    temp_file.close()
     
     try:
         # Get the model from blob storage
@@ -2300,48 +2293,24 @@ def download_model(model_id):
         if not response.content:
             raise ValueError("Downloaded model file is empty")
         
-        # Write the model to a temporary file
-        with open(temp_filename, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:  # Filter out keep-alive new chunks
-                    f.write(chunk)
+        # Create a BytesIO object to hold the downloaded file in memory
+        model_data = io.BytesIO(response.content)
+        model_data.seek(0)
         
         # Determine the appropriate filename
         filename = model.file_name
         if not filename:
             filename = f"{model.model_name}_{model.id}.joblib"
         
-        # Check if the file was written successfully
-        if not os.path.exists(temp_filename) or os.path.getsize(temp_filename) == 0:
-            raise ValueError("Failed to save model file")
-        
-        # Register a function to remove the temp file at application exit
-        def remove_temp_file():
-            try:
-                if os.path.exists(temp_filename):
-                    os.remove(temp_filename)
-                    logger.info(f"Temporary model file removed: {temp_filename}")
-            except Exception as e:
-                logger.error(f"Error removing temporary file: {str(e)}")
-                
-        atexit.register(remove_temp_file)
-        
-        # Send the file to the client
+        # Send the file directly from memory without saving to disk
         return send_file(
-            temp_filename,
+            model_data,
             as_attachment=True,
             download_name=filename,
             mimetype='application/octet-stream'
         )
         
     except Exception as e:
-        # Clean up the file if download fails
-        try:
-            if os.path.exists(temp_filename):
-                os.remove(temp_filename)
-        except Exception as cleanup_error:
-            logger.error(f"Error cleaning up temp file: {str(cleanup_error)}")
-            
         # Log the error
         logger.error(f"Error downloading model (ID: {model_id}): {str(e)}")
         flash(f"Error downloading model: {str(e)}", "danger")
