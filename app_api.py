@@ -2600,6 +2600,12 @@ if __name__ == "__main__":
         print(f"Predictions saved to {output_file}")
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
+'''
+
+    # Write the utility script to a file
+    script_path = os.path.join(temp_dir, "predict.py")
+    with open(script_path, "w") as f:
+        f.write(script_content)
 
 def create_readme_file(temp_dir, model, preprocessing_info):
     """Create a README file with instructions for using the model."""
@@ -2909,4 +2915,3 @@ if __name__ == '__main__':
     finally:
         # Clean up all temporary files when the application stops
         cleanup_temp_files()
-'''
