@@ -117,6 +117,7 @@ def create_tables():
             run_id = db.Column(db.Integer, nullable=False)
             model_name = db.Column(db.String(255), nullable=False)
             model_url = db.Column(db.Text, nullable=False)
+            file_name = db.Column(db.String(255), nullable=True)
             created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
             
         class PreprocessingData(db.Model):
