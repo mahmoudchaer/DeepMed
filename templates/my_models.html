@@ -55,7 +55,7 @@
                                             <tr>
                                                 <th>Model Name</th>
                                                 <th>Created At</th>
-                                                <th class="text-center">Action</th>
+                                                <th>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -78,6 +78,52 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                
+                                {% if run.has_preprocessing %}
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#preprocessModal{{ run.id }}">
+                                        <i class="fas fa-cogs me-1"></i> Preprocess New Data
+                                    </button>
+                                    
+                                    <!-- Preprocess Modal -->
+                                    <div class="modal fade" id="preprocessModal{{ run.id }}" tabindex="-1" aria-labelledby="preprocessModalLabel{{ run.id }}" aria-hidden="true">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="preprocessModalLabel{{ run.id }}">Preprocess New Data</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <form action="{{ url_for('preprocess_new_data', run_id=run.id) }}" method="POST" enctype="multipart/form-data">
+                                                    <div class="modal-body">
+                                                        <p>Upload a new dataset to apply the exact same preprocessing steps that were used during training for this run.</p>
+                                                        <p><strong>Note:</strong> Your dataset should have the same structure (column names) as the original training data.</p>
+                                                        
+                                                        <div class="mb-3">
+                                                            <label for="dataFile{{ run.id }}" class="form-label">Upload Dataset (CSV or Excel)</label>
+                                                            <input type="file" class="form-control" id="dataFile{{ run.id }}" name="dataFile" accept=".csv,.xlsx,.xls" required>
+                                                        </div>
+                                                        
+                                                        <div class="alert alert-info">
+                                                            <h6><i class="fas fa-info-circle me-1"></i> How this works:</h6>
+                                                            <ol class="mb-0">
+                                                                <li>Your data will be cleaned using the same cleaning steps from the original training.</li>
+                                                                <li>The same feature selection will be applied to ensure model compatibility.</li>
+                                                                <li>You'll receive a processed dataset that's ready for model predictions.</li>
+                                                            </ol>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-success">
+                                                            <i class="fas fa-cogs me-1"></i> Process Data
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
                             {% else %}
                                 <div class="alert alert-warning">
                                     <i class="fas fa-exclamation-triangle me-2"></i>

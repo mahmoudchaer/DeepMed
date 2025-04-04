@@ -27,3 +27,4 @@ torch==2.0.0
 torchvision==0.15.1
 requests-toolbelt==0.10.1
 urllib3==1.26.16
+azure-storage-blob==12.18.2

@@ -118,6 +118,18 @@ def create_tables():
             model_name = db.Column(db.String(255), nullable=False)
             model_url = db.Column(db.Text, nullable=False)
             created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+            
+        class PreprocessingData(db.Model):
+            """Table for storing preprocessing data for each training run."""
+            id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+            run_id = db.Column(db.Integer, nullable=False)
+            user_id = db.Column(db.Integer, nullable=False)
+            cleaner_config = db.Column(db.Text, nullable=True)  # JSON configuration for data cleaner
+            feature_selector_config = db.Column(db.Text, nullable=True)  # JSON configuration for feature selector
+            original_columns = db.Column(db.Text, nullable=True)  # Original dataset columns as JSON
+            selected_columns = db.Column(db.Text, nullable=True)  # Selected columns after feature selection as JSON
+            cleaning_report = db.Column(db.Text, nullable=True)  # Detailed report of cleaning operations
+            created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
         # Create tables
         print("🛠️ Creating database tables...")
@@ -157,6 +169,7 @@ def setup_event_scheduler():
             BEGIN
                 DELETE FROM training_models WHERE created_at < NOW() - INTERVAL 15 DAY;
                 DELETE FROM data_cleaners WHERE created_at < NOW() - INTERVAL 15 DAY;
+                DELETE FROM preprocessing_data WHERE created_at < NOW() - INTERVAL 15 DAY;
             END;
         """)
 

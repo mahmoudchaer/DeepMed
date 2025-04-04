@@ -22,7 +22,7 @@ import uuid
 import glob
 import secrets  # Import for generating secure tokens
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from db.users import db, User, TrainingRun, TrainingModel
+from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 import urllib.parse
 import zipfile  # Required for handling ZIP files in model training
 from requests_toolbelt.multipart.encoder import MultipartEncoder  # For sending multipart form data
@@ -607,6 +607,42 @@ def training():
                     # Store the run_id for model saving
                     local_run_id = training_run.id
                     logger.info(f"Directly added training run to database with ID {local_run_id}")
+                    
+                    # Store preprocessing data for this run
+                    try:
+                        # Prepare data for storage
+                        original_columns = list(data.columns)
+                        
+                        # Save cleaning configuration
+                        cleaner_config = {
+                            "llm_instructions": cleaning_result.get("prompt", ""),
+                            "options": cleaning_result.get("options", {}),
+                            "handle_missing": True,
+                            "handle_outliers": True
+                        }
+                        
+                        # Save feature selection configuration
+                        feature_selector_config = {
+                            "llm_instructions": feature_result.get("prompt", ""),
+                            "options": feature_result.get("options", {}),
+                            "method": feature_result.get("method", "auto")
+                        }
+                        
+                        # Create preprocessing data record
+                        preprocessing_data = PreprocessingData(
+                            run_id=local_run_id,
+                            user_id=user_id,
+                            cleaner_config=json.dumps(cleaner_config),
+                            feature_selector_config=json.dumps(feature_selector_config),
+                            original_columns=json.dumps(original_columns),
+                            selected_columns=json.dumps(selected_features),
+                            cleaning_report=json.dumps(cleaning_result.get("report", {}))
+                        )
+                        db.session.add(preprocessing_data)
+                        db.session.commit()
+                        logger.info(f"Stored preprocessing data for run ID {local_run_id}")
+                    except Exception as pp_error:
+                        logger.error(f"Error saving preprocessing data: {str(pp_error)}")
                     
                     # Verify entry was created by checking the database
                     verification = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
@@ -2258,9 +2294,13 @@ def my_models():
     # Get all training runs for the current user with their models
     training_runs = TrainingRun.query.filter_by(user_id=user_id).order_by(TrainingRun.created_at.desc()).all()
     
-    # For each training run, get up to top 4 models
+    # For each training run, get up to top 4 models and check if preprocessing data exists
     for run in training_runs:
         run.models = TrainingModel.query.filter_by(run_id=run.id).order_by(TrainingModel.created_at.desc()).limit(4).all()
+        
+        # Check if preprocessing data exists for this run
+        preprocessing_data = PreprocessingData.query.filter_by(run_id=run.id, user_id=user_id).first()
+        run.has_preprocessing = preprocessing_data is not None
     
     return render_template('my_models.html', training_runs=training_runs)
 
@@ -2310,44 +2350,222 @@ def download_model(model_id):
         flash(f"Error downloading model: {str(e)}", "danger")
         return redirect(url_for('my_models'))
 
+@app.route('/preprocess_new_data/<int:run_id>', methods=['POST'])
+@login_required
+def preprocess_new_data(run_id):
+    """Preprocess a new dataset using the same steps as a previous training run."""
+    import pandas as pd
+    import json
+    import traceback
+    
+    user_id = current_user.id
+    
+    # Check if the run exists and belongs to the user
+    training_run = TrainingRun.query.filter_by(id=run_id, user_id=user_id).first_or_404()
+    
+    # Get preprocessing data for this run
+    preproc_data = PreprocessingData.query.filter_by(run_id=run_id, user_id=user_id).first_or_404()
+    
+    if 'dataFile' not in request.files:
+        flash("No file was uploaded", "danger")
+        return redirect(url_for('my_models'))
+    
+    file = request.files['dataFile']
+    
+    if file.filename == '':
+        flash("No file was selected", "danger")
+        return redirect(url_for('my_models'))
+    
+    if not allowed_file(file.filename):
+        flash("Only CSV and Excel files are supported", "danger")
+        return redirect(url_for('my_models'))
+    
+    try:
+        # Save uploaded file temporarily
+        temp_path = get_temp_filepath(file.filename)
+        file.save(temp_path)
+        
+        # Load the dataset
+        if temp_path.endswith('.csv'):
+            df = pd.read_csv(temp_path)
+        else:
+            df = pd.read_excel(temp_path)
+        
+        # Load preprocessing configurations
+        cleaner_config = json.loads(preproc_data.cleaner_config) if preproc_data.cleaner_config else {}
+        feature_selector_config = json.loads(preproc_data.feature_selector_config) if preproc_data.feature_selector_config else {}
+        selected_columns = json.loads(preproc_data.selected_columns) if preproc_data.selected_columns else []
+        
+        # Apply data cleaning using the stored configuration
+        cleaned_df = apply_stored_cleaning(df, cleaner_config)
+        
+        # Apply feature selection using the stored configuration
+        if selected_columns:
+            # If we have a list of selected columns, use it
+            processed_df = cleaned_df[selected_columns].copy()
+        else:
+            # Otherwise, apply the feature selection config
+            processed_df = apply_stored_feature_selection(cleaned_df, feature_selector_config)
+        
+        # Create a temporary file for the processed data
+        processed_file_path = get_temp_filepath(original_filename=file.filename, extension='.csv')
+        processed_df.to_csv(processed_file_path, index=False)
+        
+        # Create a descriptive filename for the download
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"preprocessed_data_{run_id}_{timestamp}.csv"
+        
+        return send_file(
+            processed_file_path,
+            as_attachment=True,
+            download_name=output_filename,
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error preprocessing data: {str(e)}\n{traceback.format_exc()}")
+        flash(f"Error preprocessing data: {str(e)}", "danger")
+        return redirect(url_for('my_models'))
+
+def apply_stored_cleaning(df, cleaner_config):
+    """Apply stored cleaning operations to a DataFrame."""
+    import pandas as pd
+    import numpy as np
+    import requests
+    
+    # If we have cleaner_config with LLM instructions, use the data cleaner service
+    if cleaner_config.get('llm_instructions'):
+        # Call data cleaner service
+        try:
+            # Convert DataFrame to CSV
+            csv_data = df.to_csv(index=False)
+            
+            # Prepare multipart form data
+            data = {
+                'prompt': cleaner_config.get('llm_instructions', ''),
+                'options': json.dumps(cleaner_config.get('options', {}))
+            }
+            files = {'file': ('data.csv', csv_data, 'text/csv')}
+            
+            # Send request to data cleaner service
+            response = requests.post(f"{DATA_CLEANER_URL}/clean", files=files, data=data, timeout=60)
+            
+            if response.status_code == 200:
+                # Convert the cleaned CSV data back to DataFrame
+                cleaned_df = pd.read_csv(io.StringIO(response.text))
+                return cleaned_df
+            else:
+                raise Exception(f"Data cleaner service failed: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error calling data cleaner service: {str(e)}")
+            # Fall back to basic cleaning if service fails
+            return apply_basic_cleaning(df, cleaner_config)
+    else:
+        # Apply basic cleaning if no LLM instructions
+        return apply_basic_cleaning(df, cleaner_config)
+
+def apply_basic_cleaning(df, cleaner_config):
+    """Apply basic cleaning operations based on config."""
+    import pandas as pd
+    import numpy as np
+    
+    # Make a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Apply basic cleaning operations based on cleaner_config
+    # Handle missing values
+    if cleaner_config.get('handle_missing', True):
+        for col in cleaned_df.columns:
+            if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                # Fill numeric columns with mean or specified value
+                fill_value = cleaner_config.get('numeric_fill', 'mean')
+                if fill_value == 'mean':
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+                elif fill_value == 'median':
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+                elif fill_value == 'zero':
+                    cleaned_df[col] = cleaned_df[col].fillna(0)
+            else:
+                # Fill categorical/text columns with mode or specified value
+                fill_value = cleaner_config.get('categorical_fill', 'mode')
+                if fill_value == 'mode':
+                    mode = cleaned_df[col].mode()
+                    if not mode.empty:
+                        cleaned_df[col] = cleaned_df[col].fillna(mode[0])
+                elif fill_value == 'unknown':
+                    cleaned_df[col] = cleaned_df[col].fillna('unknown')
+    
+    # Remove duplicates if specified
+    if cleaner_config.get('remove_duplicates', True):
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Handle outliers if specified (using IQR method)
+    if cleaner_config.get('handle_outliers', False):
+        for col in cleaned_df.select_dtypes(include=['float64', 'int64']).columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outlier_action = cleaner_config.get('outlier_action', 'clip')
+            if outlier_action == 'clip':
+                cleaned_df[col] = cleaned_df[col].clip(lower_bound, upper_bound)
+            elif outlier_action == 'remove':
+                mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
+                cleaned_df = cleaned_df[mask]
+    
+    return cleaned_df
+
+def apply_stored_feature_selection(df, feature_selector_config):
+    """Apply stored feature selection operations to a DataFrame."""
+    import pandas as pd
+    import numpy as np
+    import requests
+    
+    # If we have feature_selector_config with LLM instructions, use the feature selector service
+    if feature_selector_config.get('llm_instructions'):
+        # Call feature selector service
+        try:
+            # Convert DataFrame to CSV
+            csv_data = df.to_csv(index=False)
+            
+            # Prepare multipart form data
+            data = {
+                'prompt': feature_selector_config.get('llm_instructions', ''),
+                'options': json.dumps(feature_selector_config.get('options', {}))
+            }
+            files = {'file': ('data.csv', csv_data, 'text/csv')}
+            
+            # Send request to feature selector service
+            response = requests.post(f"{FEATURE_SELECTOR_URL}/select", files=files, data=data, timeout=60)
+            
+            if response.status_code == 200:
+                # The response should contain the selected columns
+                selection_result = response.json()
+                
+                if 'selected_features' in selection_result:
+                    selected_columns = selection_result['selected_features']
+                    return df[selected_columns].copy()
+                else:
+                    # If no explicit selection, return the original dataframe
+                    return df
+            else:
+                raise Exception(f"Feature selector service failed: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error calling feature selector service: {str(e)}")
+            # If service fails, return the original dataframe
+            return df
+    else:
+        # No feature selection config, return original dataframe
+        return df
+
 if __name__ == '__main__':
     print("Starting DeepMed with API services integration")
     
     # Log service URLs for debugging
-    logger.info("Service URLs configuration:")
-    for name, info in SERVICES.items():
-        logger.info(f"  {name}: {info['url']}{info['endpoint']}")
-    
-    # Check service health on startup
-    service_status = check_services()
-    logger.info("Service health check results:")
-    for name, status in service_status.items():
-        logger.info(f"  {name}: {status}")
-    
-    # Debug info
-    logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
-    
-    # Create database tables if they don't exist
-    with app.app_context():
-        db.create_all()
-        logger.info("Database tables created/verified")
-        
-        # Check if file_name column exists in training_model table
-        try:
-            # Try to add file_name column if it doesn't exist
-            inspector = db.inspect(db.engine)
-            columns = inspector.get_columns('training_model')
-            column_names = [column['name'] for column in columns]
-            
-            if 'file_name' not in column_names:
-                logger.info("Adding file_name column to training_model table")
-                db.engine.execute('ALTER TABLE training_model ADD COLUMN file_name VARCHAR(255)')
-                logger.info("Successfully added file_name column")
-            else:
-                logger.info("file_name column already exists in training_model table")
-        except Exception as e:
-            logger.error(f"Error checking/adding file_name column: {str(e)}")
-    
     # Check for database connection
     try:
         with db.engine.connect() as connection:
