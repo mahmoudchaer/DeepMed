@@ -2606,6 +2606,7 @@ def create_readme_file(temp_dir, model, preprocessing_info):
     readme_content = f'''# Model Package: {model.model_name}
 
 ## Contents
+'''
 - {model.file_name if model.file_name else model.model_name + ".joblib"}: The trained model file
 - preprocessing_info.json: Configuration for data preprocessing
 - predict.py: Utility script for making predictions
@@ -2653,6 +2654,7 @@ predictions = predictor.model.predict(processed_df)
 - Model Type: {model.model_name}
 - Created: {model.created_at}
 - ID: {model.id}
+'''
 '''
 
     # Add preprocessing information if available
