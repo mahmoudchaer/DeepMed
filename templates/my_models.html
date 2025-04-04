@@ -69,8 +69,8 @@
                                                         <a href="{{ url_for('download_model', model_id=model.id) }}" 
                                                            class="btn btn-sm btn-primary" 
                                                            data-bs-toggle="tooltip" 
-                                                           title="Download model file">
-                                                            <i class="fas fa-download me-1"></i> Download
+                                                           title="Download complete model package with preprocessing tools">
+                                                            <i class="fas fa-download me-1"></i> Download Package
                                                         </a>
                                                     </td>
                                                 </tr>
@@ -159,14 +159,14 @@
         downloadButtons.forEach(button => {
             button.addEventListener('click', function() {
                 const originalHtml = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Downloading...';
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Preparing Package...';
                 this.classList.add('disabled');
                 
-                // Reset button after 3 seconds (in case download starts in a new tab)
+                // Reset button after 5 seconds (packaging might take longer than simple downloads)
                 setTimeout(() => {
                     this.innerHTML = originalHtml;
                     this.classList.remove('disabled');
-                }, 3000);
+                }, 5000);
             });
         });
     });

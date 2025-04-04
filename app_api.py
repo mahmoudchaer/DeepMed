@@ -2307,12 +2307,19 @@ def my_models():
 @app.route('/download_model/<int:model_id>')
 @login_required
 def download_model(model_id):
-    """Download a model file."""
+    """Download a model package with the model and preprocessing information."""
     from flask import send_file
     import io
+    import zipfile
+    import tempfile
+    import os
+    import json
     
     # Get model info from database
     model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first_or_404()
+    
+    # Get preprocessing data for this run
+    preproc_data = PreprocessingData.query.filter_by(run_id=model.run_id, user_id=current_user.id).first()
     
     try:
         # Get the model from blob storage
@@ -2327,28 +2334,347 @@ def download_model(model_id):
         if not blob_data:
             raise ValueError("Failed to download model from storage")
         
-        # Create a BytesIO object to hold the model data
-        model_data = io.BytesIO(blob_data)
-        model_data.seek(0)
+        # Create a temporary directory to build the package
+        temp_dir = tempfile.mkdtemp()
         
-        # Determine the appropriate filename
-        filename = model.file_name
-        if not filename:
-            filename = f"{model.model_name}_{model.id}.joblib"
+        # Save the model file
+        model_filename = model.file_name if model.file_name else f"{model.model_name}_{model.id}.joblib"
+        model_path = os.path.join(temp_dir, model_filename)
+        with open(model_path, 'wb') as f:
+            f.write(blob_data)
+            
+        # If we have preprocessing data, include it
+        preprocessing_info = {}
+        if preproc_data:
+            preprocessing_info = {
+                'cleaner_config': json.loads(preproc_data.cleaner_config) if preproc_data.cleaner_config else {},
+                'feature_selector_config': json.loads(preproc_data.feature_selector_config) if preproc_data.feature_selector_config else {},
+                'original_columns': json.loads(preproc_data.original_columns) if preproc_data.original_columns else [],
+                'selected_columns': json.loads(preproc_data.selected_columns) if preproc_data.selected_columns else [],
+                'cleaning_report': json.loads(preproc_data.cleaning_report) if preproc_data.cleaning_report else {}
+            }
+            
+            # Save preprocessing info
+            preproc_path = os.path.join(temp_dir, 'preprocessing_info.json')
+            with open(preproc_path, 'w') as f:
+                json.dump(preprocessing_info, f, indent=2)
+                
+        # Create a utility script for using the model
+        create_utility_script(temp_dir, model_filename, preprocessing_info)
         
-        # Send the file directly from memory
+        # Create a README file
+        create_readme_file(temp_dir, model, preprocessing_info)
+        
+        # Create a zip file containing all the package contents
+        zip_filename = f"{model.model_name}_package_{model.id}.zip"
+        zip_path = os.path.join(temp_dir, zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            # Add model file
+            zipf.write(model_path, os.path.basename(model_path))
+            
+            # Add preprocessing info if available
+            if preproc_data:
+                zipf.write(preproc_path, os.path.basename(preproc_path))
+                
+            # Add utility script and README
+            for filename in os.listdir(temp_dir):
+                if filename not in [zip_filename, os.path.basename(model_path)] and (filename.endswith('.py') or filename == 'README.md'):
+                    file_path = os.path.join(temp_dir, filename)
+                    zipf.write(file_path, filename)
+        
+        # Return the zip file
         return send_file(
-            model_data,
+            zip_path,
             as_attachment=True,
-            download_name=filename,
-            mimetype='application/octet-stream'
+            download_name=zip_filename,
+            mimetype='application/zip'
         )
         
     except Exception as e:
         # Log the error
-        logger.error(f"Error downloading model (ID: {model_id}): {str(e)}")
-        flash(f"Error downloading model: {str(e)}", "danger")
+        logger.error(f"Error packaging model (ID: {model_id}): {str(e)}")
+        flash(f"Error packaging model: {str(e)}", "danger")
         return redirect(url_for('my_models'))
+
+def create_utility_script(temp_dir, model_filename, preprocessing_info):
+    """Create a utility script for using the model with proper preprocessing."""
+    script_content = '''
+import os
+import json
+import joblib
+import pandas as pd
+import numpy as np
+
+class ModelPredictor:
+    def __init__(self, model_path=None, preprocessing_info_path=None):
+        """
+        Initialize the predictor with model and preprocessing information.
+        
+        Args:
+            model_path: Path to the .joblib model file
+            preprocessing_info_path: Path to the preprocessing_info.json file
+        """
+        # Find paths automatically if in the same directory
+        if model_path is None:
+            for file in os.listdir('.'):
+                if file.endswith('.joblib'):
+                    model_path = file
+                    break
+            if model_path is None:
+                raise ValueError("No .joblib model file found in current directory")
+                
+        if preprocessing_info_path is None:
+            if os.path.exists('preprocessing_info.json'):
+                preprocessing_info_path = 'preprocessing_info.json'
+        
+        # Load the model
+        self.model = joblib.load(model_path)
+        
+        # Load preprocessing info if available
+        self.preprocessing_info = None
+        if preprocessing_info_path and os.path.exists(preprocessing_info_path):
+            with open(preprocessing_info_path, 'r') as f:
+                self.preprocessing_info = json.load(f)
+                
+    def preprocess_data(self, df):
+        """Apply the same preprocessing steps as during training."""
+        if self.preprocessing_info is None:
+            print("Warning: No preprocessing information available. Using raw data.")
+            return df
+            
+        # Make a copy to avoid modifying the original
+        processed_df = df.copy()
+        
+        # Apply data cleaning
+        processed_df = self._apply_cleaning(processed_df)
+        
+        # Apply feature selection 
+        processed_df = self._apply_feature_selection(processed_df)
+        
+        return processed_df
+        
+    def _apply_cleaning(self, df):
+        """Apply cleaning operations based on stored configuration."""
+        if self.preprocessing_info is None or 'cleaner_config' not in self.preprocessing_info:
+            return df
+            
+        cleaner_config = self.preprocessing_info['cleaner_config']
+        
+        # Make a copy to avoid modifying the original
+        cleaned_df = df.copy()
+        
+        # Apply basic cleaning operations based on cleaner_config
+        # Handle missing values
+        if cleaner_config.get('handle_missing', True):
+            for col in cleaned_df.columns:
+                if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                    # Fill numeric columns with mean or specified value
+                    fill_value = cleaner_config.get('numeric_fill', 'mean')
+                    if fill_value == 'mean':
+                        if cleaned_df[col].isna().any():
+                            # Calculate mean excluding NaN values
+                            mean_value = cleaned_df[col].mean()
+                            cleaned_df[col] = cleaned_df[col].fillna(mean_value)
+                    elif fill_value == 'median':
+                        if cleaned_df[col].isna().any():
+                            # Calculate median excluding NaN values
+                            median_value = cleaned_df[col].median()
+                            cleaned_df[col] = cleaned_df[col].fillna(median_value)
+                    elif fill_value == 'zero':
+                        cleaned_df[col] = cleaned_df[col].fillna(0)
+                else:
+                    # Fill categorical/text columns with mode or specified value
+                    fill_value = cleaner_config.get('categorical_fill', 'mode')
+                    if fill_value == 'mode':
+                        if cleaned_df[col].isna().any():
+                            mode = cleaned_df[col].mode()
+                            if not mode.empty:
+                                cleaned_df[col] = cleaned_df[col].fillna(mode[0])
+                    elif fill_value == 'unknown':
+                        cleaned_df[col] = cleaned_df[col].fillna('unknown')
+        
+        # Remove duplicates if specified
+        if cleaner_config.get('remove_duplicates', True):
+            cleaned_df = cleaned_df.drop_duplicates()
+        
+        # Handle outliers if specified (using IQR method)
+        if cleaner_config.get('handle_outliers', False):
+            for col in cleaned_df.select_dtypes(include=['float64', 'int64']).columns:
+                Q1 = cleaned_df[col].quantile(0.25)
+                Q3 = cleaned_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                
+                outlier_action = cleaner_config.get('outlier_action', 'clip')
+                if outlier_action == 'clip':
+                    cleaned_df[col] = cleaned_df[col].clip(lower_bound, upper_bound)
+                elif outlier_action == 'remove':
+                    mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
+                    cleaned_df = cleaned_df[mask]
+        
+        return cleaned_df
+    
+    def _apply_feature_selection(self, df):
+        """Apply feature selection based on stored configuration."""
+        if self.preprocessing_info is None:
+            return df
+            
+        # If we have specific columns to select, use them
+        if 'selected_columns' in self.preprocessing_info and self.preprocessing_info['selected_columns']:
+            selected_columns = self.preprocessing_info['selected_columns']
+            # Check which columns are available in the DataFrame
+            available_columns = [col for col in selected_columns if col in df.columns]
+            
+            if len(available_columns) != len(selected_columns):
+                missing_columns = set(selected_columns) - set(available_columns)
+                print(f"Warning: Missing columns: {missing_columns}")
+                
+            if not available_columns:
+                print("Warning: No selected columns found in the dataset. Using all columns.")
+                return df
+                
+            return df[available_columns].copy()
+        
+        return df
+    
+    def predict(self, df):
+        """Preprocess data and make predictions."""
+        # Preprocess the data
+        processed_df = self.preprocess_data(df)
+        
+        # Make predictions
+        try:
+            predictions = self.model.predict(processed_df)
+            return predictions
+        except Exception as e:
+            print(f"Error making predictions: {str(e)}")
+            # Try to provide more helpful error information
+            if hasattr(self.model, 'feature_names_in_'):
+                missing_features = set(self.model.feature_names_in_) - set(processed_df.columns)
+                extra_features = set(processed_df.columns) - set(self.model.feature_names_in_)
+                
+                if missing_features:
+                    print(f"Missing features: {missing_features}")
+                if extra_features:
+                    print(f"Extra features: {extra_features}")
+            raise
+
+# Example usage
+if __name__ == "__main__":
+    # If run as a script, provide a simple example
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python predict.py <data_file.csv>")
+        sys.exit(1)
+        
+    data_file = sys.argv[1]
+    
+    # Load data
+    try:
+        df = pd.read_csv(data_file)
+    except Exception as e:
+        print(f"Error loading data file: {str(e)}")
+        sys.exit(1)
+        
+    # Initialize predictor
+    try:
+        predictor = ModelPredictor()
+    except Exception as e:
+        print(f"Error initializing predictor: {str(e)}")
+        sys.exit(1)
+        
+    # Make predictions
+    try:
+        predictions = predictor.predict(df)
+        print("Predictions:")
+        print(predictions)
+        
+        # Save predictions to file
+        output_file = data_file.replace('.csv', '_predictions.csv')
+        result_df = df.copy()
+        result_df['prediction'] = predictions
+        result_df.to_csv(output_file, index=False)
+        print(f"Predictions saved to {output_file}")
+    except Exception as e:
+        print(f"Error during prediction: {str(e)}")
+
+def create_readme_file(temp_dir, model, preprocessing_info):
+    """Create a README file with instructions for using the model."""
+    readme_content = f'''# Model Package: {model.model_name}
+
+## Contents
+- {model.file_name if model.file_name else model.model_name + ".joblib"}: The trained model file
+- preprocessing_info.json: Configuration for data preprocessing
+- predict.py: Utility script for making predictions
+- README.md: This file
+
+## Quick Start
+1. Make sure you have the required packages installed:
+   ```
+   pip install pandas numpy scikit-learn joblib
+   ```
+
+2. Place your data file (CSV format) in the same directory as these files.
+
+3. Run the prediction script:
+   ```
+   python predict.py your_data.csv
+   ```
+
+4. The script will:
+   - Load your data
+   - Preprocess it using the same steps as during training
+   - Make predictions with the model
+   - Save the results as your_data_predictions.csv
+
+## Using in Your Own Code
+```python
+from predict import ModelPredictor
+import pandas as pd
+
+# Load your data
+df = pd.read_csv('your_data.csv')
+
+# Initialize the predictor
+predictor = ModelPredictor()
+
+# Preprocess data and get predictions
+predictions = predictor.predict(df)
+
+# Or do the steps separately
+processed_df = predictor.preprocess_data(df)
+predictions = predictor.model.predict(processed_df)
+```
+
+## Model Information
+- Model Type: {model.model_name}
+- Created: {model.created_at}
+- ID: {model.id}
+'''
+
+    # Add preprocessing information if available
+    if preprocessing_info:
+        if 'selected_columns' in preprocessing_info and preprocessing_info['selected_columns']:
+            column_count = len(preprocessing_info['selected_columns'])
+            readme_content += f"\n## Preprocessing Information\n"
+            readme_content += f"- Selected Features: {column_count} features\n"
+            if column_count <= 20:  # Only list if not too many
+                readme_content += f"- Feature List: {', '.join(preprocessing_info['selected_columns'])}\n"
+            
+            if 'cleaning_report' in preprocessing_info and preprocessing_info['cleaning_report']:
+                readme_content += "- Cleaning Operations Applied:\n"
+                for operation, details in preprocessing_info['cleaning_report'].items():
+                    if isinstance(details, dict):
+                        readme_content += f"  - {operation}: {details.get('description', 'Applied')}\n"
+                    else:
+                        readme_content += f"  - {operation}: Applied\n"
+    
+    readme_path = os.path.join(temp_dir, 'README.md')
+    with open(readme_path, 'w') as f:
+        f.write(readme_content)
 
 @app.route('/preprocess_new_data/<int:run_id>', methods=['POST'])
 @login_required
