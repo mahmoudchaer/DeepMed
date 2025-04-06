@@ -2397,6 +2397,7 @@ def download_model(model_id):
         flash(f"Error packaging model: {str(e)}", "danger")
         return redirect(url_for('my_models'))
 
+
 def create_utility_script(temp_dir, model_filename, preprocessing_info):
     """Create a utility script for using the model with proper preprocessing."""
     script_content = '''
@@ -2597,94 +2598,96 @@ class ModelPredictor:
             
             # Method 2: Use fresh scaler and apply coefficients manually
             try:
-                # Create fresh scaler
-                fresh_scaler = StandardScaler()
-                X_scaled = fresh_scaler.fit_transform(processed_df)
-                
-                # If model is a pipeline, extract the classifier
-                if hasattr(self.model, 'steps'):
-                    for name, estimator in self.model.steps:
-                        if name == 'classifier':
-                            classifier = estimator
-                            break
+                if self.classifier is not None:
+                    # This is the logistic regression part if available
+                    print("Using coefficient/intercept method for prediction")
+                    # Apply StandardScaler ourselves since we might be using a different sklearn version
+                    scaler = StandardScaler()
+                    scaled_data = scaler.fit_transform(processed_df)
+                    
+                    # Get coefficients and intercept
+                    coefficients = self.classifier.coef_[0] if hasattr(self.classifier, 'coef_') else None
+                    intercept = self.classifier.intercept_[0] if hasattr(self.classifier, 'intercept_') else 0
+                    
+                    if coefficients is not None:
+                        # Manual prediction using the logistic function
+                        z = np.dot(scaled_data, coefficients) + intercept
+                        predictions = 1 / (1 + np.exp(-z))
+                        predictions = (predictions > 0.5).astype(int)  # Convert to binary prediction
+                        print("Applied logistic regression formula with coefficients")
                     else:
-                        # If no classifier found, use the last step
-                        classifier = self.model.steps[-1][1]
+                        # Fallback to direct prediction on classifier only
+                        predictions = self.classifier.predict(processed_df)
+                        print("Used classifier component directly")
                 else:
-                    classifier = self.model
+                    raise Exception("No classifier component found in model")
                 
-                # Use the classifier coefficients directly
-                if hasattr(classifier, 'coef_') and hasattr(classifier, 'intercept_'):
-                    # For linear models (logistic regression, etc.)
-                    z_values = np.dot(X_scaled, classifier.coef_.T) + classifier.intercept_
-                    probas = 1 / (1 + np.exp(-z_values))
-                    predictions = (probas > 0.5).astype(int).flatten()
-                    print("Used manual prediction with coefficients")
-                else:
-                    # Fallback to direct prediction on scaled data
-                    predictions = classifier.predict(X_scaled)
-                    print("Used classifier prediction with fresh scaling")
-                    
-            except Exception as e2:
-                print(f"Compatibility fix also failed: {str(e2)}")
-                print("Falling back to original method and handling errors...")
-                # Fall back to original method but handle errors better
+            except Exception as e:
+                print(f"Error during prediction: {str(e)}")
+                # If all else fails, try a very basic prediction using direct attributes
                 try:
-                    predictions = self.model.predict(processed_df)
-                except Exception as e3:
-                    print(f"Final prediction attempt failed: {str(e3)}")
-                    # Last resort - return placeholder predictions
+                    print("Attempting final fallback prediction...")
+                    if hasattr(self.model, 'predict'):
+                        predictions = self.model.predict(processed_df)
+                    elif hasattr(self.model, 'predict_proba'):
+                        probs = self.model.predict_proba(processed_df)
+                        predictions = np.argmax(probs, axis=1)
+                    else:
+                        raise Exception("Model has no usable prediction method")
+                except Exception as final_e:
+                    print(f"All prediction methods failed. Error: {str(final_e)}")
+                    # Last resort: just predict all 1s
+                    print("EMERGENCY FALLBACK: All prediction attempts failed, returning all 1s")
                     predictions = np.ones(processed_df.shape[0])
-                    print("WARNING: All prediction methods failed. Returning placeholder predictions.")
-                    
+        
         # Print prediction distribution
         unique, counts = np.unique(predictions, return_counts=True)
-        print(f"Prediction counts: {dict(zip(unique, counts))}")
-        
+        print("Prediction distribution:")
+        for val, count in zip(unique, counts):
+            print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
+            
         return predictions
-
-# Example usage
+        
 if __name__ == "__main__":
-    # If run as a script, provide a simple example
     import sys
     
     if len(sys.argv) < 2:
         print("Usage: python predict.py <data_file.csv>")
+        print("The data file should be a CSV file with features.")
         sys.exit(1)
         
     data_file = sys.argv[1]
     
-    # Load data
     try:
+        # Load the data
         df = pd.read_csv(data_file)
-        print(f"Loaded data from {data_file}, shape: {df.shape}")
-    except Exception as e:
-        print(f"Error loading data file: {str(e)}")
-        sys.exit(1)
+        print(f"Loaded data from {data_file} with shape {df.shape}")
         
-    # Initialize predictor
-    try:
+        # Create a predictor instance
         predictor = ModelPredictor()
-    except Exception as e:
-        print(f"Error initializing predictor: {str(e)}")
-        sys.exit(1)
         
-    # Make predictions
-    try:
+        # Make predictions
         predictions = predictor.predict(df)
-        print("Predictions:")
-        print(predictions[:20])  # Show first 20
         
         # Save predictions to file
-        output_file = data_file.replace('.csv', '_predictions.csv')
+        output_file = data_file.replace(".csv", "_predictions.csv")
+        # If the file doesn't end with .csv, just append _predictions.csv
+        if output_file == data_file:
+            output_file = data_file + "_predictions.csv"
+            
         result_df = df.copy()
         result_df['prediction'] = predictions
         result_df.to_csv(output_file, index=False)
         print(f"Predictions saved to {output_file}")
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
+'''
 
-'''\n\n    # Write the utility script to a file\n    script_path = os.path.join(temp_dir, 'predict.py')\n    with open(script_path, 'w') as f:\n        f.write(script_content)\n\ndef create_readme_file(temp_dir, model, preprocessing_info):
+    # Write the utility script to a file
+    script_path = os.path.join(temp_dir, 'predict.py')
+    with open(script_path, 'w') as f:
+        f.write(script_content)
+def create_readme_file(temp_dir, model, preprocessing_info):
     """Create a README file with instructions for using the model."""
     readme_content = f'''# Model Package: {model.model_name}
 

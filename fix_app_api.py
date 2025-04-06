@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
-# Script to fix the app_api.py file
+# Direct fix for unterminated triple-quoted string in app_api.py
 
+# Read the file
 with open('app_api.py', 'r', encoding='utf-8') as f:
-    content = f.read()
+    lines = f.readlines()
 
-# Find the line with script_content = ''' (around line 2402)
-# and add proper closing triple quotes if missing
-if 'script_content = \'\'\'' in content and '\'\'\'\\n\\n    # Write the utility script to a file' not in content:
-    fixed_content = content.replace(
-        'script_content = \'\'\'',
-        'script_content = \'\'\'',
-        1  # Replace only the first occurrence to preserve other instances
-    )
+# Find where the triple quote starts (around line 2402)
+start_line = 0
+for i, line in enumerate(lines):
+    if 'script_content = \'\'\'' in line:
+        start_line = i
+        break
+
+# Find the end of the create_utility_script function (before create_readme_file)
+end_function_line = 0
+for i, line in enumerate(lines[start_line:], start_line):
+    if 'def create_readme_file' in line:
+        end_function_line = i
+        break
+
+# Insert the closing triple quotes and file writing code before create_readme_file
+if start_line > 0 and end_function_line > start_line:
+    # Add closing triple quotes and code to write the script to a file
+    lines.insert(end_function_line, "    # Write the utility script to a file\n    script_path = os.path.join(temp_dir, 'predict.py')\n    with open(script_path, 'w') as f:\n        f.write(script_content)\n\n")
+    lines.insert(end_function_line, "'''\n\n")
     
-    # Find where to add the closing quotes - before create_readme_file function
-    if 'def create_readme_file' in fixed_content:
-        fixed_content = fixed_content.replace(
-            'def create_readme_file',
-            '\'\'\'\\n\\n    # Write the utility script to a file\\n    script_path = os.path.join(temp_dir, \'predict.py\')\\n    with open(script_path, \'w\') as f:\\n        f.write(script_content)\\n\\ndef create_readme_file',
-            1  # Replace only the first occurrence
-        )
-        
-    # Save the fixed content
+    # Write the fixed content back to the file
     with open('app_api.py', 'w', encoding='utf-8') as f:
-        f.write(fixed_content)
-    print("Fixed app_api.py successfully!")
+        f.writelines(lines)
+    
+    print(f"Fixed app_api.py successfully! Added closing triple quotes at line {end_function_line}")
 else:
-    print("No fix needed or pattern not found.") 
+    print("Could not locate the proper lines to fix. Please check the file manually.") 
