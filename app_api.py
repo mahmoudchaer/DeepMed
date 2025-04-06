@@ -2683,7 +2683,7 @@ if __name__ == "__main__":
         print(f"Predictions saved to {output_file}")
     except Exception as e:
         print(f"Error during prediction: {str(e)}")
-
+'''
 def create_readme_file(temp_dir, model, preprocessing_info):
     """Create a README file with instructions for using the model."""
     readme_content = f'''# Model Package: {model.model_name}
