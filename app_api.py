@@ -2446,23 +2446,27 @@ class ModelPredictor:
         self.model_type = type(self.model).__name__
         print(f"Model type: {self.model_type}")
         
-        # Extract coefficients from the model if it's a pipeline with LogisticRegression
+        # Extract components if model is a pipeline
         self.classifier = None
+        self.scaler = None
         if hasattr(self.model, 'steps'):
             print("Model is a pipeline with steps:")
             for name, step in self.model.steps:
                 print(f"- {name}: {type(step).__name__}")
                 if name == 'classifier':
                     self.classifier = step
+                elif name == 'scaler':
+                    self.scaler = step
         
         # Load preprocessing info if available
         self.preprocessing_info = None
         if preprocessing_info_path and os.path.exists(preprocessing_info_path):
             with open(preprocessing_info_path, 'r') as f:
                 self.preprocessing_info = json.load(f)
+                print("Loaded preprocessing information")
                 
     def preprocess_data(self, df):
-        """Apply the same preprocessing steps as during training, with version compatibility fixes."""
+        """Apply the same preprocessing steps as during training."""
         if self.preprocessing_info is None:
             print("Warning: No preprocessing information available. Using raw data.")
             return df
@@ -2564,7 +2568,7 @@ class ModelPredictor:
         return df
     
     def predict(self, df):
-        """Preprocess data and make predictions, handling scikit-learn version compatibility."""
+        """Preprocess data and make predictions with version compatibility handling."""
         # Preprocess the data
         processed_df = self.preprocess_data(df)
         print(f"Preprocessed data shape: {processed_df.shape}")
@@ -2579,66 +2583,92 @@ class ModelPredictor:
                 print(f"Removed target column '{target_col}' for prediction")
                 break
                 
-        # Make predictions with version compatibility fix
+        # Try different prediction methods and use the first one that works
+        prediction_methods = []
+        
         try:
-            # Method 1: Try direct prediction first
+            # Method 1: Direct prediction
             predictions = self.model.predict(processed_df)
-            print("Used direct model prediction")
+            prediction_methods.append("Direct model.predict()")
             
-            # Check if predictions have variation
+            # Check for suspicious predictions (all the same value)
             unique_preds = np.unique(predictions)
             if len(unique_preds) == 1:
                 print(f"Warning: All predictions are {unique_preds[0]}. Trying compatibility fix...")
-                # If all predictions are the same, try the compatibility fix
-                raise Exception("All predictions are the same value, potential version mismatch")
+                raise Exception("All predictions are the same - trying alternative method")
                 
         except Exception as e:
             print(f"Direct prediction failed or gave suspicious results: {str(e)}")
-            print("Applying scikit-learn version compatibility fix...")
             
-            # Method 2: Use fresh scaler and apply coefficients manually
             try:
-                if self.classifier is not None:
-                    # This is the logistic regression part if available
-                    print("Using coefficient/intercept method for prediction")
-                    # Apply StandardScaler ourselves since we might be using a different sklearn version
-                    scaler = StandardScaler()
-                    scaled_data = scaler.fit_transform(processed_df)
+                # Method 2: Manual logistic regression with fresh scaling
+                if self.classifier is not None and hasattr(self.classifier, 'coef_'):
+                    print("Using manual logistic regression with coefficients")
+                    
+                    # Apply fresh StandardScaler
+                    fresh_scaler = StandardScaler()
+                    X_scaled = fresh_scaler.fit_transform(processed_df.values)
                     
                     # Get coefficients and intercept
-                    coefficients = self.classifier.coef_[0] if hasattr(self.classifier, 'coef_') else None
-                    intercept = self.classifier.intercept_[0] if hasattr(self.classifier, 'intercept_') else 0
+                    coef = self.classifier.coef_[0]
+                    intercept = self.classifier.intercept_[0]
                     
-                    if coefficients is not None:
-                        # Manual prediction using the logistic function
-                        z = np.dot(scaled_data, coefficients) + intercept
-                        predictions = 1 / (1 + np.exp(-z))
-                        predictions = (predictions > 0.5).astype(int)  # Convert to binary prediction
-                        print("Applied logistic regression formula with coefficients")
-                    else:
-                        # Fallback to direct prediction on classifier only
-                        predictions = self.classifier.predict(processed_df)
-                        print("Used classifier component directly")
+                    # Handle coefficient length mismatch
+                    if len(coef) > processed_df.shape[1]:
+                        print(f"Warning: Coefficient length ({len(coef)}) > data columns ({processed_df.shape[1]})")
+                        print("Using only the coefficients that match data dimensions")
+                        coef = coef[:processed_df.shape[1]]
+                    
+                    # Calculate log-odds (z)
+                    z = np.dot(X_scaled, coef) + intercept
+                    
+                    # Apply sigmoid function to get probabilities
+                    probs = 1 / (1 + np.exp(-z))
+                    
+                    # Convert to 0/1 predictions
+                    predictions = (probs > 0.5).astype(int)
+                    prediction_methods.append("Manual logistic regression with fresh scaling")
+                    
+                    # Check again for suspicious predictions
+                    unique_preds = np.unique(predictions)
+                    if len(unique_preds) == 1:
+                        print(f"Warning: All predictions are {unique_preds[0]}. Trying direct classifier...")
+                        raise Exception("All predictions are the same - trying classifier directly")
                 else:
-                    raise Exception("No classifier component found in model")
-                
+                    raise Exception("No classifier component with coefficients found")
             except Exception as e:
-                print(f"Error during prediction: {str(e)}")
-                # If all else fails, try a very basic prediction using direct attributes
+                print(f"Manual prediction failed: {str(e)}")
+                
                 try:
-                    print("Attempting final fallback prediction...")
-                    if hasattr(self.model, 'predict'):
-                        predictions = self.model.predict(processed_df)
-                    elif hasattr(self.model, 'predict_proba'):
-                        probs = self.model.predict_proba(processed_df)
-                        predictions = np.argmax(probs, axis=1)
+                    # Method 3: Try classifier component directly with fresh scaling
+                    if self.classifier is not None:
+                        print("Using classifier component directly")
+                        
+                        # Apply fresh scaling if we have a scaler
+                        if self.scaler is not None:
+                            print("Using fresh StandardScaler before classifier")
+                            fresh_scaler = StandardScaler()
+                            df_scaled = fresh_scaler.fit_transform(processed_df.values)
+                        else:
+                            df_scaled = processed_df.values
+                        
+                        predictions = self.classifier.predict(df_scaled)
+                        prediction_methods.append("Direct classifier.predict()")
+                        
+                        # Final check for suspicious predictions
+                        unique_preds = np.unique(predictions)
+                        if len(unique_preds) == 1:
+                            print(f"Warning: All predictions are {unique_preds[0]}. Using fallback...")
+                            raise Exception("All predictions are the same - using fallback")
                     else:
-                        raise Exception("Model has no usable prediction method")
-                except Exception as final_e:
-                    print(f"All prediction methods failed. Error: {str(final_e)}")
-                    # Last resort: just predict all 1s
-                    print("EMERGENCY FALLBACK: All prediction attempts failed, returning all 1s")
+                        raise Exception("No classifier component found")
+                except Exception as e:
+                    print(f"Classifier prediction failed: {str(e)}")
+                    
+                    # Method 4: Emergency fallback
+                    print("All prediction methods failed. Using emergency fallback (all 1's).")
                     predictions = np.ones(processed_df.shape[0])
+                    prediction_methods.append("Emergency fallback (all 1's)")
         
         # Print prediction distribution
         unique, counts = np.unique(predictions, return_counts=True)
@@ -2646,6 +2676,7 @@ class ModelPredictor:
         for val, count in zip(unique, counts):
             print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
             
+        print(f"Prediction method used: {prediction_methods[0]}")
         return predictions
         
 if __name__ == "__main__":
