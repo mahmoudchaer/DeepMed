@@ -24,19 +24,11 @@
   ],
   "selected_columns": [
     "CO",
-    "CO_disc",
     "NO2",
-    "NO2_disc",
     "PM10",
-    "PM10_disc",
-    "Population_Density",
-    "Population_Density_disc",
     "Proximity_to_Industrial_Areas",
-    "Proximity_to_Industrial_Areas_disc",
     "SO2",
-    "SO2_disc",
-    "Temperature",
-    "Temperature_disc"
+    "Temperature"
   ],
   "cleaning_report": {}
 }

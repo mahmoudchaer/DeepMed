@@ -2,7 +2,7 @@
 
 ## Contents
 
-- svm_accuracy_1744236671_709bb6b1.joblib: The trained model file
+- knn_accuracy_1744238160_27657bb0.joblib: The trained model file
 - preprocessing_info.json: Configuration for data preprocessing
 - predict.py: Utility script for making predictions
 - README.md: This file
@@ -53,10 +53,10 @@ predictions = predictor.predict(processed_df)
 
 ## Model Information
 - Model Type: best_model_for_accuracy
-- Created: 2025-04-09 22:11:13
-- ID: 17
+- Created: 2025-04-09 22:36:03
+- ID: 25
 
 
 ## Preprocessing Information
-- Selected Features: 14 features
-- Feature List: CO, CO_disc, NO2, NO2_disc, PM10, PM10_disc, Population_Density, Population_Density_disc, Proximity_to_Industrial_Areas, Proximity_to_Industrial_Areas_disc, SO2, SO2_disc, Temperature, Temperature_disc
+- Selected Features: 6 features
+- Feature List: CO, NO2, PM10, Proximity_to_Industrial_Areas, SO2, Temperature
