@@ -305,9 +305,6 @@ class FeatureSelector:
             if X[col].std() == 0:
                 continue
                 
-            # Create column name for discretized version
-            disc_col_name = f"{col}_disc"
-            
             if is_fitting:
                 # Use KBinsDiscretizer with quantile strategy for more balanced bins
                 self.discretizers[col] = KBinsDiscretizer(
@@ -316,16 +313,18 @@ class FeatureSelector:
                     strategy='quantile'  # Use quantile for more balanced bin sizes
                 )
                 
-                # Fit and transform, then add as a new column (preserving original)
-                X[disc_col_name] = self.discretizers[col].fit_transform(
+                # Fit and transform, then replace the original column values
+                X[col] = self.discretizers[col].fit_transform(
                     X[col].values.reshape(-1, 1)
                 ).flatten()
+                logger.info(f"✅ Discretized column: {col}")
             else:
                 # Transform only if discretizer exists
                 if col in self.discretizers:
-                    X[disc_col_name] = self.discretizers[col].transform(
+                    X[col] = self.discretizers[col].transform(
                         X[col].values.reshape(-1, 1)
                     ).flatten()
+                    logger.info(f"✅ Applied existing discretization to column: {col}")
         
         return X
     
@@ -347,41 +346,8 @@ class FeatureSelector:
         
         logger.info(f"🔄 Applying feature crossing to {len(numerical_cols)} numerical features")
         
-        if is_fitting:
-            self.crossed_features = []
-            
-            # Generate combinations of features
-            for degree in range(2, min(self.max_crossing_degree + 1, len(numerical_cols) + 1)):
-                for combo in combinations(numerical_cols, degree):
-                    # Skip if any feature has zero standard deviation
-                    if any(X[col].std() == 0 for col in combo):
-                        continue
-                    
-                    # Create crossed feature name
-                    crossed_name = f"{'_x_'.join(combo)}"
-                    
-                    # Multiply the features together
-                    X[crossed_name] = 1.0
-                    for col in combo:
-                        X[crossed_name] *= X[col]
-                    
-                    self.crossed_features.append((crossed_name, combo))
-                    
-                    # Limit the number of crossed features to avoid explosion
-                    if len(self.crossed_features) >= 15:
-                        logger.info("Reached maximum number of crossed features")
-                        break
-                
-                if len(self.crossed_features) >= 15:
-                    break
-        else:
-            # Apply existing feature crossings
-            for crossed_name, combo in self.crossed_features:
-                if all(col in X.columns for col in combo):
-                    X[crossed_name] = 1.0
-                    for col in combo:
-                        X[crossed_name] *= X[col]
-        
+        # Disable feature crossing when not creating new columns to maintain original columns only
+        logger.info("Feature crossing disabled to maintain only original columns")
         return X
 
     def fit_transform(self, X, y=None):
@@ -455,15 +421,18 @@ class FeatureSelector:
         if self.apply_discretization:
             X = self._apply_discretization(X, is_fitting=False)
         
-        if self.apply_feature_crossing:
-            X = self._apply_feature_crossing(X, is_fitting=False)
+        # Feature crossing disabled to maintain original columns only
         
-        # Ensure all selected features are present
-        missing_features = set(self.selected_features) - set(X.columns)
-        if missing_features:
-            raise ValueError(f"Missing features in input data: {missing_features}")
+        # Filter to only include original columns (without _disc suffixes)
+        # to ensure compatibility with our approach
+        original_cols = [col for col in self.selected_features if not col.endswith('_disc')]
+        available_cols = [col for col in original_cols if col in X.columns]
         
-        return X[self.selected_features]
+        if len(available_cols) < len(original_cols):
+            missing = set(original_cols) - set(available_cols)
+            logger.warning(f"Missing columns in input data: {missing}")
+        
+        return X[available_cols]
 
     def _prepare_features(self, X):
         """Prepare features by encoding categorical variables."""
@@ -666,6 +635,9 @@ def select_features():
             df = preprocess_data(request_data['data'])
             logger.info(f"📊 Input data shape: {df.shape}")
             
+            # Save original column names before any transformations
+            original_columns = list(df.columns)
+            
             # Get target recommendations if no target is specified
             target_recommendations = None
             if 'target' not in request_data:
@@ -722,9 +694,22 @@ def select_features():
             X_selected = feature_selector.fit_transform(df, y)
             logger.info(f"✅ Feature selection complete. Selected {len(feature_selector.selected_features)} features")
             
+            # Make sure we're only returning original column names (no _disc suffix)
+            selected_features = [feat for feat in feature_selector.selected_features if feat in original_columns]
+            logger.info(f"✅ Filtered to {len(selected_features)} original features")
+            
+            # Add back any missing original features that were discretized
+            for col in original_columns:
+                if col not in selected_features and col in X_selected.columns:
+                    selected_features.append(col)
+                    logger.info(f"✅ Added back original feature: {col}")
+            
             response_data = {
-                "selected_features": feature_selector.selected_features,
-                "feature_importances": feature_selector.feature_importances_,
+                "selected_features": selected_features,
+                "feature_importances": {
+                    k: v for k, v in feature_selector.feature_importances_.items() 
+                    if k in selected_features
+                },
                 "transformed_data": X_selected.to_dict(orient='records'),
                 "message": "Features selected successfully",
                 "method_used": feature_selector.method,

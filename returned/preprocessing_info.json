@@ -1,0 +1,42 @@
+{
+  "cleaner_config": {
+    "llm_instructions": "Cleaning strategy:\nColumn 'Temperature': replaced missing values with mean\nColumn 'Humidity': replaced missing values with mean\nColumn 'PM2.5': replaced missing values with mean\nColumn 'PM10': replaced missing values with mean\nColumn 'NO2': replaced missing values with mean\nColumn 'SO2': replaced missing values with mean\nColumn 'CO': replaced missing values with mean\nColumn 'Proximity_to_Industrial_Areas': replaced missing values with mean\nColumn 'Population_Density': replaced missing values with mean\nColumn 'Air Quality': dropped rows with missing values, label encoded",
+    "options": {},
+    "handle_missing": true,
+    "handle_outliers": true
+  },
+  "feature_selector_config": {
+    "llm_instructions": "",
+    "options": {},
+    "method": "auto"
+  },
+  "original_columns": [
+    "Temperature",
+    "Humidity",
+    "PM2.5",
+    "PM10",
+    "NO2",
+    "SO2",
+    "CO",
+    "Proximity_to_Industrial_Areas",
+    "Population_Density",
+    "Air Quality"
+  ],
+  "selected_columns": [
+    "CO",
+    "CO_disc",
+    "NO2",
+    "NO2_disc",
+    "PM10",
+    "PM10_disc",
+    "Population_Density",
+    "Population_Density_disc",
+    "Proximity_to_Industrial_Areas",
+    "Proximity_to_Industrial_Areas_disc",
+    "SO2",
+    "SO2_disc",
+    "Temperature",
+    "Temperature_disc"
+  ],
+  "cleaning_report": {}
+}

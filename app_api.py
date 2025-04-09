@@ -2346,11 +2346,17 @@ def download_model(model_id):
         # If we have preprocessing data, include it
         preprocessing_info = {}
         if preproc_data:
+            # Get the stored preprocessing information
+            selected_columns = json.loads(preproc_data.selected_columns) if preproc_data.selected_columns else []
+            
+            # Filter out any column names with "_disc" suffix to only keep original columns
+            filtered_columns = [col for col in selected_columns if not col.endswith('_disc')]
+            
             preprocessing_info = {
                 'cleaner_config': json.loads(preproc_data.cleaner_config) if preproc_data.cleaner_config else {},
                 'feature_selector_config': json.loads(preproc_data.feature_selector_config) if preproc_data.feature_selector_config else {},
                 'original_columns': json.loads(preproc_data.original_columns) if preproc_data.original_columns else [],
-                'selected_columns': json.loads(preproc_data.selected_columns) if preproc_data.selected_columns else [],
+                'selected_columns': filtered_columns,
                 'cleaning_report': json.loads(preproc_data.cleaning_report) if preproc_data.cleaning_report else {}
             }
             
