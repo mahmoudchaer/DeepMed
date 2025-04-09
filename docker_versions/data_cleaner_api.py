@@ -500,7 +500,6 @@ def clean_data():
         "data": {...},  # Cleaned data in JSON format
         "message": "Data cleaned successfully",
         "prompt": "..."  # Cleaning instructions used (either the input prompt or a newly generated one)
-        "target_mapping": {...}  # If a categorical target was processed, includes the mapping
     }
     """
     try:
@@ -525,20 +524,12 @@ def clean_data():
         # Get the cleaning prompt (either the previous one or a new one)
         cleaning_prompt = cleaner.last_cleaning_prompt
         
-        # Prepare response with target mapping if available
-        response = {
+        # Convert DataFrame to JSON and include the prompt - use original response format
+        return jsonify({
             "data": cleaned_data.to_dict(orient='records'),
             "message": "Data cleaned successfully",
             "prompt": cleaning_prompt
-        }
-        
-        # Include target mapping if it exists
-        if hasattr(cleaner, 'target_mapping') and cleaner.target_mapping:
-            response["target_mapping"] = cleaner.target_mapping
-            if hasattr(cleaner, 'inverse_target_mapping'):
-                response["inverse_target_mapping"] = cleaner.inverse_target_mapping
-        
-        return jsonify(response)
+        })
     
     except Exception as e:
         logging.error(f"Error in clean_data endpoint: {str(e)}", exc_info=True)
