@@ -92,7 +92,7 @@ class DataCleaner:
             
         self.scaler = StandardScaler()
         self.last_cleaning_prompt = None  # Store the last used cleaning instructions
-
+        
     def _test_openai_connection(self):
         """Test if OpenAI client is working correctly"""
         try:
@@ -147,7 +147,8 @@ class DataCleaner:
           - Creates a copy of the DataFrame.
           - Handles missing values (using the new LLM logic).
           - Removes outliers from numeric columns (excluding the target).
-          - Returns a numeric DataFrame while ensuring consistent target encoding.
+          - Scales numeric features.
+        Returns a fully numeric DataFrame.
         
         Args:
             df: DataFrame to clean
@@ -158,43 +159,16 @@ class DataCleaner:
             cleaned_df: Cleaned DataFrame
         """
         df = df.copy()
+        # Determine numeric columns excluding the target.
+        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
+        numeric_columns = numeric_columns[numeric_columns != target_column]
         
-        # Handle target column separately if it exists
-        target_series = None
-        if target_column in df.columns:
-            # Save target column and remove from dataframe temporarily
-            target_series = df[target_column].copy()
-            df_without_target = df.drop(columns=[target_column])
-            
-            # Process features without target
-            processed_df = self.handle_missing_values(df_without_target, previous_prompt)
-            
-            # Determine numeric columns (excluding target)
-            numeric_columns = processed_df.select_dtypes(include=['int64', 'float64']).columns
-            
-            # Remove outliers on numeric columns
-            processed_df = self.remove_outliers(processed_df, numeric_columns)
-            
-            # Process target column if categorical (just basic encoding)
-            if not pd.api.types.is_numeric_dtype(target_series):
-                # Ensure consistent encoding by sorting unique values
-                unique_values = sorted(target_series.dropna().unique())
-                mapping = {val: idx for idx, val in enumerate(unique_values)}
-                target_series = target_series.map(mapping)
-            
-            # Reattach target column
-            processed_df[target_column] = target_series
-            return processed_df
-        else:
-            # No target column, process normally
-            processed_df = self.handle_missing_values(df, previous_prompt)
-            
-            # Determine numeric columns
-            numeric_columns = processed_df.select_dtypes(include=['int64', 'float64']).columns
-            
-            # Remove outliers on numeric columns
-            processed_df = self.remove_outliers(processed_df, numeric_columns)
-            return processed_df
+        # Apply LLM-based missing value handling and numeric conversion.
+        df = self.handle_missing_values(df, previous_prompt)
+        # Remove outliers on the numeric columns.
+        df = self.remove_outliers(df, numeric_columns)
+        # Scale the numeric features.
+        return df
 
     # ---- Internal methods for LLM-based cleaning ----
 
@@ -363,7 +337,6 @@ class DataCleaner:
                     else:
                         df_clean[col] = df_clean[col].astype("category").cat.codes
                         logging.info("Fallback label-encoded column '%s'.", col)
-        
         # Final step: ensure all columns are numeric.
         df_final = df_clean.apply(pd.to_numeric, errors='coerce')
         return df_final
@@ -513,7 +486,7 @@ def clean_data():
         # Get the cleaning prompt (either the previous one or a new one)
         cleaning_prompt = cleaner.last_cleaning_prompt
         
-        # Return the cleaned data and cleaning prompt
+        # Convert DataFrame to JSON and include the prompt
         return jsonify({
             "data": cleaned_data.to_dict(orient='records'),
             "message": "Data cleaned successfully",
