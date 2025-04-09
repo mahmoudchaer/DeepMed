@@ -405,8 +405,8 @@ def training():
         target_column = request.form.get('target_column')
         session['target_column'] = target_column
         
-        # Get additional parameters (optional)
-        session['test_size'] = float(request.form.get('test_size', 0.2))
+        # Always use fixed test size of 20%
+        session['test_size'] = 0.2
         
         try:
             # Check if required services are available

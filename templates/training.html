@@ -157,15 +157,8 @@
                                     </select>
                                     <div class="form-text">This is the column you want to predict.</div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label for="test_size" class="form-label fw-bold">Test Size</label>
-                                    <select name="test_size" id="test_size" class="form-select">
-                                        <option value="0.1">10%</option>
-                                        <option value="0.2" selected>20%</option>
-                                        <option value="0.3">30%</option>
-                                    </select>
-                                    <div class="form-text">Percentage of data used for testing.</div>
-                                </div>
+                                <!-- Hidden input for test size - fixed at 20% -->
+                                <input type="hidden" name="test_size" id="test_size" value="0.2">
                             </div>
                             
                             <button type="submit" class="btn btn-primary w-100 py-2" id="start-pipeline-btn">
