@@ -92,6 +92,7 @@ class DataCleaner:
             
         self.scaler = StandardScaler()
         self.last_cleaning_prompt = None  # Store the last used cleaning instructions
+        self.target_mapping = {}  # Store the mapping between target categories and numeric values
         
     def _test_openai_connection(self):
         """Test if OpenAI client is working correctly"""
@@ -159,15 +160,52 @@ class DataCleaner:
             cleaned_df: Cleaned DataFrame
         """
         df = df.copy()
-        # Determine numeric columns excluding the target.
+        
+        # Save original target values if target exists and is categorical
+        target_values = None
+        target_present = target_column in df.columns
+        target_is_categorical = target_present and not pd.api.types.is_numeric_dtype(df[target_column])
+        
+        if target_present and target_is_categorical:
+            logging.info(f"Detected categorical target column: {target_column}")
+            target_values = df[target_column].copy()
+            # Create a mapping for consistent encoding
+            unique_values = target_values.dropna().unique()
+            # Sort for consistent ordering
+            unique_values.sort()
+            # Create mapping dictionary
+            self.target_mapping = {val: idx for idx, val in enumerate(unique_values)}
+            self.inverse_target_mapping = {idx: val for idx, val in enumerate(unique_values)}
+            logging.info(f"Target mapping: {self.target_mapping}")
+            logging.info(f"Target class distribution: {target_values.value_counts().to_dict()}")
+            # Apply mapping for consistent encoding
+            df[target_column] = df[target_column].map(self.target_mapping)
+        
+        # Determine numeric columns excluding the target
         numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
         numeric_columns = numeric_columns[numeric_columns != target_column]
         
         # Apply LLM-based missing value handling and numeric conversion.
-        df = self.handle_missing_values(df, previous_prompt)
-        # Remove outliers on the numeric columns.
-        df = self.remove_outliers(df, numeric_columns)
-        # Scale the numeric features.
+        # Temporarily remove target column to prevent it from being transformed
+        target_data = None
+        if target_present:
+            target_data = df[target_column].copy()
+            df_without_target = df.drop(columns=[target_column])
+            df_without_target = self.handle_missing_values(df_without_target, previous_prompt)
+            # Remove outliers on the numeric columns.
+            df_without_target = self.remove_outliers(df_without_target, numeric_columns)
+            # Add target back
+            df = df_without_target.copy()
+            df[target_column] = target_data
+        else:
+            df = self.handle_missing_values(df, previous_prompt)
+            # Remove outliers on the numeric columns.
+            df = self.remove_outliers(df, numeric_columns)
+        
+        if target_present:
+            logging.info(f"Encoded target distribution: {df[target_column].value_counts().to_dict()}")
+        
+        logging.info(f"Cleaned data shape: {df.shape}")
         return df
 
     # ---- Internal methods for LLM-based cleaning ----
@@ -462,6 +500,7 @@ def clean_data():
         "data": {...},  # Cleaned data in JSON format
         "message": "Data cleaned successfully",
         "prompt": "..."  # Cleaning instructions used (either the input prompt or a newly generated one)
+        "target_mapping": {...}  # If a categorical target was processed, includes the mapping
     }
     """
     try:
@@ -486,12 +525,20 @@ def clean_data():
         # Get the cleaning prompt (either the previous one or a new one)
         cleaning_prompt = cleaner.last_cleaning_prompt
         
-        # Convert DataFrame to JSON and include the prompt
-        return jsonify({
+        # Prepare response with target mapping if available
+        response = {
             "data": cleaned_data.to_dict(orient='records'),
             "message": "Data cleaned successfully",
             "prompt": cleaning_prompt
-        })
+        }
+        
+        # Include target mapping if it exists
+        if hasattr(cleaner, 'target_mapping') and cleaner.target_mapping:
+            response["target_mapping"] = cleaner.target_mapping
+            if hasattr(cleaner, 'inverse_target_mapping'):
+                response["inverse_target_mapping"] = cleaner.inverse_target_mapping
+        
+        return jsonify(response)
     
     except Exception as e:
         logging.error(f"Error in clean_data endpoint: {str(e)}", exc_info=True)

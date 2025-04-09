@@ -1,10 +1,10 @@
+
 import os
 import json
 import joblib
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import KBinsDiscretizer
 
 class ModelPredictor:
     def __init__(self, model_path=None, preprocessing_info_path=None):
@@ -139,35 +139,6 @@ class ModelPredictor:
                 elif outlier_action == 'remove':
                     mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
                     cleaned_df = cleaned_df[mask]
-        
-        # Generate discretized columns (the _disc versions)
-        numerical_cols = cleaned_df.select_dtypes(include=['float64', 'int64']).columns
-        
-        for col in numerical_cols:
-            disc_col_name = f"{col}_disc"
-            # Check if the column has enough unique values for discretization (at least 5)
-            if cleaned_df[col].nunique() > 5:
-                # Use KBinsDiscretizer with quantile strategy for more balanced bins
-                try:
-                    disc = KBinsDiscretizer(
-                        n_bins=5,  # Use 5 bins as default
-                        encode='ordinal',  # Use ordinal to maintain numeric representation
-                        strategy='quantile'  # Use quantile for more balanced bin sizes
-                    )
-                    
-                    # Fit and transform, then add as a new column
-                    cleaned_df[disc_col_name] = disc.fit_transform(
-                        cleaned_df[col].values.reshape(-1, 1)
-                    ).flatten()
-                    print(f"Generated discretized column: {disc_col_name}")
-                except Exception as e:
-                    print(f"Could not discretize column {col}: {str(e)}")
-                    # Create a simple discretized version
-                    cleaned_df[disc_col_name] = pd.qcut(cleaned_df[col], 5, labels=False, duplicates='drop')
-            else:
-                # For columns with fewer unique values, just copy the original
-                cleaned_df[disc_col_name] = cleaned_df[col]
-                print(f"Column {col} has too few unique values for discretization. Created copy as {disc_col_name}")
         
         return cleaned_df
     
