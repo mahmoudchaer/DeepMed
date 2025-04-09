@@ -92,8 +92,7 @@ class DataCleaner:
             
         self.scaler = StandardScaler()
         self.last_cleaning_prompt = None  # Store the last used cleaning instructions
-        self.target_mapping = {}  # Store the mapping between target categories and numeric values
-        
+
     def _test_openai_connection(self):
         """Test if OpenAI client is working correctly"""
         try:
@@ -148,8 +147,7 @@ class DataCleaner:
           - Creates a copy of the DataFrame.
           - Handles missing values (using the new LLM logic).
           - Removes outliers from numeric columns (excluding the target).
-          - Scales numeric features.
-        Returns a fully numeric DataFrame.
+          - Returns a numeric DataFrame while ensuring consistent target encoding.
         
         Args:
             df: DataFrame to clean
@@ -161,52 +159,42 @@ class DataCleaner:
         """
         df = df.copy()
         
-        # Save original target values if target exists and is categorical
-        target_values = None
-        target_present = target_column in df.columns
-        target_is_categorical = target_present and not pd.api.types.is_numeric_dtype(df[target_column])
-        
-        if target_present and target_is_categorical:
-            logging.info(f"Detected categorical target column: {target_column}")
-            target_values = df[target_column].copy()
-            # Create a mapping for consistent encoding
-            unique_values = target_values.dropna().unique()
-            # Sort for consistent ordering
-            unique_values.sort()
-            # Create mapping dictionary
-            self.target_mapping = {val: idx for idx, val in enumerate(unique_values)}
-            self.inverse_target_mapping = {idx: val for idx, val in enumerate(unique_values)}
-            logging.info(f"Target mapping: {self.target_mapping}")
-            logging.info(f"Target class distribution: {target_values.value_counts().to_dict()}")
-            # Apply mapping for consistent encoding
-            df[target_column] = df[target_column].map(self.target_mapping)
-        
-        # Determine numeric columns excluding the target
-        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
-        numeric_columns = numeric_columns[numeric_columns != target_column]
-        
-        # Apply LLM-based missing value handling and numeric conversion.
-        # Temporarily remove target column to prevent it from being transformed
-        target_data = None
-        if target_present:
-            target_data = df[target_column].copy()
+        # Handle target column separately if it exists
+        target_series = None
+        if target_column in df.columns:
+            # Save target column and remove from dataframe temporarily
+            target_series = df[target_column].copy()
             df_without_target = df.drop(columns=[target_column])
-            df_without_target = self.handle_missing_values(df_without_target, previous_prompt)
-            # Remove outliers on the numeric columns.
-            df_without_target = self.remove_outliers(df_without_target, numeric_columns)
-            # Add target back
-            df = df_without_target.copy()
-            df[target_column] = target_data
+            
+            # Process features without target
+            processed_df = self.handle_missing_values(df_without_target, previous_prompt)
+            
+            # Determine numeric columns (excluding target)
+            numeric_columns = processed_df.select_dtypes(include=['int64', 'float64']).columns
+            
+            # Remove outliers on numeric columns
+            processed_df = self.remove_outliers(processed_df, numeric_columns)
+            
+            # Process target column if categorical (just basic encoding)
+            if not pd.api.types.is_numeric_dtype(target_series):
+                # Ensure consistent encoding by sorting unique values
+                unique_values = sorted(target_series.dropna().unique())
+                mapping = {val: idx for idx, val in enumerate(unique_values)}
+                target_series = target_series.map(mapping)
+            
+            # Reattach target column
+            processed_df[target_column] = target_series
+            return processed_df
         else:
-            df = self.handle_missing_values(df, previous_prompt)
-            # Remove outliers on the numeric columns.
-            df = self.remove_outliers(df, numeric_columns)
-        
-        if target_present:
-            logging.info(f"Encoded target distribution: {df[target_column].value_counts().to_dict()}")
-        
-        logging.info(f"Cleaned data shape: {df.shape}")
-        return df
+            # No target column, process normally
+            processed_df = self.handle_missing_values(df, previous_prompt)
+            
+            # Determine numeric columns
+            numeric_columns = processed_df.select_dtypes(include=['int64', 'float64']).columns
+            
+            # Remove outliers on numeric columns
+            processed_df = self.remove_outliers(processed_df, numeric_columns)
+            return processed_df
 
     # ---- Internal methods for LLM-based cleaning ----
 
@@ -375,6 +363,7 @@ class DataCleaner:
                     else:
                         df_clean[col] = df_clean[col].astype("category").cat.codes
                         logging.info("Fallback label-encoded column '%s'.", col)
+        
         # Final step: ensure all columns are numeric.
         df_final = df_clean.apply(pd.to_numeric, errors='coerce')
         return df_final
@@ -524,7 +513,7 @@ def clean_data():
         # Get the cleaning prompt (either the previous one or a new one)
         cleaning_prompt = cleaner.last_cleaning_prompt
         
-        # Convert DataFrame to JSON and include the prompt - use original response format
+        # Return the cleaned data and cleaning prompt
         return jsonify({
             "data": cleaned_data.to_dict(orient='records'),
             "message": "Data cleaned successfully",
