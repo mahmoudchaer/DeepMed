@@ -757,11 +757,13 @@ def training():
                 run_id_to_use = model_result.get('run_id', local_run_id)
                 if run_id_to_use:
                     # Ensure all 4 models are properly saved to the database
-                    ensure_training_models_saved(user_id, run_id_to_use, model_result)
+                    with app.app_context():
+                        ensure_training_models_saved(user_id, run_id_to_use, model_result)
                     
                     # If we have our local run_id, also ensure models are saved for it
                     if local_run_id and local_run_id != run_id_to_use:
-                        ensure_training_models_saved(user_id, local_run_id, model_result)
+                        with app.app_context():
+                            ensure_training_models_saved(user_id, local_run_id, model_result)
                 else:
                     logger.warning("No run_id available to save models")
             
@@ -2070,68 +2072,67 @@ def ensure_training_models_saved(user_id, run_id, model_result):
         saved_models = model_result['saved_best_models']
         metrics = ['accuracy', 'precision', 'recall', 'f1']
         
-        with app.app_context():
-            # Check if models already exist for this run
-            existing_models = TrainingModel.query.filter_by(run_id=run_id).count()
-            if existing_models >= 4:
-                logger.info(f"Found {existing_models} models already saved for run_id {run_id}")
-                return True
-                
-            # Save each model
-            for metric in metrics:
-                if metric not in saved_models:
-                    logger.warning(f"No saved model found for metric {metric}")
-                    continue
-                    
-                model_info = saved_models[metric]
-                
-                # Check if we have the URL
-                if 'url' not in model_info:
-                    logger.warning(f"No URL found for saved model {metric}")
-                    continue
-                    
-                # Create model record
-                model_name = f"best_model_for_{metric}"
-                model_url = model_info['url']
-                
-                # Extract filename from URL or use the one from the model_info
-                if 'filename' in model_info:
-                    filename = model_info['filename']
-                else:
-                    # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
-                    filename = model_url.split('/')[-1]
-                
-                # Check if this model is already saved
-                existing_model = TrainingModel.query.filter_by(
-                    run_id=run_id,
-                    model_name=model_name
-                ).first()
-                
-                if existing_model:
-                    logger.info(f"Model {model_name} already exists for run_id {run_id}")
-                    continue
-                    
-                # Create and save the model record
-                model_record = TrainingModel(
-                    user_id=user_id,
-                    run_id=run_id,
-                    model_name=model_name,
-                    model_url=model_url,
-                    file_name=filename  # Save the filename too
-                )
-                
-                db.session.add(model_record)
-                logger.info(f"Added model {model_name} to database for run_id {run_id}")
-            
-            # Commit all changes
-            db.session.commit()
-            logger.info(f"Committed training models to database for run_id {run_id}")
-            
-            # Verify models were saved
-            saved_count = TrainingModel.query.filter_by(run_id=run_id).count()
-            logger.info(f"Verified {saved_count} models saved for run_id {run_id}")
-            
+        # Check if models already exist for this run
+        existing_models = TrainingModel.query.filter_by(run_id=run_id).count()
+        if existing_models >= 4:
+            logger.info(f"Found {existing_models} models already saved for run_id {run_id}")
             return True
+            
+        # Save each model
+        for metric in metrics:
+            if metric not in saved_models:
+                logger.warning(f"No saved model found for metric {metric}")
+                continue
+                
+            model_info = saved_models[metric]
+            
+            # Check if we have the URL
+            if 'url' not in model_info:
+                logger.warning(f"No URL found for saved model {metric}")
+                continue
+                
+            # Create model record
+            model_name = f"best_model_for_{metric}"
+            model_url = model_info['url']
+            
+            # Extract filename from URL or use the one from the model_info
+            if 'filename' in model_info:
+                filename = model_info['filename']
+            else:
+                # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
+                filename = model_url.split('/')[-1]
+            
+            # Check if this model is already saved
+            existing_model = TrainingModel.query.filter_by(
+                run_id=run_id,
+                model_name=model_name
+            ).first()
+            
+            if existing_model:
+                logger.info(f"Model {model_name} already exists for run_id {run_id}")
+                continue
+                
+            # Create and save the model record
+            model_record = TrainingModel(
+                user_id=user_id,
+                run_id=run_id,
+                model_name=model_name,
+                model_url=model_url,
+                file_name=filename  # Save the filename too
+            )
+            
+            db.session.add(model_record)
+            logger.info(f"Added model {model_name} to database for run_id {run_id}")
+        
+        # Commit all changes
+        db.session.commit()
+        logger.info(f"Committed training models to database for run_id {run_id}")
+        
+        # Verify models were saved
+        saved_count = TrainingModel.query.filter_by(run_id=run_id).count()
+        logger.info(f"Verified {saved_count} models saved for run_id {run_id}")
+        
+        return True
             
     except Exception as e:
         logger.error(f"Error ensuring training models are saved: {str(e)}")
