@@ -68,14 +68,17 @@ def delete_blob(filename):
         logger.error(f"Error deleting file: {str(e)}")
         return False
 
-def download_blob(blob_url):
+def download_blob(blob_url, local_path=None):
     """Downloads a file from Azure Blob Storage using authentication.
     
     Args:
         blob_url (str): The full URL of the blob to download
+        local_path (str, optional): The local path to save the blob to. If not provided,
+                                  the function will return the blob data.
         
     Returns:
-        bytes: The contents of the blob as bytes
+        bytes or bool: The contents of the blob as bytes if local_path is None,
+                      otherwise True if the download was successful.
     """
     if blob_service_client is None:
         logger.error("Azure Blob Storage client not initialized. Cannot download file.")
@@ -94,11 +97,19 @@ def download_blob(blob_url):
         blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=blob_name)
         
         # Download the blob content
-        download_stream = blob_client.download_blob()
-        blob_data = download_stream.readall()
-        
-        logger.info(f"Blob '{blob_name}' downloaded successfully!")
-        return blob_data
+        if local_path:
+            # Download directly to file
+            with open(local_path, "wb") as file:
+                download_stream = blob_client.download_blob()
+                file.write(download_stream.readall())
+            logger.info(f"Blob '{blob_name}' downloaded successfully to {local_path}!")
+            return True
+        else:
+            # Return the blob data
+            download_stream = blob_client.download_blob()
+            blob_data = download_stream.readall()
+            logger.info(f"Blob '{blob_name}' downloaded successfully!")
+            return blob_data
     except Exception as e:
         logger.error(f"Error downloading blob: {str(e)}")
         return None
