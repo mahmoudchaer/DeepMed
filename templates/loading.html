@@ -132,7 +132,7 @@
                         // Add return button
                         const container = document.querySelector('.loading-container');
                         const button = document.createElement('a');
-                        button.href = "{{ url_for('model_selection') }}";
+                        button.href = "{{ url_for('my_models') }}";
                         button.className = 'btn btn-primary mt-4';
                         button.textContent = 'Return to Model Selection';
                         container.appendChild(button);
