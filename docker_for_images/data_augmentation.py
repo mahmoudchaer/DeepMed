@@ -42,7 +42,7 @@ class DataAugmentor:
             A.Resize(*self.image_size),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.2, brightness_limit=0.1, contrast_limit=0.1),
-            A.Normalize(),
+            A.Normalize(max_pixel_value=255.0),
             ToTensorV2(),
         ])
     
@@ -51,10 +51,9 @@ class DataAugmentor:
         return A.Compose([
             A.Resize(*self.image_size),
             A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.2),
-            A.RandomBrightnessContrast(p=0.3, brightness_limit=0.2, contrast_limit=0.2),
-            A.Rotate(limit=15, p=0.3),
-            A.Normalize(),
+            A.RandomBrightnessContrast(p=0.3, brightness_limit=0.15, contrast_limit=0.15),
+            A.Rotate(limit=10, p=0.3),
+            A.Normalize(max_pixel_value=255.0),
             ToTensorV2(),
         ])
     
@@ -63,11 +62,11 @@ class DataAugmentor:
         return A.Compose([
             A.Resize(*self.image_size),
             A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.3),
-            A.RandomBrightnessContrast(p=0.4, brightness_limit=0.3, contrast_limit=0.3),
-            A.Rotate(limit=30, p=0.4),
-            A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=30, p=0.3),
-            A.Normalize(),
+            A.RandomBrightnessContrast(p=0.4, brightness_limit=0.2, contrast_limit=0.2),
+            A.Rotate(limit=15, p=0.4),
+            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.3),
+            A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=10, p=0.3),
+            A.Normalize(max_pixel_value=255.0),
             ToTensorV2(),
         ])
     
@@ -76,13 +75,12 @@ class DataAugmentor:
         return A.Compose([
             A.Resize(*self.image_size),
             A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.4),
-            A.RandomBrightnessContrast(p=0.5, brightness_limit=0.4, contrast_limit=0.4),
-            A.Rotate(limit=45, p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=45, p=0.4),
-            A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, p=0.3),
-            A.GaussNoise(p=0.2),
-            A.Normalize(),
+            A.RandomBrightnessContrast(p=0.5, brightness_limit=0.25, contrast_limit=0.25),
+            A.Rotate(limit=20, p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=20, p=0.4),
+            A.HueSaturationValue(hue_shift_limit=15, sat_shift_limit=20, val_shift_limit=15, p=0.4),
+            A.GaussNoise(var_limit=(5.0, 15.0), p=0.2),
+            A.Normalize(max_pixel_value=255.0),
             ToTensorV2(),
         ])
     
@@ -91,16 +89,16 @@ class DataAugmentor:
         return A.Compose([
             A.Resize(*self.image_size),
             A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.5),
-            A.RandomBrightnessContrast(p=0.6, brightness_limit=0.5, contrast_limit=0.5),
-            A.Rotate(limit=60, p=0.6),
-            A.ShiftScaleRotate(shift_limit=0.3, scale_limit=0.3, rotate_limit=60, p=0.5),
-            A.ElasticTransform(alpha=180, sigma=180 * 0.05, alpha_affine=180 * 0.03, p=0.4),
-            A.GaussNoise(p=0.3),
-            A.RandomGamma(p=0.3),
-            A.RandomFog(p=0.2),
-            A.RandomShadow(p=0.2),
-            A.Normalize(),
+            A.RandomBrightnessContrast(p=0.6, brightness_limit=0.3, contrast_limit=0.3),
+            A.Rotate(limit=30, p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.15, scale_limit=0.15, rotate_limit=30, p=0.5),
+            A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.5),
+            A.GaussNoise(var_limit=(5.0, 20.0), p=0.3),
+            A.OneOf([
+                A.MotionBlur(blur_limit=5, p=0.5),
+                A.MedianBlur(blur_limit=5, p=0.5),
+            ], p=0.2),
+            A.Normalize(max_pixel_value=255.0),
             ToTensorV2(),
         ])
     
