@@ -459,7 +459,7 @@ def load_from_temp_file(filepath):
     try:
         with open(filepath, 'r') as f:
             return json.load(f)
-    except Exception as e:
+            except Exception as e:
         logger.error(f"Error loading data from file {filepath}: {str(e)}")
         return None
 
@@ -525,7 +525,7 @@ def is_service_available(service_url):
 from app_tabular import *
 from app_images import *
 from app_others import *
-
+        
 if __name__ == "__main__":
     # Ensure the database exists
     with app.app_context():
@@ -533,7 +533,7 @@ if __name__ == "__main__":
         try:
             db.create_all()
             print("Database tables created/verified")
-        except Exception as e:
+    except Exception as e:
             print(f"Error creating database tables: {str(e)}")
     
     # Start the Flask app

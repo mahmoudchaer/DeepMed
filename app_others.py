@@ -905,6 +905,57 @@ def select_model(model_name, metric):
     flash(f'Selected {model_name} model optimized for {metric}.', 'success')
     return redirect(url_for('prediction'))
 
+@app.route('/model_selection')
+@login_required
+def model_selection():
+    """Display model selection page after training is complete"""
+    # Check if user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to select a model.', 'warning')
+        return redirect(url_for('login'))
+    
+    # Check if we have model results in session
+    model_results = session.get('model_results')
+    if not model_results:
+        flash('No model results found. Please train models first.', 'warning')
+        return redirect(url_for('training'))
+    
+    # Prepare data for the template
+    models = []
+    model_metrics = {}
+    
+    # Process the best models by metrics
+    for metric_name, model_info in model_results.get('best_models', {}).items():
+        model_name = model_info.get('model_name', 'Unknown Model')
+        metric_value = model_info.get('metric_value', 0)
+        
+        models.append({
+            'model_name': model_name,
+            'metric_name': metric_name,
+            'metric_value': metric_value
+        })
+    
+    # Process all model metrics
+    for model_name, metrics in model_results.get('all_model_metrics', {}).items():
+        model_metrics[model_name] = metrics
+    
+    # Generate overall metrics
+    overall_metrics = {
+        'models_trained': len(model_metrics),
+        'features_used': len(model_results.get('feature_names', [])),
+        'test_size': session.get('test_size', 0.2),
+        'metrics_shown': ', '.join(list(model_results.get('best_models', {}).keys()))
+    }
+    
+    # Store the run ID for select_model route
+    if 'run_id' in model_results:
+        session['last_training_run_id'] = model_results['run_id']
+    
+    return render_template('model_selection.html', 
+                          models=models, 
+                          model_metrics=model_metrics,
+                          overall_metrics=overall_metrics)
+
 @app.route('/service_status')
 def service_status():
     """Check the status of all services"""
