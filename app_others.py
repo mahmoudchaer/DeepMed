@@ -540,8 +540,19 @@ def download_model(model_id):
                 # Try to import the storage module
                 try:
                     from storage import download_blob
-                    # Download the model file
-                    download_blob(model.model_url, local_model_path)
+                    
+                    # Check the function signature - handle both 1 and 2 argument versions
+                    import inspect
+                    sig = inspect.signature(download_blob)
+                    if len(sig.parameters) == 1:
+                        # If it takes one argument, assume it returns the file content
+                        content = download_blob(model.model_url)
+                        with open(local_model_path, 'wb') as f:
+                            f.write(content)
+                    else:
+                        # Original approach - function takes both URL and local path
+                        download_blob(model.model_url, local_model_path)
+                        
                     model_downloaded = True
                     logger.info(f"Downloaded model to {local_model_path}")
                 except ImportError:
