@@ -1222,5 +1222,67 @@ def model_selection(run_id=None):
         overall_metrics=overall_metrics
     )
 
+def create_model_helper_script(temp_dir):
+    """Create a helper script for loading models robustly."""
+    script_content = '''
+# Helper script for loading models with version compatibility
+import joblib
+import os
+import sys
+import warnings
+from sklearn.exceptions import UserWarning
 
-    # Write the helper script to a fil
+def load_model(model_path=None):
+    """
+    Load a model file with compatibility handling for different sklearn versions.
+    
+    Args:
+        model_path: Path to the .joblib model file. If None, will try to find a .joblib file in current directory.
+        
+    Returns:
+        The loaded model
+    """
+    # Find model file if not specified
+    if model_path is None:
+        for file in os.listdir('.'):
+            if file.endswith('.joblib'):
+                model_path = file
+                break
+        if model_path is None:
+            raise ValueError("No .joblib model file found in current directory")
+    
+    print(f"Loading model from {model_path}")
+    
+    # Try to load the model with warnings for version incompatibility
+    with warnings.catch_warnings(record=True) as warning_list:
+        model_data = joblib.load(model_path)
+        
+        # Check for version warnings
+        for warning in warning_list:
+            print(f"Warning during model loading: {warning.message}")
+            
+    # Handle both direct model objects and dictionary storage format
+    if isinstance(model_data, dict) and 'model' in model_data:
+        model = model_data['model']
+        print("Model loaded from dictionary format")
+    else:
+        model = model_data
+        print("Model loaded directly")
+        
+    print(f"Model type: {type(model).__name__}")
+    return model
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        model = load_model(sys.argv[1])
+    else:
+        model = load_model()
+    
+    print("Model successfully loaded!")
+    print(f"Model type: {type(model).__name__}")
+'''
+
+    # Write the utility script to a file
+    script_path = os.path.join(temp_dir, 'model_helper.py')
+    with open(script_path, 'w') as f:
+        f.write(script_content)
