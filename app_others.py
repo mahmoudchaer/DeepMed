@@ -480,20 +480,18 @@ def apply_stored_feature_selection(df, feature_selector_config):
 @login_required
 def my_models():
     """Show the user's trained models"""
-    # Get the user's training runs with models
-    runs_with_models = db.session.query(TrainingRun).\
-        join(TrainingModel, TrainingRun.id == TrainingModel.run_id).\
-        filter(TrainingRun.user_id == current_user.id).\
-        group_by(TrainingRun.id).\
-        order_by(TrainingRun.created_at.desc()).all()
-    
-    # Also get all training runs to show even those without models
+    # Get all training runs to show even those without models
     all_runs = TrainingRun.query.filter_by(user_id=current_user.id).\
         order_by(TrainingRun.created_at.desc()).all()
     
-    # Get the count of models for each run
+    # Get the models for each run and attach them to the run object
     for run in all_runs:
-        run.model_count = TrainingModel.query.filter_by(run_id=run.id).count()
+        # Get the models for this run
+        run.models = TrainingModel.query.filter_by(run_id=run.id, user_id=current_user.id).all()
+        run.model_count = len(run.models)
+    
+    # Also get runs that specifically have models
+    runs_with_models = [run for run in all_runs if run.model_count > 0]
     
     return render_template('my_models.html', 
                           training_runs=all_runs,
@@ -524,11 +522,12 @@ def download_model(model_id):
         # Create a temporary directory for the package
         temp_dir = tempfile.mkdtemp()
         
-        # Download the model file from storage
-        from storage import download_blob
+        # Download the model file from storage or use a placeholder
+        model_downloaded = False
+        
         if model.model_url:
             try:
-                logger.info(f"Downloading model from {model.model_url}")
+                logger.info(f"Attempting to download model from {model.model_url}")
                 
                 # If a filename is provided, use it; otherwise extract from URL
                 if model.file_name:
@@ -538,16 +537,51 @@ def download_model(model_id):
                     filename = model.model_url.split('/')[-1]
                     local_model_path = os.path.join(temp_dir, filename)
                 
-                # Download the model file
-                download_blob(model.model_url, local_model_path)
-                logger.info(f"Downloaded model to {local_model_path}")
+                # Try to import the storage module
+                try:
+                    from storage import download_blob
+                    # Download the model file
+                    download_blob(model.model_url, local_model_path)
+                    model_downloaded = True
+                    logger.info(f"Downloaded model to {local_model_path}")
+                except ImportError:
+                    # If storage module is not available, try to download directly with requests
+                    logger.info("Storage module not available, using requests instead")
+                    try:
+                        with requests.get(model.model_url, stream=True) as r:
+                            r.raise_for_status()
+                            with open(local_model_path, 'wb') as f:
+                                for chunk in r.iter_content(chunk_size=8192):
+                                    f.write(chunk)
+                        model_downloaded = True
+                        logger.info(f"Downloaded model to {local_model_path} using requests")
+                    except Exception as e:
+                        logger.error(f"Error downloading model with requests: {str(e)}")
+                        # Create a placeholder model file
+                        placeholder_path = os.path.join(temp_dir, model.file_name or 'model.joblib')
+                        with open(placeholder_path, 'w') as f:
+                            f.write("# This is a placeholder for the model file that couldn't be downloaded\n")
+                            f.write(f"# Original URL: {model.model_url}\n")
+                            f.write(f"# Error: {str(e)}\n")
+                        
+                        logger.info(f"Created placeholder model file at {placeholder_path}")
             except Exception as e:
-                logger.error(f"Error downloading model: {str(e)}")
-                flash(f"Error downloading model: {str(e)}", "danger")
-                return redirect(url_for('my_models'))
+                logger.error(f"Error in model download process: {str(e)}")
+                flash(f"Error downloading model: {str(e)}", "warning")
+                # Continue with the process, using a placeholder
+                placeholder_path = os.path.join(temp_dir, model.file_name or 'model.joblib')
+                with open(placeholder_path, 'w') as f:
+                    f.write("# This is a placeholder for the model file that couldn't be downloaded\n")
+                    f.write(f"# Original URL: {model.model_url}\n")
+                    f.write(f"# Error: {str(e)}\n")
         else:
-            flash("No model URL available for download", "danger")
-            return redirect(url_for('my_models'))
+            # No URL available, create a placeholder file
+            placeholder_path = os.path.join(temp_dir, model.file_name or 'model.joblib')
+            with open(placeholder_path, 'w') as f:
+                f.write("# This is a placeholder for the model file\n")
+                f.write("# No model URL was available for download\n")
+            
+            logger.warning("No model URL available, created placeholder file")
         
         # Save preprocessing info to a JSON file
         if preprocessing_info:
@@ -575,6 +609,9 @@ def download_model(model_id):
         
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
+        
+        if not model_downloaded:
+            flash("Model file could not be downloaded. A placeholder has been included in the package.", "warning")
         
         # Return the ZIP file
         return send_file(
