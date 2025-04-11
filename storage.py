@@ -2,8 +2,6 @@ import os
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 import logging
-import requests
-import tempfile
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -70,49 +68,37 @@ def delete_blob(filename):
         logger.error(f"Error deleting file: {str(e)}")
         return False
 
-def download_blob(url):
-    """
-    Download a blob from a URL and return its contents.
+def download_blob(blob_url):
+    """Downloads a file from Azure Blob Storage using authentication.
     
     Args:
-        url (str): The URL of the blob to download.
+        blob_url (str): The full URL of the blob to download
         
     Returns:
-        bytes: The contents of the blob.
+        bytes: The contents of the blob as bytes
     """
-    try:
-        logger.info(f"Downloading blob from {url}")
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        
-        # Return the content
-        return response.content
-        
-    except Exception as e:
-        logger.error(f"Error downloading blob from {url}: {str(e)}")
-        raise
-
-def upload_blob(container_name, blob_name, data):
-    """
-    Upload data to Azure Blob Storage using Azure Storage SDK.
-    This requires azure-storage-blob package. 
+    if blob_service_client is None:
+        logger.error("Azure Blob Storage client not initialized. Cannot download file.")
+        return None
     
-    Args:
-        container_name (str): The name of the container.
-        blob_name (str): The name of the blob.
-        data (bytes or file-like object): The data to upload.
-        
-    Returns:
-        str: The URL of the uploaded blob.
-    """
     try:
-        # This is just a placeholder - in a real implementation, 
-        # you would use Azure Storage SDK to upload the blob
-        logger.warning("This is a placeholder upload_blob function. Implement with Azure SDK for actual uploads.")
+        # Extract the blob name from the URL
+        parts = blob_url.split('/')
+        if len(parts) < 5:
+            logger.error(f"Invalid blob URL format: {blob_url}")
+            return None
+            
+        blob_name = '/'.join(parts[4:])  # Everything after the container name
         
-        # Mock the URL that would be returned
-        return f"https://yourstorageaccount.blob.core.windows.net/{container_name}/{blob_name}"
+        # Get a blob client for the specific blob
+        blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=blob_name)
         
+        # Download the blob content
+        download_stream = blob_client.download_blob()
+        blob_data = download_stream.readall()
+        
+        logger.info(f"Blob '{blob_name}' downloaded successfully!")
+        return blob_data
     except Exception as e:
-        logger.error(f"Error uploading blob {blob_name} to container {container_name}: {str(e)}")
-        raise
+        logger.error(f"Error downloading blob: {str(e)}")
+        return None
