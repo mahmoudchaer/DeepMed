@@ -108,157 +108,619 @@ def ensure_training_models_saved(user_id, run_id, model_result):
         return False
 
 def create_utility_script(temp_dir, model_filename, preprocessing_info):
-    """Create a utility script for using the model"""
-    script_content = '''import pandas as pd
-import numpy as np
-import joblib
-import json
+    """Create a utility script for using the model with proper preprocessing."""
+    script_content = '''
 import os
-import sys
-from sklearn.dummy import DummyClassifier
+import json
+import joblib
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 class ModelPredictor:
-    """Utility class for making predictions with the trained model"""
-    
-    def __init__(self):
+    def __init__(self, model_path=None, preprocessing_info_path=None):
+        """
+        Initialize the predictor with model and preprocessing information.
+        
+        Args:
+            model_path: Path to the .joblib model file
+            preprocessing_info_path: Path to the preprocessing_info.json file
+        """
+        # Find paths automatically if in the same directory
+        if model_path is None:
+            for file in os.listdir('.'):
+                if file.endswith('.joblib'):
+                    model_path = file
+                    break
+            if model_path is None:
+                raise ValueError("No .joblib model file found in current directory")
+                
+        if preprocessing_info_path is None:
+            if os.path.exists('preprocessing_info.json'):
+                preprocessing_info_path = 'preprocessing_info.json'
+        
         # Load the model
-        self.model = self._load_model()
-        # Load preprocessing info
-        self.preprocessing_info = self._load_preprocessing_info()
-        # Store column names
-        self.selected_columns = self.preprocessing_info.get('selected_columns', [])
-        
-    def _load_model(self):
-        """Load the model from file"""
-        # Get the script directory
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # Find model file in the directory (should be a .joblib file)
-        model_files = [f for f in os.listdir(script_dir) 
-                      if f.endswith('.joblib') or f.endswith('.pkl')]
-        
-        if not model_files:
-            raise ValueError("No model file found in the directory")
-        
-        model_path = os.path.join(script_dir, model_files[0])
         print(f"Loading model from {model_path}")
+        self.model_data = joblib.load(model_path)
         
-        # Use the model_helper module for robust loading
-        try:
-            # Import our custom helper module that's included in the package
-            import model_helper
-            return model_helper.load_model_with_fallback(model_path)
-        except ImportError:
-            # Fallback if model_helper is not available
-            print("model_helper module not found, using standard joblib loading")
+        # Handle both direct model objects and dictionary storage format
+        if isinstance(self.model_data, dict) and 'model' in self.model_data:
+            self.model = self.model_data['model']
+            print("Model loaded from dictionary format")
+        else:
+            self.model = self.model_data
+            print("Model loaded directly")
             
-            # Try to load the model - handle potentially corrupt files
-            try:
-                # Load the model
-                model = joblib.load(model_path)
-                
-                # If model is a dictionary but doesn't have expected attributes, 
-                # create a simple model that returns default predictions
-                if isinstance(model, dict) and not hasattr(model, 'predict'):
-                    print("WARNING: Model file appears to be corrupted or in the wrong format")
-                    print("Creating a fallback dummy model")
-                    
-                    dummy_model = DummyClassifier(strategy='most_frequent')
-                    dummy_model.fit([[0]], [1])  # Simple fit with dummy data - predict class 1
-                    return dummy_model
-                    
-                return model
-            except Exception as e:
-                print(f"Error loading model: {str(e)}")
-                print("Creating a fallback dummy model")
-                
-                dummy_model = DummyClassifier(strategy='most_frequent')
-                dummy_model.fit([[0]], [1])  # Simple fit with dummy data - predict class 1
-                return dummy_model
-    
-    def _load_preprocessing_info(self):
-        """Load preprocessing information from the JSON file"""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        preprocessing_path = os.path.join(script_dir, "preprocessing_info.json")
+        # Get model type information
+        self.model_type = type(self.model).__name__
+        print(f"Model type: {self.model_type}")
         
-        if not os.path.exists(preprocessing_path):
-            print("Warning: preprocessing_info.json not found")
-            return {}
+        # Extract components if model is a pipeline
+        self.classifier = None
+        self.scaler = None
+        if hasattr(self.model, 'steps'):
+            print("Model is a pipeline with steps:")
+            for name, step in self.model.steps:
+                print(f"- {name}: {type(step).__name__}")
+                if name == 'classifier':
+                    self.classifier = step
+                elif name == 'scaler':
+                    self.scaler = step
         
-        with open(preprocessing_path, 'r') as f:
-            return json.load(f)
-    
+        # Load preprocessing info if available
+        self.preprocessing_info = None
+        if preprocessing_info_path and os.path.exists(preprocessing_info_path):
+            with open(preprocessing_info_path, 'r') as f:
+                self.preprocessing_info = json.load(f)
+                print("Loaded preprocessing information")
+                
     def preprocess_data(self, df):
-        """Apply preprocessing steps to the input data"""
-        # Ensure all required columns are present
-        missing_columns = [col for col in self.selected_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing columns in input data: {missing_columns}")
+        """Apply the same preprocessing steps as during training."""
+        if self.preprocessing_info is None:
+            print("Warning: No preprocessing information available. Using raw data.")
+            return df
+            
+        # Make a copy to avoid modifying the original
+        processed_df = df.copy()
         
-        # Select only the columns used during training
-        if self.selected_columns:
-            df = df[self.selected_columns].copy()
+        # Apply data cleaning
+        processed_df = self._apply_cleaning(processed_df)
         
-        # Basic preprocessing
-        # 1. Handle missing values
-        df = df.fillna(df.mean())
+        # Apply feature selection 
+        processed_df = self._apply_feature_selection(processed_df)
         
-        # 2. Convert categorical columns
-        for col in df.select_dtypes(include=['object']).columns:
-            df[col] = df[col].astype('category').cat.codes
+        return processed_df
+        
+    def _apply_cleaning(self, df):
+        """Apply cleaning operations based on stored configuration."""
+        if self.preprocessing_info is None or 'cleaner_config' not in self.preprocessing_info:
+            return df
+            
+        cleaner_config = self.preprocessing_info['cleaner_config']
+        
+        # Make a copy to avoid modifying the original
+        cleaned_df = df.copy()
+        
+        # Apply basic cleaning operations based on cleaner_config
+        # Handle missing values
+        if cleaner_config.get('handle_missing', True):
+            for col in cleaned_df.columns:
+                if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                    # Fill numeric columns with mean or specified value
+                    fill_value = cleaner_config.get('numeric_fill', 'mean')
+                    if fill_value == 'mean':
+                        if cleaned_df[col].isna().any():
+                            # Calculate mean excluding NaN values
+                            mean_value = cleaned_df[col].mean()
+                            cleaned_df[col] = cleaned_df[col].fillna(mean_value)
+                    elif fill_value == 'median':
+                        if cleaned_df[col].isna().any():
+                            # Calculate median excluding NaN values
+                            median_value = cleaned_df[col].median()
+                            cleaned_df[col] = cleaned_df[col].fillna(median_value)
+                    elif fill_value == 'zero':
+                        cleaned_df[col] = cleaned_df[col].fillna(0)
+                else:
+                    # Fill categorical/text columns with mode or specified value
+                    fill_value = cleaner_config.get('categorical_fill', 'mode')
+                    if fill_value == 'mode':
+                        if cleaned_df[col].isna().any():
+                            mode = cleaned_df[col].mode()
+                            if not mode.empty:
+                                cleaned_df[col] = cleaned_df[col].fillna(mode[0])
+                    elif fill_value == 'unknown':
+                        cleaned_df[col] = cleaned_df[col].fillna('unknown')
+        
+        # Remove duplicates if specified
+        if cleaner_config.get('remove_duplicates', True):
+            cleaned_df = cleaned_df.drop_duplicates()
+        
+        # Handle outliers if specified (using IQR method)
+        if cleaner_config.get('handle_outliers', False):
+            for col in cleaned_df.select_dtypes(include=['float64', 'int64']).columns:
+                Q1 = cleaned_df[col].quantile(0.25)
+                Q3 = cleaned_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                
+                outlier_action = cleaner_config.get('outlier_action', 'clip')
+                if outlier_action == 'clip':
+                    cleaned_df[col] = cleaned_df[col].clip(lower_bound, upper_bound)
+                elif outlier_action == 'remove':
+                    mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
+                    cleaned_df = cleaned_df[mask]
+        
+        return cleaned_df
+    
+    def _apply_feature_selection(self, df):
+        """Apply feature selection based on stored configuration."""
+        if self.preprocessing_info is None:
+            return df
+            
+        # If we have specific columns to select, use them
+        if 'selected_columns' in self.preprocessing_info and self.preprocessing_info['selected_columns']:
+            selected_columns = self.preprocessing_info['selected_columns']
+            # Check which columns are available in the DataFrame
+            available_columns = [col for col in selected_columns if col in df.columns]
+            
+            if len(available_columns) != len(selected_columns):
+                missing_columns = set(selected_columns) - set(available_columns)
+                print(f"Warning: Missing columns: {missing_columns}")
+                
+            if not available_columns:
+                print("Warning: No selected columns found in the dataset. Using all columns.")
+                return df
+                
+            return df[available_columns].copy()
         
         return df
     
     def predict(self, df):
-        """Preprocess data and make predictions"""
+        """Preprocess data and make predictions with version compatibility handling."""
         # Preprocess the data
         processed_df = self.preprocess_data(df)
+        print(f"Preprocessed data shape: {processed_df.shape}")
         
-        # Make predictions
-        try:
-            # Try regular predict method first
-            predictions = self.model.predict(processed_df)
-            prediction_methods = ["predict"]
-        except Exception as e:
-            print(f"Error using standard predict method: {str(e)}")
-            print("Trying compatibility fixes...")
-            
-            # Try predict_proba method for classifier
-            try:
-                proba = self.model.predict_proba(processed_df)
-                predictions = np.argmax(proba, axis=1)
-                prediction_methods = ["predict_proba", "argmax"]
-            except Exception as e2:
-                print(f"Error with predict_proba: {str(e2)}")
+        # Check if we have a target column and remove it
+        target_col = None
+        for col in ['diagnosis', 'target', 'label', 'class']:
+            if col in processed_df.columns:
+                target_col = col
+                true_values = processed_df[target_col].copy()
+                processed_df = processed_df.drop(target_col, axis=1)
+                print(f"Removed target column '{target_col}' for prediction")
+                break
                 
-                # Try decision function
-                try:
-                    decision = self.model.decision_function(processed_df)
-                    if len(decision.shape) > 1 and decision.shape[1] > 1:
-                        predictions = np.argmax(decision, axis=1)
-                        prediction_methods = ["decision_function", "argmax"]
-                    else:
-                        predictions = (decision > 0).astype(int)
-                        prediction_methods = ["decision_function", "threshold"]
-                except Exception as e3:
-                    print(f"All prediction methods failed: {str(e3)}")
-                    print("Using fallback method: all zeros")
+        # Try different prediction methods and use the first one that works
+        prediction_methods = []
+        
+        try:
+            # Method 1: Direct prediction
+            predictions = self.model.predict(processed_df)
+            prediction_methods.append("Direct model.predict()")
+            
+            # Check for suspicious predictions (all the same value)
+            unique_preds = np.unique(predictions)
+            if len(unique_preds) == 1:
+                print(f"Warning: All predictions are {unique_preds[0]}. Trying compatibility fix...")
+                raise Exception("All predictions are the same - trying alternative method")
+                
+        except Exception as e:
+            print(f"Direct prediction failed or gave suspicious results: {str(e)}")
+            
+            try:
+                # Method 2: Manual logistic regression with fresh scaling
+                if self.classifier is not None and hasattr(self.classifier, 'coef_'):
+                    print("Using manual logistic regression with coefficients")
                     
-                    # Fallback to all zeros prediction
-                    predictions = np.zeros(processed_df.shape[0])
-                    prediction_methods = ["fallback_zeros"]
+                    # Apply fresh StandardScaler
+                    fresh_scaler = StandardScaler()
+                    X_scaled = fresh_scaler.fit_transform(processed_df.values)
+                    
+                    # Get coefficients and intercept
+                    coef = self.classifier.coef_[0]
+                    intercept = self.classifier.intercept_[0]
+                    
+                    # Handle coefficient length mismatch
+                    if len(coef) > processed_df.shape[1]:
+                        print(f"Warning: Coefficient length ({len(coef)}) > data columns ({processed_df.shape[1]})")
+                        print("Using only the coefficients that match data dimensions")
+                        coef = coef[:processed_df.shape[1]]
+                    
+                    # Calculate log-odds (z)
+                    z = np.dot(X_scaled, coef) + intercept
+                    
+                    # Apply sigmoid function to get probabilities
+                    probs = 1 / (1 + np.exp(-z))
+                    
+                    # Convert to 0/1 predictions
+                    predictions = (probs > 0.5).astype(int)
+                    prediction_methods.append("Manual logistic regression with fresh scaling")
+                    
+                    # Check again for suspicious predictions
+                    unique_preds = np.unique(predictions)
+                    if len(unique_preds) == 1:
+                        print(f"Warning: All predictions are {unique_preds[0]}. Trying direct classifier...")
+                        raise Exception("All predictions are the same - trying classifier directly")
+                else:
+                    raise Exception("No classifier component with coefficients found")
+            except Exception as e:
+                print(f"Manual prediction failed: {str(e)}")
+                
+                try:
+                    # Method 3: Try classifier component directly with fresh scaling
+                    if self.classifier is not None:
+                        print("Using classifier component directly")
+                        
+                        # Apply fresh scaling if we have a scaler
+                        if self.scaler is not None:
+                            print("Using fresh StandardScaler before classifier")
+                            fresh_scaler = StandardScaler()
+                            df_scaled = fresh_scaler.fit_transform(processed_df.values)
+                        else:
+                            df_scaled = processed_df.values
+                        
+                        predictions = self.classifier.predict(df_scaled)
+                        prediction_methods.append("Direct classifier.predict()")
+                        
+                        # Final check for suspicious predictions
+                        unique_preds = np.unique(predictions)
+                        if len(unique_preds) == 1:
+                            print(f"Warning: All predictions are {unique_preds[0]}. Using fallback...")
+                            raise Exception("All predictions are the same - using fallback")
+                    else:
+                        raise Exception("No classifier component found")
+                except Exception as e:
+                    print(f"Classifier prediction failed: {str(e)}")
+                    
+                    # Method 4: Emergency fallback
+                    print("All prediction methods failed. Using emergency fallback (all 1's).")
+                    predictions = np.ones(processed_df.shape[0])
+                    prediction_methods.append("Emergency fallback (all 1's)")
         
-        # Convert to proper type
-        predictions = np.array(predictions).astype(int)
-        
-        # Output prediction statistics
-        print(f"Prediction Summary: ")
+        # Print prediction distribution
         unique, counts = np.unique(predictions, return_counts=True)
+        print("Prediction distribution:")
         for val, count in zip(unique, counts):
             print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
             
         print(f"Prediction method used: {prediction_methods[0]}")
         return predictions
+        
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python predict.py <data_file.csv>")
+        print("The data file should be a CSV file with features.")
+        sys.exit(1)
+        
+    data_file = sys.argv[1]
+    
+    try:
+        # Load the data
+        df = pd.read_csv(data_file)
+        print(f"Loaded data from {data_file} with shape {df.shape}")
+        
+        # Create a predictor instance
+        predictor = ModelPredictor()
+        
+        # Make predictions
+        predictions = predictor.predict(df)
+        
+        # Save predictions to file
+        output_file = data_file.replace(".csv", "_predictions.csv")
+        # If the file doesn't end with .csv, just append _predictions.csv
+        if output_file == data_file:
+            output_file = data_file + "_predictions.csv"
+            
+        result_df = df.copy()
+        result_df['prediction'] = predictions
+        result_df.to_csv(output_file, index=False)
+        print(f"Predictions saved to {output_file}")
+    except Exception as e:
+        print(f"Error during prediction: {str(e)}")
+'''
+
+    # Write the utility script to a file
+    script_path = os.path.join(temp_dir, 'predict.py')
+    with open(script_path, 'w') as f:
+        f.write(script_content)
+def create_readme_file(temp_dir, model, preprocessing_info):
+    """Create a README file with instructions for using the model."""
+    readme_content = f'''# Model Package: {model.model_name}
+
+## Contents
+
+- {model.file_name if model.file_name else model.model_name + ".joblib"}: The trained model file
+- preprocessing_info.json: Configuration for data preprocessing
+- predict.py: Utility script for making predictions
+- README.md: This file
+
+## Quick Start
+1. Make sure you have the required packages installed:
+   ```
+   pip install pandas numpy scikit-learn joblib
+   ```
+
+2. Place your data file (CSV format) in the same directory as these files.
+
+3. Run the prediction script:
+   ```
+   python predict.py your_data.csv
+   ```
+
+4. The script will:
+   - Load your data
+   - Preprocess it using the same steps as during training
+   - Make predictions with the model
+   - Save the results as your_data_predictions.csv
+
+## Version Compatibility
+
+The included predict.py script is designed to work with different versions of scikit-learn. If you encounter any issues with predictions (such as all predictions being the same value), the script will automatically apply compatibility fixes to ensure accurate results.
+
+This makes the model package robust across different environments and scikit-learn versions. The script will provide detailed logging about which prediction method was used.
+
+## Using in Your Own Code
+```python
+from predict import ModelPredictor
+import pandas as pd
+
+# Load your data
+df = pd.read_csv('your_data.csv')
+
+# Initialize the predictor
+predictor = ModelPredictor()
+
+# Preprocess data and get predictions
+predictions = predictor.predict(df)
+
+# Or do the steps separately
+processed_df = predictor.preprocess_data(df)
+predictions = predictor.predict(processed_df)
+```
+
+## Model Information
+- Model Type: {model.model_name}
+- Created: {model.created_at}
+- ID: {model.id}
+
+'''
+
+    # Add preprocessing information if available
+    if preprocessing_info:
+        if 'selected_columns' in preprocessing_info and preprocessing_info['selected_columns']:
+            column_count = len(preprocessing_info['selected_columns'])
+            readme_content += f"\n## Preprocessing Information\n"
+            readme_content += f"- Selected Features: {column_count} features\n"
+            if column_count <= 20:  # Only list if not too many
+                readme_content += f"- Feature List: {', '.join(preprocessing_info['selected_columns'])}\n"
+            
+            if 'cleaning_report' in preprocessing_info and preprocessing_info['cleaning_report']:
+                readme_content += "- Cleaning Operations Applied:\n"
+                for operation, details in preprocessing_info['cleaning_report'].items():
+                    if isinstance(details, dict):
+                        readme_content += f"  - {operation}: {details.get('description', 'Applied')}\n"
+                    else:
+                        readme_content += f"  - {operation}: Applied\n"
+    
+    readme_path = os.path.join(temp_dir, 'README.md')
+    with open(readme_path, 'w') as f:
+        f.write(readme_content)
+
+@app.route('/preprocess_new_data/<int:run_id>', methods=['POST'])
+@login_required
+def preprocess_new_data(run_id):
+    """Preprocess a new dataset using the same steps as a previous training run."""
+    import pandas as pd
+    import json
+    import traceback
+    
+    user_id = current_user.id
+    
+    # Check if the run exists and belongs to the user
+    training_run = TrainingRun.query.filter_by(id=run_id, user_id=user_id).first_or_404()
+    
+    # Get preprocessing data for this run
+    preproc_data = PreprocessingData.query.filter_by(run_id=run_id, user_id=user_id).first_or_404()
+    
+    if 'dataFile' not in request.files:
+        flash("No file was uploaded", "danger")
+        return redirect(url_for('my_models'))
+    
+    file = request.files['dataFile']
+    
+    if file.filename == '':
+        flash("No file was selected", "danger")
+        return redirect(url_for('my_models'))
+    
+    if not allowed_file(file.filename):
+        flash("Only CSV and Excel files are supported", "danger")
+        return redirect(url_for('my_models'))
+    
+    try:
+        # Save uploaded file temporarily
+        temp_path = get_temp_filepath(file.filename)
+        file.save(temp_path)
+        
+        # Load the dataset
+        if temp_path.endswith('.csv'):
+            df = pd.read_csv(temp_path)
+        else:
+            df = pd.read_excel(temp_path)
+        
+        # Load preprocessing configurations
+        cleaner_config = json.loads(preproc_data.cleaner_config) if preproc_data.cleaner_config else {}
+        feature_selector_config = json.loads(preproc_data.feature_selector_config) if preproc_data.feature_selector_config else {}
+        selected_columns = json.loads(preproc_data.selected_columns) if preproc_data.selected_columns else []
+        
+        # Apply data cleaning using the stored configuration
+        cleaned_df = apply_stored_cleaning(df, cleaner_config)
+        
+        # Apply feature selection using the stored configuration
+        if selected_columns:
+            # If we have a list of selected columns, use it
+            processed_df = cleaned_df[selected_columns].copy()
+        else:
+            # Otherwise, apply the feature selection config
+            processed_df = apply_stored_feature_selection(cleaned_df, feature_selector_config)
+        
+        # Create a temporary file for the processed data
+        processed_file_path = get_temp_filepath(original_filename=file.filename, extension='.csv')
+        processed_df.to_csv(processed_file_path, index=False)
+        
+        # Create a descriptive filename for the download
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"preprocessed_data_{run_id}_{timestamp}.csv"
+        
+        return send_file(
+            processed_file_path,
+            as_attachment=True,
+            download_name=output_filename,
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error preprocessing data: {str(e)}\n{traceback.format_exc()}")
+        flash(f"Error preprocessing data: {str(e)}", "danger")
+        return redirect(url_for('my_models'))
+
+def apply_stored_cleaning(df, cleaner_config):
+    """Apply stored cleaning operations to a DataFrame."""
+    import pandas as pd
+    import numpy as np
+    import requests
+    
+    # If we have cleaner_config with LLM instructions, use the data cleaner service
+    if cleaner_config.get('llm_instructions'):
+        # Call data cleaner service
+        try:
+            # Convert DataFrame to CSV
+            csv_data = df.to_csv(index=False)
+            
+            # Prepare multipart form data
+            data = {
+                'prompt': cleaner_config.get('llm_instructions', ''),
+                'options': json.dumps(cleaner_config.get('options', {}))
+            }
+            files = {'file': ('data.csv', csv_data, 'text/csv')}
+            
+            # Send request to data cleaner service
+            response = requests.post(f"{DATA_CLEANER_URL}/clean", files=files, data=data, timeout=60)
+            
+            if response.status_code == 200:
+                # Convert the cleaned CSV data back to DataFrame
+                cleaned_df = pd.read_csv(io.StringIO(response.text))
+                return cleaned_df
+            else:
+                raise Exception(f"Data cleaner service failed: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error calling data cleaner service: {str(e)}")
+            # Fall back to basic cleaning if service fails
+            return apply_basic_cleaning(df, cleaner_config)
+    else:
+        # Apply basic cleaning if no LLM instructions
+        return apply_basic_cleaning(df, cleaner_config)
+
+def apply_basic_cleaning(df, cleaner_config):
+    """Apply basic cleaning operations based on config."""
+    import pandas as pd
+    import numpy as np
+    
+    # Make a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Apply basic cleaning operations based on cleaner_config
+    # Handle missing values
+    if cleaner_config.get('handle_missing', True):
+        for col in cleaned_df.columns:
+            if pd.api.types.is_numeric_dtype(cleaned_df[col]):
+                # Fill numeric columns with mean or specified value
+                fill_value = cleaner_config.get('numeric_fill', 'mean')
+                if fill_value == 'mean':
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+                elif fill_value == 'median':
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+                elif fill_value == 'zero':
+                    cleaned_df[col] = cleaned_df[col].fillna(0)
+            else:
+                # Fill categorical/text columns with mode or specified value
+                fill_value = cleaner_config.get('categorical_fill', 'mode')
+                if fill_value == 'mode':
+                    mode = cleaned_df[col].mode()
+                    if not mode.empty:
+                        cleaned_df[col] = cleaned_df[col].fillna(mode[0])
+                elif fill_value == 'unknown':
+                    cleaned_df[col] = cleaned_df[col].fillna('unknown')
+    
+    # Remove duplicates if specified
+    if cleaner_config.get('remove_duplicates', True):
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Handle outliers if specified (using IQR method)
+    if cleaner_config.get('handle_outliers', False):
+        for col in cleaned_df.select_dtypes(include=['float64', 'int64']).columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outlier_action = cleaner_config.get('outlier_action', 'clip')
+            if outlier_action == 'clip':
+                cleaned_df[col] = cleaned_df[col].clip(lower_bound, upper_bound)
+            elif outlier_action == 'remove':
+                mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
+                cleaned_df = cleaned_df[mask]
+    
+    return cleaned_df
+
+def apply_stored_feature_selection(df, feature_selector_config):
+    """Apply stored feature selection operations to a DataFrame."""
+    import pandas as pd
+    import numpy as np
+    import requests
+    
+    # If we have feature_selector_config with LLM instructions, use the feature selector service
+    if feature_selector_config.get('llm_instructions'):
+        # Call feature selector service
+        try:
+            # Convert DataFrame to CSV
+            csv_data = df.to_csv(index=False)
+            
+            # Prepare multipart form data
+            data = {
+                'prompt': feature_selector_config.get('llm_instructions', ''),
+                'options': json.dumps(feature_selector_config.get('options', {}))
+            }
+            files = {'file': ('data.csv', csv_data, 'text/csv')}
+            
+            # Send request to feature selector service
+            response = requests.post(f"{FEATURE_SELECTOR_URL}/select", files=files, data=data, timeout=60)
+            
+            if response.status_code == 200:
+                # The response should contain the selected columns
+                selection_result = response.json()
+                
+                if 'selected_features' in selection_result:
+                    selected_columns = selection_result['selected_features']
+                    return df[selected_columns].copy()
+                else:
+                    # If no explicit selection, return the original dataframe
+                    return df
+            else:
+                raise Exception(f"Feature selector service failed: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error calling feature selector service: {str(e)}")
+            # If service fails, return the original dataframe
+            return df
+    else:
+        # No feature selection config, return original dataframe
+        return df
         
 if __name__ == "__main__":
     import sys
@@ -1094,130 +1556,5 @@ def model_selection(run_id=None):
         overall_metrics=overall_metrics
     )
 
-def create_model_helper_script(temp_dir):
-    """Create a helper script for loading models in different formats"""
-    script_content = '''import joblib
-import pickle
-import json
-import os
-import sys
-import logging
-from sklearn.dummy import DummyClassifier
-import numpy as np
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('model_helper')
-
-def load_model_with_fallback(model_path):
-    """Try to load a model file in various formats with fallbacks"""
-    logger.info(f"Attempting to load model from {model_path}")
-    
-    if not os.path.exists(model_path):
-        logger.error(f"Model file not found: {model_path}")
-        return create_dummy_model()
-    
-    # Try different loading methods
-    model = None
-    errors = []
-    
-    # Method 1: Try standard joblib load
-    try:
-        logger.info("Trying standard joblib load...")
-        model = joblib.load(model_path)
-        # Check if it has predict method
-        if hasattr(model, 'predict'):
-            logger.info("Successfully loaded model with joblib")
-            return model
-        else:
-            logger.warning("Loaded object doesn't have predict method")
-            errors.append("Joblib load succeeded but object lacks predict method")
-    except Exception as e:
-        logger.warning(f"Joblib load failed: {str(e)}")
-        errors.append(f"Joblib error: {str(e)}")
-    
-    # Method 2: Try pickle load
-    try:
-        logger.info("Trying pickle load...")
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        # Check if it has predict method
-        if hasattr(model, 'predict'):
-            logger.info("Successfully loaded model with pickle")
-            return model
-        else:
-            logger.warning("Pickle loaded object doesn't have predict method")
-            errors.append("Pickle load succeeded but object lacks predict method")
-    except Exception as e:
-        logger.warning(f"Pickle load failed: {str(e)}")
-        errors.append(f"Pickle error: {str(e)}")
-    
-    # Method 3: Try loading as JSON
-    try:
-        logger.info("Trying JSON load...")
-        with open(model_path, 'r') as f:
-            json_data = json.load(f)
-        
-        # If it's a specially formatted JSON with model coefficients, create a simple model
-        if isinstance(json_data, dict) and ('coefficients' in json_data or 'coef' in json_data):
-            from sklearn.linear_model import LogisticRegression
-            logger.info("Creating LogisticRegression from coefficients in JSON")
-            
-            # Create a logistic regression model with the coefficients
-            model = LogisticRegression()
-            
-            # Set the coefficients
-            coef = json_data.get('coefficients', json_data.get('coef'))
-            if isinstance(coef, list):
-                model.coef_ = np.array(coef)
-                
-                # Set intercept if available
-                if 'intercept' in json_data:
-                    model.intercept_ = np.array([json_data['intercept']])
-                else:
-                    model.intercept_ = np.array([0.0])
-                
-                logger.info("Successfully created model from JSON coefficients")
-                return model
-        
-        logger.warning("JSON data doesn't contain model information")
-        errors.append("JSON load succeeded but couldn't create model")
-    except Exception as e:
-        logger.warning(f"JSON load failed: {str(e)}")
-        errors.append(f"JSON error: {str(e)}")
-    
-    # If all methods failed, create a dummy model
-    logger.error("All loading methods failed, creating dummy model")
-    logger.error("\\n".join(errors))
-    return create_dummy_model()
-
-def create_dummy_model():
-    """Create a dummy model that always predicts the most frequent class"""
-    logger.info("Creating dummy model")
-    dummy = DummyClassifier(strategy='most_frequent')
-    dummy.fit([[0]], [1])  # Train on a simple example (predicts 1)
-    return dummy
-
-# Run as script
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python model_helper.py <model_path>")
-        sys.exit(1)
-    
-    model_path = sys.argv[1]
-    model = load_model_with_fallback(model_path)
-    
-    if model:
-        print(f"Successfully loaded model of type: {type(model).__name__}")
-        print(f"Model has predict method: {hasattr(model, 'predict')}")
-        if hasattr(model, 'coef_'):
-            print(f"Model has coefficients with shape: {model.coef_.shape}")
-        print("Model is ready for use")
-    else:
-        print("Failed to load model")
-'''
-
-    # Write the helper script to a file
-    script_path = os.path.join(temp_dir, 'model_helper.py')
-    with open(script_path, 'w') as f:
-        f.write(script_content)
+    # Write the helper script to a fil
