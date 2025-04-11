@@ -22,9 +22,6 @@ from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINAT
 from app_api import is_service_available, get_temp_filepath, safe_requests_post, cleanup_session_files, SafeJSONEncoder, logger
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
-# Import data augmentation module - update path to use the Docker module
-from docker_for_images.data_augmentation import ClassificationDatasetAugmentor
-
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
 
@@ -163,120 +160,64 @@ def process_augmentation():
     
     try:
         # Check if the augmentation service is available
-        use_docker_service = is_service_available(AUGMENTATION_SERVICE_URL)
+        if not is_service_available(AUGMENTATION_SERVICE_URL):
+            return jsonify({"error": "Augmentation service is not available. Please try again later."}), 503
         
-        if use_docker_service:
-            logger.info(f"Starting augmentation process with Docker service for file: {zip_file.filename}")
-            
-            # Save the uploaded file to a temporary location
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
-            zip_file.save(temp_file.name)
-            temp_file.close()
-            
-            # Create a proper multipart request
-            with open(temp_file.name, 'rb') as f:
-                # Setup multipart form data with optimized buffering for large files
-                m = MultipartEncoder(
-                    fields={
-                        'zipFile': (zip_file.filename, f, 'application/zip'),
-                        'level': level,
-                        'numAugmentations': num_augmentations
-                    }
-                )
-                
-                # Forward the request to the augmentation service
-                headers = {
-                    'Content-Type': m.content_type
+        logger.info(f"Starting augmentation process with Docker service for file: {zip_file.filename}")
+        
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create a proper multipart request
+        with open(temp_file.name, 'rb') as f:
+            # Setup multipart form data with optimized buffering for large files
+            m = MultipartEncoder(
+                fields={
+                    'zipFile': (zip_file.filename, f, 'application/zip'),
+                    'level': level,
+                    'numAugmentations': num_augmentations
                 }
-                
-                # Stream the upload to the service and stream the response back
-                response = requests.post(
-                    f"{AUGMENTATION_SERVICE_URL}/augment",
-                    headers=headers,
-                    data=m,
-                    stream=True
-                )
+            )
             
-            # Clean up the temporary file
+            # Forward the request to the augmentation service
+            headers = {
+                'Content-Type': m.content_type
+            }
+            
+            # Stream the upload to the service and stream the response back
+            response = requests.post(
+                f"{AUGMENTATION_SERVICE_URL}/augment",
+                headers=headers,
+                data=m,
+                stream=True
+            )
+        
+        # Clean up the temporary file
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary file: {str(e)}")
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error in augmentation service"
             try:
-                os.unlink(temp_file.name)
-            except Exception as e:
-                logger.error(f"Error removing temporary file: {str(e)}")
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in augmentation service (HTTP {response.status_code})"
             
-            # Check the response status
-            if response.status_code != 200:
-                error_message = "Error in augmentation service"
-                try:
-                    error_data = response.json()
-                    if 'error' in error_data:
-                        error_message = error_data['error']
-                except:
-                    error_message = f"Error in augmentation service (HTTP {response.status_code})"
-                
-                return jsonify({"error": error_message}), response.status_code
-            
-            # Create a Flask response with the file data
-            flask_response = Response(response.content)
-            flask_response.headers["Content-Type"] = "application/zip"
-            flask_response.headers["Content-Disposition"] = f"attachment; filename=augmented_{zip_file.filename}"
-            
-            return flask_response
-        else:
-            # Fallback to direct implementation if Docker service is unavailable
-            logger.info(f"Docker augmentation service unavailable, using direct implementation for file: {zip_file.filename}")
-            
-            # Save the uploaded file to a temporary location
-            temp_input_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-            zip_file.save(temp_input_zip.name)
-            temp_input_zip.close()
-            temp_files.append(temp_input_zip.name)
-            
-            # Create a temporary output zip file
-            temp_output_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-            temp_output_zip.close()
-            temp_files.append(temp_output_zip.name)
-            
-            try:
-                # Initialize the augmentor with worker processes
-                num_workers = min(os.cpu_count(), 8)  # Use at most 8 workers
-                augmentor = ClassificationDatasetAugmentor(
-                    image_size=(224, 224),
-                    num_workers=num_workers,
-                    batch_size=32,
-                    use_gpu=False
-                )
-                
-                start_time = time.time()
-                
-                # Process the dataset directly
-                augmentor.process_dataset(
-                    zip_path=temp_input_zip.name,
-                    output_zip=temp_output_zip.name,
-                    level=int(level),
-                    num_augmentations=int(num_augmentations)
-                )
-                
-                processing_time = time.time() - start_time
-                logger.info(f"Completed augmentation in {processing_time:.2f} seconds")
-                
-                # Read the file into memory
-                with open(temp_output_zip.name, 'rb') as f:
-                    file_data = io.BytesIO(f.read())
-                
-                # Clean up the temporary files
-                cleanup_temp_files([temp_input_zip.name, temp_output_zip.name])
-                
-                # Return the file
-                return send_file(
-                    file_data,
-                    mimetype='application/zip',
-                    as_attachment=True,
-                    download_name=f'augmented_{zip_file.filename}'
-                )
-            except Exception as e:
-                # Clean up temporary files in case of error
-                cleanup_temp_files([temp_input_zip.name, temp_output_zip.name])
-                raise e
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a Flask response with the file data
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = f"attachment; filename=augmented_{zip_file.filename}"
+        
+        return flask_response
     except Exception as e:
         logger.error(f"Error in image augmentation: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -285,123 +226,10 @@ def process_augmentation():
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Track temp files for cleanup
-temp_files = []
-
-# Track processing status
-processing_jobs = {}
-
 @app.route('/augmentation/health', methods=['GET'])
 def augmentation_health():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "service": "augmentation-service"})
-
-# Direct implementation of the augmentation function (for reference)
-def direct_augment_dataset(zip_file=None, level=3, num_augmentations=2):
-    """
-    Direct implementation to augment a dataset (without going through the Docker service)
-    
-    Args:
-        zip_file: The uploaded ZIP file
-        level: Augmentation level (1-5)
-        num_augmentations: Number of augmentations per image
-    
-    Returns:
-        Flask response with the augmented dataset
-    """
-    try:
-        if zip_file is None:
-            return jsonify({"error": "No ZIP file provided"}), 400
-        
-        # Validate parameters
-        if level < 1 or level > 5:
-            return jsonify({"error": "Augmentation level must be between 1 and 5"}), 400
-        
-        if num_augmentations < 1 or num_augmentations > 10:
-            return jsonify({"error": "Number of augmentations must be between 1 and 10"}), 400
-        
-        # Log the start of processing
-        file_size = 0
-        zip_file.seek(0, os.SEEK_END)
-        file_size = zip_file.tell()
-        zip_file.seek(0)
-        logger.info(f"Starting augmentation of file {zip_file.filename} ({file_size/1024/1024:.2f} MB)")
-        
-        # Save the uploaded zip file temporarily
-        temp_input_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-        zip_file.save(temp_input_zip.name)
-        temp_input_zip.close()
-        
-        # Add to the list of files to clean up
-        temp_files.append(temp_input_zip.name)
-        
-        # Create a temporary output zip file
-        temp_output_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
-        temp_output_zip.close()
-        
-        # Add to the list of files to clean up
-        temp_files.append(temp_output_zip.name)
-        
-        # Initialize the augmentor with more worker processes for large datasets
-        num_workers = min(os.cpu_count(), 8)  # Use at most 8 workers
-        augmentor = ClassificationDatasetAugmentor(
-            image_size=(224, 224),
-            num_workers=num_workers,
-            batch_size=32,  # Larger batch size for efficiency
-            use_gpu=False  # Set to True if GPU is available
-        )
-        
-        start_time = time.time()
-        
-        # Process the dataset
-        augmentor.process_dataset(
-            zip_path=temp_input_zip.name,
-            output_zip=temp_output_zip.name,
-            level=level,
-            num_augmentations=num_augmentations
-        )
-        
-        processing_time = time.time() - start_time
-        logger.info(f"Completed augmentation in {processing_time:.2f} seconds")
-        
-        # Read the file into memory
-        with open(temp_output_zip.name, 'rb') as f:
-            file_data = io.BytesIO(f.read())
-        
-        # Clean up the temporary files immediately
-        cleanup_temp_files([temp_input_zip.name, temp_output_zip.name])
-        
-        # Return the file from memory
-        return send_file(
-            file_data,
-            mimetype='application/zip',
-            as_attachment=True,
-            download_name='augmented_dataset.zip'
-        )
-    except Exception as e:
-        error_msg = traceback.format_exc()
-        logger.error(f"Error: {error_msg}")
-        return jsonify({"error": str(e), "details": error_msg}), 500
-
-def cleanup_temp_files(file_list=None):
-    """Clean up temporary files"""
-    global temp_files
-    
-    if file_list is None:
-        file_list = temp_files
-    
-    for file_path in file_list:
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                if file_path in temp_files:
-                    temp_files.remove(file_path)
-                logger.info(f"Cleaned up temporary file: {file_path}")
-        except Exception as e:
-            logger.error(f"Error cleaning up {file_path}: {e}")
-
-# Register cleanup function to run at exit
-atexit.register(cleanup_temp_files)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5023))
