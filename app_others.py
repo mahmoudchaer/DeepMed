@@ -803,40 +803,195 @@ def clear_chat():
             
     return redirect(url_for('chat'))
 
+@app.route('/container_prediction', methods=['GET', 'POST'])
+@login_required
+def container_prediction():
+    """For making predictions with containerized models"""
+    # Check if user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to use the containerized prediction feature.', 'warning')
+        return redirect(url_for('login'))
+    
+    # Get the container URL from session
+    container_url = session.get('container_url')
+    model_name = session.get('container_model_name', 'Containerized Model')
+    
+    if not container_url:
+        flash('No containerized model is running. Please deploy a model first.', 'warning')
+        return redirect(url_for('my_models'))
+    
+    # Check if the container is still running
+    try:
+        response = requests.get(f"{container_url}/health", timeout=2)
+        if response.status_code != 200:
+            flash('The containerized model is not responding. It may have been stopped.', 'warning')
+            session.pop('container_url', None)
+            session.pop('container_model_name', None)
+            return redirect(url_for('my_models'))
+    except:
+        flash('The containerized model is not available. It may have been stopped.', 'warning')
+        session.pop('container_url', None)
+        session.pop('container_model_name', None)
+        return redirect(url_for('my_models'))
+    
+    # Process file upload for prediction
+    if request.method == 'POST':
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            flash('No file part', 'error')
+            return redirect(url_for('container_prediction'))
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file', 'error')
+            return redirect(url_for('container_prediction'))
+        
+        if file and allowed_file(file.filename):
+            # Save file
+            filepath = get_temp_filepath(file.filename)
+            file.save(filepath)
+            
+            # Load data to validate
+            data, result = load_data(filepath)
+            if data is None:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                flash(result, 'error')
+                return redirect(url_for('container_prediction'))
+            
+            # Convert to records for JSON
+            data_json = clean_data_for_json(data)
+            
+            # Make prediction request to containerized model
+            try:
+                response = safe_requests_post(
+                    f"{container_url}/predict",
+                    {
+                        "data": data_json
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
+                    error_msg = "Error from container model service."
+                    try:
+                        error_data = response.json()
+                        if 'error' in error_data:
+                            error_msg = error_data['error']
+                    except:
+                        pass
+                    
+                    flash(f'Error making prediction: {error_msg}', 'error')
+                    return redirect(url_for('container_prediction'))
+                
+                # Process prediction results
+                prediction_result = response.json()
+                
+                # Generate result table with pandas
+                result_df = data.copy()
+                
+                # Add prediction column
+                if 'predictions' in prediction_result:
+                    predictions = prediction_result['predictions']
+                    result_df['prediction'] = predictions
+                
+                # Add probability columns if available
+                if 'probabilities' in prediction_result and prediction_result['probabilities']:
+                    probs = prediction_result['probabilities']
+                    if len(probs) == len(result_df):
+                        if isinstance(probs[0], list):
+                            for i, class_prob in enumerate(probs[0]):
+                                result_df[f'probability_class_{i}'] = [p[i] for p in probs]
+                
+                # Calculate class distribution
+                if 'predictions' in prediction_result:
+                    distribution = []
+                    value_counts = pd.Series(prediction_result['predictions']).value_counts()
+                    total = len(prediction_result['predictions'])
+                    
+                    for value, count in value_counts.items():
+                        distribution.append({
+                            'class': str(value),
+                            'count': int(count),
+                            'percentage': round(100 * count / total, 2)
+                        })
+                    
+                    # Store in session
+                    session['container_prediction_distribution'] = distribution
+                
+                # Store only first 20 rows of result table for display
+                display_df = result_df.head(20)
+                html_table = display_df.to_html(classes='table table-striped', index=False)
+                
+                # Save complete results to file
+                results_filepath = get_temp_filepath(extension='.csv')
+                result_df.to_csv(results_filepath, index=False)
+                session['container_predictions_file'] = results_filepath
+                
+                # Render prediction results template
+                return render_template('container_prediction_results.html', 
+                                      predictions=html_table, 
+                                      distribution=session.get('container_prediction_distribution'),
+                                      model_name=model_name)
+                
+            except Exception as e:
+                logger.error(f"Error in container prediction process: {str(e)}")
+                flash(f'Error processing prediction: {str(e)}', 'error')
+                return redirect(url_for('container_prediction'))
+    
+    return render_template('container_prediction.html', 
+                         model_name=model_name,
+                         container_url=container_url)
 
+@app.route('/download_container_predictions')
+@login_required
+def download_container_predictions():
+    """Download container prediction results as CSV"""
+    predictions_filepath = session.get('container_predictions_file')
+    if not predictions_filepath:
+        flash('No prediction results available for download', 'error')
+        return redirect(url_for('container_prediction'))
+    
+    # Create a BytesIO object to serve the file from memory
+    file_data = io.BytesIO()
+    with open(predictions_filepath, 'rb') as f:
+        file_data.write(f.read())
+    file_data.seek(0)
+    
+    return send_file(file_data, as_attachment=True, download_name='container_prediction_results.csv')
 
 @app.route('/select_model/<model_name>/<metric>')
 @login_required
 def select_model(model_name, metric):
-    """Select a model for prediction based on model name and metric"""
-    # Check if the user is logged in
-    if not current_user.is_authenticated:
-        flash('Please log in to select a model.', 'warning')
-        return redirect(url_for('login'))
-    
-    # Get the training run ID from session
-    run_id = session.get('last_training_run_id')
-    if not run_id:
-        flash('No training run found. Please train models first.', 'warning')
-        return redirect(url_for('training'))
-    
-    # Find the model matching the name and metric
-    model = TrainingModel.query.filter_by(
-        run_id=run_id,
-        model_name=f"best_model_for_{metric}",
-        user_id=current_user.id
-    ).first()
-    
-    if not model:
-        flash(f'Model not found for {model_name} optimized for {metric}.', 'warning')
-        return redirect(url_for('my_models'))
-    
-    # Store selected model ID in session
-    session['selected_model_id'] = model.id
-    
-    # Redirect to prediction page
-    flash(f'Selected {model_name} model optimized for {metric}.', 'success')
-    return redirect(url_for('prediction'))
+    """Handle model selection and redirect to appropriate page"""
+    try:
+        # Get current run ID
+        run_id = session.get('last_training_run_id')
+        if not run_id:
+            flash("No training run found. Please train a model first.", "error")
+            return redirect(url_for('training'))
+        
+        # Find this model in the database
+        model = TrainingModel.query.filter_by(
+            user_id=current_user.id,
+            run_id=run_id,
+            model_name=f"best_model_for_{metric}"
+        ).first()
+        
+        if not model:
+            flash(f"Model not found for {metric}.", "error")
+            return redirect(url_for('model_selection'))
+        
+        # Store the selected model ID in session
+        session['selected_model_id'] = model.id
+        
+        # Redirect to model selection page
+        flash(f"Model for optimizing {metric} has been selected.", "success")
+        return redirect(url_for('model_selection'))
+    except Exception as e:
+        logger.error(f"Error selecting model: {str(e)}")
+        flash(f"Error selecting model: {str(e)}", "error")
+        return redirect(url_for('model_selection'))
 
 @app.route('/service_status')
 def service_status():
