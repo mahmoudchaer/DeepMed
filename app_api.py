@@ -513,9 +513,11 @@ def check_session_size(max_size=3000000):  # ~3MB limit
         logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
 
 def is_service_available(service_url):
-    """Check if a service is available by making a request to its base URL"""
+    """Check if a service is available by making a request to its health endpoint"""
     try:
-        response = requests.get(service_url, timeout=2)
+        health_url = f"{service_url}/health"
+        logger.info(f"Checking service availability: {health_url}")
+        response = requests.get(health_url, timeout=5)  # Increased timeout
         return response.status_code == 200
     except Exception as e:
         logger.error(f"Service {service_url} is not available: {str(e)}")
