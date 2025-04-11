@@ -969,22 +969,22 @@ def select_model(model_name, metric):
         run_id = session.get('last_training_run_id')
         if not run_id:
             flash("No training run found. Please train a model first.", "error")
-            return redirect(url_for('training'))
-        
+        return redirect(url_for('training'))
+    
         # Find this model in the database
         model = TrainingModel.query.filter_by(
             user_id=current_user.id,
-            run_id=run_id,
+        run_id=run_id,
             model_name=f"best_model_for_{metric}"
         ).first()
-        
+    
         if not model:
             flash(f"Model not found for {metric}.", "error")
             return redirect(url_for('model_selection'))
-        
+    
         # Store the selected model ID in session
         session['selected_model_id'] = model.id
-        
+    
         # Redirect to model selection page
         flash(f"Model for optimizing {metric} has been selected.", "success")
         return redirect(url_for('model_selection'))

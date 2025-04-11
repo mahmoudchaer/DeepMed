@@ -156,7 +156,7 @@ def process_augmentation():
     
     try:
         # Check if the augmentation service is available
-        if not is_service_available(f"{AUGMENTATION_SERVICE_URL}/health"):
+        if not is_service_available(AUGMENTATION_SERVICE_URL):
             return jsonify({"error": "Augmentation service is not available. Please try again later."}), 503
         
         logger.info(f"Starting augmentation process for file: {zip_file.filename}")
