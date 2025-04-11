@@ -12,7 +12,7 @@
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{{ url_for('training') }}">Training</a></li>
-                        <li class="breadcrumb-item"><a href="{{ url_for('model_selection') }}">Model Selection</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('my_models') }}">Model Selection</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Prediction</li>
                     </ol>
                 </nav>
@@ -64,7 +64,7 @@
                         </table>
                         
                         <div class="mt-3">
-                            <a href="{{ url_for('model_selection') }}" class="btn btn-outline-primary">
+                            <a href="{{ url_for('my_models') }}" class="btn btn-outline-primary">
                                 Change Model
                             </a>
                             <a href="{{ url_for('training') }}" class="btn btn-outline-secondary ms-2">
@@ -79,7 +79,7 @@
         <div class="alert alert-warning">
             <h4>No Model Selected</h4>
             <p>Please select a model before making predictions.</p>
-            <a href="{{ url_for('model_selection') }}" class="btn btn-primary">Select a Model</a>
+            <a href="{{ url_for('my_models') }}" class="btn btn-primary">Select a Model</a>
         </div>
         {% endif %}
     </div>

@@ -12,7 +12,7 @@
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a href="{{ url_for('training') }}">Training</a></li>
-                        <li class="breadcrumb-item"><a href="{{ url_for('model_selection') }}">Model Selection</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('my_models') }}">Model Selection</a></li>
                         <li class="breadcrumb-item"><a href="{{ url_for('prediction') }}">Prediction</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Results</li>
                     </ol>
@@ -78,7 +78,7 @@
                             <a href="{{ url_for('prediction') }}" class="btn btn-outline-primary">
                                 Make New Predictions
                             </a>
-                            <a href="{{ url_for('model_selection') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('my_models') }}" class="btn btn-outline-secondary">
                                 Change Model
                             </a>
                             <a href="{{ url_for('training') }}" class="btn btn-outline-info">

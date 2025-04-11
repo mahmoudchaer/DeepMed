@@ -433,6 +433,16 @@ def logout():
         
         return response
 
+@app.route('/force_logout', methods=['POST'])
+def force_logout():
+    """Force logout endpoint for JavaScript calls"""
+    # Perform the same logout actions
+    logout_user()
+    session.clear()
+    
+    # Return a success response
+    return jsonify({'status': 'success', 'message': 'User logged out successfully'})
+
 # Function to save data to a temporary file
 def save_to_temp_file(data, prefix='data'):
     """Save data to a temporary file and return the filepath"""
