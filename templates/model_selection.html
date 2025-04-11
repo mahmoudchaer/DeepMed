@@ -10,9 +10,9 @@
         <h4>Training Results</h4>
         <ul>
             <li><strong>Models Trained:</strong> {{ overall_metrics.models_trained }}</li>
-            <li><strong>Features Used:</strong> {{ overall_metrics.features_used }}</li>
-            <li><strong>Test Size:</strong> {{ overall_metrics.test_size }}</li>
-            <li><strong>Metrics Shown:</strong> {{ overall_metrics.metrics_shown }}</li>
+            <li><strong>Dataset Name:</strong> {{ overall_metrics.dataset_name if overall_metrics.dataset_name is defined else 'Unknown' }}</li>
+            <li><strong>Target Column:</strong> {{ overall_metrics.target_column if overall_metrics.target_column is defined else 'Unknown' }}</li>
+            <li><strong>Training Date:</strong> {{ overall_metrics.training_date if overall_metrics.training_date is defined else 'Unknown' }}</li>
         </ul>
     </div>
 
@@ -28,14 +28,14 @@
                         <div class="col-md-6 col-lg-4 mb-4">
                             <div class="card h-100 border-success">
                                 <div class="card-header bg-success text-white"> 
-                                    <h5 class="card-title mb-0">{{ model.model_name }}</h5>
+                                    <h5 class="card-title mb-0">{{ model.name }}</h5>
                                 </div>
                                 <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Best {{ model.metric_name }}</h6>
+                                    <h6 class="card-subtitle mb-2 text-muted">Optimized for {{ model.metric }}</h6>
                                     <p class="card-text">
-                                        <strong>{{ model.metric_name }}:</strong> {{ "%.3f" | format(model.metric_value) }}
+                                        <strong>Model ID:</strong> {{ model.id }}
                                     </p>
-                                    <a href="{{ url_for('select_model', model_name=model.model_name, metric=model.metric_name) }}" class="btn btn-primary">Select Model</a>
+                                    <a href="{{ url_for('select_model', model_name=model.name, metric=model.metric) }}" class="btn btn-primary">Select Model</a>
                                 </div>
                             </div>
                         </div>
@@ -70,6 +70,7 @@
         </div>
         <div class="collapse" id="allModelMetrics">
             <div class="card-body">
+                {% if model_metrics is defined and model_metrics %}
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
@@ -96,6 +97,11 @@
                         </tbody>
                     </table>
                 </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <p>Detailed model metrics are not available for this training run.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

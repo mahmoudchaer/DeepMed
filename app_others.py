@@ -992,11 +992,21 @@ def model_selection(run_id=None):
     # Get training run details
     training_run = TrainingRun.query.filter_by(id=run_id).first()
     
+    # Create overall metrics dictionary
+    overall_metrics = {
+        'models_trained': len(models),
+        'dataset_name': training_run.dataset_name if training_run and hasattr(training_run, 'dataset_name') else 'Unknown',
+        'target_column': training_run.target_column if training_run and hasattr(training_run, 'target_column') else 'Unknown',
+        'training_date': training_run.created_at.strftime('%Y-%m-%d %H:%M') if training_run else 'Unknown',
+        'total_runs': TrainingRun.query.filter_by(user_id=current_user.id).count()
+    }
+    
     # Render the model selection template
     return render_template(
         'model_selection.html',
         models=models,
         feature_importance=feature_importance,
         run_id=run_id,
-        training_run=training_run
+        training_run=training_run,
+        overall_metrics=overall_metrics
     )
