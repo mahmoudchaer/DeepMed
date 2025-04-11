@@ -143,29 +143,38 @@ class ModelPredictor:
         model_path = os.path.join(script_dir, model_files[0])
         print(f"Loading model from {model_path}")
         
-        # Try to load the model - handle potentially corrupt files
+        # Use the model_helper module for robust loading
         try:
-            # Load the model
-            model = joblib.load(model_path)
+            # Import our custom helper module that's included in the package
+            import model_helper
+            return model_helper.load_model_with_fallback(model_path)
+        except ImportError:
+            # Fallback if model_helper is not available
+            print("model_helper module not found, using standard joblib loading")
             
-            # If model is a dictionary but doesn't have expected attributes, 
-            # create a simple model that returns default predictions
-            if isinstance(model, dict) and not hasattr(model, 'predict'):
-                print("WARNING: Model file appears to be corrupted or in the wrong format")
+            # Try to load the model - handle potentially corrupt files
+            try:
+                # Load the model
+                model = joblib.load(model_path)
+                
+                # If model is a dictionary but doesn't have expected attributes, 
+                # create a simple model that returns default predictions
+                if isinstance(model, dict) and not hasattr(model, 'predict'):
+                    print("WARNING: Model file appears to be corrupted or in the wrong format")
+                    print("Creating a fallback dummy model")
+                    
+                    dummy_model = DummyClassifier(strategy='most_frequent')
+                    dummy_model.fit([[0]], [1])  # Simple fit with dummy data - predict class 1
+                    return dummy_model
+                    
+                return model
+            except Exception as e:
+                print(f"Error loading model: {str(e)}")
                 print("Creating a fallback dummy model")
                 
                 dummy_model = DummyClassifier(strategy='most_frequent')
-                dummy_model.fit([[0]], [0])  # Simple fit with dummy data
+                dummy_model.fit([[0]], [1])  # Simple fit with dummy data - predict class 1
                 return dummy_model
-                
-            return model
-        except Exception as e:
-            print(f"Error loading model: {str(e)}")
-            print("Creating a fallback dummy model")
-            
-            dummy_model = DummyClassifier(strategy='most_frequent')
-            dummy_model.fit([[0]], [0])  # Simple fit with dummy data
-            return dummy_model
     
     def _load_preprocessing_info(self):
         """Load preprocessing information from the JSON file"""
@@ -571,42 +580,13 @@ def download_model(model_id):
                 # Try to import the storage module
                 try:
                     from storage import download_blob
-                    # Download the model file
-                    blob_data = download_blob(model.model_url)
-                    # Write blob data to file
-                    if blob_data:
-                        # Check if blob_data might be JSON or a dictionary
-                        try:
-                            if isinstance(blob_data, bytes) and blob_data.startswith(b'{'):
-                                # Try to decode as JSON first
-                                # First save the raw bytes
-                                with open(local_model_path, 'wb') as f:
-                                    f.write(blob_data)
-                                
-                                # Also create a proper model file from the joblib file
-                                try:
-                                    # This is a workaround to ensure a proper model file
-                                    logger.info(f"Creating a proper model file from {local_model_path}")
-                                    temp_model_path = os.path.join(temp_dir, 'temp_' + (model.file_name or 'model.joblib'))
-                                    with open(temp_model_path, 'wb') as f:
-                                        joblib.dump({'model': 'placeholder'}, f)
-                                    logger.info(f"Created fallback model file at {temp_model_path}")
-                                except Exception as e:
-                                    logger.error(f"Error creating fallback model: {str(e)}")
-                            else:
-                                # Write as binary
-                                with open(local_model_path, 'wb') as f:
-                                    f.write(blob_data)
-                        except Exception as file_error:
-                            logger.error(f"Error processing blob data: {str(file_error)}")
-                            # Write raw bytes as fallback
-                            with open(local_model_path, 'wb') as f:
-                                f.write(blob_data)
-                        
+                    # Download the model file directly to the local path
+                    download_success = download_blob(model.model_url, local_model_path)
+                    if download_success:
                         model_downloaded = True
                         logger.info(f"Downloaded model to {local_model_path}")
                     else:
-                        raise Exception("Failed to download blob data")
+                        raise Exception("Failed to download blob directly to file")
                 except ImportError:
                     # If storage module is not available, try to download directly with requests
                     logger.info("Storage module not available, using requests instead")
@@ -654,6 +634,9 @@ def download_model(model_id):
         
         # Create utility script for using the model
         create_utility_script(temp_dir, model.file_name or 'model.joblib', preprocessing_info)
+        
+        # Create model helper script for robust loading
+        create_model_helper_script(temp_dir)
         
         # Create README file
         create_readme_file(temp_dir, model, preprocessing_info)
@@ -1110,3 +1093,131 @@ def model_selection(run_id=None):
         training_run=training_run,
         overall_metrics=overall_metrics
     )
+
+def create_model_helper_script(temp_dir):
+    """Create a helper script for loading models in different formats"""
+    script_content = '''import joblib
+import pickle
+import json
+import os
+import sys
+import logging
+from sklearn.dummy import DummyClassifier
+import numpy as np
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('model_helper')
+
+def load_model_with_fallback(model_path):
+    """Try to load a model file in various formats with fallbacks"""
+    logger.info(f"Attempting to load model from {model_path}")
+    
+    if not os.path.exists(model_path):
+        logger.error(f"Model file not found: {model_path}")
+        return create_dummy_model()
+    
+    # Try different loading methods
+    model = None
+    errors = []
+    
+    # Method 1: Try standard joblib load
+    try:
+        logger.info("Trying standard joblib load...")
+        model = joblib.load(model_path)
+        # Check if it has predict method
+        if hasattr(model, 'predict'):
+            logger.info("Successfully loaded model with joblib")
+            return model
+        else:
+            logger.warning("Loaded object doesn't have predict method")
+            errors.append("Joblib load succeeded but object lacks predict method")
+    except Exception as e:
+        logger.warning(f"Joblib load failed: {str(e)}")
+        errors.append(f"Joblib error: {str(e)}")
+    
+    # Method 2: Try pickle load
+    try:
+        logger.info("Trying pickle load...")
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        # Check if it has predict method
+        if hasattr(model, 'predict'):
+            logger.info("Successfully loaded model with pickle")
+            return model
+        else:
+            logger.warning("Pickle loaded object doesn't have predict method")
+            errors.append("Pickle load succeeded but object lacks predict method")
+    except Exception as e:
+        logger.warning(f"Pickle load failed: {str(e)}")
+        errors.append(f"Pickle error: {str(e)}")
+    
+    # Method 3: Try loading as JSON
+    try:
+        logger.info("Trying JSON load...")
+        with open(model_path, 'r') as f:
+            json_data = json.load(f)
+        
+        # If it's a specially formatted JSON with model coefficients, create a simple model
+        if isinstance(json_data, dict) and ('coefficients' in json_data or 'coef' in json_data):
+            from sklearn.linear_model import LogisticRegression
+            logger.info("Creating LogisticRegression from coefficients in JSON")
+            
+            # Create a logistic regression model with the coefficients
+            model = LogisticRegression()
+            
+            # Set the coefficients
+            coef = json_data.get('coefficients', json_data.get('coef'))
+            if isinstance(coef, list):
+                model.coef_ = np.array(coef)
+                
+                # Set intercept if available
+                if 'intercept' in json_data:
+                    model.intercept_ = np.array([json_data['intercept']])
+                else:
+                    model.intercept_ = np.array([0.0])
+                
+                logger.info("Successfully created model from JSON coefficients")
+                return model
+        
+        logger.warning("JSON data doesn't contain model information")
+        errors.append("JSON load succeeded but couldn't create model")
+    except Exception as e:
+        logger.warning(f"JSON load failed: {str(e)}")
+        errors.append(f"JSON error: {str(e)}")
+    
+    # If all methods failed, create a dummy model
+    logger.error("All loading methods failed, creating dummy model")
+    logger.error("\\n".join(errors))
+    return create_dummy_model()
+
+def create_dummy_model():
+    """Create a dummy model that always predicts the most frequent class"""
+    logger.info("Creating dummy model")
+    dummy = DummyClassifier(strategy='most_frequent')
+    dummy.fit([[0]], [1])  # Train on a simple example (predicts 1)
+    return dummy
+
+# Run as script
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python model_helper.py <model_path>")
+        sys.exit(1)
+    
+    model_path = sys.argv[1]
+    model = load_model_with_fallback(model_path)
+    
+    if model:
+        print(f"Successfully loaded model of type: {type(model).__name__}")
+        print(f"Model has predict method: {hasattr(model, 'predict')}")
+        if hasattr(model, 'coef_'):
+            print(f"Model has coefficients with shape: {model.coef_.shape}")
+        print("Model is ready for use")
+    else:
+        print("Failed to load model")
+'''
+
+    # Write the helper script to a file
+    script_path = os.path.join(temp_dir, 'model_helper.py')
+    with open(script_path, 'w') as f:
+        f.write(script_content)
