@@ -521,12 +521,14 @@ def is_service_available(service_url):
         logger.error(f"Service {service_url} is not available: {str(e)}")
         return False
 
-# Import modularized application components
-from app_tabular import *
-from app_images import *
-from app_others import *
+# Import modularized application components - MOVED TO THE END to avoid circular imports
         
 if __name__ == "__main__":
+    # Import application components
+    from app_tabular import *
+    from app_images import *
+    from app_others import *
+    
     # Ensure the database exists
     with app.app_context():
         # Try to create all tables if they don't exist
