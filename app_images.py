@@ -218,3 +218,5 @@ def process_augmentation():
     except Exception as e:
         logger.error(f"Error in image augmentation: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
