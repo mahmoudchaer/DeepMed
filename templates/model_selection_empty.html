@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}Model Selection{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>No Models Available</h2>
+            
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> No models were found for training run #{{ run_id }}.
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Your Available Training Runs</h4>
+                </div>
+                <div class="card-body">
+                    <p>You have the following training runs with models. Click on one to view its models:</p>
+                    
+                    <div class="list-group">
+                        {% for run in all_runs %}
+                        <a href="{{ url_for('model_selection', run_id=run.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">Run #{{ run.id }}: {{ run.dataset_name }}</h5>
+                                <small>{{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <p class="mb-1">Target: {{ run.target_column }}</p>
+                            <small>Models: {{ TrainingModel.query.filter_by(run_id=run.id).count() }}</small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <a href="{{ url_for('training') }}" class="btn btn-primary">
+                    <i class="fas fa-chevron-left"></i> Back to Training
+                </a>
+                <a href="{{ url_for('my_models') }}" class="btn btn-info ml-2">
+                    <i class="fas fa-list"></i> View All My Models
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

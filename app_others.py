@@ -487,12 +487,17 @@ def my_models():
         group_by(TrainingRun.id).\
         order_by(TrainingRun.created_at.desc()).all()
     
+    # Also get all training runs to show even those without models
+    all_runs = TrainingRun.query.filter_by(user_id=current_user.id).\
+        order_by(TrainingRun.created_at.desc()).all()
+    
     # Get the count of models for each run
-    for run in runs_with_models:
+    for run in all_runs:
         run.model_count = TrainingModel.query.filter_by(run_id=run.id).count()
     
     return render_template('my_models.html', 
-                          training_runs=runs_with_models)
+                          training_runs=all_runs,
+                          runs_with_models=runs_with_models)
 
 @app.route('/download_model/<int:model_id>')
 @login_required
@@ -925,42 +930,61 @@ def service_status():
     return jsonify(services_status)
 
 @app.route('/model_selection')
+@app.route('/model_selection/<int:run_id>')
 @login_required
-def model_selection():
+def model_selection(run_id=None):
     """Show the model selection page with training results"""
     # Check if the user is logged in
     if not current_user.is_authenticated:
         flash('Please log in to view model selection.', 'warning')
         return redirect(url_for('login'))
     
-    # Get the run ID
-    run_id = session.get('last_training_run_id')
+    # Get the run ID from URL parameter, request args, or session
+    if run_id is None:
+        run_id = request.args.get('run_id', type=int)
+        
+    if run_id is None:
+        run_id = session.get('last_training_run_id')
+    else:
+        # If run_id was provided via URL, store it in session for future use
+        session['last_training_run_id'] = run_id
     
     if not run_id:
-        flash('No training run ID found in session. Please train models first.', 'warning')
-        return redirect(url_for('training'))
+        # If we still don't have a run_id, check if the user has any training runs
+        latest_run = TrainingRun.query.filter_by(user_id=current_user.id).order_by(TrainingRun.created_at.desc()).first()
+        if latest_run:
+            run_id = latest_run.id
+            session['last_training_run_id'] = run_id
+            flash(f'Using your most recent training run (ID: {run_id}).', 'info')
+        else:
+            flash('No training run ID found. Please train models first.', 'warning')
+            return redirect(url_for('training'))
     
-    # Load models directly from the database instead of from session
+    # Load models directly from the database using the run_id
     db_models = TrainingModel.query.filter_by(run_id=run_id, user_id=current_user.id).all()
     
     if not db_models:
         flash('No models found in the database for this run.', 'warning')
-        # Fall back to session models if available
-        models = session.get('all_models', [])
-        if not models:
+        # Get all training runs to show as options
+        all_runs = TrainingRun.query.filter_by(user_id=current_user.id).order_by(TrainingRun.created_at.desc()).all()
+        if all_runs:
+            return render_template('model_selection_empty.html', 
+                                   run_id=run_id,
+                                   all_runs=all_runs)
+        else:
             return redirect(url_for('training'))
-    else:
-        # Convert database models to the format expected by the template
-        models = []
-        for db_model in db_models:
-            # Extract metric from model name (e.g., "best_model_for_accuracy" -> "accuracy")
-            metric = db_model.model_name.replace("best_model_for_", "")
-            models.append({
-                'id': db_model.id,
-                'name': db_model.model_name,
-                'metric': metric,
-                'file_name': db_model.file_name
-            })
+    
+    # Convert database models to the format expected by the template
+    models = []
+    for db_model in db_models:
+        # Extract metric from model name (e.g., "best_model_for_accuracy" -> "accuracy")
+        metric = db_model.model_name.replace("best_model_for_", "")
+        models.append({
+            'id': db_model.id,
+            'name': db_model.model_name,
+            'metric': metric,
+            'file_name': db_model.file_name
+        })
     
     # Get feature importance from session (or fall back to empty)
     feature_importance = session.get('feature_importance', {})

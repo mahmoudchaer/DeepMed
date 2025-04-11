@@ -418,6 +418,9 @@ def training():
                     with app.app_context():
                         ensure_training_models_saved(user_id, run_id_to_use, model_result)
                     
+                    # Save the run ID to session for model_selection page
+                    session['last_training_run_id'] = run_id_to_use
+                    
                     # If we have our local run_id, also ensure models are saved for it
                     if local_run_id and local_run_id != run_id_to_use:
                         with app.app_context():
