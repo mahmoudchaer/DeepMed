@@ -491,3 +491,173 @@ def training():
                           columns=data.columns.tolist(),
                           file_stats=session.get('file_stats'),
                           ai_recommendations=ai_recommendations)
+
+@app.route('/prediction', methods=['GET', 'POST'])
+@login_required
+def prediction():
+    """Prediction page where users can upload data to make predictions with selected models"""
+    # Check if user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to use the prediction feature.', 'warning')
+        return redirect(url_for('login'))
+    
+    # Get the selected model ID from session or query parameter
+    model_id = request.args.get('model_id', session.get('selected_model_id'))
+    
+    # Store in session if provided
+    if model_id:
+        session['selected_model_id'] = model_id
+    
+    # Get model details if we have an ID
+    model = None
+    if model_id:
+        model = TrainingModel.query.filter_by(id=model_id, user_id=current_user.id).first()
+        if not model:
+            flash('Selected model not found or does not belong to you.', 'warning')
+            session.pop('selected_model_id', None)
+    
+    # Process file upload for prediction
+    if request.method == 'POST' and model:
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            flash('No file part', 'error')
+            return redirect(url_for('prediction'))
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file', 'error')
+            return redirect(url_for('prediction'))
+        
+        if file and allowed_file(file.filename):
+            # Save file
+            filepath = get_temp_filepath(file.filename)
+            file.save(filepath)
+            
+            # Load data to validate
+            data, result = load_data(filepath)
+            if data is None:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                flash(result, 'error')
+                return redirect(url_for('prediction'))
+            
+            # Store prediction file path in session
+            session['prediction_file'] = filepath
+            
+            # Process the prediction with the model
+            try:
+                # Get preprocessing data for this model's run
+                preprocessing = PreprocessingData.query.filter_by(run_id=model.run_id).first()
+                
+                # Clean and preprocess the data similar to training
+                if preprocessing and preprocessing.selected_columns:
+                    selected_columns = json.loads(preprocessing.selected_columns)
+                    # Ensure all required columns exist
+                    missing_columns = [col for col in selected_columns if col not in data.columns]
+                    if missing_columns:
+                        flash(f'Missing required columns in uploaded file: {", ".join(missing_columns)}', 'error')
+                        return redirect(url_for('prediction'))
+                    
+                    # Apply preprocessing (feature selection)
+                    data = data[selected_columns]
+                
+                # Convert to records for JSON
+                data_json = clean_data_for_json(data)
+                
+                # Make prediction request to model coordinator
+                logger.info(f"Sending prediction request to model coordinator for model ID {model_id}")
+                
+                response = safe_requests_post(
+                    f"{MODEL_COORDINATOR_URL}/predict_with_model",
+                    {
+                        "model_id": model_id,
+                        "data": data_json
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
+                    error_msg = "Error from model service."
+                    try:
+                        error_data = response.json()
+                        if 'error' in error_data:
+                            error_msg = error_data['error']
+                    except:
+                        pass
+                    
+                    flash(f'Error making prediction: {error_msg}', 'error')
+                    return redirect(url_for('prediction'))
+                
+                # Process prediction results
+                prediction_result = response.json()
+                
+                # Generate result table with pandas
+                result_df = data.copy()
+                
+                # Add prediction column
+                if 'predictions' in prediction_result:
+                    predictions = prediction_result['predictions']
+                    result_df['prediction'] = predictions
+                
+                # Add probability columns if available
+                if 'probabilities' in prediction_result and prediction_result['probabilities']:
+                    probs = prediction_result['probabilities']
+                    if len(probs) == len(result_df):
+                        if isinstance(probs[0], list):
+                            for i, class_prob in enumerate(probs[0]):
+                                result_df[f'probability_class_{i}'] = [p[i] for p in probs]
+                
+                # Calculate class distribution
+                if 'predictions' in prediction_result:
+                    distribution = []
+                    value_counts = pd.Series(prediction_result['predictions']).value_counts()
+                    total = len(prediction_result['predictions'])
+                    
+                    for value, count in value_counts.items():
+                        distribution.append({
+                            'class': str(value),
+                            'count': int(count),
+                            'percentage': round(100 * count / total, 2)
+                        })
+                    
+                    # Store in session
+                    session['prediction_distribution'] = distribution
+                
+                # Store only first 20 rows of result table for display
+                display_df = result_df.head(20)
+                html_table = display_df.to_html(classes='table table-striped', index=False)
+                
+                # Save complete results to file
+                results_filepath = get_temp_filepath(extension='.csv')
+                result_df.to_csv(results_filepath, index=False)
+                session['predictions_file'] = results_filepath
+                
+                # Render prediction results template
+                return render_template('prediction_results.html', 
+                                      predictions=html_table, 
+                                      distribution=session.get('prediction_distribution'),
+                                      model=model)
+                
+            except Exception as e:
+                logger.error(f"Error in prediction process: {str(e)}")
+                flash(f'Error processing prediction: {str(e)}', 'error')
+                return redirect(url_for('prediction'))
+    
+    return render_template('prediction.html', model=model)
+
+@app.route('/download_predictions')
+@login_required
+def download_predictions():
+    """Download prediction results as CSV"""
+    predictions_filepath = session.get('predictions_file')
+    if not predictions_filepath:
+        flash('No prediction results available for download', 'error')
+        return redirect(url_for('prediction'))
+    
+    # Create a BytesIO object to serve the file from memory
+    file_data = io.BytesIO()
+    with open(predictions_filepath, 'rb') as f:
+        file_data.write(f.read())
+    file_data.seek(0)
+    
+    return send_file(file_data, as_attachment=True, download_name='prediction_results.csv')
