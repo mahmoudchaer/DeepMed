@@ -933,22 +933,46 @@ def model_selection():
         flash('Please log in to view model selection.', 'warning')
         return redirect(url_for('login'))
     
-    # Get the models from session
-    models = session.get('all_models', [])
-    feature_importance = session.get('feature_importance', {})
-    
-    # Check if we have any models to display
-    if not models:
-        flash('No models available. Please train models first.', 'warning')
-        return redirect(url_for('training'))
-    
     # Get the run ID
     run_id = session.get('last_training_run_id')
+    
+    if not run_id:
+        flash('No training run ID found in session. Please train models first.', 'warning')
+        return redirect(url_for('training'))
+    
+    # Load models directly from the database instead of from session
+    db_models = TrainingModel.query.filter_by(run_id=run_id, user_id=current_user.id).all()
+    
+    if not db_models:
+        flash('No models found in the database for this run.', 'warning')
+        # Fall back to session models if available
+        models = session.get('all_models', [])
+        if not models:
+            return redirect(url_for('training'))
+    else:
+        # Convert database models to the format expected by the template
+        models = []
+        for db_model in db_models:
+            # Extract metric from model name (e.g., "best_model_for_accuracy" -> "accuracy")
+            metric = db_model.model_name.replace("best_model_for_", "")
+            models.append({
+                'id': db_model.id,
+                'name': db_model.model_name,
+                'metric': metric,
+                'file_name': db_model.file_name
+            })
+    
+    # Get feature importance from session (or fall back to empty)
+    feature_importance = session.get('feature_importance', {})
+    
+    # Get training run details
+    training_run = TrainingRun.query.filter_by(id=run_id).first()
     
     # Render the model selection template
     return render_template(
         'model_selection.html',
         models=models,
         feature_importance=feature_importance,
-        run_id=run_id
+        run_id=run_id,
+        training_run=training_run
     )
