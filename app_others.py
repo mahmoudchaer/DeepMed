@@ -923,3 +923,32 @@ def service_status():
             logger.error(f"Error getting model service status: {str(e)}")
     
     return jsonify(services_status)
+
+@app.route('/model_selection')
+@login_required
+def model_selection():
+    """Show the model selection page with training results"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to view model selection.', 'warning')
+        return redirect(url_for('login'))
+    
+    # Get the models from session
+    models = session.get('all_models', [])
+    feature_importance = session.get('feature_importance', {})
+    
+    # Check if we have any models to display
+    if not models:
+        flash('No models available. Please train models first.', 'warning')
+        return redirect(url_for('training'))
+    
+    # Get the run ID
+    run_id = session.get('last_training_run_id')
+    
+    # Render the model selection template
+    return render_template(
+        'model_selection.html',
+        models=models,
+        feature_importance=feature_importance,
+        run_id=run_id
+    )
