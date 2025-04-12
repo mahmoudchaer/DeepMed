@@ -345,9 +345,22 @@ class ModelPredictor:
             logger.info(f"  Mean: {scaler.mean_}")
             logger.info(f"  Scale: {scaler.scale_}")
             
-            # Use the pipeline's transform method directly
-            # This ensures we use the exact same transformation as during training
-            scaled_data = self.model.named_steps['scaler'].transform(processed_df)
+            # Log feature order comparison
+            logger.info("Feature order comparison:")
+            logger.info("  Model expected features (from scaler):")
+            if hasattr(scaler, 'feature_names_in_'):
+                logger.info(f"    {scaler.feature_names_in_}")
+            else:
+                logger.info("    No feature names stored in scaler")
+            
+            logger.info("  Our preprocessed features:")
+            logger.info(f"    {processed_df.columns.tolist()}")
+            
+            # Convert DataFrame to numpy array for scaling
+            data_array = processed_df.to_numpy()
+            
+            # Apply scaling using the scaler's transform method
+            scaled_data = scaler.transform(data_array)
             
             # Convert back to DataFrame to maintain column names
             scaled_data = pd.DataFrame(scaled_data, columns=processed_df.columns)
