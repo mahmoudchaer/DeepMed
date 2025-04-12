@@ -2,9 +2,15 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install git and other dependencies
-RUN apt-get update && apt-get install -y git && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install git, OpenCV dependencies, and other required packages
+RUN apt-get update && apt-get install -y \
+    git \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Clone YOLOv5 repository
 RUN git clone https://github.com/ultralytics/yolov5.git /app/yolov5
