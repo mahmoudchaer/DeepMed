@@ -89,11 +89,8 @@ def api_finetune_yolo():
         
         logger.info(f"Starting YOLOv5 fine-tuning for file: {zip_file.filename}")
         
-        # Get parameters
-        model_size = request.form.get('modelSize', 'small')
-        epochs = request.form.get('epochs', '50')
-        batch_size = request.form.get('batchSize', '16')
-        img_size = request.form.get('imgSize', '640')
+        # Get level parameter
+        level = request.form.get('level', '3')
         
         # Save the uploaded file to a temporary location
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
@@ -106,10 +103,7 @@ def api_finetune_yolo():
             form_data = MultipartEncoder(
                 fields={
                     'zipFile': (zip_file.filename, f, 'application/zip'),
-                    'modelSize': model_size,
-                    'epochs': epochs,
-                    'batchSize': batch_size,
-                    'imgSize': img_size
+                    'level': level
                 }
             )
             

@@ -7,8 +7,7 @@ The Object Detection Service provides an API for fine-tuning YOLOv5 models with 
 ## Features
 
 - Fine-tune pre-trained YOLOv5 models on custom datasets
-- Supports multiple model sizes (nano, small, medium, large, x)
-- Configurable training parameters (epochs, batch size, image size)
+- Simplified training process with 5 preset levels
 - Returns the trained model as a ZIP file with performance metrics
 - No persistent storage of your models or data (privacy-focused)
 
@@ -36,10 +35,12 @@ Fine-tunes a YOLOv5 model on your dataset.
 
 **Form Parameters:**
 - `zipFile`: ZIP file containing dataset in YOLOv5 format
-- `modelSize`: Size of YOLOv5 model ("nano", "small", "medium", "large", "x")
-- `epochs`: Number of training epochs (1-300)
-- `batchSize`: Training batch size (1-64)
-- `imgSize`: Image size for training (e.g., 640)
+- `level`: Training level (1-5) with predefined configurations:
+  - Level 1: Nano model, 20 epochs, 320px resolution
+  - Level 2: Small model, 30 epochs, 416px resolution
+  - Level 3: Small model, 50 epochs, 640px resolution
+  - Level 4: Medium model, 80 epochs, 640px resolution
+  - Level 5: Large model, 100 epochs, 640px resolution
 
 **Response:**
 - Success: Returns a ZIP file containing the fine-tuned model and training results
@@ -55,10 +56,12 @@ dataset/
 ├── train/        # Training images
 │   ├── images/   # JPG files
 │   └── labels/   # TXT files (YOLO format)
-└── val/          # Validation images
+└── val/          # Validation images (used for testing)
     ├── images/   # JPG files
     └── labels/   # TXT files (YOLO format)
 ```
+
+Note: YOLOv5 uses the validation set as the test set during training, so a separate test directory is not required.
 
 The `data.yaml` file should define:
 
@@ -97,10 +100,7 @@ files = {
 }
 
 data = {
-    'modelSize': 'small',
-    'epochs': '50',
-    'batchSize': '16',
-    'imgSize': '640'
+    'level': '3'  # Choose training level (1-5)
 }
 
 # Send the request
