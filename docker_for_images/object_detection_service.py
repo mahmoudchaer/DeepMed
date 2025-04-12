@@ -36,6 +36,7 @@ def finetune_model():
     Expects a multipart/form-data POST with:
     - zipFile: A zip file with dataset in YOLOv5 format
     - level: Level of fine-tuning (1-5)
+    - num_classes: (Optional) Manually specify the number of classes
     
     Returns a zip file of the fine-tuned model
     """
@@ -48,6 +49,9 @@ def finetune_model():
         
         # Get level parameter with default
         level = int(request.form.get('level', 3))
+        
+        # New: Get manual num_classes if provided
+        manual_num_classes = request.form.get('num_classes')
         
         # Define preset configurations for each level
         level_configs = {
@@ -139,28 +143,46 @@ def finetune_model():
             return jsonify({"error": "Dataset must contain 'images' and 'labels' subdirectories in both 'train' and 'valid' folders"}), 400
         
         # Get class names by analyzing label files
-        class_names = set()
-        for label_file in os.listdir(train_labels_dir):
-            if not label_file.endswith('.txt'):
-                continue
-            with open(os.path.join(train_labels_dir, label_file), 'r') as f:
-                for line in f:
-                    parts = line.strip().split()
-                    if len(parts) >= 5:  # Should have class_id + 4 coordinates
-                        class_id = int(parts[0])
-                        class_names.add(class_id)
+        class_ids = set()
+        # Scan ALL label files in both train and valid directories
+        for labels_dir in [train_labels_dir, valid_labels_dir]:
+            for label_file in os.listdir(labels_dir):
+                if not label_file.endswith('.txt'):
+                    continue
+                with open(os.path.join(labels_dir, label_file), 'r') as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 5:  # Should have class_id + 4 coordinates
+                            try:
+                                class_id = int(parts[0])
+                                class_ids.add(class_id)
+                            except ValueError:
+                                continue
         
         # Sort the class IDs to ensure consistent order
-        class_ids = sorted(list(class_names))
+        class_ids = sorted(list(class_ids))
         
-        # Create generic class names if no specific ones provided
-        class_names = [f"class_{i}" for i in class_ids]
+        # If manual_num_classes is provided, use it
+        if manual_num_classes:
+            try:
+                num_classes = int(manual_num_classes)
+                logger.info(f"Using user-specified number of classes: {num_classes}")
+            except ValueError:
+                return jsonify({"error": "num_classes must be a valid integer"}), 400
+        else:
+            # Otherwise auto-detect from labels
+            # Get the number of classes (max class_id + 1)
+            if not class_ids:
+                return jsonify({"error": "Could not detect any valid class IDs in the label files"}), 400
+                
+            num_classes = max(class_ids) + 1
+            logger.info(f"Auto-detected {num_classes} classes with IDs: {class_ids}")
         
-        # Number of classes
-        num_classes = len(class_names)
+        # Create generic class names
+        class_names = [f"class_{i}" for i in range(num_classes)]
         
         if num_classes < 1:
-            return jsonify({"error": "Could not determine classes from label files"}), 400
+            return jsonify({"error": "Number of classes must be at least 1"}), 400
         
         # Create a new data.yaml file
         data_yaml_path = os.path.join(dataset_root, "data.yaml")
