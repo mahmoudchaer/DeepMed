@@ -362,11 +362,8 @@ class ModelPredictor:
                 processed_df = processed_df[scaler.feature_names_in_]
                 logger.info("Reordered features to match scaler's expected order")
             
-            # Convert DataFrame to numpy array for scaling
-            data_array = processed_df.to_numpy()
-            
-            # Apply scaling using the scaler's transform method
-            scaled_data = scaler.transform(data_array)
+            # Apply scaling using the scaler's transform method directly on the DataFrame
+            scaled_data = scaler.transform(processed_df)
             
             # Log some statistics about the scaled data
             logger.info(f"Scaled data shape: {scaled_data.shape}")
