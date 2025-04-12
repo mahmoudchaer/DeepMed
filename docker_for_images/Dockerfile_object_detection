@@ -1,9 +1,17 @@
-FROM ultralytics/yolov5:latest
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install additional dependencies
-RUN pip install --no-cache-dir flask==2.0.1 Werkzeug==2.0.1 python-dotenv==0.19.0
+# Install git and other dependencies
+RUN apt-get update && apt-get install -y git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Clone YOLOv5 repository
+RUN git clone https://github.com/ultralytics/yolov5.git /app/yolov5
+
+# Install YOLOv5 dependencies and our Flask service dependencies
+RUN pip install --no-cache-dir -r /app/yolov5/requirements.txt \
+    flask==2.0.1 Werkzeug==2.0.1 python-dotenv==0.19.0 pyyaml
 
 # Copy our service code
 COPY object_detection_service.py .

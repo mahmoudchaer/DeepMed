@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Define YOLOv5 paths
-YOLOV5_DIR = "/usr/src/yolov5"
+YOLOV5_DIR = "/app/yolov5"
 
 # Track temp files for cleanup
 temp_dirs = []
