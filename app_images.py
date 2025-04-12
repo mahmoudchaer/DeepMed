@@ -22,6 +22,9 @@ from app_api import check_services, save_to_temp_file, clean_data_for_json
 # Define new URL for pipeline service
 PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
+# Define URL for object detection service
+OBJECT_DETECTION_SERVICE_URL = os.environ.get('OBJECT_DETECTION_SERVICE_URL', 'http://localhost:5027')
+
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
 
@@ -41,6 +44,114 @@ def images():
     # Check services health for status display
     services_status = check_services()
     return render_template('train_model.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/object_detection')
+@login_required
+def object_detection():
+    """Route for object detection page (YOLOv5)"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the object detection page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    
+    # Add object detection service to services status
+    services_status['object_detection_service'] = is_service_available(OBJECT_DETECTION_SERVICE_URL)
+    
+    return render_template('object_detection.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/api/finetune_yolo', methods=['POST'])
+@login_required
+def api_finetune_yolo():
+    """API endpoint for YOLOv5 fine-tuning"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
+    try:
+        # Check if the object detection service is available
+        if not is_service_available(OBJECT_DETECTION_SERVICE_URL):
+            return jsonify({"error": "Object detection service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting YOLOv5 fine-tuning for file: {zip_file.filename}")
+        
+        # Get parameters
+        model_size = request.form.get('modelSize', 'small')
+        epochs = request.form.get('epochs', '50')
+        batch_size = request.form.get('batchSize', '16')
+        img_size = request.form.get('imgSize', '640')
+        
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create form data to send to the object detection service
+        with open(temp_file.name, 'rb') as f:
+            from requests_toolbelt.multipart.encoder import MultipartEncoder
+            form_data = MultipartEncoder(
+                fields={
+                    'zipFile': (zip_file.filename, f, 'application/zip'),
+                    'modelSize': model_size,
+                    'epochs': epochs,
+                    'batchSize': batch_size,
+                    'imgSize': img_size
+                }
+            )
+            
+            # Forward the request to the object detection service
+            headers = {'Content-Type': form_data.content_type}
+            
+            # Stream the request to the service
+            response = requests.post(
+                f"{OBJECT_DETECTION_SERVICE_URL}/finetune",
+                headers=headers,
+                data=form_data,
+                stream=True
+            )
+        
+        # Clean up the temporary file
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary file: {str(e)}")
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error in object detection service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in object detection service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a Flask response with the model zip file
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=yolov5_model.zip"
+        
+        return flask_response
+        
+    except Exception as e:
+        logger.error(f"Error in YOLOv5 fine-tuning: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/train_model', methods=['POST'])
 @login_required

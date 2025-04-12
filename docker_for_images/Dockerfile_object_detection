@@ -1,0 +1,18 @@
+FROM ultralytics/yolov5:latest
+
+WORKDIR /app
+
+# Install additional dependencies
+RUN pip install --no-cache-dir flask==2.0.1 Werkzeug==2.0.1 python-dotenv==0.19.0
+
+# Copy our service code
+COPY object_detection_service.py .
+
+# Environment variables
+ENV PORT=5027
+
+# Expose the port
+EXPOSE 5027
+
+# Run the service
+CMD ["python", "object_detection_service.py"] 
