@@ -57,7 +57,8 @@ services:
       - "5027:5027"
     restart: unless-stopped
     volumes:
-      - ./object_detection_service.py:/app/object_detection_service.py
+      - ./:/app/service
+    shm_size: '2gb'
     environment:
       - PORT=5027
     networks:
