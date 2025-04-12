@@ -20,7 +20,8 @@ import atexit
 import glob
 import joblib
 from sklearn.dummy import DummyClassifier
-from sklearn.preprocessing import StandardScaler, ColumnTransformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
