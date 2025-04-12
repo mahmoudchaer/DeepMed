@@ -33,42 +33,15 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="modelSize" class="form-label">Model Size</label>
-                                <select class="form-select" id="modelSize" name="modelSize">
-                                    <option value="nano">Nano - Fastest, lower accuracy</option>
-                                    <option value="small" selected>Small - Good balance</option>
-                                    <option value="medium">Medium - Better accuracy</option>
-                                    <option value="large">Large - High accuracy, slower</option>
-                                    <option value="x">XLarge - Best accuracy, slowest</option>
+                                <label for="level" class="form-label">Training Level</label>
+                                <select class="form-select" id="level" name="level">
+                                    <option value="1">Level 1 - Fast (Nano model, 20 epochs, lower resolution)</option>
+                                    <option value="2">Level 2 - Standard (Small model, 30 epochs, medium resolution)</option>
+                                    <option value="3" selected>Level 3 - Balanced (Small model, 50 epochs, full resolution)</option>
+                                    <option value="4">Level 4 - Extended (Medium model, 80 epochs, full resolution)</option>
+                                    <option value="5">Level 5 - Advanced (Large model, 100 epochs, full resolution)</option>
                                 </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="epochs" class="form-label">Training Epochs</label>
-                                <input type="number" class="form-control" id="epochs" name="epochs" value="50" min="1" max="300" required>
-                                <div class="form-text">Number of training iterations (more epochs = better results but longer training)</div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="batchSize" class="form-label">Batch Size</label>
-                                <select class="form-select" id="batchSize" name="batchSize">
-                                    <option value="4">4 - For limited memory</option>
-                                    <option value="8">8 - Small</option>
-                                    <option value="16" selected>16 - Default</option>
-                                    <option value="32">32 - Large (requires more GPU memory)</option>
-                                    <option value="64">64 - Very large (for high-end GPUs)</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="imgSize" class="form-label">Image Size</label>
-                                <select class="form-select" id="imgSize" name="imgSize">
-                                    <option value="320">320 - Fastest, lower accuracy</option>
-                                    <option value="416">416 - Medium resolution</option>
-                                    <option value="512">512 - Higher resolution</option>
-                                    <option value="640" selected>640 - Default YOLOv5 resolution</option>
-                                    <option value="1280">1280 - Highest resolution, slowest</option>
-                                </select>
+                                <div class="form-text">Higher levels produce better models but take longer to train</div>
                             </div>
                             
                             <div class="d-grid">
@@ -111,7 +84,7 @@ dataset/
 ├── train/        # Training images
 │   ├── images/   # JPG files
 │   └── labels/   # TXT files (YOLO format)
-└── val/          # Validation images
+└── val/          # Validation images (used for testing)
     ├── images/   # JPG files
     └── labels/   # TXT files (YOLO format)
 </pre>

@@ -35,9 +35,7 @@ def finetune_model():
     
     Expects a multipart/form-data POST with:
     - zipFile: A zip file with dataset in YOLOv5 format
-    - modelSize: Size of YOLOv5 model (nano, small, medium, large, x)
-    - epochs: Number of training epochs
-    - batchSize: Training batch size
+    - level: Level of fine-tuning (1-5)
     
     Returns a zip file of the fine-tuned model
     """
@@ -48,24 +46,56 @@ def finetune_model():
         # Get the zip file from the request
         zip_file = request.files['zipFile']
         
-        # Get parameters with defaults
-        model_size = request.form.get('modelSize', 'small')  # nano, small, medium, large, x
-        epochs = int(request.form.get('epochs', 50))
-        batch_size = int(request.form.get('batchSize', 16))
-        img_size = int(request.form.get('imgSize', 640))
+        # Get level parameter with default
+        level = int(request.form.get('level', 3))
         
-        # Validate parameters
-        if model_size not in ['nano', 'small', 'medium', 'large', 'x']:
-            return jsonify({"error": "Invalid model size. Choose from: nano, small, medium, large, x"}), 400
+        # Define preset configurations for each level
+        level_configs = {
+            1: {
+                'model_size': 'nano',
+                'epochs': 20,
+                'batch_size': 16,
+                'img_size': 320
+            },
+            2: {
+                'model_size': 'small',
+                'epochs': 30,
+                'batch_size': 16,
+                'img_size': 416
+            },
+            3: {
+                'model_size': 'small',
+                'epochs': 50,
+                'batch_size': 16,
+                'img_size': 640
+            },
+            4: {
+                'model_size': 'medium',
+                'epochs': 80,
+                'batch_size': 8,
+                'img_size': 640
+            },
+            5: {
+                'model_size': 'large',
+                'epochs': 100,
+                'batch_size': 8,
+                'img_size': 640
+            }
+        }
         
-        if epochs < 1 or epochs > 300:
-            return jsonify({"error": "Epochs must be between 1 and 300"}), 400
+        # Validate level
+        if level < 1 or level > 5:
+            return jsonify({"error": "Level must be between 1 and 5"}), 400
         
-        if batch_size < 1 or batch_size > 64:
-            return jsonify({"error": "Batch size must be between 1 and 64"}), 400
+        # Get configuration for the selected level
+        config = level_configs[level]
+        model_size = config['model_size']
+        epochs = config['epochs']
+        batch_size = config['batch_size']
+        img_size = config['img_size']
         
         # Log the start of processing
-        logger.info(f"Starting YOLOv5 fine-tuning with model size: {model_size}, epochs: {epochs}")
+        logger.info(f"Starting YOLOv5 fine-tuning with level {level} (model: {model_size}, epochs: {epochs})")
         
         # Create a temporary working directory
         temp_dir = tempfile.mkdtemp()
