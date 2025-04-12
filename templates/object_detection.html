@@ -44,6 +44,12 @@
                                 <div class="form-text">Higher levels produce better models but take longer to train</div>
                             </div>
                             
+                            <div class="mb-3">
+                                <label for="num_classes" class="form-label">Number of Classes</label>
+                                <input type="number" class="form-control" id="num_classes" name="num_classes" min="1" placeholder="Leave empty for auto-detection">
+                                <div class="form-text">Manually specify the number of classes in your dataset (optional)</div>
+                            </div>
+                            
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary" id="submitBtn">Fine-tune Model</button>
                             </div>
