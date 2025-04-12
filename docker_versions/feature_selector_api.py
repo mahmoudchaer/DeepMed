@@ -31,30 +31,49 @@ app = Flask(__name__)
 
 class FeatureSelector:
     def __init__(self, method='fallback', min_features_to_keep=5, performance_threshold=0.001, 
-                 apply_scaling=True, scaling_method='standard', 
+                 apply_scaling=False, scaling_method='standard', 
                  apply_discretization=False, n_bins=5, 
                  apply_feature_crossing=False, max_crossing_degree=2):
-        """Initialize the feature selector with LLM capabilities and enhanced preprocessing."""
+        """
+        Initialize the feature selector.
+        
+        Parameters:
+            method (str): Feature selection method to use - 'llm', 'fallback', or 'auto'
+            min_features_to_keep (int): Minimum number of features to select
+            performance_threshold (float): Performance difference threshold for adding features
+            apply_scaling (bool): DISABLED - No longer used - should be False
+            scaling_method (str): DISABLED - No longer used
+            apply_discretization (bool): DISABLED - No longer used - should be False
+            n_bins (int): DISABLED - No longer used
+            apply_feature_crossing (bool): DISABLED - No longer used - should be False
+            max_crossing_degree (int): DISABLED - No longer used
+        """
         self.method = method
         self.min_features_to_keep = min_features_to_keep
         self.performance_threshold = performance_threshold
-        self.selected_features = None
+        
+        # Ensure these are all disabled to prevent data transformation
+        self.apply_scaling = False  # Force to False
+        self.scaling_method = scaling_method  # Not used
+        self.apply_discretization = False  # Force to False
+        self.n_bins = n_bins  # Not used
+        self.apply_feature_crossing = False  # Force to False
+        self.max_crossing_degree = max_crossing_degree  # Not used
+        
+        # For handling categorical features during selection (no transformation)
+        self.encoders = {}
+        
+        # Store feature importances and selected features
         self.feature_importances_ = {}
-        self.label_encoders = {}
-        self.id_columns = []
+        self.selected_features = None
         
-        # Feature enhancement settings
-        self.apply_scaling = apply_scaling
-        self.scaling_method = scaling_method  # 'standard' or 'minmax'
-        self.scalers = {}  # Store fitted scalers
+        # Initialize empty containers for feature engineering
+        self.scalers = {}  # Not used
+        self.discretizers = {}  # Not used
+        self.crossed_features = []  # Not used
         
-        self.apply_discretization = apply_discretization
-        self.n_bins = n_bins
-        self.discretizers = {}  # Store fitted discretizers
-        
-        self.apply_feature_crossing = apply_feature_crossing
-        self.max_crossing_degree = max_crossing_degree
-        self.crossed_features = []  # Store names of crossed features
+        logger.info("⚙️ Initialized FeatureSelector with method: " + method)
+        logger.info("✅ Data transformation disabled - Feature selector will ONLY select features, not modify values")
         
         # Initialize OpenAI client if available
         api_key = os.getenv("OPENAI_API_KEY")
@@ -350,110 +369,10 @@ class FeatureSelector:
         logger.info("Feature crossing disabled to maintain only original columns")
         return X
 
-    def fit_transform(self, X, y=None):
-        """Fit the feature selector and transform the data."""
-        logger.info(f"Starting feature selection using method: {self.method}")
-        logger.info(f"Input data shape: {X.shape}")
-        
-        X = X.copy()
-        
-        # Prepare features (handle categorical variables)
-        X = self._prepare_features(X)
-        
-        # Apply feature engineering if enabled
-        if self.apply_scaling:
-            X = self._apply_scaling(X, is_fitting=True)
-            logger.info(f"✅ Applied scaling to numerical features")
-        
-        if self.apply_discretization:
-            X = self._apply_discretization(X, is_fitting=True)
-            logger.info(f"✅ Applied discretization to suitable numerical features")
-        
-        if self.apply_feature_crossing:
-            X = self._apply_feature_crossing(X, is_fitting=True)
-            logger.info(f"✅ Applied feature crossing, created {len(self.crossed_features)} new features")
-            logger.info(f"New data shape after feature engineering: {X.shape}")
-        
-        # Continue with feature selection
-        if self.method == 'llm':
-            logger.info("🤖 Using LLM-based feature selection")
-            # Get LLM recommendations
-            recommendations = self._get_llm_recommendations(X, y, target_name=y.name if hasattr(y, 'name') else None)
-            
-            # Store selected features
-            self.selected_features = recommendations['features_to_keep']
-            
-            # Calculate and store feature importances based on LLM decisions
-            for feature in X.columns:
-                if feature in recommendations['features_to_keep']:
-                    self.feature_importances_[feature] = 1.0
-                else:
-                    self.feature_importances_[feature] = 0.0
-                    reason = recommendations['reasoning'].get(feature, "Removed based on analysis")
-                    logger.info(f"🔍 Removing feature '{feature}': {reason}")
-            
-            # Ensure we keep minimum number of features
-            if len(self.selected_features) < self.min_features_to_keep:
-                logger.warning(f"⚠️ Too few features recommended ({len(self.selected_features)}). Keeping top {self.min_features_to_keep} features based on correlation with target.")
-                correlations = X.corrwith(y) if y is not None else pd.Series(1.0, index=X.columns)
-                self.selected_features = correlations.abs().nlargest(self.min_features_to_keep).index.tolist()
-        else:
-            logger.info("📊 Using traditional feature selection method")
-            # Fallback to original maximize method
-            self.selected_features = self._maximize_features(X, y)
-        
-        logger.info(f"✅ Feature selection complete. Selected {len(self.selected_features)} features")
-        return X[self.selected_features]
-
-    def transform(self, X):
-        """Transform new data using the selected features."""
-        if self.selected_features is None:
-            raise ValueError("Fit the feature selector first using fit_transform()")
-        
-        X = X.copy()
-        
-        # Apply same preprocessing as during fitting
-        X = self._prepare_features(X)
-        
-        if self.apply_scaling:
-            X = self._apply_scaling(X, is_fitting=False)
-        
-        if self.apply_discretization:
-            X = self._apply_discretization(X, is_fitting=False)
-        
-        # Feature crossing disabled to maintain original columns only
-        
-        # Filter to only include original columns (without _disc suffixes)
-        # to ensure compatibility with our approach
-        original_cols = [col for col in self.selected_features if not col.endswith('_disc')]
-        available_cols = [col for col in original_cols if col in X.columns]
-        
-        if len(available_cols) < len(original_cols):
-            missing = set(original_cols) - set(available_cols)
-            logger.warning(f"Missing columns in input data: {missing}")
-        
-        return X[available_cols]
-
     def _prepare_features(self, X):
-        """Prepare features by encoding categorical variables."""
-        X = X.copy()
-        
-        # Handle categorical columns
-        for column in X.select_dtypes(include=['object']).columns:
-            if column not in self.label_encoders:
-                self.label_encoders[column] = LabelEncoder()
-                X[column] = self.label_encoders[column].fit_transform(X[column].astype(str))
-            else:
-                # Handle unseen categories in test data
-                unique_values = X[column].unique()
-                for val in unique_values:
-                    if val not in self.label_encoders[column].classes_:
-                        # We need to handle unseen values by using a default
-                        X[column] = X[column].map(lambda x: x if x in self.label_encoders[column].classes_ else self.label_encoders[column].classes_[0])
-                        break
-                X[column] = self.label_encoders[column].transform(X[column].astype(str))
-        
-        return X
+        """Prepare features for selection while preserving original values."""
+        # Return a copy with no modifications
+        return X.copy()
 
     def _identify_id_columns(self, X):
         """Identify and remove ID-like columns"""
@@ -554,14 +473,69 @@ class FeatureSelector:
         
         return best_features
 
+    def fit_transform(self, X, y=None):
+        """Fit the feature selector and transform the data."""
+        logger.info(f"Starting feature selection using method: {self.method}")
+        logger.info(f"Input data shape: {X.shape}")
+        
+        X = X.copy()
+        
+        # Continue with feature selection
+        if self.method == 'llm':
+            logger.info("🤖 Using LLM-based feature selection")
+            # Get LLM recommendations
+            recommendations = self._get_llm_recommendations(X, y, target_name=y.name if hasattr(y, 'name') else None)
+            
+            # Store selected features
+            self.selected_features = recommendations['features_to_keep']
+            
+            # Calculate and store feature importances based on LLM decisions
+            for feature in X.columns:
+                if feature in recommendations['features_to_keep']:
+                    self.feature_importances_[feature] = 1.0
+                else:
+                    self.feature_importances_[feature] = 0.0
+                    reason = recommendations['reasoning'].get(feature, "Removed based on analysis")
+                    logger.info(f"🔍 Removing feature '{feature}': {reason}")
+            
+            # Ensure we keep minimum number of features
+            if len(self.selected_features) < self.min_features_to_keep:
+                logger.warning(f"⚠️ Too few features recommended ({len(self.selected_features)}). Keeping top {self.min_features_to_keep} features based on correlation with target.")
+                correlations = X.corrwith(y) if y is not None else pd.Series(1.0, index=X.columns)
+                self.selected_features = correlations.abs().nlargest(self.min_features_to_keep).index.tolist()
+        else:
+            logger.info("📊 Using traditional feature selection method")
+            # Fallback to original maximize method
+            self.selected_features = self._maximize_features(X, y)
+        
+        logger.info(f"✅ Feature selection complete. Selected {len(self.selected_features)} features")
+        logger.info(f"Selected features: {self.selected_features}")
+        return X[self.selected_features]
+
+    def transform(self, X):
+        """Transform new data using the selected features."""
+        if self.selected_features is None:
+            raise ValueError("Fit the feature selector first using fit_transform()")
+        
+        X = X.copy()
+        
+        # Filter to only include selected columns available in the dataframe
+        available_cols = [col for col in self.selected_features if col in X.columns]
+        
+        if len(available_cols) < len(self.selected_features):
+            missing = set(self.selected_features) - set(available_cols)
+            logger.warning(f"Missing columns in input data: {missing}")
+        
+        return X[available_cols]
+
 # Create a global FeatureSelector instance with default settings
 feature_selector = FeatureSelector(
-    apply_scaling=True,          # Enable scaling by default
-    scaling_method='standard',   # Use standard scaling by default
-    apply_discretization=True,   # Enable discretization
-    n_bins=5,                    # Use 5 bins for discretization
-    apply_feature_crossing=True, # Enable feature crossing
-    max_crossing_degree=2        # Only create pairs of features
+    apply_scaling=False,          # Disable scaling
+    scaling_method='standard',   # Not used
+    apply_discretization=False,   # Disable discretization
+    n_bins=5,                    # Not used
+    apply_feature_crossing=False, # Disable feature crossing
+    max_crossing_degree=2        # Not used
 )
 
 @app.route('/health', methods=['GET'])

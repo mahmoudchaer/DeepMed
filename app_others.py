@@ -20,6 +20,7 @@ import atexit
 import glob
 import joblib
 from sklearn.dummy import DummyClassifier
+from sklearn.preprocessing import StandardScaler, ColumnTransformer
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -326,80 +327,64 @@ class ModelPredictor:
             # Check classifier parameters
             logger.info(f"Classifier parameters: {classifier.get_params()}")
             
-            # Get the scaler from the pipeline
-            scaler = self.model.named_steps['scaler']
-            
-            # Log scaler parameters
-            logger.info("Scaler parameters:")
-            logger.info(f"  Mean: {scaler.mean_}")
-            logger.info(f"  Scale: {scaler.scale_}")
-            
-            # Log feature order comparison
-            logger.info("Feature order comparison:")
-            logger.info("  Model expected features (from scaler):")
-            if hasattr(scaler, 'feature_names_in_'):
-                logger.info(f"    {scaler.feature_names_in_}")
-            else:
-                logger.info("    No feature names stored in scaler")
+            # Check for preprocessing steps
+            preprocessor = None
+            scaler = None
+            if 'preprocessor' in self.model.named_steps:
+                logger.info("Pipeline includes a preprocessor step")
+                preprocessor = self.model.named_steps['preprocessor']
+                if isinstance(preprocessor, ColumnTransformer):
+                    logger.info("Preprocessor is a ColumnTransformer")
+                    logger.info(f"Transformers: {[name for name, _, _ in preprocessor.transformers]}")
+            elif 'scaler' in self.model.named_steps:
+                logger.info("Pipeline includes a scaler step")
+                scaler = self.model.named_steps['scaler']
+                logger.info(f"Scaler type: {type(scaler).__name__}")
+                if hasattr(scaler, 'mean_'):
+                    logger.info("Scaler parameters:")
+                    logger.info(f"  Mean: {scaler.mean_}")
+                    logger.info(f"  Scale: {scaler.scale_}")
+                
+                # Log feature order comparison
+                logger.info("Feature order comparison:")
+                logger.info("  Model expected features (from scaler):")
+                if hasattr(scaler, 'feature_names_in_'):
+                    logger.info(f"    {scaler.feature_names_in_}")
+                    
+                    # Ensure feature order matches the scaler's expectations
+                    if all(col in processed_df.columns for col in scaler.feature_names_in_):
+                        # Reorder columns to match scaler's feature order
+                        processed_df = processed_df[scaler.feature_names_in_]
+                        logger.info("Reordered features to match scaler's expected order")
+                else:
+                    logger.info("    No feature names stored in scaler")
             
             logger.info("  Our preprocessed features:")
             logger.info(f"    {processed_df.columns.tolist()}")
             
-            # Ensure feature order matches the scaler's expectations
-            if hasattr(scaler, 'feature_names_in_'):
-                # Reorder columns to match scaler's feature order
-                processed_df = processed_df[scaler.feature_names_in_]
-                logger.info("Reordered features to match scaler's expected order")
+            # Use the pipeline's predict method to handle all preprocessing automatically
+            logger.info("Using the pipeline's predict method to handle preprocessing automatically")
+            predictions = self.model.predict(processed_df)
             
-            # Apply scaling using the scaler's transform method directly on the DataFrame
-            scaled_data = scaler.transform(processed_df)
-            
-            # Log some statistics about the scaled data
-            logger.info(f"Scaled data shape: {scaled_data.shape}")
-            logger.info("Scaled data statistics:")
-            logger.info(f"  Min: {scaled_data.min(axis=0)}")
-            logger.info(f"  Max: {scaled_data.max(axis=0)}")
-            logger.info(f"  Mean: {scaled_data.mean(axis=0)}")
-            logger.info(f"  Std: {scaled_data.std(axis=0)}")
-            
-            # Verify standardization
-            mean_check = np.abs(scaled_data.mean(axis=0)).max()
-            std_check = np.abs(scaled_data.std(axis=0) - 1.0).max()
-            logger.info(f"Standardization check - Max absolute mean: {mean_check:.6f}, Max absolute std deviation from 1: {std_check:.6f}")
-            
-            # Get probabilities first
+            # Get probabilities if available
             probabilities = None
-            if hasattr(classifier, 'predict_proba'):
+            if hasattr(self.model, 'predict_proba'):
                 try:
-                    # Get raw probabilities before thresholding
-                    raw_probs = classifier.predict_proba(scaled_data)
-                    logger.info("Successfully obtained raw prediction probabilities")
+                    probabilities = self.model.predict_proba(processed_df)
+                    logger.info("Successfully obtained prediction probabilities")
                     
                     # Log probability distribution
-                    logger.info("Raw probability distribution:")
-                    for i, class_name in enumerate(classifier.classes_):
-                        probs = raw_probs[:, i]
-                        logger.info(f"  Class {class_name}:")
-                        logger.info(f"    Min: {probs.min():.4f}")
-                        logger.info(f"    Max: {probs.max():.4f}")
-                        logger.info(f"    Mean: {probs.mean():.4f}")
-                        logger.info(f"    Std: {probs.std():.4f}")
-                    
-                    # Get decision function if available
-                    if hasattr(classifier, 'decision_function'):
-                        decision_scores = classifier.decision_function(scaled_data)
-                        logger.info("Decision function scores:")
-                        logger.info(f"  Min: {decision_scores.min():.4f}")
-                        logger.info(f"  Max: {decision_scores.max():.4f}")
-                        logger.info(f"  Mean: {decision_scores.mean():.4f}")
-                        logger.info(f"  Std: {decision_scores.std():.4f}")
-                    
-                    probabilities = raw_probs
+                    logger.info("Probability distribution:")
+                    if hasattr(classifier, 'classes_'):
+                        for i, class_name in enumerate(classifier.classes_):
+                            probs = probabilities[:, i]
+                            logger.info(f"  Class {class_name}:")
+                            logger.info(f"    Min: {probs.min():.4f}")
+                            logger.info(f"    Max: {probs.max():.4f}")
+                            logger.info(f"    Mean: {probs.mean():.4f}")
+                            logger.info(f"    Std: {probs.std():.4f}")
                 except Exception as e:
                     logger.warning(f"Could not get probabilities: {str(e)}")
-            
-            # Make predictions using the classifier directly
-            predictions = classifier.predict(scaled_data)
             
             # If we have label encoder info, decode the predictions
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
