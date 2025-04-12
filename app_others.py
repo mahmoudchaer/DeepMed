@@ -345,16 +345,26 @@ class ModelPredictor:
             logger.info(f"  Mean: {scaler.mean_}")
             logger.info(f"  Scale: {scaler.scale_}")
             
-            # Manually apply scaling
-            scaled_data = (processed_df - scaler.mean_) / scaler.scale_
-            logger.info(f"Manually scaled data shape: {scaled_data.shape}")
+            # Use the pipeline's transform method directly
+            # This ensures we use the exact same transformation as during training
+            scaled_data = self.model.named_steps['scaler'].transform(processed_df)
+            
+            # Convert back to DataFrame to maintain column names
+            scaled_data = pd.DataFrame(scaled_data, columns=processed_df.columns)
+            
+            logger.info(f"Scaled data shape: {scaled_data.shape}")
             
             # Log some statistics about the scaled data
-            logger.info("Manually scaled data statistics:")
+            logger.info("Scaled data statistics:")
             logger.info(f"  Min: {scaled_data.min()}")
             logger.info(f"  Max: {scaled_data.max()}")
             logger.info(f"  Mean: {scaled_data.mean()}")
             logger.info(f"  Std: {scaled_data.std()}")
+            
+            # Verify standardization
+            mean_check = np.abs(scaled_data.mean()).max()
+            std_check = np.abs(scaled_data.std() - 1.0).max()
+            logger.info(f"Standardization check - Max absolute mean: {mean_check:.6f}, Max absolute std deviation from 1: {std_check:.6f}")
             
             # Get probabilities first
             probabilities = None
@@ -382,19 +392,6 @@ class ModelPredictor:
                         logger.info(f"  Max: {decision_scores.max():.4f}")
                         logger.info(f"  Mean: {decision_scores.mean():.4f}")
                         logger.info(f"  Std: {decision_scores.std():.4f}")
-                    
-                    # Get coefficients if available
-                    if hasattr(classifier, 'coef_'):
-                        logger.info("Model coefficients:")
-                        logger.info(f"  Shape: {classifier.coef_.shape}")
-                        logger.info(f"  Min: {classifier.coef_.min():.4f}")
-                        logger.info(f"  Max: {classifier.coef_.max():.4f}")
-                        logger.info(f"  Mean: {classifier.coef_.mean():.4f}")
-                        logger.info(f"  Std: {classifier.coef_.std():.4f}")
-                    
-                    # Get intercept if available
-                    if hasattr(classifier, 'intercept_'):
-                        logger.info(f"Model intercept: {classifier.intercept_}")
                     
                     probabilities = raw_probs
                 except Exception as e:
