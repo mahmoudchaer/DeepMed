@@ -446,6 +446,7 @@ def force_logout():
 # Function to save data to a temporary file
 def save_to_temp_file(data, prefix='data'):
     """Save data to a temporary file and return the filepath"""
+  
     filepath = get_temp_filepath(extension='.json')
     with open(filepath, 'w') as f:
         json.dump(data, f, cls=SafeJSONEncoder)

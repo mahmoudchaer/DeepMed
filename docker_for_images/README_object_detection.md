@@ -10,6 +10,7 @@ The Object Detection Service provides an API for fine-tuning YOLOv5 models with 
 - Simplified training process with 5 preset levels
 - Returns the trained model as a ZIP file with performance metrics
 - No persistent storage of your models or data (privacy-focused)
+- Automatic configuration file generation
 
 ## API Endpoints
 
@@ -48,39 +49,34 @@ Fine-tunes a YOLOv5 model on your dataset.
 
 ## Dataset Format
 
-YOLOv5 requires a specific dataset format:
+Your dataset must follow this exact structure:
 
 ```
-dataset/
-├── data.yaml     # Dataset configuration
-├── train/        # Training images
-│   ├── images/   # JPG files
-│   └── labels/   # TXT files (YOLO format)
-└── val/          # Validation images (used for testing)
-    ├── images/   # JPG files
-    └── labels/   # TXT files (YOLO format)
+your_dataset.zip
+└── dataset_folder/  (can be any name)
+    ├── train/
+    │   ├── images/  (JPG/PNG files)
+    │   └── labels/  (TXT files in YOLO format)
+    └── valid/
+        ├── images/  (JPG/PNG files)
+        └── labels/  (TXT files in YOLO format)
 ```
 
-Note: YOLOv5 uses the validation set as the test set during training, so a separate test directory is not required.
-
-The `data.yaml` file should define:
-
-```yaml
-path: ../dataset  # dataset root dir
-train: train/images  # train images
-val: val/images  # val images
-nc: 3  # number of classes
-names: ['person', 'car', 'dog']  # class names
-```
+**Important notes:**
+- The folder name must be exactly "valid" (not "val") for validation data
+- No data.yaml file is required - it will be generated automatically
+- The service automatically detects class IDs from your label files
 
 Labels should follow the YOLOv5 format (normalized coordinates):
 ```
 <class_id> <x_center> <y_center> <width> <height>
 ```
 
+Example: `0 0.5 0.5 0.25 0.25` (class 0, center at (0.5, 0.5), width 0.25, height 0.25)
+
 ## Docker Setup
 
-The service is containerized using Docker and based on the official ultralytics/yolov5 image.
+The service is containerized using Docker and based on a Python image with YOLOv5 dependencies.
 
 ### Environment Variables
 

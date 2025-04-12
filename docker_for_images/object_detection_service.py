@@ -113,32 +113,66 @@ def finetune_model():
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(dataset_dir)
         
-        # Check for proper dataset structure (data.yaml and folders)
-        data_yaml_path = os.path.join(dataset_dir, "data.yaml")
-        if not os.path.exists(data_yaml_path):
-            # Try to find a data.yaml file somewhere in the extracted directory
-            yaml_files = list(Path(dataset_dir).rglob("*.yaml"))
-            if yaml_files:
-                data_yaml_path = str(yaml_files[0])
-            else:
-                return jsonify({"error": "Dataset must contain a data.yaml file that defines classes and paths"}), 400
+        # Look for the dataset root directory
+        # We expect a structure where the zip contains a folder, and inside that folder are train/valid folders
+        subdirs = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
         
-        # Read the data.yaml file
-        with open(data_yaml_path, 'r') as f:
-            data_config = yaml.safe_load(f)
+        # Check if we have exactly one subdirectory (the dataset root)
+        dataset_root = dataset_dir
+        if len(subdirs) == 1:
+            dataset_root = os.path.join(dataset_dir, subdirs[0])
         
-        # Check if we have required paths
-        if 'train' not in data_config or 'val' not in data_config:
-            return jsonify({"error": "data.yaml must contain 'train' and 'val' paths"}), 400
+        # Check for train and valid directories
+        train_dir = os.path.join(dataset_root, "train")
+        valid_dir = os.path.join(dataset_root, "valid")
         
-        # Update paths to be absolute
-        train_path = os.path.join(dataset_dir, data_config['train'].lstrip('/')) if not os.path.isabs(data_config['train']) else data_config['train']
-        val_path = os.path.join(dataset_dir, data_config['val'].lstrip('/')) if not os.path.isabs(data_config['val']) else data_config['val']
+        if not (os.path.exists(train_dir) and os.path.exists(valid_dir)):
+            return jsonify({"error": "Dataset must contain 'train' and 'valid' directories"}), 400
         
-        data_config['train'] = train_path
-        data_config['val'] = val_path
+        # Check for images and labels directories
+        train_images_dir = os.path.join(train_dir, "images")
+        train_labels_dir = os.path.join(train_dir, "labels")
+        valid_images_dir = os.path.join(valid_dir, "images")
+        valid_labels_dir = os.path.join(valid_dir, "labels")
         
-        # Write back the updated data.yaml
+        if not all(os.path.exists(d) for d in [train_images_dir, train_labels_dir, valid_images_dir, valid_labels_dir]):
+            return jsonify({"error": "Dataset must contain 'images' and 'labels' subdirectories in both 'train' and 'valid' folders"}), 400
+        
+        # Get class names by analyzing label files
+        class_names = set()
+        for label_file in os.listdir(train_labels_dir):
+            if not label_file.endswith('.txt'):
+                continue
+            with open(os.path.join(train_labels_dir, label_file), 'r') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) >= 5:  # Should have class_id + 4 coordinates
+                        class_id = int(parts[0])
+                        class_names.add(class_id)
+        
+        # Sort the class IDs to ensure consistent order
+        class_ids = sorted(list(class_names))
+        
+        # Create generic class names if no specific ones provided
+        class_names = [f"class_{i}" for i in class_ids]
+        
+        # Number of classes
+        num_classes = len(class_names)
+        
+        if num_classes < 1:
+            return jsonify({"error": "Could not determine classes from label files"}), 400
+        
+        # Create a new data.yaml file
+        data_yaml_path = os.path.join(dataset_root, "data.yaml")
+        data_config = {
+            'path': dataset_root,
+            'train': os.path.join('train', 'images'),
+            'val': os.path.join('valid', 'images'),
+            'nc': num_classes,
+            'names': class_names
+        }
+        
+        # Write the config to data.yaml
         with open(data_yaml_path, 'w') as f:
             yaml.dump(data_config, f)
         

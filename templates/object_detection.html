@@ -77,25 +77,25 @@
                         <h5 class="mb-0">YOLOv5 Dataset Format</h5>
                     </div>
                     <div class="card-body">
-                        <p>Your dataset ZIP should have this structure:</p>
+                        <p>Your dataset ZIP should have this exact structure:</p>
                         <pre class="bg-light p-3 small">
-dataset/
-├── data.yaml     # Dataset config
-├── train/        # Training images
-│   ├── images/   # JPG files
-│   └── labels/   # TXT files (YOLO format)
-└── val/          # Validation images (used for testing)
-    ├── images/   # JPG files
-    └── labels/   # TXT files (YOLO format)
+your_dataset.zip
+└── dataset_folder/  (can be any name)
+    ├── train/
+    │   ├── images/  (JPG/PNG files)
+    │   └── labels/  (TXT files in YOLO format)
+    └── valid/
+        ├── images/  (JPG/PNG files)
+        └── labels/  (TXT files in YOLO format)
 </pre>
-                        <p>The <code>data.yaml</code> file should define:</p>
+                        <p><strong>Important:</strong> The folder name "valid" (not "val") must be used for validation data.</p>
+                        <p>No data.yaml file is required - it will be generated automatically.</p>
+                        
+                        <p>Labels should be in YOLO format (one .txt file per image):</p>
                         <pre class="bg-light p-3 small">
-path: ../dataset  # dataset root dir
-train: train/images  # train images
-val: val/images  # val images
-nc: 3  # number of classes
-names: ['person', 'car', 'dog']  # class names
+&lt;class_id&gt; &lt;x_center&gt; &lt;y_center&gt; &lt;width&gt; &lt;height&gt;
 </pre>
+                        <p>Example: <code>0 0.5 0.5 0.25 0.25</code> (class 0, center at (0.5, 0.5), width 0.25, height 0.25)</p>
                     </div>
                 </div>
             </div>
