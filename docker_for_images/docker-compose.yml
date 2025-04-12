@@ -48,6 +48,27 @@ services:
     depends_on:
       - augmentation-service
       - model-training-service
+      
+  object-detection-service:
+    build:
+      context: .
+      dockerfile: Dockerfile_object_detection
+    ports:
+      - "5027:5027"
+    restart: unless-stopped
+    volumes:
+      - ./object_detection_service.py:/app/object_detection_service.py
+    environment:
+      - PORT=5027
+    networks:
+      - deepmed-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 networks:
   deepmed-network:

@@ -47,6 +47,10 @@
                            href="{{ url_for('pipeline') }}">Pipeline</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'object_detection' %}active{% endif %}" 
+                           href="{{ url_for('object_detection') }}">Object Detection</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
                            href="{{ url_for('chat') }}">AI Assistant</a>
                     </li>

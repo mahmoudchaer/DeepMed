@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Object Detection{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Object Detection - YOLOv5</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Fine-tune YOLOv5 for Object Detection</h4>
+                    <p>Upload a ZIP file with your dataset in YOLOv5 format to fine-tune a pre-trained YOLOv5 model.</p>
+                    <p>The dataset should include a data.yaml file and image folders with annotations.</p>
+                    <p><strong>Note:</strong> Fine-tuning is computationally intensive and may take several minutes.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Dataset & Configure Training</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="yoloForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="zipFile" class="form-label">Dataset ZIP File</label>
+                                <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                                <div class="form-text">ZIP file containing your YOLOv5 dataset (images, labels, data.yaml)</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="modelSize" class="form-label">Model Size</label>
+                                <select class="form-select" id="modelSize" name="modelSize">
+                                    <option value="nano">Nano - Fastest, lower accuracy</option>
+                                    <option value="small" selected>Small - Good balance</option>
+                                    <option value="medium">Medium - Better accuracy</option>
+                                    <option value="large">Large - High accuracy, slower</option>
+                                    <option value="x">XLarge - Best accuracy, slowest</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="epochs" class="form-label">Training Epochs</label>
+                                <input type="number" class="form-control" id="epochs" name="epochs" value="50" min="1" max="300" required>
+                                <div class="form-text">Number of training iterations (more epochs = better results but longer training)</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="batchSize" class="form-label">Batch Size</label>
+                                <select class="form-select" id="batchSize" name="batchSize">
+                                    <option value="4">4 - For limited memory</option>
+                                    <option value="8">8 - Small</option>
+                                    <option value="16" selected>16 - Default</option>
+                                    <option value="32">32 - Large (requires more GPU memory)</option>
+                                    <option value="64">64 - Very large (for high-end GPUs)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="imgSize" class="form-label">Image Size</label>
+                                <select class="form-select" id="imgSize" name="imgSize">
+                                    <option value="320">320 - Fastest, lower accuracy</option>
+                                    <option value="416">416 - Medium resolution</option>
+                                    <option value="512">512 - Higher resolution</option>
+                                    <option value="640" selected>640 - Default YOLOv5 resolution</option>
+                                    <option value="1280">1280 - Highest resolution, slowest</option>
+                                </select>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="submitBtn">Fine-tune Model</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Training Process</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusBox" class="d-none">
+                            <div class="alert alert-info mb-3">
+                                <span id="statusMessage">Processing... This may take several minutes.</span>
+                            </div>
+                            
+                            <div id="resultMessage" class="d-none">
+                                <div class="alert alert-success">
+                                    <p class="mb-1">Training complete! <a id="downloadLink" href="#" class="alert-link">Download YOLOv5 model</a></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">YOLOv5 Dataset Format</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Your dataset ZIP should have this structure:</p>
+                        <pre class="bg-light p-3 small">
+dataset/
+├── data.yaml     # Dataset config
+├── train/        # Training images
+│   ├── images/   # JPG files
+│   └── labels/   # TXT files (YOLO format)
+└── val/          # Validation images
+    ├── images/   # JPG files
+    └── labels/   # TXT files (YOLO format)
+</pre>
+                        <p>The <code>data.yaml</code> file should define:</p>
+                        <pre class="bg-light p-3 small">
+path: ../dataset  # dataset root dir
+train: train/images  # train images
+val: val/images  # val images
+nc: 3  # number of classes
+names: ['person', 'car', 'dog']  # class names
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/object_detection.js"></script>
+{% endblock %} 
