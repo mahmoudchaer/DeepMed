@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Anomaly Detection with PyTorch Autoencoder</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Train Custom Anomaly Detection Models</h4>
+                    <p>Train an autoencoder to detect anomalies in your images. Upload a ZIP file containing normal (non-anomalous) images to train the model.</p>
+                    <p>Once trained, the model can identify images that deviate from the normal patterns it learned.</p>
+                    <p><strong>Note:</strong> Training is computationally intensive and may take several minutes.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Dataset & Configure Training</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="anomalyForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="zipFile" class="form-label">Dataset ZIP File</label>
+                                <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                                <div class="form-text">ZIP file containing normal (non-anomalous) images for training</div>
+                                <div class="form-text text-info">You can optionally include a YAML file with class names (e.g., data.yaml with a "names" field)</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="level" class="form-label">Training Level</label>
+                                <select class="form-select" id="level" name="level">
+                                    <option value="1">Level 1 - Fast (5 epochs, quick results)</option>
+                                    <option value="2">Level 2 - Basic (10 epochs, better performance)</option>
+                                    <option value="3" selected>Level 3 - Balanced (30 epochs, good performance)</option>
+                                    <option value="4">Level 4 - Extended (50 epochs, better accuracy)</option>
+                                    <option value="5">Level 5 - Advanced (100 epochs, highest accuracy)</option>
+                                </select>
+                                <div class="form-text">Higher levels produce better models but take longer to train</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="image_size" class="form-label">Image Size</label>
+                                <select class="form-select" id="image_size" name="image_size">
+                                    <option value="128">128 x 128 (Faster)</option>
+                                    <option value="256" selected>256 x 256 (Balanced)</option>
+                                    <option value="384">384 x 384 (Higher Detail)</option>
+                                </select>
+                                <div class="form-text">Size to resize images during processing</div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="submitBtn">Train Model</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Training Process</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusBox" class="d-none">
+                            <div class="alert alert-info mb-3">
+                                <span id="statusMessage">Processing... This may take several minutes.</span>
+                            </div>
+                            
+                            <div id="resultMessage" class="d-none">
+                                <div class="alert alert-success">
+                                    <p class="mb-1">Training complete! <a id="downloadLink" href="#" class="alert-link">Download Anomaly Detection model</a></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">How Anomaly Detection Works</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>The autoencoder learns to compress and reconstruct normal images with minimal error.</p>
+                        <ol>
+                            <li><strong>Training:</strong> The model learns what "normal" looks like by training on non-anomalous images only.</li>
+                            <li><strong>Detection:</strong> When given a new image, the model tries to reconstruct it. If the reconstruction error is high, the image likely contains anomalies.</li>
+                        </ol>
+                        
+                        <p><strong>Best Practices:</strong></p>
+                        <ul>
+                            <li>Train with 100+ images of normal samples for best results</li>
+                            <li>Use consistent lighting, angle, and scale in your images</li>
+                            <li>For industrial applications, use images of normal, defect-free products</li>
+                            <li>For medical imaging, train on healthy tissue samples</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/anomaly_detection.js"></script>
+{% endblock %} 

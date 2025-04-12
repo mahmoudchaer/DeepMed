@@ -54,6 +54,10 @@
                         <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
                            href="{{ url_for('chat') }}">AI Assistant</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'anomaly_detection' %}active{% endif %}" 
+                           href="{{ url_for('anomaly_detection') }}">Anomaly Detection</a>
+                    </li>
                     {% endif %}
                 </ul>
                 

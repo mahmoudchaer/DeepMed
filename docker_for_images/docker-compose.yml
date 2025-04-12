@@ -70,6 +70,28 @@ services:
       - PORT=5027
     networks:
       - deepmed-network
+      
+  anomaly-detection-service:
+    build:
+      context: .
+      dockerfile: Dockerfile_anomaly_detection
+    ports:
+      - "5029:5029"
+    restart: unless-stopped
+    volumes:
+      - ./anomaly_detection_service.py:/app/anomaly_detection_service.py
+    shm_size: '4gb'
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          memory: 2G
+    environment:
+      - PORT=5029
+    networks:
+      - deepmed-network
 
 networks:
   deepmed-network:

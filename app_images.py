@@ -25,6 +25,9 @@ PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:
 # Define URL for object detection service
 OBJECT_DETECTION_SERVICE_URL = os.environ.get('OBJECT_DETECTION_SERVICE_URL', 'http://localhost:5027')
 
+# Define URL for anomaly detection service
+ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
+
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
 
@@ -65,6 +68,27 @@ def object_detection():
     services_status['object_detection_service'] = is_service_available(OBJECT_DETECTION_SERVICE_URL)
     
     return render_template('object_detection.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/anomaly_detection')
+@login_required
+def anomaly_detection():
+    """Route for anomaly detection page (PyTorch Autoencoder)"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the anomaly detection page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    
+    # Add anomaly detection service to services status
+    services_status['anomaly_detection_service'] = is_service_available(ANOMALY_DETECTION_SERVICE_URL)
+    
+    return render_template('anomaly_detection.html', services_status=services_status, logout_token=session['logout_token'])
 
 @app.route('/api/finetune_yolo', methods=['POST'])
 @login_required
@@ -449,6 +473,89 @@ def api_pipeline():
         
     except Exception as e:
         logger.error(f"Error in pipeline process: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/train_anomaly', methods=['POST'])
+@login_required
+def api_train_anomaly():
+    """API endpoint for anomaly detection training"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
+    try:
+        # Check if the anomaly detection service is available
+        if not is_service_available(ANOMALY_DETECTION_SERVICE_URL):
+            return jsonify({"error": "Anomaly detection service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting anomaly detection training for file: {zip_file.filename}")
+        
+        # Get parameters
+        level = request.form.get('level', '3')
+        image_size = request.form.get('image_size', '256')
+        
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create form data to send to the anomaly detection service
+        with open(temp_file.name, 'rb') as f:
+            # Create fields dictionary
+            fields = {
+                'zipFile': (zip_file.filename, f, 'application/zip'),
+                'level': level,
+                'image_size': image_size
+            }
+            
+            form_data = MultipartEncoder(fields=fields)
+            
+            # Forward the request to the anomaly detection service
+            headers = {'Content-Type': form_data.content_type}
+            
+            # Stream the request to the service
+            response = requests.post(
+                f"{ANOMALY_DETECTION_SERVICE_URL}/train",
+                headers=headers,
+                data=form_data,
+                stream=True
+            )
+        
+        # Clean up the temporary file
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary file: {str(e)}")
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error in anomaly detection service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in anomaly detection service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a Flask response with the model zip file
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=anomaly_detection_model.zip"
+        
+        return flask_response
+        
+    except Exception as e:
+        logger.error(f"Error in anomaly detection training: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Configure logging
