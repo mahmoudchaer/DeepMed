@@ -160,6 +160,11 @@ class ModelTrainer:
             y_train_balanced = self.label_encoder.fit_transform(y_train_balanced)
             y_test = self.label_encoder.transform(y_test)
         
+        # Save the cleaned and balanced dataset to a CSV file for visualization
+        cleaned_data_path = os.path.join(MODELS_DIR, 'cleaned_data.csv')
+        X_train_balanced.to_csv(cleaned_data_path, index=False)
+        logger.info(f"Cleaned dataset saved to {cleaned_data_path}")
+        
         best_models = []
         model_metrics = {}
         
@@ -169,9 +174,9 @@ class ModelTrainer:
                 
                 try:
                     with mlflow.start_run(run_name=model_name, nested=True):
-                        # Create pipeline
+                        # Create pipeline without scaling
                         pipeline = Pipeline([
-                            ('scaler', StandardScaler()),
+                            # ('scaler', StandardScaler()),  # Removed to prevent double scaling
                             ('classifier', model_info['model'])
                         ])
                         
