@@ -277,116 +277,54 @@ class ModelPredictor:
         return df
     
     def predict(self, df):
-        """Preprocess data and make predictions with version compatibility handling."""
-        # Preprocess the data
-        processed_df = self.preprocess_data(df)
-        print(f"Preprocessed data shape: {processed_df.shape}")
-        
-        # Check if we have a target column and remove it
-        target_col = None
-        for col in ['diagnosis', 'target', 'label', 'class']:
-            if col in processed_df.columns:
-                target_col = col
-                true_values = processed_df[target_col].copy()
-                processed_df = processed_df.drop(target_col, axis=1)
-                print(f"Removed target column '{target_col}' for prediction")
-                break
-                
-        # Try different prediction methods and use the first one that works
-        prediction_methods = []
-        
+        """Preprocess data and make predictions using the trained pipeline."""
         try:
-            # Method 1: Direct prediction
+            # Preprocess the data
+            processed_df = self.preprocess_data(df)
+            print(f"Preprocessed data shape: {processed_df.shape}")
+            
+            # Check if we have a target column and remove it
+            target_col = None
+            for col in ['diagnosis', 'target', 'label', 'class']:
+                if col in processed_df.columns:
+                    target_col = col
+                    true_values = processed_df[target_col].copy()
+                    processed_df = processed_df.drop(target_col, axis=1)
+                    print(f"Removed target column '{target_col}' for prediction")
+                    break
+            
+            # Verify we have a pipeline with a scaler
+            if not hasattr(self.model, 'steps'):
+                raise ValueError("Model is not a pipeline. Expected a pipeline with StandardScaler and classifier steps.")
+            
+            # Get the scaler from the pipeline
+            if 'scaler' not in self.model.named_steps:
+                raise ValueError("Pipeline does not contain a scaler step. Expected StandardScaler in the pipeline.")
+            
+            # Make predictions using the pipeline
             predictions = self.model.predict(processed_df)
-            prediction_methods.append("Direct model.predict()")
             
-            # Check for suspicious predictions (all the same value)
-            unique_preds = np.unique(predictions)
-            if len(unique_preds) == 1:
-                print(f"Warning: All predictions are {unique_preds[0]}. Trying compatibility fix...")
-                raise Exception("All predictions are the same - trying alternative method")
-                
+            # If we have label encoder info, decode the predictions
+            if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
+                label_encoder_info = self.preprocessing_info['label_encoder']
+                if label_encoder_info and label_encoder_info['type'] == 'LabelEncoder':
+                    classes = label_encoder_info['classes_']
+                    mapping = dict(zip(range(len(classes)), classes))
+                    predictions = [mapping[pred] for pred in predictions]
+                    print("Decoded predictions using label encoder")
+            
+            # Print prediction distribution
+            unique, counts = np.unique(predictions, return_counts=True)
+            print("Prediction distribution:")
+            for val, count in zip(unique, counts):
+                print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
+            
+            return predictions
+            
         except Exception as e:
-            print(f"Direct prediction failed or gave suspicious results: {str(e)}")
-            
-            try:
-                # Method 2: Manual logistic regression with fresh scaling
-                if self.classifier is not None and hasattr(self.classifier, 'coef_'):
-                    print("Using manual logistic regression with coefficients")
-                    
-                    # Apply fresh StandardScaler
-                    fresh_scaler = StandardScaler()
-                    X_scaled = fresh_scaler.fit_transform(processed_df.values)
-                    
-                    # Get coefficients and intercept
-                    coef = self.classifier.coef_[0]
-                    intercept = self.classifier.intercept_[0]
-                    
-                    # Handle coefficient length mismatch
-                    if len(coef) > processed_df.shape[1]:
-                        print(f"Warning: Coefficient length ({len(coef)}) > data columns ({processed_df.shape[1]})")
-                        print("Using only the coefficients that match data dimensions")
-                        coef = coef[:processed_df.shape[1]]
-                    
-                    # Calculate log-odds (z)
-                    z = np.dot(X_scaled, coef) + intercept
-                    
-                    # Apply sigmoid function to get probabilities
-                    probs = 1 / (1 + np.exp(-z))
-                    
-                    # Convert to 0/1 predictions
-                    predictions = (probs > 0.5).astype(int)
-                    prediction_methods.append("Manual logistic regression with fresh scaling")
-                    
-                    # Check again for suspicious predictions
-                    unique_preds = np.unique(predictions)
-                    if len(unique_preds) == 1:
-                        print(f"Warning: All predictions are {unique_preds[0]}. Trying direct classifier...")
-                        raise Exception("All predictions are the same - trying classifier directly")
-                else:
-                    raise Exception("No classifier component with coefficients found")
-            except Exception as e:
-                print(f"Manual prediction failed: {str(e)}")
-                
-                try:
-                    # Method 3: Try classifier component directly with fresh scaling
-                    if self.classifier is not None:
-                        print("Using classifier component directly")
-                        
-                        # Apply fresh scaling if we have a scaler
-                        if self.scaler is not None:
-                            print("Using fresh StandardScaler before classifier")
-                            fresh_scaler = StandardScaler()
-                            df_scaled = fresh_scaler.fit_transform(processed_df.values)
-                        else:
-                            df_scaled = processed_df.values
-                        
-                        predictions = self.classifier.predict(df_scaled)
-                        prediction_methods.append("Direct classifier.predict()")
-                        
-                        # Final check for suspicious predictions
-                        unique_preds = np.unique(predictions)
-                        if len(unique_preds) == 1:
-                            print(f"Warning: All predictions are {unique_preds[0]}. Using fallback...")
-                            raise Exception("All predictions are the same - using fallback")
-                    else:
-                        raise Exception("No classifier component found")
-                except Exception as e:
-                    print(f"Classifier prediction failed: {str(e)}")
-                    
-                    # Method 4: Emergency fallback
-                    print("All prediction methods failed. Using emergency fallback (all 1's).")
-                    predictions = np.ones(processed_df.shape[0])
-                    prediction_methods.append("Emergency fallback (all 1's)")
-        
-        # Print prediction distribution
-        unique, counts = np.unique(predictions, return_counts=True)
-        print("Prediction distribution:")
-        for val, count in zip(unique, counts):
-            print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
-            
-        print(f"Prediction method used: {prediction_methods[0]}")
-        return predictions
+            error_msg = f"Prediction failed: {str(e)}"
+            print(error_msg)
+            raise ValueError(error_msg)
         
 if __name__ == "__main__":
     import sys
@@ -681,10 +619,47 @@ def download_model(model_id):
     # Prepare preprocessing info for the package
     preprocessing_info = None
     if preprocessing_data:
-        preprocessing_info = {
-            'selected_columns': json.loads(preprocessing_data.selected_columns) if preprocessing_data.selected_columns else [],
-            'cleaning_report': json.loads(preprocessing_data.cleaning_report) if preprocessing_data.cleaning_report else {}
-        }
+        # Load the model to get scaler and encoder parameters
+        try:
+            model_data = joblib.load(model.model_url)
+            if isinstance(model_data, dict) and 'model' in model_data:
+                pipeline = model_data['model']
+                label_encoder = model_data.get('label_encoder')
+            else:
+                pipeline = model_data
+                label_encoder = None
+                
+            # Get scaler parameters if it's a pipeline with a scaler
+            scaler_params = None
+            if hasattr(pipeline, 'named_steps') and 'scaler' in pipeline.named_steps:
+                scaler = pipeline.named_steps['scaler']
+                scaler_params = {
+                    'mean_': scaler.mean_.tolist(),
+                    'scale_': scaler.scale_.tolist(),
+                    'var_': scaler.var_.tolist(),
+                    'n_samples_seen_': scaler.n_samples_seen_
+                }
+            
+            # Get label encoder information if available
+            label_encoder_info = None
+            if label_encoder is not None:
+                label_encoder_info = {
+                    'classes_': label_encoder.classes_.tolist(),
+                    'type': 'LabelEncoder'
+                }
+            
+            preprocessing_info = {
+                'selected_columns': json.loads(preprocessing_data.selected_columns) if preprocessing_data.selected_columns else [],
+                'cleaning_report': json.loads(preprocessing_data.cleaning_report) if preprocessing_data.cleaning_report else {},
+                'scaler_params': scaler_params,
+                'label_encoder': label_encoder_info
+            }
+        except Exception as e:
+            logger.error(f"Error getting model parameters: {str(e)}")
+            preprocessing_info = {
+                'selected_columns': json.loads(preprocessing_data.selected_columns) if preprocessing_data.selected_columns else [],
+                'cleaning_report': json.loads(preprocessing_data.cleaning_report) if preprocessing_data.cleaning_report else {}
+            }
     
     try:
         # Create a temporary directory for the package
