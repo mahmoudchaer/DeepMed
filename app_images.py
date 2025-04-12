@@ -12,10 +12,6 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 import uuid
-import traceback
-import atexit
-import time
-import threading
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, AUGMENTATION_SERVICE_URL, MODEL_TRAINING_SERVICE_URL
@@ -163,7 +159,7 @@ def process_augmentation():
         if not is_service_available(AUGMENTATION_SERVICE_URL):
             return jsonify({"error": "Augmentation service is not available. Please try again later."}), 503
         
-        logger.info(f"Starting augmentation process with Docker service for file: {zip_file.filename}")
+        logger.info(f"Starting augmentation process for file: {zip_file.filename}")
         
         # Save the uploaded file to a temporary location
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
@@ -218,6 +214,7 @@ def process_augmentation():
         flask_response.headers["Content-Disposition"] = f"attachment; filename=augmented_{zip_file.filename}"
         
         return flask_response
+        
     except Exception as e:
         logger.error(f"Error in image augmentation: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -225,11 +222,6 @@ def process_augmentation():
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-@app.route('/augmentation/health', methods=['GET'])
-def augmentation_health():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "augmentation-service"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5023))
