@@ -129,7 +129,8 @@ def finetune_model():
             "--weights", f"{model_name}.pt",
             "--project", results_dir,
             "--name", "exp",
-            "--cache"
+            "--cache",
+            "--device", "cpu"  # Explicitly use CPU
         ]
         
         logger.info(f"Running training command: {' '.join(train_cmd)}")

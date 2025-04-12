@@ -62,13 +62,6 @@ services:
       - PORT=5027
     networks:
       - deepmed-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
 networks:
   deepmed-network:
