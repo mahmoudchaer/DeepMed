@@ -57,19 +57,19 @@ def finetune_model():
         level_configs = {
             1: {
                 'model_size': 'nano',
-                'epochs': 20,
+                'epochs': 5,
+                'batch_size': 16,
+                'img_size': 160
+            },
+            2: {
+                'model_size': 'nano',
+                'epochs': 10,
                 'batch_size': 16,
                 'img_size': 320
             },
-            2: {
-                'model_size': 'small',
-                'epochs': 30,
-                'batch_size': 16,
-                'img_size': 416
-            },
             3: {
                 'model_size': 'small',
-                'epochs': 50,
+                'epochs': 30,
                 'batch_size': 16,
                 'img_size': 640
             },
@@ -218,6 +218,14 @@ def finetune_model():
             "--cache",
             "--device", "cpu"  # Explicitly use CPU
         ]
+        
+        # For lower levels, add flags to speed up training
+        if level <= 2:
+            train_cmd.extend([
+                "--noval",        # Skip validation
+                "--nosave",       # Don't save each epoch
+                "--patience", "0" # Disable early stopping
+            ])
         
         logger.info(f"Running training command: {' '.join(train_cmd)}")
         
