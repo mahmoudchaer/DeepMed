@@ -2,11 +2,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const pipelineForm = document.getElementById('pipelineForm');
     const statusBox = document.getElementById('statusBox');
     const statusMessage = document.getElementById('statusMessage');
-    const pipelineProgress = document.getElementById('pipelineProgress');
     const resultMessage = document.getElementById('resultMessage');
     const downloadLink = document.getElementById('downloadLink');
     const submitBtn = document.getElementById('submitBtn');
-    const stepIndicator = document.getElementById('stepIndicator');
     const performAugmentation = document.getElementById('performAugmentation');
     const augmentationOptions = document.getElementById('augmentationOptions');
     const metricsContainer = document.getElementById('metricsContainer');
@@ -29,12 +27,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusBox.classList.remove('d-none');
         resultMessage.classList.add('d-none');
         metricsContainer.classList.add('d-none');
-        statusMessage.textContent = 'Starting pipeline process...';
-        pipelineProgress.style.width = '10%';
+        statusMessage.textContent = 'Processing... This may take several minutes.';
         submitBtn.disabled = true;
-        
-        // Update step indicator to show we're at upload stage
-        updateStepIndicator(1);
         
         // Get form data
         const formData = new FormData(pipelineForm);
@@ -80,9 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(({ blob, metrics }) => {
             // Update UI to show completion
-            pipelineProgress.style.width = '100%';
-            statusMessage.textContent = 'Pipeline completed successfully!';
-            updateStepIndicator(4); // Set to complete step
+            statusMessage.textContent = 'Processing complete!';
             
             // Create download link for the model
             const url = URL.createObjectURL(blob);
@@ -106,32 +98,11 @@ document.addEventListener('DOMContentLoaded', function() {
             statusMessage.textContent = `Error: ${error.message}`;
             statusMessage.classList.remove('text-info');
             statusMessage.classList.add('text-danger');
-            pipelineProgress.classList.remove('bg-info', 'progress-bar-animated', 'progress-bar-striped');
-            pipelineProgress.classList.add('bg-danger');
-            pipelineProgress.style.width = '100%';
             
             // Re-enable submit button
             submitBtn.disabled = false;
         });
-        
-        // Simulate progress updates for better UX
-        simulateProgress(performAugmentation.checked);
     });
-    
-    // Function to update step indicator
-    function updateStepIndicator(step) {
-        // Reset all steps to secondary
-        const steps = stepIndicator.querySelectorAll('.badge');
-        steps.forEach((badge, index) => {
-            if (index + 1 <= step) {
-                badge.classList.remove('bg-secondary');
-                badge.classList.add('bg-primary');
-            } else {
-                badge.classList.remove('bg-primary');
-                badge.classList.add('bg-secondary');
-            }
-        });
-    }
     
     // Function to display training metrics
     function displayMetrics(metrics) {
@@ -163,36 +134,5 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             metricsTable.appendChild(row);
         });
-    }
-    
-    // Function to simulate progress updates for better UX
-    function simulateProgress(includeAugmentation) {
-        let progress = 10; // Start at 10%
-        const totalSteps = includeAugmentation ? 30 : 20; // More steps if augmentation is included
-        const interval = setInterval(() => {
-            // Increment progress
-            progress += 1;
-            
-            // Update progress bar
-            pipelineProgress.style.width = `${progress}%`;
-            
-            // Update step indicator based on progress
-            if (progress >= 15 && progress < 50 && includeAugmentation) {
-                statusMessage.textContent = 'Augmenting dataset...';
-                updateStepIndicator(2);
-            } else if ((progress >= 50 && includeAugmentation) || 
-                       (progress >= 15 && !includeAugmentation)) {
-                statusMessage.textContent = 'Training model...';
-                updateStepIndicator(3);
-            }
-            
-            // Stop when we reach 95% (real completion will set to 100%)
-            if (progress >= 95) {
-                clearInterval(interval);
-            }
-        }, totalSteps * 100); // Speed depends on whether augmentation is included
-        
-        // Store the interval ID so we can clear it if needed
-        window.progressInterval = interval;
     }
 }); 
