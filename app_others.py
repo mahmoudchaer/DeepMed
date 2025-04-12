@@ -345,12 +345,12 @@ class ModelPredictor:
             logger.info(f"  Mean: {scaler.mean_}")
             logger.info(f"  Scale: {scaler.scale_}")
             
-            # Transform the data through the scaler
-            scaled_data = scaler.transform(processed_df)
-            logger.info(f"Scaled data shape: {scaled_data.shape}")
+            # Manually apply scaling
+            scaled_data = (processed_df - scaler.mean_) / scaler.scale_
+            logger.info(f"Manually scaled data shape: {scaled_data.shape}")
             
             # Log some statistics about the scaled data
-            logger.info("Scaled data statistics:")
+            logger.info("Manually scaled data statistics:")
             logger.info(f"  Min: {scaled_data.min()}")
             logger.info(f"  Max: {scaled_data.max()}")
             logger.info(f"  Mean: {scaled_data.mean()}")
@@ -400,8 +400,8 @@ class ModelPredictor:
                 except Exception as e:
                     logger.warning(f"Could not get probabilities: {str(e)}")
             
-            # Make predictions using the pipeline
-            predictions = self.model.predict(processed_df)
+            # Make predictions using the classifier directly
+            predictions = classifier.predict(scaled_data)
             
             # If we have label encoder info, decode the predictions
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
