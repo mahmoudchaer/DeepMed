@@ -20,7 +20,7 @@ from app_api import is_service_available, get_temp_filepath, safe_requests_post,
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
 # Define new URL for pipeline service
-PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://pipeline-service:5025')
+PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
