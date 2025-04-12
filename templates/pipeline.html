@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Image Pipeline{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Image Processing Pipeline</h1>
+        
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Augmentation & Training Pipeline</h4>
+                    <p>Upload a ZIP file containing image data organized in folders by class to process through our pipeline.</p>
+                    <p>You can optionally augment your dataset before training to improve model performance.</p>
+                    <p><strong>Note:</strong> All processing is performed on the server for optimal performance.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Dataset & Configure Pipeline</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="pipelineForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="zipFile" class="form-label">Dataset ZIP File</label>
+                                <input type="file" class="form-control" id="zipFile" name="zipFile" accept=".zip" required>
+                                <div class="form-text">ZIP file containing folders of images (one folder per class)</div>
+                            </div>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="performAugmentation" name="performAugmentation" checked>
+                                <label class="form-check-label" for="performAugmentation">Perform Data Augmentation</label>
+                            </div>
+                            
+                            <div id="augmentationOptions">
+                                <div class="mb-3">
+                                    <label for="augmentationLevel" class="form-label">Augmentation Level</label>
+                                    <select class="form-select" id="augmentationLevel" name="augmentationLevel">
+                                        <option value="1">Level 1 - Light (minimal changes)</option>
+                                        <option value="2">Level 2 - Moderate (slight changes)</option>
+                                        <option value="3" selected>Level 3 - Medium (balanced changes)</option>
+                                        <option value="4">Level 4 - Strong (significant changes)</option>
+                                        <option value="5">Level 5 - Very Strong (extreme changes)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="numAugmentations" class="form-label">Augmentations Per Image</label>
+                                    <select class="form-select" id="numAugmentations" name="numAugmentations">
+                                        <option value="1">1 - Minimal</option>
+                                        <option value="2" selected>2 - Default</option>
+                                        <option value="3">3 - More variations</option>
+                                        <option value="5">5 - Extensive</option>
+                                        <option value="10">10 - Maximum</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <label for="numClasses" class="form-label">Number of Classes</label>
+                                <input type="number" class="form-control" id="numClasses" name="numClasses" value="5" min="2" required>
+                                <div class="form-text">How many different categories/classes are in your dataset?</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="trainingLevel" class="form-label">Training Level</label>
+                                <select class="form-select" id="trainingLevel" name="trainingLevel">
+                                    <option value="1">Level 1 - Fast (low accuracy)</option>
+                                    <option value="2">Level 2 - Balanced speed/accuracy</option>
+                                    <option value="3" selected>Level 3 - Standard balanced</option>
+                                    <option value="4">Level 4 - Extended (better accuracy)</option>
+                                    <option value="5">Level 5 - Thorough (highest accuracy)</option>
+                                </select>
+                                <div class="form-text">Higher levels take more time but produce better models.</div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="submitBtn">Start Pipeline</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Pipeline Process</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusBox" class="d-none">
+                            <div class="alert alert-info mb-3">
+                                <span id="statusMessage">Processing your dataset...</span>
+                            </div>
+                            
+                            <div class="progress mb-3">
+                                <div id="pipelineProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            
+                            <div id="stepIndicator" class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-primary">1. Upload</span>
+                                <span class="badge bg-secondary">2. Augment</span>
+                                <span class="badge bg-secondary">3. Train</span>
+                                <span class="badge bg-secondary">4. Complete</span>
+                            </div>
+                            
+                            <div id="resultMessage" class="d-none">
+                                <div class="alert alert-success">
+                                    <p class="mb-1">Processing complete! <a id="downloadLink" href="#" class="alert-link">Download trained model</a></p>
+                                </div>
+                                
+                                <div id="metricsContainer" class="mt-3 d-none">
+                                    <h6>Training Metrics:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <tbody id="metricsTable"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">Pipeline Workflow</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex">
+                                <div class="me-3"><i class="fas fa-upload text-primary"></i></div>
+                                <div>
+                                    <strong>1. Upload Dataset</strong>
+                                    <p class="mb-0 small">Upload your image dataset in ZIP format</p>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex">
+                                <div class="me-3"><i class="fas fa-images text-primary"></i></div>
+                                <div>
+                                    <strong>2. Optional Augmentation</strong>
+                                    <p class="mb-0 small">Enrich your dataset with variations (optional)</p>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex">
+                                <div class="me-3"><i class="fas fa-cogs text-primary"></i></div>
+                                <div>
+                                    <strong>3. Model Training</strong>
+                                    <p class="mb-0 small">Train a deep learning model on your dataset</p>
+                                </div>
+                            </li>
+                            <li class="list-group-item d-flex">
+                                <div class="me-3"><i class="fas fa-download text-primary"></i></div>
+                                <div>
+                                    <strong>4. Download Model</strong>
+                                    <p class="mb-0 small">Get the trained model for deployment</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/pipeline.js"></script>
+{% endblock %} 
