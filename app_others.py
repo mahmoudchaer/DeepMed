@@ -356,27 +356,29 @@ class ModelPredictor:
             logger.info("  Our preprocessed features:")
             logger.info(f"    {processed_df.columns.tolist()}")
             
+            # Ensure feature order matches the scaler's expectations
+            if hasattr(scaler, 'feature_names_in_'):
+                # Reorder columns to match scaler's feature order
+                processed_df = processed_df[scaler.feature_names_in_]
+                logger.info("Reordered features to match scaler's expected order")
+            
             # Convert DataFrame to numpy array for scaling
             data_array = processed_df.to_numpy()
             
             # Apply scaling using the scaler's transform method
             scaled_data = scaler.transform(data_array)
             
-            # Convert back to DataFrame to maintain column names
-            scaled_data = pd.DataFrame(scaled_data, columns=processed_df.columns)
-            
-            logger.info(f"Scaled data shape: {scaled_data.shape}")
-            
             # Log some statistics about the scaled data
+            logger.info(f"Scaled data shape: {scaled_data.shape}")
             logger.info("Scaled data statistics:")
-            logger.info(f"  Min: {scaled_data.min()}")
-            logger.info(f"  Max: {scaled_data.max()}")
-            logger.info(f"  Mean: {scaled_data.mean()}")
-            logger.info(f"  Std: {scaled_data.std()}")
+            logger.info(f"  Min: {scaled_data.min(axis=0)}")
+            logger.info(f"  Max: {scaled_data.max(axis=0)}")
+            logger.info(f"  Mean: {scaled_data.mean(axis=0)}")
+            logger.info(f"  Std: {scaled_data.std(axis=0)}")
             
             # Verify standardization
-            mean_check = np.abs(scaled_data.mean()).max()
-            std_check = np.abs(scaled_data.std() - 1.0).max()
+            mean_check = np.abs(scaled_data.mean(axis=0)).max()
+            std_check = np.abs(scaled_data.std(axis=0) - 1.0).max()
             logger.info(f"Standardization check - Max absolute mean: {mean_check:.6f}, Max absolute std deviation from 1: {std_check:.6f}")
             
             # Get probabilities first
