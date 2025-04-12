@@ -453,6 +453,30 @@ def model_info(model_id):
         logger.error(f"Error in model_info endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/download_preprocessed_data', methods=['GET'])
+def download_preprocessed_data():
+    """Download the preprocessed dataset used for training"""
+    try:
+        # Path to the cleaned data CSV file
+        cleaned_data_path = os.path.join(MODELS_DIR, 'cleaned_data.csv')
+        
+        # Check if the file exists
+        if not os.path.exists(cleaned_data_path):
+            return jsonify({"error": "Preprocessed data file not found. Train models first."}), 404
+        
+        # Return the file for download
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        return send_file(
+            cleaned_data_path, 
+            as_attachment=True, 
+            download_name=f'preprocessed_data_{timestamp}.csv',
+            mimetype='text/csv'
+        )
+    
+    except Exception as e:
+        logger.error(f"Error in download_preprocessed_data endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
     serve(app, host='0.0.0.0', port=port) 
