@@ -1017,16 +1017,16 @@ def container_prediction():
         model_path = request.form.get('model_path')
         if not model_path:
             flash('No model path provided', 'error')
-                    return redirect(url_for('container_prediction'))
+            return redirect(url_for('container_prediction'))
                 
         # Create model predictor
         predictor = ModelPredictor(model_path)
         
         # Make predictions
         prediction_result = predictor.predict(df)
-                    predictions = prediction_result['predictions']
-                
-                # Add probability columns if available
+        predictions = prediction_result['predictions']
+        
+        # Add probability columns if available
         if 'probabilities' in prediction_result:
             probabilities = prediction_result['probabilities']
             class_names = predictor.model.classes_
@@ -1035,8 +1035,8 @@ def container_prediction():
         
         # Add predictions to the dataframe
         df['prediction'] = predictions
-                
-                # Calculate class distribution
+        
+        # Calculate class distribution
         class_dist = df['prediction'].value_counts().to_dict()
         total = len(df)
         class_dist_percent = {k: f"{v/total*100:.1f}%" for k, v in class_dist.items()}
@@ -1053,10 +1053,10 @@ def container_prediction():
                              class_dist=class_dist,
                              class_dist_percent=class_dist_percent,
                              output_file=output_file)
-                
-            except Exception as e:
+        
+    except Exception as e:
         flash(f'Error during prediction: {str(e)}', 'error')
-                return redirect(url_for('container_prediction'))
+        return redirect(url_for('container_prediction'))
 
 @app.route('/download_container_predictions')
 @login_required
@@ -1081,25 +1081,25 @@ def select_model(model_name, metric):
     """Handle model selection and redirect to appropriate page"""
     try:
         # Get current run ID
-    run_id = session.get('last_training_run_id')
-    if not run_id:
+        run_id = session.get('last_training_run_id')
+        if not run_id:
             flash("No training run found. Please train a model first.", "error")
-        return redirect(url_for('training'))
-    
+            return redirect(url_for('training'))
+        
         # Find this model in the database
-    model = TrainingModel.query.filter_by(
-            user_id=current_user.id,
-        run_id=run_id,
-            model_name=f"best_model_for_{metric}"
-    ).first()
-    
-    if not model:
+        model = TrainingModel.query.filter_by(
+                user_id=current_user.id,
+            run_id=run_id,
+                model_name=f"best_model_for_{metric}"
+        ).first()
+        
+        if not model:
             flash(f"Model not found for {metric}.", "error")
             return redirect(url_for('model_selection'))
-    
+        
         # Store the selected model ID in session
-    session['selected_model_id'] = model.id
-    
+        session['selected_model_id'] = model.id
+        
         # Redirect to model selection page
         flash(f"Model for optimizing {metric} has been selected.", "success")
         return redirect(url_for('model_selection'))
@@ -1252,12 +1252,12 @@ def load_model(model_path=None):
     if isinstance(model_data, dict) and 'model' in model_data:
         model = model_data['model']
         print("Model loaded from dictionary format")
-                else:
+    else:
         model = model_data
         print("Model loaded directly")
-                
+        
     print(f"Model type: {type(model).__name__}")
-                return model
+    return model
         
 if __name__ == "__main__":
     if len(sys.argv) > 1:
