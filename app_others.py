@@ -311,15 +311,8 @@ class ModelPredictor:
             logger.info(f"Preprocessed data shape: {processed_df.shape}")
             logger.info(f"Preprocessed data columns: {processed_df.columns.tolist()}")
             
-            # Check if we have a target column and remove it
-            target_col = None
-            for col in ['diagnosis', 'target', 'label', 'class']:
-                if col in processed_df.columns:
-                    target_col = col
-                    true_values = processed_df[target_col].copy()
-                    processed_df = processed_df.drop(target_col, axis=1)
-                    logger.info(f"Removed target column '{target_col}' for prediction")
-                    break
+            # Remove target column handling
+            # No need to check for and remove a target column
             
             # Print pipeline steps
             if hasattr(self.model, 'steps'):
@@ -332,10 +325,6 @@ class ModelPredictor:
             
             # Check classifier parameters
             logger.info(f"Classifier parameters: {classifier.get_params()}")
-            
-            # Check if we have class weights
-            if hasattr(classifier, 'class_weight_'):
-                logger.info(f"Class weights: {classifier.class_weight_}")
             
             # Get the scaler from the pipeline
             scaler = self.model.named_steps['scaler']
