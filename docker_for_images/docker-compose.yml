@@ -29,6 +29,25 @@ services:
       - PORT=5023
     networks:
       - deepmed-network
+      
+  pipeline-service:
+    build:
+      context: .
+      dockerfile: Dockerfile_pipeline
+    ports:
+      - "5025:5025"
+    restart: unless-stopped
+    volumes:
+      - ./pipeline_service.py:/app/pipeline_service.py
+    environment:
+      - PORT=5025
+      - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
+      - MODEL_TRAINING_SERVICE_URL=http://model-training-service:5021
+    networks:
+      - deepmed-network
+    depends_on:
+      - augmentation-service
+      - model-training-service
 
 networks:
   deepmed-network:

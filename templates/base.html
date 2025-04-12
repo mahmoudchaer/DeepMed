@@ -43,6 +43,10 @@
                            href="{{ url_for('augment') }}">Augment</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'pipeline' %}active{% endif %}" 
+                           href="{{ url_for('pipeline') }}">Pipeline</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
                            href="{{ url_for('chat') }}">AI Assistant</a>
                     </li>

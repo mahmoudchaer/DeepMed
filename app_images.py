@@ -12,11 +12,15 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 import uuid
+import secrets
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, AUGMENTATION_SERVICE_URL, MODEL_TRAINING_SERVICE_URL
 from app_api import is_service_available, get_temp_filepath, safe_requests_post, cleanup_session_files, SafeJSONEncoder, logger
 from app_api import check_services, save_to_temp_file, clean_data_for_json
+
+# Define new URL for pipeline service
+PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://pipeline-service:5025')
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
@@ -217,6 +221,120 @@ def process_augmentation():
         
     except Exception as e:
         logger.error(f"Error in image augmentation: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/pipeline')
+@login_required
+def pipeline():
+    """Route for combined augmentation and training pipeline page"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the pipeline page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    
+    # Add pipeline service to services status
+    services_status['pipeline_service'] = is_service_available(PIPELINE_SERVICE_URL)
+    
+    return render_template('pipeline.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/api/pipeline', methods=['POST'])
+@login_required
+def api_pipeline():
+    """API endpoint for the image processing pipeline"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
+    try:
+        # Check if the pipeline service is available
+        if not is_service_available(PIPELINE_SERVICE_URL):
+            return jsonify({"error": "Pipeline service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting pipeline process for file: {zip_file.filename}")
+        
+        # Get form parameters
+        perform_augmentation = request.form.get('performAugmentation', 'false')
+        augmentation_level = request.form.get('augmentationLevel', '3')
+        num_augmentations = request.form.get('numAugmentations', '2')
+        num_classes = request.form.get('numClasses', '5')
+        training_level = request.form.get('trainingLevel', '3')
+        
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create form data to send to the pipeline service
+        with open(temp_file.name, 'rb') as f:
+            form_data = MultipartEncoder(
+                fields={
+                    'zipFile': (zip_file.filename, f, 'application/zip'),
+                    'performAugmentation': perform_augmentation,
+                    'augmentationLevel': augmentation_level,
+                    'numAugmentations': num_augmentations,
+                    'numClasses': num_classes,
+                    'trainingLevel': training_level
+                }
+            )
+            
+            # Forward the request to the pipeline service
+            headers = {'Content-Type': form_data.content_type}
+            
+            # Stream the request to the service
+            response = requests.post(
+                f"{PIPELINE_SERVICE_URL}/pipeline",
+                headers=headers,
+                data=form_data,
+                stream=True
+            )
+        
+        # Clean up the temporary file
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary file: {str(e)}")
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error in pipeline service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in pipeline service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a Flask response with the model file
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/octet-stream"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
+        
+        # Forward any training metrics in headers
+        if 'X-Training-Metrics' in response.headers:
+            flask_response.headers["X-Training-Metrics"] = response.headers['X-Training-Metrics']
+            flask_response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
+        
+        return flask_response
+        
+    except Exception as e:
+        logger.error(f"Error in pipeline process: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Configure logging
