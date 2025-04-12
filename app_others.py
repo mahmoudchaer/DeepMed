@@ -327,17 +327,81 @@ class ModelPredictor:
                 for name, step in self.model.steps:
                     logger.info(f"- {name}: {type(step).__name__}")
             
-            # Make predictions using the pipeline
-            predictions = self.model.predict(processed_df)
+            # Get the classifier from the pipeline
+            classifier = self.model.named_steps['classifier']
             
-            # Get probabilities if available
+            # Check classifier parameters
+            logger.info(f"Classifier parameters: {classifier.get_params()}")
+            
+            # Check if we have class weights
+            if hasattr(classifier, 'class_weight_'):
+                logger.info(f"Class weights: {classifier.class_weight_}")
+            
+            # Get the scaler from the pipeline
+            scaler = self.model.named_steps['scaler']
+            
+            # Log scaler parameters
+            logger.info("Scaler parameters:")
+            logger.info(f"  Mean: {scaler.mean_}")
+            logger.info(f"  Scale: {scaler.scale_}")
+            
+            # Transform the data through the scaler
+            scaled_data = scaler.transform(processed_df)
+            logger.info(f"Scaled data shape: {scaled_data.shape}")
+            
+            # Log some statistics about the scaled data
+            logger.info("Scaled data statistics:")
+            logger.info(f"  Min: {scaled_data.min()}")
+            logger.info(f"  Max: {scaled_data.max()}")
+            logger.info(f"  Mean: {scaled_data.mean()}")
+            logger.info(f"  Std: {scaled_data.std()}")
+            
+            # Get probabilities first
             probabilities = None
-            if hasattr(self.model, 'predict_proba'):
+            if hasattr(classifier, 'predict_proba'):
                 try:
-                    probabilities = self.model.predict_proba(processed_df)
-                    logger.info("Successfully obtained prediction probabilities")
+                    # Get raw probabilities before thresholding
+                    raw_probs = classifier.predict_proba(scaled_data)
+                    logger.info("Successfully obtained raw prediction probabilities")
+                    
+                    # Log probability distribution
+                    logger.info("Raw probability distribution:")
+                    for i, class_name in enumerate(classifier.classes_):
+                        probs = raw_probs[:, i]
+                        logger.info(f"  Class {class_name}:")
+                        logger.info(f"    Min: {probs.min():.4f}")
+                        logger.info(f"    Max: {probs.max():.4f}")
+                        logger.info(f"    Mean: {probs.mean():.4f}")
+                        logger.info(f"    Std: {probs.std():.4f}")
+                    
+                    # Get decision function if available
+                    if hasattr(classifier, 'decision_function'):
+                        decision_scores = classifier.decision_function(scaled_data)
+                        logger.info("Decision function scores:")
+                        logger.info(f"  Min: {decision_scores.min():.4f}")
+                        logger.info(f"  Max: {decision_scores.max():.4f}")
+                        logger.info(f"  Mean: {decision_scores.mean():.4f}")
+                        logger.info(f"  Std: {decision_scores.std():.4f}")
+                    
+                    # Get coefficients if available
+                    if hasattr(classifier, 'coef_'):
+                        logger.info("Model coefficients:")
+                        logger.info(f"  Shape: {classifier.coef_.shape}")
+                        logger.info(f"  Min: {classifier.coef_.min():.4f}")
+                        logger.info(f"  Max: {classifier.coef_.max():.4f}")
+                        logger.info(f"  Mean: {classifier.coef_.mean():.4f}")
+                        logger.info(f"  Std: {classifier.coef_.std():.4f}")
+                    
+                    # Get intercept if available
+                    if hasattr(classifier, 'intercept_'):
+                        logger.info(f"Model intercept: {classifier.intercept_}")
+                    
+                    probabilities = raw_probs
                 except Exception as e:
                     logger.warning(f"Could not get probabilities: {str(e)}")
+            
+            # Make predictions using the pipeline
+            predictions = self.model.predict(processed_df)
             
             # If we have label encoder info, decode the predictions
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
