@@ -216,7 +216,8 @@ def finetune_model():
             "--project", results_dir,
             "--name", "exp",
             "--cache",
-            "--device", "cpu"  # Explicitly use CPU
+            "--device", "cpu",  # Explicitly use CPU
+            "--workers", "2"    # Use more worker threads for data loading
         ]
         
         # For lower levels, add flags to speed up training
