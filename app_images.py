@@ -92,6 +92,9 @@ def api_finetune_yolo():
         # Get level parameter
         level = request.form.get('level', '3')
         
+        # Get num_classes parameter if provided
+        num_classes = request.form.get('num_classes')
+        
         # Save the uploaded file to a temporary location
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
         zip_file.save(temp_file.name)
@@ -100,12 +103,18 @@ def api_finetune_yolo():
         # Create form data to send to the object detection service
         with open(temp_file.name, 'rb') as f:
             from requests_toolbelt.multipart.encoder import MultipartEncoder
-            form_data = MultipartEncoder(
-                fields={
-                    'zipFile': (zip_file.filename, f, 'application/zip'),
-                    'level': level
-                }
-            )
+            
+            # Create fields dictionary
+            fields = {
+                'zipFile': (zip_file.filename, f, 'application/zip'),
+                'level': level
+            }
+            
+            # Add num_classes if provided
+            if num_classes:
+                fields['num_classes'] = num_classes
+                
+            form_data = MultipartEncoder(fields=fields)
             
             # Forward the request to the object detection service
             headers = {'Content-Type': form_data.content_type}
