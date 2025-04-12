@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.pipeline import Pipeline
@@ -24,6 +24,7 @@ import json
 import io
 import base64
 from waitress import serve
+from sklearn.compose import ColumnTransformer
 
 # Set up logging
 logging.basicConfig(
@@ -51,8 +52,8 @@ class ModelTrainer:
         self.best_models = []
         self.task = task
         self.test_size = test_size
-        self.scaler = StandardScaler()
-        self.label_encoder = LabelEncoder()
+        # Keep LabelEncoder for target variables
+        self.label_encoder = LabelEncoder()  # For target variables
         
         # Define classification models with their hyperparameters
         self.classification_models = {
@@ -151,19 +152,37 @@ class ModelTrainer:
     def _train_classification_models(self, X_train, X_test, y_train, y_test):
         """Train and evaluate classification models"""
         logger.info("Starting classification model training")
+        logger.info(f"Input training data shape: {X_train.shape}")
+        logger.info(f"Input test data shape: {X_test.shape}")
         
         # Handle imbalanced datasets
         X_train_balanced, y_train_balanced = self._handle_imbalance(X_train, y_train)
+        logger.info(f"After SMOTE balancing - Training data shape: {X_train_balanced.shape}")
         
         # Encode labels if they're not numeric
         if not np.issubdtype(y_train.dtype, np.number):
+            logger.info("Target variable is categorical, applying LabelEncoder")
+            original_classes = np.unique(y_train)
             y_train_balanced = self.label_encoder.fit_transform(y_train_balanced)
             y_test = self.label_encoder.transform(y_test)
+            logger.info(f"Classes encoded: {dict(zip(self.label_encoder.classes_, range(len(self.label_encoder.classes_))))}")
+        else:
+            logger.info("Target variable is numeric, no encoding needed")
         
         # Save the cleaned and balanced dataset to a CSV file for visualization
         cleaned_data_path = os.path.join(MODELS_DIR, 'cleaned_data.csv')
         X_train_balanced.to_csv(cleaned_data_path, index=False)
         logger.info(f"Cleaned dataset saved to {cleaned_data_path}")
+        
+        # Log data statistics
+        logger.info("Dataset statistics:")
+        for col in X_train_balanced.columns:
+            logger.info(f"  Column: {col}")
+            logger.info(f"    Type: {X_train_balanced[col].dtype}")
+            logger.info(f"    Min: {X_train_balanced[col].min()}")
+            logger.info(f"    Max: {X_train_balanced[col].max()}")
+            logger.info(f"    Mean: {X_train_balanced[col].mean()}")
+            logger.info(f"    Std: {X_train_balanced[col].std()}")
         
         best_models = []
         model_metrics = {}
@@ -174,16 +193,47 @@ class ModelTrainer:
                 
                 try:
                     with mlflow.start_run(run_name=model_name, nested=True):
-                        # Create pipeline without scaling
-                        pipeline = Pipeline([
-                            # ('scaler', StandardScaler()),  # Removed to prevent double scaling
-                            ('classifier', model_info['model'])
-                        ])
+                        # Find categorical columns for one-hot encoding
+                        categorical_cols = X_train_balanced.select_dtypes(include=['object', 'category']).columns.tolist()
+                        if categorical_cols:
+                            logger.info(f"Categorical columns for one-hot encoding: {categorical_cols}")
+                            
+                            # Create preprocessing steps
+                            preprocessor = ColumnTransformer(
+                                transformers=[
+                                    ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+                                ],
+                                remainder='passthrough'
+                            )
+                            
+                            # Create pipeline with preprocessing and classifier
+                            pipeline = Pipeline([
+                                ('preprocessor', preprocessor),
+                                ('classifier', model_info['model'])
+                            ])
+                            
+                            logger.info("Created pipeline with OneHotEncoder for categorical features")
+                        else:
+                            logger.info("No categorical columns found, using classifier directly")
+                            # Create pipeline without scaling
+                            pipeline = Pipeline([
+                                # ('scaler', StandardScaler()),  # Removed to prevent double scaling
+                                ('classifier', model_info['model'])
+                            ])
                         
                         # Perform grid search with cross-validation
+                        # Adjust parameter names to match the pipeline structure
+                        adjusted_params = {}
+                        for param_name, param_values in model_info['params'].items():
+                            # If we have a preprocessor, we need to adjust classifier parameter names
+                            if 'preprocessor' in pipeline.named_steps and param_name.startswith('classifier__'):
+                                adjusted_params[param_name] = param_values
+                            elif 'preprocessor' not in pipeline.named_steps:
+                                adjusted_params[param_name] = param_values
+                            
                         grid_search = GridSearchCV(
                             pipeline,
-                            model_info['params'],
+                            adjusted_params,
                             cv=5,
                             scoring=model_info['scoring'],
                             refit=model_info['refit'],
