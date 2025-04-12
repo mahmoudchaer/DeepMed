@@ -58,7 +58,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./:/app/service
-    shm_size: '2gb'
+    shm_size: '4gb'
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          memory: 2G
     environment:
       - PORT=5027
     networks:
