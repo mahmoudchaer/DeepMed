@@ -116,6 +116,11 @@ import joblib
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ModelPredictor:
     def __init__(self, model_path=None, preprocessing_info_path=None):
@@ -140,28 +145,28 @@ class ModelPredictor:
                 preprocessing_info_path = 'preprocessing_info.json'
         
         # Load the model
-        print(f"Loading model from {model_path}")
+        logger.info(f"Loading model from {model_path}")
         self.model_data = joblib.load(model_path)
         
         # Handle both direct model objects and dictionary storage format
         if isinstance(self.model_data, dict) and 'model' in self.model_data:
             self.model = self.model_data['model']
-            print("Model loaded from dictionary format")
+            logger.info("Model loaded from dictionary format")
         else:
             self.model = self.model_data
-            print("Model loaded directly")
+            logger.info("Model loaded directly")
             
         # Get model type information
         self.model_type = type(self.model).__name__
-        print(f"Model type: {self.model_type}")
+        logger.info(f"Model type: {self.model_type}")
         
         # Extract components if model is a pipeline
         self.classifier = None
         self.scaler = None
         if hasattr(self.model, 'steps'):
-            print("Model is a pipeline with steps:")
+            logger.info("Model is a pipeline with steps:")
             for name, step in self.model.steps:
-                print(f"- {name}: {type(step).__name__}")
+                logger.info(f"- {name}: {type(step).__name__}")
                 if name == 'classifier':
                     self.classifier = step
                 elif name == 'scaler':
@@ -172,12 +177,31 @@ class ModelPredictor:
         if preprocessing_info_path and os.path.exists(preprocessing_info_path):
             with open(preprocessing_info_path, 'r') as f:
                 self.preprocessing_info = json.load(f)
-                print("Loaded preprocessing information")
+                logger.info("Loaded preprocessing information")
+        
+        # Validate the pipeline
+        self.validate_pipeline()
                 
+    def validate_pipeline(self):
+        """Validate that the pipeline is properly configured."""
+        if not hasattr(self.model, 'steps'):
+            raise ValueError("Model is not a pipeline. Expected a pipeline with StandardScaler and classifier steps.")
+        
+        if 'scaler' not in self.model.named_steps:
+            raise ValueError("Pipeline does not contain a scaler step. Expected StandardScaler in the pipeline.")
+        
+        if 'classifier' not in self.model.named_steps:
+            raise ValueError("Pipeline does not contain a classifier step.")
+        
+        if self.preprocessing_info is None:
+            raise ValueError("No preprocessing information available. This is required for proper prediction.")
+            
+        logger.info("Pipeline validation successful")
+        
     def preprocess_data(self, df):
         """Apply the same preprocessing steps as during training."""
         if self.preprocessing_info is None:
-            print("Warning: No preprocessing information available. Using raw data.")
+            logger.warning("No preprocessing information available. Using raw data.")
             return df
             
         # Make a copy to avoid modifying the original
@@ -266,10 +290,10 @@ class ModelPredictor:
             
             if len(available_columns) != len(selected_columns):
                 missing_columns = set(selected_columns) - set(available_columns)
-                print(f"Warning: Missing columns: {missing_columns}")
+                logger.warning(f"Missing columns: {missing_columns}")
                 
             if not available_columns:
-                print("Warning: No selected columns found in the dataset. Using all columns.")
+                logger.warning("No selected columns found in the dataset. Using all columns.")
                 return df
                 
             return df[available_columns].copy()
@@ -279,9 +303,13 @@ class ModelPredictor:
     def predict(self, df):
         """Preprocess data and make predictions using the trained pipeline."""
         try:
+            logger.info(f"Input data shape: {df.shape}")
+            logger.info(f"Input data columns: {df.columns.tolist()}")
+            
             # Preprocess the data
             processed_df = self.preprocess_data(df)
-            print(f"Preprocessed data shape: {processed_df.shape}")
+            logger.info(f"Preprocessed data shape: {processed_df.shape}")
+            logger.info(f"Preprocessed data columns: {processed_df.columns.tolist()}")
             
             # Check if we have a target column and remove it
             target_col = None
@@ -290,19 +318,26 @@ class ModelPredictor:
                     target_col = col
                     true_values = processed_df[target_col].copy()
                     processed_df = processed_df.drop(target_col, axis=1)
-                    print(f"Removed target column '{target_col}' for prediction")
+                    logger.info(f"Removed target column '{target_col}' for prediction")
                     break
             
-            # Verify we have a pipeline with a scaler
-            if not hasattr(self.model, 'steps'):
-                raise ValueError("Model is not a pipeline. Expected a pipeline with StandardScaler and classifier steps.")
-            
-            # Get the scaler from the pipeline
-            if 'scaler' not in self.model.named_steps:
-                raise ValueError("Pipeline does not contain a scaler step. Expected StandardScaler in the pipeline.")
+            # Print pipeline steps
+            if hasattr(self.model, 'steps'):
+                logger.info("Pipeline steps:")
+                for name, step in self.model.steps:
+                    logger.info(f"- {name}: {type(step).__name__}")
             
             # Make predictions using the pipeline
             predictions = self.model.predict(processed_df)
+            
+            # Get probabilities if available
+            probabilities = None
+            if hasattr(self.model, 'predict_proba'):
+                try:
+                    probabilities = self.model.predict_proba(processed_df)
+                    logger.info("Successfully obtained prediction probabilities")
+                except Exception as e:
+                    logger.warning(f"Could not get probabilities: {str(e)}")
             
             # If we have label encoder info, decode the predictions
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
@@ -311,19 +346,24 @@ class ModelPredictor:
                     classes = label_encoder_info['classes_']
                     mapping = dict(zip(range(len(classes)), classes))
                     predictions = [mapping[pred] for pred in predictions]
-                    print("Decoded predictions using label encoder")
+                    logger.info("Decoded predictions using label encoder")
             
             # Print prediction distribution
             unique, counts = np.unique(predictions, return_counts=True)
-            print("Prediction distribution:")
+            logger.info("Prediction distribution:")
             for val, count in zip(unique, counts):
-                print(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
+                logger.info(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
             
-            return predictions
+            # Return both predictions and probabilities if available
+            result = {'predictions': predictions}
+            if probabilities is not None:
+                result['probabilities'] = probabilities.tolist()
+            
+            return result
             
         except Exception as e:
             error_msg = f"Prediction failed: {str(e)}"
-            print(error_msg)
+            logger.error(error_msg)
             raise ValueError(error_msg)
         
 if __name__ == "__main__":
@@ -339,7 +379,7 @@ if __name__ == "__main__":
     try:
         # Load the data
         df = pd.read_csv(data_file)
-        print(f"Loaded data from {data_file} with shape {df.shape}")
+        logger.info(f"Loaded data from {data_file} with shape {df.shape}")
         
         # Create a predictor instance
         predictor = ModelPredictor()
@@ -354,11 +394,11 @@ if __name__ == "__main__":
             output_file = data_file + "_predictions.csv"
             
         result_df = df.copy()
-        result_df['prediction'] = predictions
+        result_df['prediction'] = predictions['predictions']
         result_df.to_csv(output_file, index=False)
-        print(f"Predictions saved to {output_file}")
+        logger.info(f"Predictions saved to {output_file}")
     except Exception as e:
-        print(f"Error during prediction: {str(e)}")
+        logger.error(f"Error during prediction: {str(e)}")
 '''
 
     # Write the utility script to a file
@@ -906,145 +946,69 @@ def clear_chat():
             
     return redirect(url_for('chat'))
 
-@app.route('/container_prediction', methods=['GET', 'POST'])
-@login_required
+@app.route('/container_prediction', methods=['POST'])
 def container_prediction():
-    """For making predictions with containerized models"""
-    # Check if user is logged in
-    if not current_user.is_authenticated:
-        flash('Please log in to use the containerized prediction feature.', 'warning')
-        return redirect(url_for('login'))
-    
-    # Get the container URL from session
-    container_url = session.get('container_url')
-    model_name = session.get('container_model_name', 'Containerized Model')
-    
-    if not container_url:
-        flash('No containerized model is running. Please deploy a model first.', 'warning')
-        return redirect(url_for('my_models'))
-    
-    # Check if the container is still running
     try:
-        response = requests.get(f"{container_url}/health", timeout=2)
-        if response.status_code != 200:
-            flash('The containerized model is not responding. It may have been stopped.', 'warning')
-            session.pop('container_url', None)
-            session.pop('container_model_name', None)
-            return redirect(url_for('my_models'))
-    except:
-        flash('The containerized model is not available. It may have been stopped.', 'warning')
-        session.pop('container_url', None)
-        session.pop('container_model_name', None)
-        return redirect(url_for('my_models'))
-    
-    # Process file upload for prediction
-    if request.method == 'POST':
-        # Check if file was uploaded
-        if 'file' not in request.files:
-            flash('No file part', 'error')
-            return redirect(url_for('container_prediction'))
-        
+        # Get the uploaded file
         file = request.files['file']
-        if file.filename == '':
-            flash('No selected file', 'error')
+        if not file:
+            flash('No file uploaded', 'error')
             return redirect(url_for('container_prediction'))
         
-        if file and allowed_file(file.filename):
-            # Save file
-            filepath = get_temp_filepath(file.filename)
-            file.save(filepath)
-            
-            # Load data to validate
-            data, result = load_data(filepath)
-            if data is None:
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                flash(result, 'error')
-                return redirect(url_for('container_prediction'))
-            
-            # Convert to records for JSON
-            data_json = clean_data_for_json(data)
-            
-            # Make prediction request to containerized model
-            try:
-                response = safe_requests_post(
-                    f"{container_url}/predict",
-                    {
-                        "data": data_json
-                    },
-                    timeout=30
-                )
-                
-                if response.status_code != 200:
-                    error_msg = "Error from container model service."
-                    try:
-                        error_data = response.json()
-                        if 'error' in error_data:
-                            error_msg = error_data['error']
-                    except:
-                        pass
-                    
-                    flash(f'Error making prediction: {error_msg}', 'error')
-                    return redirect(url_for('container_prediction'))
-                
-                # Process prediction results
-                prediction_result = response.json()
-                
-                # Generate result table with pandas
-                result_df = data.copy()
-                
-                # Add prediction column
-                if 'predictions' in prediction_result:
-                    predictions = prediction_result['predictions']
-                    result_df['prediction'] = predictions
-                
-                # Add probability columns if available
-                if 'probabilities' in prediction_result and prediction_result['probabilities']:
-                    probs = prediction_result['probabilities']
-                    if len(probs) == len(result_df):
-                        if isinstance(probs[0], list):
-                            for i, class_prob in enumerate(probs[0]):
-                                result_df[f'probability_class_{i}'] = [p[i] for p in probs]
-                
-                # Calculate class distribution
-                if 'predictions' in prediction_result:
-                    distribution = []
-                    value_counts = pd.Series(prediction_result['predictions']).value_counts()
-                    total = len(prediction_result['predictions'])
-                    
-                    for value, count in value_counts.items():
-                        distribution.append({
-                            'class': str(value),
-                            'count': int(count),
-                            'percentage': round(100 * count / total, 2)
-                        })
-                    
-                    # Store in session
-                    session['container_prediction_distribution'] = distribution
-                
-                # Store only first 20 rows of result table for display
-                display_df = result_df.head(20)
-                html_table = display_df.to_html(classes='table table-striped', index=False)
-                
-                # Save complete results to file
-                results_filepath = get_temp_filepath(extension='.csv')
-                result_df.to_csv(results_filepath, index=False)
-                session['container_predictions_file'] = results_filepath
-                
-                # Render prediction results template
-                return render_template('container_prediction_results.html', 
-                                      predictions=html_table, 
-                                      distribution=session.get('container_prediction_distribution'),
-                                      model_name=model_name)
-                
-            except Exception as e:
-                logger.error(f"Error in container prediction process: {str(e)}")
-                flash(f'Error processing prediction: {str(e)}', 'error')
-                return redirect(url_for('container_prediction'))
-    
-    return render_template('container_prediction.html', 
-                         model_name=model_name,
-                         container_url=container_url)
+        # Save the file temporarily
+        temp_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        file_path = os.path.join(temp_dir, secure_filename(file.filename))
+        file.save(file_path)
+        
+        # Read the data
+        df = pd.read_csv(file_path)
+        print(f"Read data with shape: {df.shape}")
+        
+        # Get the model path from the form
+        model_path = request.form.get('model_path')
+        if not model_path:
+            flash('No model path provided', 'error')
+            return redirect(url_for('container_prediction'))
+        
+        # Create model predictor
+        predictor = ModelPredictor(model_path)
+        
+        # Make predictions
+        prediction_result = predictor.predict(df)
+        predictions = prediction_result['predictions']
+        
+        # Add probability columns if available
+        if 'probabilities' in prediction_result:
+            probabilities = prediction_result['probabilities']
+            class_names = predictor.model.classes_
+            for i, class_name in enumerate(class_names):
+                df[f'probability_{class_name}'] = [prob[i] for prob in probabilities]
+        
+        # Add predictions to the dataframe
+        df['prediction'] = predictions
+        
+        # Calculate class distribution
+        class_dist = df['prediction'].value_counts().to_dict()
+        total = len(df)
+        class_dist_percent = {k: f"{v/total*100:.1f}%" for k, v in class_dist.items()}
+        
+        # Prepare display dataframe (first 20 rows)
+        display_df = df.head(20)
+        
+        # Save results to CSV
+        output_file = os.path.join(temp_dir, 'predictions.csv')
+        df.to_csv(output_file, index=False)
+        
+        return render_template('container_prediction.html',
+                             display_df=display_df,
+                             class_dist=class_dist,
+                             class_dist_percent=class_dist_percent,
+                             output_file=output_file)
+        
+    except Exception as e:
+        flash(f'Error during prediction: {str(e)}', 'error')
+        return redirect(url_for('container_prediction'))
 
 @app.route('/download_container_predictions')
 @login_required
