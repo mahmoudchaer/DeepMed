@@ -35,10 +35,6 @@
                            href="{{ url_for('training') }}">Train Models</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'images' %}active{% endif %}" 
-                           href="{{ url_for('images') }}">Images</a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'augment' %}active{% endif %}" 
                            href="{{ url_for('augment') }}">Augment</a>
                     </li>
