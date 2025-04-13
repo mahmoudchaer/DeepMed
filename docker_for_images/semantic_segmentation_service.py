@@ -255,12 +255,35 @@ def train_model():
         images_dir = os.path.join(dataset_dir, "images")
         masks_dir = os.path.join(dataset_dir, "masks")
         
-        # Check if the expected directories exist
-        if not os.path.isdir(images_dir):
-            return jsonify({"error": "Images directory not found in the ZIP file. Please ensure your ZIP contains an 'images' folder."}), 400
-        
-        if not os.path.isdir(masks_dir):
-            return jsonify({"error": "Masks directory not found in the ZIP file. Please ensure your ZIP contains a 'masks' folder."}), 400
+        # Check if directories exist, if not, try to find them in subfolders
+        if not os.path.isdir(images_dir) or not os.path.isdir(masks_dir):
+            logger.info("Images or masks directories not found at root level, searching in subfolders...")
+            found = False
+            
+            # List all directories at the root level
+            subdirs = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
+            
+            for subdir in subdirs:
+                subdir_path = os.path.join(dataset_dir, subdir)
+                potential_images_dir = os.path.join(subdir_path, "images")
+                potential_masks_dir = os.path.join(subdir_path, "masks")
+                
+                if os.path.isdir(potential_images_dir) and os.path.isdir(potential_masks_dir):
+                    logger.info(f"Found images and masks in subdirectory: {subdir}")
+                    images_dir = potential_images_dir
+                    masks_dir = potential_masks_dir
+                    
+                    # Also check for labels.txt in this subdirectory
+                    labels_file = os.path.join(subdir_path, "labels.txt")
+                    if os.path.exists(labels_file):
+                        # Copy it to the dataset_dir for later processing
+                        shutil.copy(labels_file, os.path.join(dataset_dir, "labels.txt"))
+                        
+                    found = True
+                    break
+            
+            if not found:
+                return jsonify({"error": "Could not find 'images' and 'masks' folders in the ZIP file. Please ensure your ZIP contains these folders, either at the root or within a parent folder."}), 400
         
         # Count the number of valid image files
         image_files = [f for f in os.listdir(images_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
@@ -269,7 +292,7 @@ def train_model():
         
         logger.info(f"Found {len(image_files)} images for training")
         
-        # Look for labels.txt file
+        # Look for labels.txt file - could be at the root or in the parent directory we found
         labels_file = os.path.join(dataset_dir, "labels.txt")
         num_classes = 2  # Default: binary segmentation (background + 1 class)
         class_labels = ["background", "foreground"]

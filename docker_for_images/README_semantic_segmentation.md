@@ -12,7 +12,9 @@ The semantic segmentation service allows users to:
 
 ## Input Format
 
-The service expects a ZIP file with the following structure:
+The service supports two ZIP file structures:
+
+### Format 1: Folders at root level
 
 ```
 dataset.zip
@@ -23,17 +25,35 @@ dataset.zip
 │   └── ...
 │
 ├── masks/
-│   ├── image1.jpg  (pixel values should correspond to class labels: 0, 1, 2, etc.)
+│   ├── image1.jpg
 │   ├── image2.jpg
 │   └── ...
 │
 └── labels.txt (optional)
-    └── Contains class names, one per line (excluding background class)
+```
+
+### Format 2: Folders inside a parent folder
+
+```
+dataset.zip
+│
+└── parent_folder/
+    ├── images/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
+    │
+    ├── masks/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
+    │
+    └── labels.txt (optional)
 ```
 
 ### Requirements
 
-- The `images` and `masks` folders must exist in the root of the ZIP file
+- The `images` and `masks` folders must exist either at the root of the ZIP file or within a parent folder
 - Image and mask filenames must match exactly
 - Masks should be single-channel images with pixel values representing class indices (0 for background, 1 for first class, etc.)
 - If `labels.txt` is not provided, binary segmentation is assumed (background and foreground)
