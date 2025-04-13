@@ -420,32 +420,73 @@ numpy>=1.19.5
         detect_script_path = os.path.join(results_dir, "detect_anomaly.py")
         requirements_path = os.path.join(results_dir, "requirements.txt")
         
-        with open(detect_script_path, 'w') as f:
-            f.write(detect_script_content)
+        try:
+            with open(detect_script_path, 'w') as f:
+                f.write(detect_script_content)
+            logger.info(f"Successfully created detect_anomaly.py at {detect_script_path}")
+            logger.info(f"File exists: {os.path.exists(detect_script_path)}, Size: {os.path.getsize(detect_script_path)} bytes")
+        except Exception as e:
+            logger.error(f"Error creating detect_anomaly.py: {str(e)}")
         
-        with open(requirements_path, 'w') as f:
-            f.write(requirements_content)
+        try:
+            with open(requirements_path, 'w') as f:
+                f.write(requirements_content)
+            logger.info(f"Successfully created requirements.txt at {requirements_path}")
+            logger.info(f"File exists: {os.path.exists(requirements_path)}, Size: {os.path.getsize(requirements_path)} bytes")
+        except Exception as e:
+            logger.error(f"Error creating requirements.txt: {str(e)}")
         
         logger.info("Created detect_anomaly.py and requirements.txt for inclusion in output")
         
-        with zipfile.ZipFile(temp_output_zip, 'w') as zipf:
-            # Add the model
-            zipf.write(model_save_path, arcname="autoencoder.pt")
-            
-            # Add metadata
-            zipf.write(metadata_path, arcname="metadata.json")
-            
-            # Add detection script
-            zipf.write(detect_script_path, arcname="detect_anomaly.py")
-            
-            # Add requirements
-            zipf.write(requirements_path, arcname="requirements.txt")
-            
-            logger.info("Added all files to output zip")
+        # NEW APPROACH: Create the zip file in memory directly
+        memory_file = io.BytesIO()
         
-        # Read the zip file into memory
-        with open(temp_output_zip, 'rb') as f:
-            memory_file = io.BytesIO(f.read())
+        with zipfile.ZipFile(memory_file, 'w') as zipf:
+            try:
+                # Add the model by reading and writing the content
+                with open(model_save_path, 'rb') as f:
+                    model_data = f.read()
+                zipf.writestr("autoencoder.pt", model_data)
+                logger.info(f"Added autoencoder.pt to zip")
+                
+                # Add metadata
+                with open(metadata_path, 'r') as f:
+                    metadata_data = f.read()
+                zipf.writestr("metadata.json", metadata_data)
+                logger.info(f"Added metadata.json to zip")
+                
+                # Add detection script directly
+                zipf.writestr("detect_anomaly.py", detect_script_content)
+                logger.info(f"Added detect_anomaly.py to zip")
+                
+                # Add requirements directly
+                zipf.writestr("requirements.txt", requirements_content)
+                logger.info(f"Added requirements.txt to zip")
+            except Exception as e:
+                logger.error(f"Error adding files to zip: {str(e)}")
+            
+            logger.info(f"Added all files to output zip: {zipf.namelist()}")
+        
+        # Verify zip contents
+        memory_file.seek(0)
+        with zipfile.ZipFile(memory_file, 'r') as zipf:
+            contents = zipf.namelist()
+            logger.info(f"Zip file contains: {contents}")
+            
+            # Ensure all required files are in the zip
+            required_files = ["autoencoder.pt", "metadata.json", "detect_anomaly.py", "requirements.txt"]
+            for file in required_files:
+                if file not in contents:
+                    logger.error(f"Required file {file} is missing from the zip!")
+                else:
+                    logger.info(f"Verified {file} is in the zip")
+                    
+                    # Debug: Print file size
+                    file_info = zipf.getinfo(file)
+                    logger.info(f"  - Size: {file_info.file_size} bytes")
+        
+        # Reset the file pointer
+        memory_file.seek(0)
         
         # Clean up
         cleanup_temp_dirs()
