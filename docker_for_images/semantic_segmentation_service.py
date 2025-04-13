@@ -47,6 +47,49 @@ class SegmentationDataset(Dataset):
                 logger.warning(f"Mask not found for image {img_name}")
         
         logger.info(f"Found {len(self.valid_images)} valid image-mask pairs")
+        
+        # Analyze a sample mask to determine mask type
+        if len(self.valid_images) > 0:
+            self._analyze_mask_type()
+    
+    def _analyze_mask_type(self):
+        """Analyze a sample mask to determine how to process it"""
+        sample_name = self.valid_images[0]
+        sample_path = os.path.join(self.mask_dir, sample_name)
+        try:
+            with Image.open(sample_path) as mask:
+                # Check if mask is grayscale
+                if mask.mode == 'L':
+                    logger.info("Detected grayscale (L) masks")
+                    self.mask_mode = 'L'
+                # Check if mask is RGB
+                elif mask.mode == 'RGB':
+                    logger.info("Detected RGB masks - will convert to grayscale")
+                    self.mask_mode = 'RGB'
+                # Check if mask is binary (1-bit)
+                elif mask.mode == '1':
+                    logger.info("Detected binary (1-bit) masks")
+                    self.mask_mode = '1'
+                # Handle other modes
+                else:
+                    logger.info(f"Detected masks with mode {mask.mode} - will convert to grayscale")
+                    self.mask_mode = 'other'
+                    
+                # Convert to array to check value range
+                mask_array = np.array(mask)
+                unique_values = np.unique(mask_array)
+                logger.info(f"Mask unique values: {unique_values}")
+                
+                # If binary-like with only 0 and 255 values
+                if len(unique_values) == 2 and 0 in unique_values and 255 in unique_values:
+                    logger.info("Detected binary-like mask with 0/255 values")
+                    self.is_binary_like = True
+                else:
+                    self.is_binary_like = False
+        except Exception as e:
+            logger.warning(f"Error analyzing mask type: {str(e)}")
+            self.mask_mode = 'L'  # Default to grayscale
+            self.is_binary_like = False
     
     def __len__(self):
         return len(self.valid_images)
@@ -62,23 +105,52 @@ class SegmentationDataset(Dataset):
         # Load mask
         mask = Image.open(mask_path)
         
-        # Convert grayscale mask to single channel
-        if mask.mode != 'L':
-            mask = mask.convert('L')
+        # Pre-process mask based on its detected type
+        if hasattr(self, 'mask_mode') and self.mask_mode != 'L':
+            if self.mask_mode == 'RGB':
+                # Convert RGB to grayscale
+                mask = mask.convert('L')
+            elif self.mask_mode == '1':
+                # Convert 1-bit to 8-bit grayscale
+                mask = mask.convert('L')
+            else:
+                # Convert any other mode to grayscale
+                mask = mask.convert('L')
         
-        # Apply transformations
+        # Apply transformations to image
         if self.transform:
             image = self.transform(image)
         
+        # Process mask
         if self.mask_transform:
-            mask = self.mask_transform(mask)
+            mask_tensor = self.mask_transform(mask)
         else:
-            # Default mask transformation: convert to tensor
-            mask = transforms.ToTensor()(mask)
-            # Ensure mask has integer labels
-            mask = mask.long().squeeze(0)
+            # Default transformation
+            mask_tensor = transforms.ToTensor()(mask)
         
-        return image, mask
+        # Process mask values
+        if hasattr(self, 'is_binary_like') and self.is_binary_like:
+            # For binary-like masks with 0/255, convert to 0/1
+            mask_tensor = (mask_tensor > 0.5).long()
+        else:
+            # For multi-class masks, keep as is but ensure it's long type
+            mask_tensor = mask_tensor.long()
+        
+        # Ensure mask is 2D (without channel dimension)
+        mask_tensor = mask_tensor.squeeze(0)
+        
+        # Check mask values and warn if they seem off
+        unique_values = torch.unique(mask_tensor)
+        logger.debug(f"Mask unique values: {unique_values.tolist()}")
+        
+        # If the mask has large values that look like RGB values, warn and convert
+        if torch.any(unique_values > 100):
+            logger.warning(f"Found unusually large mask values: {unique_values.tolist()} - converting to class indices")
+            # Normalize to 0-N range
+            for i, val in enumerate(sorted(unique_values.tolist())):
+                mask_tensor[mask_tensor == val] = i
+        
+        return image, mask_tensor
 
 def train_deeplab(dataset, num_classes, epochs, batch_size, device='cpu'):
     """Train a DeepLabV3 model with ResNet-50 backbone"""
@@ -103,6 +175,27 @@ def train_deeplab(dataset, num_classes, epochs, batch_size, device='cpu'):
     
     logger.info(f"Starting training for {epochs} epochs")
     
+    # Check if we have a valid dataset
+    sample_batch = next(iter(dataloader))
+    images, masks = sample_batch
+    logger.info(f"Sample batch - Images shape: {images.shape}, Masks shape: {masks.shape}")
+    logger.info(f"Mask unique values: {torch.unique(masks).tolist()}")
+    
+    if torch.max(masks) >= num_classes:
+        logger.warning(f"Mask contains values ({torch.max(masks).item()}) >= num_classes ({num_classes})")
+        logger.warning("This may cause errors during training. Adjusting num_classes.")
+        
+        # Adjust num_classes to match the maximum mask value + 1
+        adjusted_num_classes = torch.max(masks).item() + 1
+        logger.info(f"Adjusting num_classes from {num_classes} to {adjusted_num_classes}")
+        num_classes = int(adjusted_num_classes)
+        
+        # Rebuild the model with the adjusted num_classes
+        model = deeplabv3_resnet50(pretrained_backbone=True)
+        model.classifier[4] = nn.Conv2d(256, num_classes, kernel_size=(1, 1), stride=(1, 1))
+        model.to(device)
+        optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    
     for epoch in range(epochs):
         running_loss = 0.0
         total_pixels = 0
@@ -114,10 +207,33 @@ def train_deeplab(dataset, num_classes, epochs, batch_size, device='cpu'):
             images = images.to(device)
             masks = masks.to(device)
             
+            # Debug info about tensor shapes
+            logger.debug(f"Batch - Images shape: {images.shape}, Masks shape: {masks.shape}")
+            
             optimizer.zero_grad()
             
             # Forward pass
             outputs = model(images)['out']
+            
+            # Debug info
+            logger.debug(f"Model output shape: {outputs.shape}")
+            
+            # Ensure masks are properly formatted for CrossEntropyLoss
+            # CrossEntropyLoss expects targets with shape [batch, height, width] (no channels dimension)
+            if masks.dim() == 4:
+                masks = masks.squeeze(1)  # Remove channel dimension if present
+            
+            # Check for any NaN values in the masks
+            if torch.isnan(masks).any():
+                logger.warning("NaN values detected in masks!")
+                masks = torch.nan_to_num(masks, nan=0)
+            
+            # Check for any values outside the valid range
+            if torch.max(masks) >= num_classes:
+                logger.warning(f"Mask contains values >= num_classes ({num_classes})")
+                masks = torch.clamp(masks, 0, num_classes - 1)
+            
+            # Proceed with loss calculation
             loss = criterion(outputs, masks)
             
             # Backward pass and optimize
@@ -158,7 +274,7 @@ def train_deeplab(dataset, num_classes, epochs, batch_size, device='cpu'):
         
         logger.info(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}, Pixel Acc: {pixel_accuracy:.2f}%, mIoU: {miou:.2f}%")
     
-    return model, metrics_history
+    return model, metrics_history, num_classes
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -181,6 +297,9 @@ def train_model():
     Returns a zip file with the trained model and instructions
     """
     try:
+        # Set logging level to include debug messages
+        logging.getLogger(__name__).setLevel(logging.DEBUG)
+        
         if 'zipFile' not in request.files:
             return jsonify({"error": "No ZIP file uploaded"}), 400
         
@@ -319,7 +438,25 @@ def train_model():
             transforms.ToTensor()
         ])
         
-        # Create dataset
+        # Create dataset with more debug info
+        logger.info(f"Creating dataset with image_dir={images_dir}, mask_dir={masks_dir}")
+        
+        # Before creating the dataset, let's check a sample mask
+        sample_mask_files = [f for f in os.listdir(masks_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
+        if sample_mask_files:
+            sample_mask_path = os.path.join(masks_dir, sample_mask_files[0])
+            logger.info(f"Sample mask file: {sample_mask_path}")
+            try:
+                sample_mask = Image.open(sample_mask_path)
+                logger.info(f"Sample mask mode: {sample_mask.mode}, size: {sample_mask.size}")
+                
+                # Convert to numpy and check values
+                sample_array = np.array(sample_mask)
+                logger.info(f"Sample mask array shape: {sample_array.shape}, dtype: {sample_array.dtype}")
+                logger.info(f"Sample mask min: {np.min(sample_array)}, max: {np.max(sample_array)}, unique values: {np.unique(sample_array)}")
+            except Exception as e:
+                logger.error(f"Error analyzing sample mask: {str(e)}")
+        
         dataset = SegmentationDataset(
             image_dir=images_dir,
             mask_dir=masks_dir,
@@ -333,13 +470,25 @@ def train_model():
         
         # Train the model
         device = torch.device('cpu')
-        model, metrics = train_deeplab(
+        model, metrics, adjusted_num_classes = train_deeplab(
             dataset=dataset,
             num_classes=num_classes,
             epochs=epochs,
             batch_size=batch_size,
             device=device
         )
+        
+        # If num_classes was adjusted during training
+        if adjusted_num_classes != num_classes:
+            logger.info(f"Number of classes was adjusted from {num_classes} to {adjusted_num_classes}")
+            num_classes = adjusted_num_classes
+            
+            # If needed, also adjust class labels
+            if len(class_labels) < num_classes:
+                # Add generic class names for the new classes
+                for i in range(len(class_labels), num_classes):
+                    class_labels.append(f"class_{i}")
+                logger.info(f"Adjusted class labels: {class_labels}")
         
         # Save the model
         model_path = os.path.join(results_dir, "model.pth")
