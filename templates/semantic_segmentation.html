@@ -17,8 +17,12 @@
                     </div>
                     
                     <div class="mt-4">
-                        <h5>Required ZIP Structure:</h5>
-                        <pre class="bg-light p-3 rounded">
+                        <h5>Supported ZIP Structures:</h5>
+                        <p class="mb-2">Either of these formats is supported:</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Format 1:</strong> Folders at root level</p>
+                                <pre class="bg-light p-3 rounded">
 dataset.zip
 │
 ├── images/
@@ -32,7 +36,28 @@ dataset.zip
 │   └── ...
 │
 └── labels.txt (optional)
-                        </pre>
+                                </pre>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Format 2:</strong> Folders inside a parent folder</p>
+                                <pre class="bg-light p-3 rounded">
+dataset.zip
+│
+└── parent_folder/
+    ├── images/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
+    │
+    ├── masks/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
+    │
+    └── labels.txt (optional)
+                                </pre>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mt-4">
@@ -41,7 +66,7 @@ dataset.zip
                             <li>Prepare your images and segmentation masks with matching filenames</li>
                             <li>Masks should be grayscale images with pixel values as class indices (0=background, 1=first class, etc.)</li>
                             <li>Optionally include a labels.txt file with one class name per line (excluding background)</li>
-                            <li>Compress these into a ZIP file</li>
+                            <li>Compress these into a ZIP file (using either of the supported folder structures)</li>
                             <li>Select training level (higher levels = more epochs, better quality)</li>
                             <li>Click "Train Model" and wait for training to complete</li>
                         </ol>
@@ -139,13 +164,22 @@ dataset.zip
 {% endblock %}
 
 {% block scripts %}
+<!-- Add a data attribute to store service status for JavaScript -->
+<div id="serviceData" 
+     data-service-available="{{ services_status.semantic_segmentation_service|default(false)|tojson }}">
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        {% if not services_status.semantic_segmentation_service %}
+        // Get service status from data attribute
+        const serviceData = document.getElementById('serviceData');
+        const isServiceAvailable = JSON.parse(serviceData.dataset.serviceAvailable);
+        
         // Show modal if service is unavailable
-        var serviceModal = new bootstrap.Modal(document.getElementById('serviceUnavailableModal'));
-        serviceModal.show();
-        {% endif %}
+        if (!isServiceAvailable) {
+            var serviceModal = new bootstrap.Modal(document.getElementById('serviceUnavailableModal'));
+            serviceModal.show();
+        }
 
         const uploadForm = document.getElementById('uploadForm');
         const trainButton = document.getElementById('trainButton');
