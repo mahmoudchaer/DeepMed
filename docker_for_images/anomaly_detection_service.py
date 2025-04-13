@@ -309,7 +309,21 @@ def train_model():
             # Add metadata
             zipf.write(metadata_path, arcname="metadata.json")
             
-            # TODO: Add sample predictions/visualizations
+            # Add detect_anomaly.py script
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "detect_anomaly.py")
+            if os.path.exists(script_path):
+                zipf.write(script_path, arcname="detect_anomaly.py")
+                logger.info(f"Added detection script to output zip")
+            else:
+                logger.warning(f"Could not find detect_anomaly.py at {script_path}")
+            
+            # Add requirements.txt
+            req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+            if os.path.exists(req_path):
+                zipf.write(req_path, arcname="requirements.txt")
+                logger.info(f"Added requirements.txt to output zip")
+            else:
+                logger.warning(f"Could not find requirements.txt at {req_path}")
         
         # Read the zip file into memory
         with open(temp_output_zip, 'rb') as f:
