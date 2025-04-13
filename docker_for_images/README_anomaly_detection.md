@@ -37,18 +37,14 @@ Train an anomaly detection model using an autoencoder.
 - `level`: (Optional) Training level from 1-5, affecting number of epochs and complexity (default: 3)
 - `image_size`: (Optional) Size to resize images to (default: 256)
 
-**Note on class names:**
-The service will look for a YAML file in the uploaded ZIP (e.g., `data.yaml`, `classes.yaml`, or any `.yaml`/`.yml` file) and extract class names from it. The YAML file should contain a field called `names`, `classes`, or `labels` with a list of class names. For example:
+**Zip File Structure:**
+The zip file should simply contain normal (non-anomalous) images in common formats (.jpg, .png, .jpeg). 
+The images can be:
+- Directly at the root of the zip file
+- Organized in folders within the zip file
+- In any nested folder structure
 
-```yaml
-# Example data.yaml
-names:
-  - normal
-  - tumor
-  - polyp
-```
-
-If no YAML file is found, generic class names will be used.
+The service will find all valid images within the zip file regardless of structure.
 
 **Response:**
 Returns a zip file containing:
@@ -69,8 +65,7 @@ Detect anomalies in an image using a trained model.
 {
   "reconstruction_error": 0.025,
   "threshold": 0.02,
-  "is_anomaly": true,
-  "class_names": ["normal", "tumor", "polyp"]
+  "is_anomaly": true
 }
 ```
 
@@ -106,7 +101,6 @@ with open("anomaly_model.pt", "rb") as model_file, open("test_image.jpg", "rb") 
     response = requests.post(f"{ANOMALY_DETECTION_URL}/detect", files=files)
     result = response.json()
     print(f"Anomaly detected: {result['is_anomaly']}")
-    print(f"Class names: {result['class_names']}")
 ```
 
 ## Web Interface
@@ -119,7 +113,7 @@ This service is integrated with the DeepMed platform and can be accessed through
    - Include only normal (non-anomalous) samples in the training set
    - Use consistent lighting, angle, and scale in your images
    - For best results, use at least 100+ normal samples
-   - Include a YAML file with meaningful class names for better interpretation
+   - Images can be in any folder structure within the zip file
 
 2. **Training Parameters**:
    - Start with Level 3 (balanced) for most applications

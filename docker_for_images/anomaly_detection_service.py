@@ -168,51 +168,32 @@ def train_model():
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(dataset_dir)
         
-        # Find image directory and YAML file
+        # Find image directory
         image_dir = None
-        yaml_file = None
-        class_names = []
+        image_files = []
         
-        # Look for YAML file first (data.yaml, classes.yaml, config.yaml, etc.)
+        # Find all image files in the extracted zip folder (including subfolders)
         for root, dirs, files in os.walk(dataset_dir):
             for file in files:
-                if file.lower().endswith(('.yaml', '.yml')):
-                    yaml_file = os.path.join(root, file)
-                    logger.info(f"Found YAML file: {yaml_file}")
-                    break
-            if yaml_file:
-                break
+                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    image_files.append(os.path.join(root, file))
         
-        # Parse YAML file if found
-        if yaml_file:
-            try:
-                with open(yaml_file, 'r') as f:
-                    yaml_data = yaml.safe_load(f)
-                    
-                # Look for class names in different common formats
-                if 'names' in yaml_data:
-                    class_names = yaml_data['names']
-                    logger.info(f"Found class names in YAML under 'names': {class_names}")
-                elif 'classes' in yaml_data:
-                    class_names = yaml_data['classes']
-                    logger.info(f"Found class names in YAML under 'classes': {class_names}")
-                elif 'labels' in yaml_data:
-                    class_names = yaml_data['labels']
-                    logger.info(f"Found class names in YAML under 'labels': {class_names}")
-            except Exception as e:
-                logger.warning(f"Error parsing YAML file: {str(e)}")
-        
-        # Find image directory
-        for root, dirs, files in os.walk(dataset_dir):
-            image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-            if image_files:
-                image_dir = root
-                break
-        
-        if not image_dir:
+        if not image_files:
             return jsonify({"error": "No image files found in the uploaded dataset"}), 400
         
-        logger.info(f"Found {len([f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])} images in {image_dir}")
+        # If all images are in a single directory, use that directory
+        parent_dirs = set(os.path.dirname(f) for f in image_files)
+        if len(parent_dirs) == 1:
+            image_dir = parent_dirs.pop()
+        else:
+            # If images are in multiple directories, create a flat directory with all images
+            image_dir = os.path.join(temp_dir, "all_images")
+            os.makedirs(image_dir, exist_ok=True)
+            for i, img_path in enumerate(image_files):
+                img_ext = os.path.splitext(img_path)[1]
+                shutil.copy(img_path, os.path.join(image_dir, f"image_{i}{img_ext}"))
+        
+        logger.info(f"Found {len(image_files)} images for training")
         
         # Create results directory
         results_dir = os.path.join(temp_dir, "results")
@@ -304,11 +285,6 @@ def train_model():
         std_error = np.std(reconstruction_errors)
         threshold = mean_error + 2 * std_error
         
-        # If no class names were found in YAML, create generic ones
-        if not class_names:
-            class_names = [f"class_{i}" for i in range(3)]  # Default to 3 generic classes
-            logger.info("No class names found in YAML, using generic names")
-        
         # Create a metadata file with model info
         metadata = {
             'model_type': 'autoencoder',
@@ -316,8 +292,7 @@ def train_model():
             'threshold': threshold,
             'mean_error': mean_error,
             'std_error': std_error,
-            'training_losses': losses,
-            'class_names': class_names
+            'training_losses': losses
         }
         
         metadata_path = os.path.join(results_dir, "metadata.json")
@@ -429,19 +404,18 @@ def detect_anomalies():
         threshold = metadata.get('threshold', 0.02) if metadata else 0.02
         is_anomaly = mse > threshold
         
-        # Get class names if available
-        class_names = metadata.get('class_names', ["unknown"]) if metadata else ["unknown"]
+        # Prepare the response
+        result = {
+            'reconstruction_error': float(mse),
+            'threshold': float(threshold) if threshold is not None else None,
+            'is_anomaly': bool(is_anomaly)
+        }
         
         # Clean up
         cleanup_temp_dirs()
         
         # Return result
-        return jsonify({
-            "reconstruction_error": mse,
-            "threshold": threshold,
-            "is_anomaly": bool(is_anomaly),
-            "class_names": class_names
-        })
+        return jsonify(result)
         
     except Exception as e:
         logger.error(f"Error during anomaly detection: {str(e)}")
