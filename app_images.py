@@ -28,6 +28,9 @@ OBJECT_DETECTION_SERVICE_URL = os.environ.get('OBJECT_DETECTION_SERVICE_URL', 'h
 # Define URL for anomaly detection service
 ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
 
+# Define URL for semantic segmentation service
+SEMANTIC_SEGMENTATION_SERVICE_URL = os.environ.get('SEMANTIC_SEGMENTATION_SERVICE_URL', 'http://localhost:5031')
+
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
 
@@ -80,6 +83,27 @@ def anomaly_detection():
     services_status['anomaly_detection_service'] = is_service_available(ANOMALY_DETECTION_SERVICE_URL)
     
     return render_template('anomaly_detection.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/semantic_segmentation')
+@login_required
+def semantic_segmentation():
+    """Route for semantic segmentation page (DeepLabV3 + ResNet50)"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the semantic segmentation page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    
+    # Add semantic segmentation service to services status
+    services_status['semantic_segmentation_service'] = is_service_available(SEMANTIC_SEGMENTATION_SERVICE_URL)
+    
+    return render_template('semantic_segmentation.html', services_status=services_status, logout_token=session['logout_token'])
 
 @app.route('/api/finetune_yolo', methods=['POST'])
 @login_required
@@ -547,6 +571,89 @@ def api_train_anomaly():
         
     except Exception as e:
         logger.error(f"Error in anomaly detection training: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/train_segmentation', methods=['POST'])
+@login_required
+def api_train_segmentation():
+    """API endpoint for semantic segmentation training"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
+    try:
+        # Check if the semantic segmentation service is available
+        if not is_service_available(SEMANTIC_SEGMENTATION_SERVICE_URL):
+            return jsonify({"error": "Semantic segmentation service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting semantic segmentation training for file: {zip_file.filename}")
+        
+        # Get parameters
+        level = request.form.get('level', '3')
+        image_size = request.form.get('image_size', '256')
+        
+        # Save the uploaded file to a temporary location
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        zip_file.save(temp_file.name)
+        temp_file.close()
+        
+        # Create form data to send to the semantic segmentation service
+        with open(temp_file.name, 'rb') as f:
+            # Create fields dictionary
+            fields = {
+                'zipFile': (zip_file.filename, f, 'application/zip'),
+                'level': level,
+                'image_size': image_size
+            }
+            
+            form_data = MultipartEncoder(fields=fields)
+            
+            # Forward the request to the semantic segmentation service
+            headers = {'Content-Type': form_data.content_type}
+            
+            # Stream the request to the service
+            response = requests.post(
+                f"{SEMANTIC_SEGMENTATION_SERVICE_URL}/train",
+                headers=headers,
+                data=form_data,
+                stream=True
+            )
+        
+        # Clean up the temporary file
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary file: {str(e)}")
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error in semantic segmentation service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in semantic segmentation service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a Flask response with the model zip file
+        flask_response = Response(response.content)
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=segmentation_model.zip"
+        
+        return flask_response
+        
+    except Exception as e:
+        logger.error(f"Error in semantic segmentation training: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Configure logging
