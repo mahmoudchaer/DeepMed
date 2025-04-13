@@ -302,6 +302,132 @@ def train_model():
         # Create a zip file to return the model and related files
         temp_output_zip = os.path.join(temp_dir, "model_output.zip")
         
+        # Create detect_anomaly.py file
+        detect_script_content = '''import torch
+import torchvision.transforms as transforms
+from PIL import Image
+import json
+import numpy as np
+import os
+
+# Define the Autoencoder architecture (must match the one used for training)
+class Autoencoder(torch.nn.Module):
+    def __init__(self, input_channels=3):
+        super(Autoencoder, self).__init__()
+        
+        # Encoder
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            torch.nn.ReLU()
+        )
+        
+        # Decoder
+        self.decoder = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(32, input_channels, kernel_size=3, stride=2, padding=1, output_padding=1),
+            torch.nn.Sigmoid()
+        )
+        
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
+def detect_anomaly(image_path, model_path='autoencoder.pt', metadata_path='metadata.json'):
+    # Load metadata
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+    
+    threshold = metadata.get('threshold')
+    image_size = metadata.get('image_size', 256)
+    
+    # Load model
+    model = Autoencoder(input_channels=3)
+    checkpoint = torch.load(model_path, map_location='cpu')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    
+    # Load and preprocess image
+    image = Image.open(image_path).convert('RGB')
+    transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
+        transforms.ToTensor()
+    ])
+    image_tensor = transform(image).unsqueeze(0)  # Add batch dimension
+    
+    # Detect anomaly
+    with torch.no_grad():
+        output = model(image_tensor)
+        mse = ((image_tensor - output) ** 2).mean().item()
+    
+    is_anomaly = mse > threshold
+    
+    return {
+        'reconstruction_error': mse,
+        'threshold': threshold,
+        'is_anomaly': is_anomaly
+    }
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python detect_anomaly.py <image_path> [model_path] [metadata_path]")
+        sys.exit(1)
+    
+    image_path = sys.argv[1]
+    model_path = sys.argv[2] if len(sys.argv) > 2 else 'autoencoder.pt'
+    metadata_path = sys.argv[3] if len(sys.argv) > 3 else 'metadata.json'
+    
+    if not os.path.exists(image_path):
+        print(f"Error: Image file {image_path} not found")
+        sys.exit(1)
+    
+    if not os.path.exists(model_path):
+        print(f"Error: Model file {model_path} not found")
+        sys.exit(1)
+    
+    if not os.path.exists(metadata_path):
+        print(f"Error: Metadata file {metadata_path} not found")
+        sys.exit(1)
+    
+    result = detect_anomaly(image_path, model_path, metadata_path)
+    print(f"Anomaly detection result:")
+    print(f"  Reconstruction error: {result['reconstruction_error']:.6f}")
+    print(f"  Threshold: {result['threshold']:.6f}")
+    print(f"  Is anomaly: {result['is_anomaly']}")
+'''
+        
+        # Create requirements.txt content
+        requirements_content = '''torch>=1.9.0
+torchvision>=0.10.0
+Pillow>=8.2.0
+numpy>=1.19.5
+'''
+        
+        # Save files in the results directory
+        detect_script_path = os.path.join(results_dir, "detect_anomaly.py")
+        requirements_path = os.path.join(results_dir, "requirements.txt")
+        
+        with open(detect_script_path, 'w') as f:
+            f.write(detect_script_content)
+        
+        with open(requirements_path, 'w') as f:
+            f.write(requirements_content)
+        
+        logger.info("Created detect_anomaly.py and requirements.txt for inclusion in output")
+        
         with zipfile.ZipFile(temp_output_zip, 'w') as zipf:
             # Add the model
             zipf.write(model_save_path, arcname="autoencoder.pt")
@@ -309,21 +435,13 @@ def train_model():
             # Add metadata
             zipf.write(metadata_path, arcname="metadata.json")
             
-            # Add detect_anomaly.py script
-            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "detect_anomaly.py")
-            if os.path.exists(script_path):
-                zipf.write(script_path, arcname="detect_anomaly.py")
-                logger.info(f"Added detection script to output zip")
-            else:
-                logger.warning(f"Could not find detect_anomaly.py at {script_path}")
+            # Add detection script
+            zipf.write(detect_script_path, arcname="detect_anomaly.py")
             
-            # Add requirements.txt
-            req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
-            if os.path.exists(req_path):
-                zipf.write(req_path, arcname="requirements.txt")
-                logger.info(f"Added requirements.txt to output zip")
-            else:
-                logger.warning(f"Could not find requirements.txt at {req_path}")
+            # Add requirements
+            zipf.write(requirements_path, arcname="requirements.txt")
+            
+            logger.info("Added all files to output zip")
         
         # Read the zip file into memory
         with open(temp_output_zip, 'rb') as f:
