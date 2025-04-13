@@ -34,19 +34,10 @@ from db.users import db, TrainingRun, TrainingModel, PreprocessingData
 @app.route('/images')
 @login_required
 def images():
-    """Route for image-based analysis (model training)"""
-    # Check if the user is logged in
-    if not current_user.is_authenticated:
-        flash('Please log in to access the image analysis.', 'info')
-        return redirect('/login', code=302)
-    
-    # Generate a CSRF token for logout form if needed
-    if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
-    
-    # Check services health for status display
-    services_status = check_services()
-    return render_template('train_model.html', services_status=services_status, logout_token=session['logout_token'])
+    """This endpoint is deprecated and redirects to pipeline"""
+    # Redirect to the pipeline page
+    flash('The standalone training page has been removed. Please use the Pipeline functionality instead.', 'info')
+    return redirect(url_for('pipeline'), code=302)
 
 @app.route('/object_detection')
 @login_required
