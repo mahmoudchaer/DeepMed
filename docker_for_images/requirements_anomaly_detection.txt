@@ -1,5 +1,5 @@
-torch==2.0.0
-torchvision==0.15.0
+torch==2.0.0+cpu
+torchvision==0.15.0+cpu
 numpy==1.24.3
 pillow==9.5.0
 flask==2.3.2
