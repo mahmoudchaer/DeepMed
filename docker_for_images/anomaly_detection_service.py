@@ -416,9 +416,103 @@ Pillow>=8.2.0
 numpy>=1.19.5
 '''
         
+        # Create README.md content
+        readme_content = '''# Anomaly Detection Model
+
+This package contains a trained autoencoder model for image anomaly detection. The model was trained on normal (non-anomalous) images and can be used to detect anomalies in new images.
+
+## Contents
+
+- `autoencoder.pt`: The trained PyTorch model
+- `metadata.json`: Model metadata including the detection threshold
+- `detect_anomaly.py`: Python script to run inference on new images
+- `requirements.txt`: Required Python packages
+
+## Setup Instructions
+
+### 1. Create a Virtual Environment (Recommended)
+
+```bash
+# Create a virtual environment
+python -m venv anomaly_env
+
+# Activate the virtual environment
+# On Windows:
+anomaly_env\\Scripts\\activate
+# On macOS/Linux:
+source anomaly_env/bin/activate
+```
+
+### 2. Install Requirements
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Run Anomaly Detection
+
+Place the image(s) you want to analyze in the same directory as the model files, or provide the full path to the images.
+
+```bash
+# Basic usage (uses default model and metadata filenames)
+python detect_anomaly.py your_image.jpg
+
+# Specify custom paths for model and metadata if needed
+python detect_anomaly.py your_image.jpg custom_model_name.pt custom_metadata.json
+```
+
+### Example Usage
+
+```bash
+# Detect anomalies in a single image
+python detect_anomaly.py test_image.jpg
+
+# Expected output:
+# Anomaly detection result:
+#   Reconstruction error: 0.023456
+#   Threshold: 0.018765
+#   Is anomaly: True
+```
+
+### Understanding Results
+
+- **Reconstruction error**: The mean squared error between the original image and its reconstruction by the autoencoder
+- **Threshold**: The value above which an image is considered anomalous
+- **Is anomaly**: Boolean result indicating whether the image contains an anomaly
+
+## Batch Processing
+
+To process multiple images, you can create a simple script that iterates through files in a directory:
+
+```python
+import os
+import glob
+from detect_anomaly import detect_anomaly
+
+# Process all jpg images in a directory
+image_dir = "your_images_directory"
+for image_path in glob.glob(os.path.join(image_dir, "*.jpg")):
+    print(f"Processing {image_path}...")
+    result = detect_anomaly(image_path)
+    print(f"  Is anomaly: {result['is_anomaly']}")
+    print(f"  Error: {result['reconstruction_error']:.6f}")
+```
+
+## Troubleshooting
+
+If you encounter any issues:
+
+1. Make sure you've activated the virtual environment
+2. Verify that all requirements are installed correctly
+3. Check that the model and metadata files are in the correct location
+4. Ensure your images are valid and can be opened by PIL/Pillow
+5. For CUDA errors, try running with CPU only by modifying the `map_location` parameter in the script
+'''
+        
         # Save files in the results directory
         detect_script_path = os.path.join(results_dir, "detect_anomaly.py")
         requirements_path = os.path.join(results_dir, "requirements.txt")
+        readme_path = os.path.join(results_dir, "README.md")
         
         try:
             with open(detect_script_path, 'w') as f:
@@ -435,8 +529,16 @@ numpy>=1.19.5
             logger.info(f"File exists: {os.path.exists(requirements_path)}, Size: {os.path.getsize(requirements_path)} bytes")
         except Exception as e:
             logger.error(f"Error creating requirements.txt: {str(e)}")
+            
+        try:
+            with open(readme_path, 'w') as f:
+                f.write(readme_content)
+            logger.info(f"Successfully created README.md at {readme_path}")
+            logger.info(f"File exists: {os.path.exists(readme_path)}, Size: {os.path.getsize(readme_path)} bytes")
+        except Exception as e:
+            logger.error(f"Error creating README.md: {str(e)}")
         
-        logger.info("Created detect_anomaly.py and requirements.txt for inclusion in output")
+        logger.info("Created all necessary files for inclusion in output")
         
         # NEW APPROACH: Create the zip file in memory directly
         memory_file = io.BytesIO()
@@ -462,6 +564,10 @@ numpy>=1.19.5
                 # Add requirements directly
                 zipf.writestr("requirements.txt", requirements_content)
                 logger.info(f"Added requirements.txt to zip")
+                
+                # Add README directly
+                zipf.writestr("README.md", readme_content)
+                logger.info(f"Added README.md to zip")
             except Exception as e:
                 logger.error(f"Error adding files to zip: {str(e)}")
             
@@ -474,7 +580,7 @@ numpy>=1.19.5
             logger.info(f"Zip file contains: {contents}")
             
             # Ensure all required files are in the zip
-            required_files = ["autoencoder.pt", "metadata.json", "detect_anomaly.py", "requirements.txt"]
+            required_files = ["autoencoder.pt", "metadata.json", "detect_anomaly.py", "requirements.txt", "README.md"]
             for file in required_files:
                 if file not in contents:
                     logger.error(f"Required file {file} is missing from the zip!")
