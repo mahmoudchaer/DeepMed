@@ -62,6 +62,19 @@
                         <a class="nav-link {% if request.endpoint == 'semantic_segmentation' %}active{% endif %}" 
                            href="{{ url_for('semantic_segmentation') }}">Semantic Segmentation</a>
                     </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="#features">Features</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#how-it-works">How It Works</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#testimonials">Testimonials</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#pricing">Pricing</a>
+                    </li>
                     {% endif %}
                 </ul>
                 
@@ -78,12 +91,12 @@
                     {% else %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}" href="{{ url_for('login') }}">
-                            <i class="fas fa-sign-in-alt me-1"></i>Login
+                            <i class="fas fa-sign-in-alt me-1"></i>Log In
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'register' %}active{% endif %}" href="{{ url_for('register') }}">
-                            <i class="fas fa-user-plus me-1"></i>Register
+                        <a class="btn btn-primary ms-2" href="{{ url_for('register') }}">
+                            Get Started
                         </a>
                     </li>
                     {% endif %}

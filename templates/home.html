@@ -1,51 +1,470 @@
 {% extends "base.html" %}
 
-{% block title %}Welcome to DeepMed{% endblock %}
+{% block title %}DeepMed - Build AI Models Without Code{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .hero-section {
+        min-height: 85vh;
+        background: linear-gradient(to bottom, rgba(13, 17, 23, 0.99), rgba(13, 17, 23, 0.97)), url('https://cdn.pixabay.com/photo/2021/03/02/17/46/artificial-intelligence-6063504_1280.png') no-repeat center center;
+        background-size: cover;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at top right, rgba(8, 145, 178, 0.1), transparent 60%);
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #63b3ed, #76e4f7, #9f7aea);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: linear-gradient(90deg, #0d6efd, #0891b2);
+        border: none;
+        padding: 12px 28px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 12px 28px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(13, 110, 253, 0.2);
+    }
+
+    .btn-outline:hover {
+        background: rgba(255, 255, 255, 0.05);
+        transform: translateY(-2px);
+    }
+
+    .feature-card {
+        background-color: #161b22;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 24px;
+        height: 100%;
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .icon-box {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+
+    .icon-blue {
+        background: rgba(13, 110, 253, 0.15);
+        color: #63b3ed;
+    }
+
+    .icon-purple {
+        background: rgba(159, 122, 234, 0.15);
+        color: #9f7aea;
+    }
+
+    .icon-teal {
+        background: rgba(8, 145, 178, 0.15);
+        color: #76e4f7;
+    }
+
+    .icon-green {
+        background: rgba(72, 187, 120, 0.15);
+        color: #68d391;
+    }
+
+    .stat-card {
+        background-color: #161b22;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 24px;
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #63b3ed, #76e4f7);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .step-card {
+        background-color: #161b22;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 24px;
+        height: 100%;
+    }
+
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(90deg, #0d6efd, #0891b2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .testimonial-card {
+        background-color: #161b22;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 24px;
+    }
+
+    .testimonial-card img {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .badge-beta {
+        background: rgba(8, 145, 178, 0.2);
+        color: #76e4f7;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+
+    .section-spacing {
+        padding: 80px 0;
+    }
+
+    .footer {
+        background-color: #161b22;
+        padding: 40px 0;
+        margin-top: 80px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
-            <h1 class="display-4 mb-4">Welcome to DeepMed</h1>
-            <p class="lead mb-5">A powerful platform for medical AI and deep learning</p>
+<!-- Hero Section -->
+<section class="hero-section d-flex align-items-center">
+    <div class="container">
+        <div class="row align-items-center justify-content-center text-center">
+            <div class="col-lg-10">
+                <div class="badge-beta">Now in Public Beta</div>
+                <h1 class="display-3 fw-bold mb-4">Build AI Models <span class="d-block">Without Writing a <span class="gradient-text">Single Line of Code</span></span></h1>
+                <p class="lead mb-5 col-lg-9 mx-auto">Create, train, and deploy powerful AI models with our intuitive drag-and-drop interface. No coding experience required. From concept to production in minutes, not months.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Start Building Free <i class="fas fa-arrow-right ms-2"></i></a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline btn-lg">Watch Demo <i class="fas fa-play ms-2"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Platform Section -->
+<section class="section-spacing">
+    <div class="container text-center">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <img src="https://cdn.pixabay.com/photo/2021/11/04/06/27/artificial-intelligence-6767502_1280.png" alt="DeepMed AI Platform" class="img-fluid mb-4" style="max-width: 120px;">
+                <h2 class="mb-3">DeepMed AI Platform</h2>
+                <p class="lead text-muted mb-0">Powerful no-code AI model building for healthcare professionals</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="section-spacing bg-dark" id="features">
+    <div class="container">
+        <div class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8">
+                <h2 class="display-5 fw-bold mb-3">Everything You Need to <span class="gradient-text">Build Powerful AI</span></h2>
+                <p class="lead text-muted">Our platform provides all the tools you need to create sophisticated AI models without writing code.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="icon-box icon-blue">
+                        <i class="fas fa-object-group"></i>
+                    </div>
+                    <h4 class="mb-3">Drag-and-Drop Builder</h4>
+                    <p class="text-muted mb-0">Intuitively design your AI model by dragging and connecting components on our visual canvas.</p>
+                </div>
+            </div>
             
-            <div class="row mt-5">
-                <div class="col-md-8 mx-auto">
-                    <div class="card shadow-lg">
-                        <div class="card-body p-5">
-                            <h2 class="mb-4">Revolutionary Medical AI</h2>
-                            <p class="mb-4">DeepMed provides cutting-edge tools for healthcare professionals and researchers to leverage the power of artificial intelligence in medical diagnostics, prediction, and analysis.</p>
-                            
-                            <div class="features mb-4">
-                                <div class="row text-start">
-                                    <div class="col-md-6">
-                                        <div class="feature mb-3">
-                                            <i class="fas fa-brain me-2 text-primary"></i> Neural Network Training
-                                        </div>
-                                        <div class="feature mb-3">
-                                            <i class="fas fa-search me-2 text-primary"></i> Anomaly Detection
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="feature mb-3">
-                                            <i class="fas fa-object-group me-2 text-primary"></i> Object Detection
-                                        </div>
-                                        <div class="feature mb-3">
-                                            <i class="fas fa-project-diagram me-2 text-primary"></i> ML Pipelines
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="d-grid gap-2 col-md-8 mx-auto mt-5">
-                                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Sign In</a>
-                                <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Create Account</a>
-                            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="icon-box icon-purple">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h4 class="mb-3">No-Code Training</h4>
+                    <p class="text-muted mb-0">Train your models with a few clicks. Upload your data and let our platform handle the complexity.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="icon-box icon-teal">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h4 class="mb-3">One-Click Deployment</h4>
+                    <p class="text-muted mb-0">Deploy your models to production with a single click. Scale automatically as your needs grow.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card">
+                    <div class="icon-box icon-green">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h4 class="mb-3">Privacy-Focused</h4>
+                    <p class="text-muted mb-0">Your data never leaves your control. Build with confidence knowing your IP is protected.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="section-spacing">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number">10x</div>
+                    <p class="fw-semibold mb-0">Faster Development</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number">85%</div>
+                    <p class="fw-semibold mb-0">Cost Reduction</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-number">100%</div>
+                    <p class="fw-semibold mb-0">Data Privacy</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Steps Section -->
+<section class="section-spacing bg-dark" id="how-it-works">
+    <div class="container">
+        <div class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8">
+                <h2 class="display-5 fw-bold mb-3">Three Simple Steps to <span class="gradient-text">AI Success</span></h2>
+                <p class="lead text-muted">Our streamlined workflow makes building AI models accessible to everyone, regardless of technical background.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h4 class="mb-3">Design Your Model</h4>
+                    <p class="text-muted mb-0">Use our intuitive drag-and-drop interface to design your AI model. Choose from pre-built components or create custom ones.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h4 class="mb-3">Train with Your Data</h4>
+                    <p class="text-muted mb-0">Upload your data and train your model with a few clicks. Our platform handles the complex machine learning processes.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h4 class="mb-3">Deploy to Production</h4>
+                    <p class="text-muted mb-0">Deploy your model with one click. Integrate via API or embed directly into your applications.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials Section -->
+<section class="section-spacing" id="testimonials">
+    <div class="container">
+        <div class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8">
+                <h2 class="display-5 fw-bold mb-3">Trusted by Innovative <span class="gradient-text">Companies</span></h2>
+                <p class="lead text-muted">See how organizations are transforming their businesses with our no-code AI platform.</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <div class="d-flex mb-3">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                    </div>
+                    <p class="mb-4">"We reduced our AI development time from months to days. The platform is incredibly intuitive yet powerful enough for our complex use cases."</p>
+                    <div class="d-flex align-items-center">
+                        <img src="https://randomuser.me/api/portraits/women/54.jpg" alt="Dr. Sarah Johnson" class="me-3">
+                        <div>
+                            <h5 class="mb-0">Sarah Johnson</h5>
+                            <p class="text-muted small mb-0">CTO, TechVision Inc.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <div class="d-flex mb-3">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                    </div>
+                    <p class="mb-4">"As a marketing team with no technical background, we were able to build a customer segmentation model that increased our conversion rates by 40%."</p>
+                    <div class="d-flex align-items-center">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Michael Chen" class="me-3">
+                        <div>
+                            <h5 class="mb-0">Michael Chen</h5>
+                            <p class="text-muted small mb-0">Marketing Director, GrowthX</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="testimonial-card">
+                    <div class="d-flex mb-3">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                    </div>
+                    <p class="mb-4">"The privacy-first approach was the deciding factor for us. We can now leverage AI while keeping our sensitive healthcare data completely secure."</p>
+                    <div class="d-flex align-items-center">
+                        <img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Dr. Emily Rodriguez" class="me-3">
+                        <div>
+                            <h5 class="mb-0">Dr. Emily Rodriguez</h5>
+                            <p class="text-muted small mb-0">Head of Innovation, MedTech Solutions</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-8 d-flex justify-content-around align-items-center flex-wrap">
+                <span class="text-muted px-3 py-2">TechCorp</span>
+                <span class="text-muted px-3 py-2">InnovateLabs</span>
+                <span class="text-muted px-3 py-2">FutureAI</span>
+                <span class="text-muted px-3 py-2">DataSphere</span>
+                <span class="text-muted px-3 py-2">NexGen</span>
+            </div>
+        </div>
     </div>
-</div>
+</section>
+
+<!-- CTA Section -->
+<section class="section-spacing bg-dark" id="pricing">
+    <div class="container">
+        <div class="row justify-content-between align-items-center">
+            <div class="col-lg-6">
+                <h2 class="display-5 fw-bold mb-4">Ready to Transform Your Healthcare AI?</h2>
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-check text-success me-3"></i>
+                        <span>Unlimited AI model creation</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-check text-success me-3"></i>
+                        <span>10,000 predictions/month</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check text-success me-3"></i>
+                        <span>Free forever plan available</span>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">Start Free Trial <i class="fas fa-arrow-right ms-2"></i></a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline">Schedule Demo</a>
+                </div>
+            </div>
+            <div class="col-lg-5 mt-5 mt-lg-0 text-center text-lg-end">
+                <div class="pricing-highlight p-4 rounded" style="background-color: #161b22; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <p class="text-muted mb-1">Starting at</p>
+                    <h1 class="display-4 fw-bold mb-0">$0</h1>
+                    <p class="text-muted">Free forever plan available</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.body.style.backgroundColor = "#0d1117";
+document.body.style.color = "#e6edf3";
+</script>
 {% endblock %} 
