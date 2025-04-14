@@ -28,37 +28,42 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index' or request.endpoint == 'training' %}active{% endif %}" 
-                           href="{{ url_for('training') }}">Training</a>
+                    <!-- Tabular dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="tabularDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Tabular
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="tabularDropdown">
+                            <li><a class="dropdown-item {% if request.endpoint == 'index' or request.endpoint == 'training' %}active{% endif %}" 
+                                href="{{ url_for('training') }}">Training</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'my_models' %}active{% endif %}" 
+                                href="{{ url_for('my_models') }}">Models</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'my_models' %}active{% endif %}" 
-                           href="{{ url_for('my_models') }}">Models</a>
+                    
+                    <!-- Images dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="imagesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Images
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="imagesDropdown">
+                            <li><a class="dropdown-item {% if request.endpoint == 'augment' %}active{% endif %}" 
+                                href="{{ url_for('augment') }}">Augment</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'pipeline' %}active{% endif %}" 
+                                href="{{ url_for('pipeline') }}">Pipeline</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'object_detection' %}active{% endif %}" 
+                                href="{{ url_for('object_detection') }}">Object Detection</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'anomaly_detection' %}active{% endif %}" 
+                                href="{{ url_for('anomaly_detection') }}">Anomaly Detection</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'semantic_segmentation' %}active{% endif %}" 
+                                href="{{ url_for('semantic_segmentation') }}">Semantic Segmentation</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'augment' %}active{% endif %}" 
-                           href="{{ url_for('augment') }}">Augment</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'pipeline' %}active{% endif %}" 
-                           href="{{ url_for('pipeline') }}">Pipeline</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'object_detection' %}active{% endif %}" 
-                           href="{{ url_for('object_detection') }}">Object Detection</a>
-                    </li>
+                    
+                    <!-- AI Assistant remains as a standalone item -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
                            href="{{ url_for('chat') }}">AI Assistant</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'anomaly_detection' %}active{% endif %}" 
-                           href="{{ url_for('anomaly_detection') }}">Anomaly Detection</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'semantic_segmentation' %}active{% endif %}" 
-                           href="{{ url_for('semantic_segmentation') }}">Semantic Segmentation</a>
                     </li>
                     {% else %}
                     <li class="nav-item">
