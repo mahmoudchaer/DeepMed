@@ -15,6 +15,7 @@ import os
 import logging
 import sys
 from io import StringIO
+import re
 
 # Set up logging
 logging.basicConfig(
@@ -34,127 +35,185 @@ class FeatureSelector:
                  apply_scaling=False, scaling_method='standard', 
                  apply_discretization=False, n_bins=5, 
                  apply_feature_crossing=False, max_crossing_degree=2):
-        """
-        Initialize the feature selector.
-        
-        Parameters:
-            method (str): Feature selection method to use - 'llm', 'fallback', or 'auto'
-            min_features_to_keep (int): Minimum number of features to select
-            performance_threshold (float): Performance difference threshold for adding features
-            apply_scaling (bool): DISABLED - No longer used - should be False
-            scaling_method (str): DISABLED - No longer used
-            apply_discretization (bool): DISABLED - No longer used - should be False
-            n_bins (int): DISABLED - No longer used
-            apply_feature_crossing (bool): DISABLED - No longer used - should be False
-            max_crossing_degree (int): DISABLED - No longer used
-        """
+        """Initialize the feature selector."""
         self.method = method
         self.min_features_to_keep = min_features_to_keep
         self.performance_threshold = performance_threshold
+        self.apply_scaling = apply_scaling
+        self.scaling_method = scaling_method
+        self.apply_discretization = apply_discretization
+        self.n_bins = n_bins
+        self.apply_feature_crossing = apply_feature_crossing
+        self.max_crossing_degree = max_crossing_degree
         
-        # Ensure these are all disabled to prevent data transformation
-        self.apply_scaling = False  # Force to False
-        self.scaling_method = scaling_method  # Not used
-        self.apply_discretization = False  # Force to False
-        self.n_bins = n_bins  # Not used
-        self.apply_feature_crossing = False  # Force to False
-        self.max_crossing_degree = max_crossing_degree  # Not used
-        
-        # For handling categorical features during selection (no transformation)
-        self.encoders = {}
-        
-        # Store feature importances and selected features
-        self.feature_importances_ = {}
+        # Store selected features
         self.selected_features = None
         
-        # Initialize empty containers for feature engineering
-        self.scalers = {}  # Not used
-        self.discretizers = {}  # Not used
-        self.crossed_features = []  # Not used
+        # Store feature importances
+        self.feature_importances_ = {}
         
-        logger.info("⚙️ Initialized FeatureSelector with method: " + method)
-        logger.info("✅ Data transformation disabled - Feature selector will ONLY select features, not modify values")
+        # Store scalers for numeric columns
+        self.scalers = {}
         
-        # Initialize OpenAI client if available
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("🔴 OPENAI_API_KEY environment variable not set. Using fallback method.")
-            self.method = 'fallback'
-            self.client = None
-        else:
+        # Track all identified problematic columns for comprehensive filtering
+        self.problematic_columns = []
+        
+        # Store encoders for categorical columns
+        self.encoders = {}
+        
+        # Store encoding mappings for categorical columns
+        self.encoding_mappings = {}
+        
+        # Track column metadata for better filtering decisions
+        self.column_metadata = {}
+        
+        # OpenAI client if available
+        self.client = None
+        if method == 'llm':
             try:
-                # Set the API key directly on the openai module
-                openai.api_key = api_key
+                import openai
                 self.client = openai
-                self.method = 'llm'
-                logger.info("🟢 OpenAI client initialized successfully - LLM feature selection enabled")
-            except Exception as e:
-                logger.error(f"🔴 Error initializing OpenAI client: {e}")
-                logger.warning("🔄 Falling back to traditional feature selection method")
+                self._test_openai_connection()
+                
+                # Set a more specific system prompt for feature selection
+                self.system_prompt = """
+You are an advanced feature selection specialist for machine learning. Your expertise is in identifying which features (columns) in a dataset are relevant for prediction and which should be removed.
+
+ALWAYS follow these principles:
+1. Be EXTREMELY EXPLICIT about identifying unnecessary features that should be removed.
+2. Eliminate irrelevant features that don't contribute to the prediction task.
+3. Remove high-risk features that could lead to data leakage or overfitting.
+4. Be especially vigilant about removing:
+   - Identifiers (names, IDs, patient numbers, unique identifiers, rooms, doctors, hospitals)
+   - Administrative metadata (record numbers, file identifiers)
+   - Temporal information not available at prediction time (future dates, timestamps created after the target event)
+   - Free-text fields with high cardinality (comments, notes, addresses)
+   - Redundant or highly correlated features that don't add new information
+
+Your recommendations must be SPECIFIC to the dataset you're analyzing and NOT based on fixed rules. Examine the actual data characteristics when making decisions.
+
+You MUST explicitly list ALL features that should be removed with clear reasoning for each. These will be DIRECTLY removed from the dataset without further validation.
+"""
+                logger.info("🟢 OpenAI client initialized successfully")
+            except ImportError:
+                logger.warning("⚠️ OpenAI package not installed, falling back to traditional method")
                 self.method = 'fallback'
-                self.client = None
-        
-        logger.info(f"Feature selector initialized with method: {self.method}")
-        
-        self.system_prompt = """You are an expert medical data scientist specializing in feature selection.
-        Your task is to analyze medical datasets and recommend which features to keep or remove based on:
-        1. Medical relevance and importance
-        2. Statistical properties
-        3. Potential redundancy
-        4. Relationship to the target variable
-        Be conservative in removing features - only suggest removal if there's a clear reason."""
-    
+            except Exception as e:
+                logger.error(f"🔴 Error initializing OpenAI client: {str(e)}")
+                self.method = 'fallback'
+
+    def _test_openai_connection(self):
+        """Test the OpenAI connection to make sure it's working properly."""
+        try:
+            response = self.client.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful AI assistant."},
+                    {"role": "user", "content": "Please respond with 'OK' if you can read this message."}
+                ],
+                max_tokens=5
+            )
+            
+            logger.info("🟢 Successfully tested OpenAI connection")
+            return True
+        except Exception as e:
+            logger.error(f"🔴 Error testing OpenAI connection: {str(e)}")
+            return False
+
     def _get_llm_recommendations(self, X, y=None, target_name=None):
-        """Get feature selection recommendations from LLM."""
-        # If we don't have LLM access, use fallback method
+        """Get feature recommendations from LLM."""
         if self.method == 'fallback' or self.client is None:
-            logger.info("🔄 Using fallback method for feature selection (LLM not available)")
+            logger.info("🔄 LLM not available for feature recommendations")
             return {
                 "features_to_keep": list(X.columns),
                 "features_to_remove": [],
                 "reasoning": {}
             }
             
-        logger.info("🤖 Attempting to get feature recommendations from LLM")
+        logger.info("🤖 Getting feature recommendations from LLM")
+        
         # Prepare data summary for LLM
         data_summary = {
-            "features": list(X.columns),
-            "target_variable": target_name,
-            "feature_stats": {
+            "target_column": target_name,
+            "sample_size": len(X),
+            "columns": {
                 col: {
                     "dtype": str(X[col].dtype),
                     "unique_values": int(X[col].nunique()),
+                    "unique_ratio": float(X[col].nunique() / len(X)) if len(X) > 0 else 0,
                     "missing_values": int(X[col].isnull().sum()),
-                    "sample_values": list(X[col].dropna().head().astype(str)),
+                    "missing_ratio": float(X[col].isnull().sum() / len(X)) if len(X) > 0 else 0,
+                    "sample_values": list(X[col].dropna().sample(min(5, max(1, len(X[col].dropna())))).astype(str)),
                     "correlation_with_target": float(X[col].corr(y)) if y is not None and pd.api.types.is_numeric_dtype(X[col]) else None
                 } for col in X.columns
             }
         }
         
+        # Add column type hints to help the LLM
+        for col in X.columns:
+            col_data = data_summary["columns"][col]
+            col_values = X[col].dropna().astype(str).tolist()[:20]  # Sample for analysis
+            
+            # Check for potential datetime patterns
+            date_patterns = 0
+            for val in col_values:
+                if isinstance(val, str) and re.search(r'\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}', val):
+                    date_patterns += 1
+            
+            if date_patterns > min(3, len(col_values) * 0.3):
+                col_data["likely_date"] = True
+            
+            # Check for high uniqueness (potential identifiers)
+            if col_data["unique_ratio"] > 0.8 and col_data["unique_values"] > 10:
+                col_data["potential_identifier"] = True
+                
+            # Check for potential name patterns
+            name_like = False
+            name_patterns = ['name', 'patient', 'doctor', 'provider', 'physician', 'person']
+            if any(pattern in col.lower() for pattern in name_patterns):
+                name_like = True
+                col_data["name_like"] = True
+        
         logger.debug(f"Prepared data summary for LLM with {len(X.columns)} features")
         
-        prompt = f"""Analyze this medical dataset and recommend which features to keep or remove.
+        prompt = f"""Analyze this dataset and make data-driven decisions about which features to keep or remove.
 
-        Dataset Summary: {json.dumps(data_summary, indent=2)}
+Dataset Summary: {json.dumps(data_summary, indent=2)}
 
-        Provide your recommendations in JSON format with:
-        {{
-            "features_to_keep": ["feature1", "feature2", ...],
-            "features_to_remove": ["feature3", "feature4", ...],
-            "reasoning": {{
-                "feature3": "reason for removal",
-                "feature4": "reason for removal"
-            }}
-        }}
+YOUR TASK:
+Analyze each column and determine if it should be kept for model training or removed.
 
-        Consider:
-        1. Medical relevance of each feature
-        2. Statistical properties (missing values, unique values)
-        3. Correlation with target (if available)
-        4. Potential redundancy between features
-        
-        Be conservative - only recommend removing features if there's a clear reason to do so.
-        IMPORTANT: Respond ONLY with the JSON object, no additional text."""
+CRITICAL GUIDELINES:
+1. You MUST EXPLICITLY identify ALL features to remove and provide clear reasoning.
+2. REMOVE any columns that could lead to data leakage or don't contribute to prediction:
+   - Unique identifiers (IDs, record numbers, primary keys)
+   - Names of people or entities (patient names, doctor names, hospital names)
+   - Dates that would not be available at prediction time
+   - Administrative metadata unrelated to the prediction task
+   - Free-text fields with extremely high cardinality
+   - Columns with too many missing values to be useful
+
+3. KEEP columns that contain predictive information:
+   - Clinical/domain measurements related to the prediction task
+   - Properly encoded categorical variables with reasonable cardinality
+   - Features with meaningful correlation to the target (if available)
+   - Transformed datetime features that represent cyclical patterns
+
+Your analysis must be specific to THIS dataset's characteristics, not based on generic rules.
+All features you identify for removal will be DIRECTLY removed without further validation.
+
+Provide your recommendations in this exact JSON format:
+{{
+    "features_to_keep": ["feature1", "feature2", ...],
+    "features_to_remove": ["feature3", "feature4", ...],
+    "reasoning": {{
+        "feature3": "Specific reason for removal",
+        "feature4": "Specific reason for removal",
+        ...
+    }}
+}}
+
+Respond ONLY with valid JSON, no additional text or explanations outside the JSON structure."""
 
         try:
             logger.info("Calling OpenAI API...")
@@ -185,9 +244,31 @@ class FeatureSelector:
                 if not all(key in recommendations for key in required_keys):
                     raise ValueError("Response missing required keys")
                 
+                # Directly use LLM recommendations without extensive validation
+                # This ensures explicit removal of features identified by the LLM
                 logger.info(f"🟢 Successfully parsed LLM recommendations")
                 logger.info(f"Features to keep: {len(recommendations['features_to_keep'])}")
                 logger.info(f"Features to remove: {len(recommendations['features_to_remove'])}")
+                
+                # Log each feature the LLM has decided to remove with its reasoning
+                logger.info("🔍 LLM REMOVAL DECISIONS:")
+                for feature in recommendations['features_to_remove']:
+                    reason = recommendations['reasoning'].get(feature, "No specific reason provided")
+                    logger.info(f"  • LLM marked '{feature}' for removal: {reason}")
+                
+                # Add any columns not explicitly classified to features_to_remove
+                all_features = set(X.columns)
+                classified_features = set(recommendations['features_to_keep'] + recommendations['features_to_remove'])
+                unclassified_features = all_features - classified_features
+                
+                if unclassified_features:
+                    logger.warning(f"⚠️ {len(unclassified_features)} features not classified by LLM. Adding to removal list.")
+                    logger.info("🔍 UNCLASSIFIED FEATURES BEING REMOVED:")
+                    for feature in unclassified_features:
+                        recommendations['features_to_remove'].append(feature)
+                        recommendations["reasoning"][feature] = "Not explicitly classified by LLM, assuming irrelevant"
+                        logger.info(f"  • Adding unclassified feature '{feature}' to removal list")
+                
                 return recommendations
                 
             except (json.JSONDecodeError, ValueError) as e:
@@ -473,60 +554,456 @@ class FeatureSelector:
         
         return best_features
 
+    def _identify_problematic_columns(self, X):
+        """Comprehensive identification of problematic columns that should be excluded from modeling.
+        
+        This function identifies columns that are likely to be irrelevant or cause issues:
+        1. ID columns and unique identifiers
+        2. Name columns (patient, doctor, etc.)
+        3. Date/time columns (unless properly transformed)
+        4. High cardinality string columns
+        5. Low information columns
+        """
+        logger.info("🔍 Identifying problematic columns for exclusion")
+        problematic_cols = []
+        column_metadata = {}
+        
+        total_rows = len(X)
+        if total_rows == 0:
+            logger.warning("Empty dataframe provided, no problematic columns to identify")
+            return [], {}
+        
+        # Patterns for various problematic column types
+        id_patterns = [
+            'id', '_id', 'uuid', 'guid', 'identifier', 'record', 'key', 'number', 'nr', 'code',
+            'patient_id', 'user_id', 'customer_id', 'client_id', 'employee_id', 'account', 'reference'
+        ]
+        
+        name_patterns = [
+            'name', 'firstname', 'lastname', 'fullname', 'patient_name', 'doctor', 'physician', 
+            'provider', 'customer', 'client', 'person', 'user', 'employee', 'nurse', 'staff'
+        ]
+        
+        date_patterns = [
+            'date', 'time', 'datetime', 'timestamp', 'day', 'month', 'year', 'admission',
+            'discharge', 'visit', 'birthday', 'dob', 'created', 'modified', 'updated'
+        ]
+        
+        contact_patterns = [
+            'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
+            'zip', 'postal', 'city', 'state', 'country', 'street', 'fax'
+        ]
+        
+        note_patterns = [
+            'notes', 'comment', 'description', 'remark', 'observation', 'text',
+            'detail', 'explanation', 'reason', 'summary', 'history'
+        ]
+        
+        url_patterns = [
+            'url', 'link', 'website', 'web', 'http', 'https', 'www', 'uri', 'path', 'file'
+        ]
+        
+        # Combine all patterns
+        all_patterns = {
+            'id': id_patterns,
+            'name': name_patterns,
+            'date': date_patterns,
+            'contact': contact_patterns,
+            'note': note_patterns,
+            'url': url_patterns
+        }
+        
+        for col in X.columns:
+            is_problematic = False
+            reasons = []
+            metadata = {
+                "name": col,
+                "dtype": str(X[col].dtype),
+                "is_numeric": pd.api.types.is_numeric_dtype(X[col]),
+                "is_categorical": (not pd.api.types.is_numeric_dtype(X[col])),
+                "unique_count": int(X[col].nunique()),
+                "unique_ratio": float(X[col].nunique() / total_rows) if total_rows > 0 else 0,
+                "missing_count": int(X[col].isnull().sum()),
+                "missing_ratio": float(X[col].isnull().sum() / total_rows) if total_rows > 0 else 0,
+                "problematic": False,
+                "reasons": []
+            }
+            
+            # 1. Check name patterns
+            col_lower = col.lower()
+            for pattern_type, patterns in all_patterns.items():
+                if any(pattern in col_lower for pattern in patterns):
+                    reason = f"Column name contains {pattern_type}-like pattern"
+                    reasons.append(reason)
+                    metadata["pattern_match"] = pattern_type
+                    
+                    # For certain patterns, we need additional validation from the data
+                    if pattern_type == 'id' or pattern_type == 'name':
+                        # IDs and names typically have high cardinality
+                        if metadata["unique_ratio"] > 0.2:
+                            is_problematic = True
+                            reasons.append(f"High cardinality ({metadata['unique_ratio']:.2f}) consistent with {pattern_type}")
+                    elif pattern_type == 'date':
+                        # Check if data looks like dates
+                        sample_vals = X[col].dropna().astype(str).sample(min(5, len(X[col].dropna()))).tolist()
+                        date_like = any(re.search(r'\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}', str(val)) for val in sample_vals)
+                        if date_like:
+                            is_problematic = True
+                            reasons.append("Contains date patterns which may require special handling")
+                    else:
+                        # For other patterns, flag as potentially problematic
+                        is_problematic = True
+            
+            # 2. Check cardinality for non-numeric columns (potential identifiers)
+            if not pd.api.types.is_numeric_dtype(X[col]):
+                # Very high cardinality in categorical column = likely ID or free text
+                if metadata["unique_ratio"] > 0.5 and metadata["unique_count"] > 10:
+                    is_problematic = True
+                    reasons.append(f"High cardinality categorical column ({metadata['unique_ratio']:.2f})")
+                
+                # Special case: if every value is unique, it's almost certainly an ID
+                if metadata["unique_ratio"] > 0.95:
+                    is_problematic = True
+                    reasons.append("Nearly unique values, likely an identifier")
+            
+            # 3. Check for low information columns
+            if metadata["unique_count"] == 1:
+                is_problematic = True
+                reasons.append("Constant column (only one unique value)")
+            
+            # 4. Check for mostly missing data
+            if metadata["missing_ratio"] > 0.8:
+                is_problematic = True
+                reasons.append(f"Mostly missing data ({metadata['missing_ratio']:.2f})")
+            
+            # Record results
+            if is_problematic:
+                problematic_cols.append(col)
+                metadata["problematic"] = True
+                metadata["reasons"] = reasons
+                logger.info(f"🚫 Identified problematic column: '{col}' - {', '.join(reasons)}")
+            
+            # Store metadata for all columns
+            column_metadata[col] = metadata
+        
+        logger.info(f"✅ Identified {len(problematic_cols)}/{len(X.columns)} problematic columns")
+        return problematic_cols, column_metadata
+
+    def _validate_categorical_columns(self, X):
+        """Validate categorical columns and ensure they have proper encoding mappings.
+        
+        This function:
+        1. Identifies categorical columns
+        2. Checks if they need encoding
+        3. Creates encoding mappings if needed
+        4. Flags columns that are problematic for encoding
+        """
+        logger.info("🔍 Validating categorical columns for encoding")
+        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+        logger.info(f"Found {len(categorical_cols)} categorical columns")
+        
+        # Track columns that need encoding and those that are problematic
+        needs_encoding = []
+        encoding_issues = []
+        
+        # Generate encoding mappings
+        for col in categorical_cols:
+            # Skip if column is already identified as problematic
+            if col in self.problematic_columns:
+                continue
+                
+            # Check cardinality - if too many unique values, it's problematic
+            unique_values = X[col].dropna().unique()
+            unique_ratio = len(unique_values) / len(X) if len(X) > 0 else 0
+            
+            # Very high cardinality in categorical column = likely ID or free text
+            if unique_ratio > 0.5 and len(unique_values) > 10:
+                encoding_issues.append({
+                    "column": col,
+                    "reason": f"High cardinality ({unique_ratio:.2f}, {len(unique_values)} unique values)",
+                    "unique_ratio": unique_ratio,
+                    "unique_count": len(unique_values)
+                })
+                self.problematic_columns.append(col)
+                continue
+            
+            # Otherwise, column needs encoding
+            needs_encoding.append(col)
+            
+            # Create encoding mapping if it doesn't exist
+            if col not in self.encoding_mappings:
+                # Sort values to ensure consistent encoding
+                sorted_values = sorted([str(x) for x in unique_values if pd.notna(x)])
+                mapping = {val: idx for idx, val in enumerate(sorted_values)}
+                self.encoding_mappings[col] = mapping
+                logger.info(f"Created encoding mapping for '{col}' with {len(mapping)} values")
+        
+        if encoding_issues:
+            logger.warning(f"⚠️ Found {len(encoding_issues)} categorical columns with encoding issues")
+            for issue in encoding_issues:
+                logger.warning(f"  - {issue['column']}: {issue['reason']}")
+        
+        logger.info(f"✅ {len(needs_encoding)} categorical columns validated for encoding")
+        return needs_encoding, encoding_issues
+
     def fit_transform(self, X, y=None):
-        """Fit the feature selector and transform the data."""
+        """Fit the feature selector and transform the data with improved validation."""
         logger.info(f"Starting feature selection using method: {self.method}")
         logger.info(f"Input data shape: {X.shape}")
         
         X = X.copy()
+        original_columns = list(X.columns)
         
-        # Continue with feature selection
+        # STAGE 1: Pre-selection validation - identify problematic columns
+        # =================================================================
+        self.problematic_columns, self.column_metadata = self._identify_problematic_columns(X)
+        
+        # STAGE 2: Validate categorical columns for encoding
+        # =================================================
+        valid_categorical_cols, encoding_issues = self._validate_categorical_columns(X)
+        
+        # STAGE 3: Feature selection based on method
+        # =========================================
         if self.method == 'llm':
             logger.info("🤖 Using LLM-based feature selection")
-            # Get LLM recommendations
+            
+            # Get LLM recommendations (features are DIRECTLY removed as specified by the LLM)
             recommendations = self._get_llm_recommendations(X, y, target_name=y.name if hasattr(y, 'name') else None)
             
+            # Extract the final lists
+            features_to_keep = recommendations['features_to_keep']
+            features_to_remove = recommendations['features_to_remove']
+            
+            # Log detailed information about features being removed
+            logger.info("=" * 80)
+            logger.info("🚫 FEATURES MARKED FOR REMOVAL BY LLM:")
+            logger.info("=" * 80)
+            
+            if len(features_to_remove) > 0:
+                for feature in features_to_remove:
+                    reason = recommendations['reasoning'].get(feature, "No specific reason provided")
+                    logger.info(f"REMOVING: '{feature}' - Reason: {reason}")
+            else:
+                logger.info("No features were explicitly marked for removal by the LLM")
+            
+            # Log unclassified features if any
+            all_features = set(X.columns)
+            classified_features = set(features_to_keep + features_to_remove)
+            unclassified_features = all_features - classified_features
+            
+            if unclassified_features:
+                logger.info("-" * 80)
+                logger.info(f"⚠️ UNCLASSIFIED FEATURES (BEING REMOVED):")
+                logger.info("-" * 80)
+                for feature in unclassified_features:
+                    logger.info(f"REMOVING: '{feature}' - Reason: Not explicitly classified by LLM, assuming irrelevant")
+            
+            logger.info("=" * 80)
+            logger.info(f"✅ SUMMARY: Removing {len(features_to_remove) + len(unclassified_features)} features, keeping {len(features_to_keep)} features")
+            logger.info("=" * 80)
+            
             # Store selected features
-            self.selected_features = recommendations['features_to_keep']
+            self.selected_features = features_to_keep
             
             # Calculate and store feature importances based on LLM decisions
-            for feature in X.columns:
-                if feature in recommendations['features_to_keep']:
+            for feature in original_columns:
+                if feature in features_to_keep:
                     self.feature_importances_[feature] = 1.0
                 else:
                     self.feature_importances_[feature] = 0.0
-                    reason = recommendations['reasoning'].get(feature, "Removed based on analysis")
-                    logger.info(f"🔍 Removing feature '{feature}': {reason}")
-            
-            # Ensure we keep minimum number of features
-            if len(self.selected_features) < self.min_features_to_keep:
-                logger.warning(f"⚠️ Too few features recommended ({len(self.selected_features)}). Keeping top {self.min_features_to_keep} features based on correlation with target.")
-                correlations = X.corrwith(y) if y is not None else pd.Series(1.0, index=X.columns)
-                self.selected_features = correlations.abs().nlargest(self.min_features_to_keep).index.tolist()
+                    if feature in features_to_remove:
+                        reason = recommendations['reasoning'].get(feature, "Removed based on analysis")
+                        logger.info(f"🔍 Removing feature '{feature}': {reason}")
+                    else:
+                        logger.info(f"🔍 Feature '{feature}' not classified, assuming irrelevant")
         else:
             logger.info("📊 Using traditional feature selection method")
-            # Fallback to original maximize method
-            self.selected_features = self._maximize_features(X, y)
+            
+            # First exclude problematic columns before statistical feature selection
+            X_filtered = X.drop(columns=self.problematic_columns, errors='ignore')
+            logger.info(f"Removed {len(self.problematic_columns)} problematic columns before statistical selection")
+            
+            if len(X_filtered.columns) == 0:
+                logger.warning("⚠️ No columns left after removing problematic ones. Using original data.")
+                X_filtered = X
+            
+            # Apply traditional feature selection
+            selected_features = self._maximize_features(X_filtered, y)
+            self.selected_features = selected_features
+        
+        # STAGE 4: Ensure minimum features and handle encoding
+        # ==================================================
+        # Ensure we keep minimum number of features
+        if len(self.selected_features) < self.min_features_to_keep:
+            logger.warning(f"⚠️ Too few features recommended ({len(self.selected_features)}). Keeping top {self.min_features_to_keep} features based on correlation with target.")
+            
+            # If target is available, use correlation
+            if y is not None:
+                correlations = {}
+                for col in original_columns:
+                    # Skip explicitly identified problematic columns
+                    if col in self.problematic_columns:
+                        continue
+                        
+                    try:
+                        if pd.api.types.is_numeric_dtype(X[col]):
+                            correlations[col] = abs(X[col].corr(y))
+                        else:
+                            # Use chi-squared for categorical features
+                            from scipy.stats import chi2_contingency
+                            contingency = pd.crosstab(X[col], y)
+                            chi2, p, dof, expected = chi2_contingency(contingency)
+                            correlations[col] = 1 - p  # Higher = more significant relationship
+                    except:
+                        correlations[col] = 0
+                
+                # Select top features by correlation
+                self.selected_features = sorted(correlations.items(), key=lambda x: x[1], reverse=True)[:self.min_features_to_keep]
+                self.selected_features = [col for col, corr in self.selected_features]
+            else:
+                # If no target, keep features with lowest missing values
+                missing_counts = {col: X[col].isna().sum() for col in original_columns if col not in self.problematic_columns}
+                self.selected_features = sorted(missing_counts.items(), key=lambda x: x[1])[:self.min_features_to_keep]
+                self.selected_features = [col for col, miss in self.selected_features]
+        
+        # STAGE 5: Final validation of selected features
+        # =============================================
+        # Validate that categorical features in final selection have encoding mappings
+        missing_encodings = []
+        for col in self.selected_features:
+            if col in X.select_dtypes(include=['object', 'category']).columns and col not in self.encoding_mappings:
+                # Create encoding on the fly
+                unique_values = sorted([str(x) for x in X[col].dropna().unique() if pd.notna(x)])
+                self.encoding_mappings[col] = {val: idx for idx, val in enumerate(unique_values)}
+                logger.info(f"Created missing encoding mapping for selected column '{col}'")
         
         logger.info(f"✅ Feature selection complete. Selected {len(self.selected_features)} features")
         logger.info(f"Selected features: {self.selected_features}")
+        
+        # Generate feature metadata for downstream components
+        feature_metadata = self._generate_feature_metadata(X, self.selected_features)
+        self.feature_metadata = feature_metadata
+        
+        # Add encoding mappings to metadata
+        feature_metadata["encoding_mappings"] = self.encoding_mappings
+        feature_metadata["column_metadata"] = self.column_metadata
+        
+        # Return the transformed dataset with only selected features
         return X[self.selected_features]
 
+    def _generate_feature_metadata(self, X, selected_features):
+        """Generate metadata about selected features for downstream components."""
+        metadata = {
+            "categorical_features": [],
+            "numeric_features": [],
+            "date_features": [],
+            "feature_details": {}
+        }
+        
+        for col in selected_features:
+            # Skip if column doesn't exist
+            if col not in X.columns:
+                continue
+                
+            # Determine feature type
+            if pd.api.types.is_numeric_dtype(X[col]):
+                metadata["numeric_features"].append(col)
+                feature_type = "numeric"
+            else:
+                # Check if it might be a date
+                sample_vals = X[col].dropna().astype(str).sample(min(5, len(X[col].dropna()))).tolist()
+                date_like = any(re.search(r'\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}', str(val)) for val in sample_vals)
+                
+                if date_like and any(date_term in col.lower() for date_term in ['date', 'time', 'day', 'month', 'year']):
+                    metadata["date_features"].append(col)
+                    feature_type = "date"
+                else:
+                    metadata["categorical_features"].append(col)
+                    feature_type = "categorical"
+            
+            # Store detailed feature info
+            metadata["feature_details"][col] = {
+                "type": feature_type,
+                "dtype": str(X[col].dtype),
+                "unique_count": int(X[col].nunique()),
+                "missing_count": int(X[col].isnull().sum()),
+                "requires_encoding": feature_type == "categorical"
+            }
+        
+        # Log summary of feature types
+        logger.info(f"Feature type summary:")
+        logger.info(f"  - Numeric features: {len(metadata['numeric_features'])}")
+        logger.info(f"  - Categorical features: {len(metadata['categorical_features'])}")
+        logger.info(f"  - Date features: {len(metadata['date_features'])}")
+        
+        return metadata
+
     def transform(self, X):
-        """Transform new data using the selected features."""
-        if self.selected_features is None:
-            raise ValueError("Fit the feature selector first using fit_transform()")
+        """Transform new data using previously selected features and encoding.
         
-        X = X.copy()
+        This applies:
+        1. Filtering to only selected features
+        2. Ensures consistent encoding of categorical features
+        3. Applies any preprocessing transformations
+        """
+        logger.info(f"Transforming new data with shape {X.shape}")
         
-        # Filter to only include selected columns available in the dataframe
-        available_cols = [col for col in self.selected_features if col in X.columns]
+        # Make a copy to avoid modifying the original
+        X_transformed = X.copy()
         
-        if len(available_cols) < len(self.selected_features):
-            missing = set(self.selected_features) - set(available_cols)
-            logger.warning(f"Missing columns in input data: {missing}")
+        # Check if features have been selected
+        if not self.selected_features:
+            logger.warning("No features have been selected yet. Returning original data.")
+            return X
         
-        return X[available_cols]
+        # Identify which selected features are present in the data
+        available_features = [col for col in self.selected_features if col in X.columns]
+        
+        if len(available_features) < len(self.selected_features):
+            missing_features = set(self.selected_features) - set(available_features)
+            logger.warning(f"Missing {len(missing_features)} expected features: {missing_features}")
+        
+        if not available_features:
+            logger.error("None of the selected features are present in the input data")
+            return pd.DataFrame()
+        
+        # Filter to only include selected features
+        X_filtered = X_transformed[available_features].copy()
+        
+        # Apply encoding to categorical columns
+        if hasattr(self, 'encoding_mappings') and self.encoding_mappings:
+            categorical_cols = X_filtered.select_dtypes(include=['object', 'category']).columns
+            
+            for col in categorical_cols:
+                if col in self.encoding_mappings:
+                    # Get the encoding mapping
+                    mapping = self.encoding_mappings[col]
+                    
+                    # Convert column values to strings to ensure consistent mapping
+                    col_values = X_filtered[col].astype(str)
+                    
+                    # Apply mapping with fallback to -1 for values not in the mapping
+                    # This handles new values not seen during training
+                    X_filtered[col] = col_values.map(mapping).fillna(-1).astype(int)
+                    logger.info(f"Applied encoding mapping to column '{col}'")
+                else:
+                    logger.warning(f"No encoding mapping found for categorical column '{col}'")
+                    # Create a basic label encoding as fallback
+                    X_filtered[col] = X_filtered[col].astype('category').cat.codes
+                    logger.info(f"Applied fallback encoding to column '{col}'")
+        
+        # Apply other preprocessing steps if configured
+        if self.apply_scaling:
+            X_filtered = self._apply_scaling(X_filtered, is_fitting=False)
+        
+        if self.apply_discretization:
+            X_filtered = self._apply_discretization(X_filtered, is_fitting=False)
+        
+        if self.apply_feature_crossing:
+            X_filtered = self._apply_feature_crossing(X_filtered, is_fitting=False)
+        
+        logger.info(f"Successfully transformed data to shape {X_filtered.shape}")
+        return X_filtered
 
 # Create a global FeatureSelector instance with default settings
 feature_selector = FeatureSelector(
@@ -663,54 +1140,92 @@ def select_features():
                 feature_selector.max_crossing_degree = int(request_data['max_crossing_degree'])
                 logger.info(f"Max crossing degree set to: {feature_selector.max_crossing_degree}")
             
-            # Select features
+            # Select features with comprehensive logging
             logger.info("🔄 Starting feature selection process")
             X_selected = feature_selector.fit_transform(df, y)
-            logger.info(f"✅ Feature selection complete. Selected {len(feature_selector.selected_features)} features")
+            
+            # Get feature metadata generated during selection
+            feature_metadata = getattr(feature_selector, 'feature_metadata', {})
+            
+            # Get feature importances
+            feature_importances = {feature: float(importance) 
+                                  for feature, importance in feature_selector.feature_importances_.items()
+                                  if feature in feature_selector.selected_features}
             
             # Make sure we're only returning original column names (no _disc suffix)
             selected_features = [feat for feat in feature_selector.selected_features if feat in original_columns]
             logger.info(f"✅ Filtered to {len(selected_features)} original features")
             
-            # Add back any missing original features that were discretized
-            for col in original_columns:
-                if col not in selected_features and col in X_selected.columns:
-                    selected_features.append(col)
-                    logger.info(f"✅ Added back original feature: {col}")
+            # Log the final column selection
+            ignored_features = [col for col in original_columns if col not in selected_features]
+            logger.info(f"📊 Selected features summary:")
+            logger.info(f"  - Selected: {len(selected_features)} features")
+            logger.info(f"  - Ignored: {len(ignored_features)} features")
             
-            response_data = {
-                "selected_features": selected_features,
-                "feature_importances": {
-                    k: v for k, v in feature_selector.feature_importances_.items() 
-                    if k in selected_features
-                },
-                "transformed_data": X_selected.to_dict(orient='records'),
-                "message": "Features selected successfully",
-                "method_used": feature_selector.method,
-                "feature_engineering": {
-                    "scaling": feature_selector.apply_scaling,
-                    "discretization": feature_selector.apply_discretization,
-                    "feature_crossing": feature_selector.apply_feature_crossing,
-                    "crossed_features": [name for name, _ in feature_selector.crossed_features] if feature_selector.apply_feature_crossing else []
+            # Log detailed removal decisions for better transparency
+            if feature_selector.method == 'llm' and hasattr(feature_selector, 'column_metadata'):
+                logger.info("✂️ FEATURE REMOVAL DECISION DETAILS:")
+                logger.info("=" * 80)
+                for col in ignored_features:
+                    if col in feature_selector.column_metadata and feature_selector.column_metadata[col].get("problematic", False):
+                        reasons = feature_selector.column_metadata[col].get("reasons", ["No specific reason recorded"])
+                        logger.info(f"REMOVED '{col}': {'; '.join(reasons)}")
+                    else:
+                        logger.info(f"REMOVED '{col}': Identified as unnecessary by LLM analysis")
+                logger.info("=" * 80)
+            
+            # Options for the response
+            options = {
+                'method': feature_selector.method,
+                'params': {
+                    'min_features_to_keep': feature_selector.min_features_to_keep
                 }
             }
             
-            # Include target recommendations if available
-            if target_recommendations:
-                response_data["target_recommendations"] = target_recommendations
+            # Create the transformed dataframe with only selected columns
+            X_selected = df[selected_features]
             
-            return jsonify(response_data)
-        
-        except ValueError as e:
-            logger.error(f"🔴 Preprocessing error: {str(e)}")
-            return jsonify({"error": str(e)}), 400
-        
+            # Compile information about problematic columns
+            problematic_columns = []
+            for col in feature_selector.problematic_columns:
+                if col in feature_selector.column_metadata:
+                    problematic_columns.append({
+                        "name": col,
+                        "reasons": feature_selector.column_metadata[col].get("reasons", ["Identified as problematic"])
+                    })
+            
+            # Extract encoding mappings
+            encoding_mappings = getattr(feature_selector, 'encoding_mappings', {})
+            # Filter to only include mappings for selected columns to reduce payload size
+            selected_encodings = {col: mapping for col, mapping in encoding_mappings.items() 
+                                if col in selected_features}
+            
+            # Return the results
+            response = {
+                "transformed_data": X_selected.to_dict(orient='records'),
+                "feature_importances": feature_importances,
+                "selected_features": selected_features,
+                "ignored_features": ignored_features,
+                "feature_metadata": feature_metadata,
+                "options": options,
+                "encoding_mappings": selected_encodings,
+                "problematic_columns": problematic_columns
+            }
+            
+            # Add target recommendations if available
+            if target_recommendations:
+                response["target_recommendations"] = target_recommendations
+            
+            logger.info("✅ Returning feature selection results")
+            return jsonify(response)
+            
+        except Exception as e:
+            logger.error(f"🔴 Error in feature selection process: {str(e)}", exc_info=True)
+            return jsonify({"error": f"Feature selection failed: {str(e)}"}), 500
+    
     except Exception as e:
-        logger.error(f"🔴 Error in feature selection: {str(e)}", exc_info=True)
-        return jsonify({
-            "error": str(e),
-            "suggestion": "Check your data format and make sure it's properly structured"
-        }), 500
+        logger.error(f"🔴 General error in select_features endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 @app.route('/transform', methods=['POST'])
 def transform():
@@ -724,39 +1239,59 @@ def transform():
     
     Returns:
     {
-        "transformed_data": {...},  # Data with only selected features 
+        "transformed_data": {...},  # Data with only selected features and proper encoding
+        "encoding_mappings": {...},  # Mappings used for categorical encoding
+        "selected_features": [...],  # List of features used
         "message": "Data transformed successfully"
     }
     """
     try:
-        # Get request data
+        logger.info("📥 Received transform request")
         request_data = request.json
         
         if not request_data or 'data' not in request_data:
+            logger.error("🔴 Invalid request - missing data")
             return jsonify({"error": "Invalid request. Missing 'data'"}), 400
         
         # Validate if feature selection has been done
         if not feature_selector.selected_features:
+            logger.error("🔴 No features have been selected")
             return jsonify({"error": "No features have been selected. Call /select_features first."}), 400
         
         # Convert JSON to DataFrame
         try:
+            logger.info("🔄 Preprocessing input data")
             X = preprocess_data(request_data['data'])
+            logger.info(f"📊 Input data shape: {X.shape}")
         except Exception as e:
+            logger.error(f"🔴 Error preprocessing data: {str(e)}")
             return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
         
-        # Transform data
+        # Transform data using the improved transform method
+        logger.info("🔄 Transforming data")
         X_transformed = feature_selector.transform(X)
         
-        # Return transformed data
+        # Extract encoding mappings used (filtered to only selected columns to reduce payload size)
+        selected_encodings = {}
+        if hasattr(feature_selector, 'encoding_mappings') and feature_selector.encoding_mappings:
+            selected_encodings = {
+                col: mapping for col, mapping in feature_selector.encoding_mappings.items()
+                if col in feature_selector.selected_features and col in X.columns
+            }
+            logger.info(f"Included {len(selected_encodings)} encoding mappings in response")
+        
+        # Return transformed data and metadata
+        logger.info("✅ Returning transformed data")
         return jsonify({
             "transformed_data": X_transformed.to_dict(orient='records'),
+            "encoding_mappings": selected_encodings,
+            "selected_features": feature_selector.selected_features,
             "message": "Data transformed successfully"
         })
     
     except Exception as e:
-        logging.error(f"Error in transform endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"🔴 Error in transform endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Transform failed: {str(e)}"}), 500
 
 if __name__ == '__main__':
     # Run the app on port 5002

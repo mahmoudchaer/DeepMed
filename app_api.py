@@ -275,13 +275,8 @@ def clean_data_for_json(data):
     return data
 
 @app.route('/')
-def home():
-    """Root route - shows the homepage without authentication"""
-    return render_template('home.html')
-
-@app.route('/app')
 def index():
-    """Original index route - requires authentication"""
+    """Root route - always check authentication first"""
     # First, check if the user is logged in
     if not current_user.is_authenticated:
         flash('Please log in to access the application.', 'info')
@@ -341,8 +336,8 @@ def login(action=None):
             # Flash a success message
             flash('Login successful!', 'success')
             
-            # Redirect to the app index route
-            return redirect('/app')
+            # Simple redirect to index
+            return redirect('/')
         else:
             flash('Invalid email or password.', 'danger')
     
@@ -451,7 +446,6 @@ def force_logout():
 # Function to save data to a temporary file
 def save_to_temp_file(data, prefix='data'):
     """Save data to a temporary file and return the filepath"""
-  
     filepath = get_temp_filepath(extension='.json')
     with open(filepath, 'w') as f:
         json.dump(data, f, cls=SafeJSONEncoder)
@@ -468,7 +462,7 @@ def load_from_temp_file(filepath):
     except Exception as e:
         logger.error(f"Error loading data from file {filepath}: {str(e)}")
         return None
-
+#pushed
 # Add a helper function to estimate session size
 def get_session_size():
     """Estimate the current session size in bytes"""

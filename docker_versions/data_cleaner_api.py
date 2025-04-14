@@ -92,6 +92,7 @@ class DataCleaner:
             
         self.scaler = StandardScaler()
         self.last_cleaning_prompt = None  # Store the last used cleaning instructions
+        self.encoding_mappings = {}  # Store encoding mappings for categorical variables
         
     def _test_openai_connection(self):
         """Test if OpenAI client is working correctly"""
@@ -275,6 +276,9 @@ class DataCleaner:
         """
         df_clean = df.copy()
         
+        # Reset encoding mappings for this cleaning run
+        self.encoding_mappings = {}
+        
         # If we have no instructions, apply default cleaning
         if not instructions or 'error' in instructions:
             logging.warning("No cleaning instructions available. Applying default cleaning.")
@@ -284,6 +288,10 @@ class DataCleaner:
                     df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
                 else:
                     df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Unknown")
+                    # Store mapping before encoding
+                    unique_vals = sorted(df_clean[col].dropna().unique())
+                    mapping = {val: idx for idx, val in enumerate(unique_vals)}
+                    self.encoding_mappings[col] = mapping
                     df_clean[col] = df_clean[col].astype("category").cat.codes
             return df_clean
             
@@ -295,6 +303,10 @@ class DataCleaner:
                     df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
                 else:
                     df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Unknown")
+                    # Store mapping before encoding
+                    unique_vals = sorted(df_clean[col].dropna().unique())
+                    mapping = {val: idx for idx, val in enumerate(unique_vals)}
+                    self.encoding_mappings[col] = mapping
                     df_clean[col] = df_clean[col].astype("category").cat.codes
                 continue
 
@@ -323,6 +335,10 @@ class DataCleaner:
             if not pd.api.types.is_numeric_dtype(df_clean[col]):
                 encoding = instr.get("encoding", "none").lower()
                 if encoding in ("onehot", "label"):
+                    # Store mapping before encoding
+                    unique_vals = sorted(df_clean[col].dropna().unique())
+                    mapping = {val: idx for idx, val in enumerate(unique_vals)}
+                    self.encoding_mappings[col] = mapping
                     df_clean[col] = df_clean[col].astype("category").cat.codes
                     logging.info("Label-encoded column '%s' (instruction: '%s').", col, encoding)
                 else:
@@ -333,8 +349,13 @@ class DataCleaner:
                         sorted_vals = sorted(list(unique_vals))
                         val_to_int = {sorted_vals[0]: 0, sorted_vals[1]: 1}
                         df_clean[col] = tmp.map(val_to_int)
+                        self.encoding_mappings[col] = val_to_int
                         logging.info("Mapped two-category column '%s' -> { '%s': 0, '%s': 1 }.", col, sorted_vals[0], sorted_vals[1])
                     else:
+                        # Store mapping before encoding
+                        unique_vals = sorted(df_clean[col].dropna().unique())
+                        mapping = {val: idx for idx, val in enumerate(unique_vals)}
+                        self.encoding_mappings[col] = mapping
                         df_clean[col] = df_clean[col].astype("category").cat.codes
                         logging.info("Fallback label-encoded column '%s'.", col)
         # Final step: ensure all columns are numeric.
@@ -431,6 +452,10 @@ class DataCleaner:
                 else:
                     mode_val = df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Unknown"
                     df_clean[col] = df_clean[col].fillna(mode_val)
+                    # Store mapping before encoding
+                    unique_vals = sorted(df_clean[col].dropna().unique())
+                    mapping = {val: idx for idx, val in enumerate(unique_vals)}
+                    self.encoding_mappings[col] = mapping
                     df_clean[col] = df_clean[col].astype("category").cat.codes
             
             # Set a default cleaning summary
@@ -462,6 +487,7 @@ def clean_data():
         "data": {...},  # Cleaned data in JSON format
         "message": "Data cleaned successfully",
         "prompt": "..."  # Cleaning instructions used (either the input prompt or a newly generated one)
+        "encoding_mappings": {...}  # Mappings used for categorical encoding
     }
     """
     try:
@@ -486,11 +512,12 @@ def clean_data():
         # Get the cleaning prompt (either the previous one or a new one)
         cleaning_prompt = cleaner.last_cleaning_prompt
         
-        # Convert DataFrame to JSON and include the prompt
+        # Convert DataFrame to JSON and include the prompt and encoding mappings
         return jsonify({
             "data": cleaned_data.to_dict(orient='records'),
             "message": "Data cleaned successfully",
-            "prompt": cleaning_prompt
+            "prompt": cleaning_prompt,
+            "encoding_mappings": cleaner.encoding_mappings
         })
     
     except Exception as e:
