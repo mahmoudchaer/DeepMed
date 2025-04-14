@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0d1117">
     <title>{% block title %}DeepMed{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -144,12 +146,12 @@
         overlay.style.left = '0';
         overlay.style.width = '100%';
         overlay.style.height = '100%';
-        overlay.style.background = 'rgba(0,0,0,0.7)';
+        overlay.style.background = 'rgba(13, 17, 23, 0.85)';
         overlay.style.zIndex = '9999';
         overlay.style.display = 'flex';
         overlay.style.justifyContent = 'center';
         overlay.style.alignItems = 'center';
-        overlay.innerHTML = '<div style="background: white; padding: 20px; border-radius: 5px;"><p>Logging out...</p></div>';
+        overlay.innerHTML = '<div class="bg-dark text-light p-4 rounded"><div class="spinner-border text-primary me-2" role="status"></div><span>Logging out...</span></div>';
         document.body.appendChild(overlay);
         
         // First make the force_logout POST request to destroy the session
