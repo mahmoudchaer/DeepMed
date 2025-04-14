@@ -81,7 +81,25 @@
 <!-- Hero Section -->
 <section class="hero-section">
     <div class="welcome-container">
-        <i class="fas fa-robot welcome-icon"></i>
+        <div style="width: 220px; height: 220px; margin: 0 auto 2rem auto;">
+            <!-- DeepMed Logo SVG -->
+            <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+                <style>
+                    .d-path { fill: #00a2e8; }
+                    .circuits { fill: #00a2e8; }
+                    .m-path { fill: #7b68ee; }
+                </style>
+                <!-- D with Circuit Pattern -->
+                <path class="d-path" d="M50,50 L95,50 C140,50 170,90 170,150 C170,210 140,250 95,250 L50,250 Z M95,90 L95,210 C115,210 130,190 130,150 C130,110 115,90 95,90 Z" />
+                <!-- Circuit Lines -->
+                <circle class="circuits" cx="85" cy="100" r="10" />
+                <circle class="circuits" cx="85" cy="180" r="10" />
+                <line class="circuits" x1="85" y1="100" x2="130" y2="100" stroke="#00a2e8" stroke-width="6" />
+                <line class="circuits" x1="85" y1="180" x2="130" y2="180" stroke="#00a2e8" stroke-width="6" />
+                <!-- Med text (M) -->
+                <path class="m-path" d="M180,100 L200,100 L220,150 L240,100 L260,100 L260,250 L230,250 L230,170 L220,200 L210,170 L210,250 L180,250 Z" />
+            </svg>
+        </div>
         <h1 class="display-4 fw-bold mb-4">Bring our <span class="gradient-text">Models</span> to life</h1>
         <p class="lead fs-3 mb-4">Upload your Data and get your personalised ready to use AI</p>
     </div>
