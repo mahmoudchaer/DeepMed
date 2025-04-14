@@ -11,61 +11,162 @@ body {
     background-color: #0a0c10;
     position: relative;
     overflow: hidden;
-    padding: 4rem 0;
+    padding: 6rem 0;
 }
 
-.hero-section::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    background: none;
+.beta-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 9999px;
+    color: #60a5fa;
+    font-size: 0.875rem;
+    font-weight: 500;
+    backdrop-filter: blur(8px);
+}
+
+/* Text gradients */
+.gradient-text {
+    background: linear-gradient(to right, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.gradient-text-white {
+    background: linear-gradient(to right, #ffffff, #e2e8f0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 /* Navigation */
 .navbar {
     background-color: #0a0c10 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: none;
+    padding: 1rem 0;
 }
 
 .navbar-brand {
-    font-weight: 600;
     font-size: 1.5rem;
-    color: #fff;
-}
-
-.nav-link {
-    font-weight: 500;
-    transition: all 0.2s ease;
-    color: rgba(255, 255, 255, 0.8) !important;
-    padding: 0.5rem 1rem;
-}
-
-.nav-link:hover {
-    transform: none;
     color: #fff !important;
 }
 
-/* Main app styling */
+.nav-link {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #fff !important;
+}
+
+/* Buttons */
 .btn-primary {
     background: #2563eb;
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 6px;
     border: none;
-    transition: all 0.2s ease;
+    padding: 0.75rem 1.5rem;
+    color: white;
+    border-radius: 0.5rem;
     font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-    transform: none;
     background: #1d4ed8;
-    box-shadow: none;
+    transform: translateY(-1px);
 }
 
+.btn-outline-light {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+/* Platform preview */
+.platform-preview {
+    margin-top: 4rem;
+    position: relative;
+    padding: 1rem;
+}
+
+.preview-glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #2563eb, #3b82f6);
+    border-radius: 1rem;
+    opacity: 0.2;
+    filter: blur(20px);
+}
+
+.preview-container {
+    position: relative;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.preview-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+}
+
+.preview-badge {
+    position: absolute;
+    bottom: -1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    color: #60a5fa;
+    font-size: 0.875rem;
+    backdrop-filter: blur(8px);
+    white-space: nowrap;
+}
+
+/* Responsive text */
+@media (max-width: 768px) {
+    .display-3 {
+        font-size: 2.5rem;
+    }
+    
+    .lead {
+        font-size: 1.1rem;
+    }
+}
+
+/* Canvas positioning */
+#particleCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+/* Utility classes */
+.text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+/* Main app styling */
 .status-box, .metric-card, .model-card, .chat-container, .process-step {
     background-color: #0d1117;
     border: 1px solid rgba(255, 255, 255, 0.05);
