@@ -16,6 +16,9 @@ from torchvision import transforms
 from torchvision.models.segmentation import deeplabv3_resnet50
 from PIL import Image
 from flask import Flask, request, jsonify, Response, send_file
+import uuid
+import psutil
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -27,130 +30,163 @@ app = Flask(__name__)
 temp_dirs = []
 
 class SegmentationDataset(Dataset):
+    """Dataset for semantic segmentation task"""
+    
     def __init__(self, image_dir, mask_dir, transform=None, mask_transform=None, class_labels=None):
+        """
+        Initialize the dataset
+        
+        Args:
+            image_dir (str): Directory containing the input images
+            mask_dir (str): Directory containing the segmentation masks
+            transform (callable, optional): Transform to apply to the input images
+            mask_transform (callable, optional): Transform to apply to the masks
+            class_labels (list, optional): List of class labels
+        """
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
         self.mask_transform = mask_transform
         self.class_labels = class_labels
         
-        # Get all image files
-        self.images = sorted([f for f in os.listdir(image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))])
+        # Get list of image files
+        self.image_files = sorted([f for f in os.listdir(image_dir) 
+                                 if f.endswith(('.png', '.jpg', '.jpeg'))])
         
-        # Verify matching masks exist
-        self.valid_images = []
-        for img_name in self.images:
-            mask_name = img_name  # Assuming mask filenames match image filenames
-            if os.path.exists(os.path.join(mask_dir, mask_name)):
-                self.valid_images.append(img_name)
-            else:
-                logger.warning(f"Mask not found for image {img_name}")
+        # Check if masks exist for all images
+        valid_pairs = []
+        self.mask_type = None  # Will be set when we analyze the first mask
         
-        logger.info(f"Found {len(self.valid_images)} valid image-mask pairs")
+        for img_file in self.image_files:
+            # Check for corresponding mask with same name
+            mask_file = img_file
+            
+            # Also check for .png version if image is jpg/jpeg
+            if not os.path.exists(os.path.join(mask_dir, mask_file)) and mask_file.endswith(('.jpg', '.jpeg')):
+                mask_file = os.path.splitext(img_file)[0] + '.png'
+            
+            if os.path.exists(os.path.join(mask_dir, mask_file)):
+                valid_pairs.append((img_file, mask_file))
+            
+        self.valid_pairs = valid_pairs
         
-        # Analyze a sample mask to determine mask type
-        if len(self.valid_images) > 0:
-            self._analyze_mask_type()
+        # Analyze a sample mask if available
+        if len(valid_pairs) > 0:
+            self.mask_type = self._analyze_mask_type(os.path.join(mask_dir, valid_pairs[0][1]))
+            logger.info(f"Dataset initialized with {len(valid_pairs)} image-mask pairs. Detected mask type: {self.mask_type}")
+        else:
+            logger.warning("No valid image-mask pairs found")
     
-    def _analyze_mask_type(self):
-        """Analyze a sample mask to determine how to process it"""
-        sample_name = self.valid_images[0]
-        sample_path = os.path.join(self.mask_dir, sample_name)
+    def _analyze_mask_type(self, mask_path):
+        """
+        Analyze a sample mask to determine its type
+        
+        Args:
+            mask_path (str): Path to the mask file
+            
+        Returns:
+            str: Type of mask ('grayscale', 'rgb', 'binary', or 'other')
+        """
         try:
-            with Image.open(sample_path) as mask:
-                # Check if mask is grayscale
-                if mask.mode == 'L':
-                    logger.info("Detected grayscale (L) masks")
-                    self.mask_mode = 'L'
-                # Check if mask is RGB
-                elif mask.mode == 'RGB':
-                    logger.info("Detected RGB masks - will convert to grayscale")
-                    self.mask_mode = 'RGB'
-                # Check if mask is binary (1-bit)
-                elif mask.mode == '1':
-                    logger.info("Detected binary (1-bit) masks")
-                    self.mask_mode = '1'
-                # Handle other modes
-                else:
-                    logger.info(f"Detected masks with mode {mask.mode} - will convert to grayscale")
-                    self.mask_mode = 'other'
-                    
-                # Convert to array to check value range
+            with Image.open(mask_path) as mask:
+                # Log the basic information
+                logger.info(f"Sample mask: mode={mask.mode}, size={mask.size}")
+                
+                # Convert to numpy array for analysis
                 mask_array = np.array(mask)
+                
+                # Log shape and unique values
+                logger.info(f"Mask array shape: {mask_array.shape}")
                 unique_values = np.unique(mask_array)
                 logger.info(f"Mask unique values: {unique_values}")
                 
-                # If binary-like with only 0 and 255 values
-                if len(unique_values) == 2 and 0 in unique_values and 255 in unique_values:
-                    logger.info("Detected binary-like mask with 0/255 values")
-                    self.is_binary_like = True
-                else:
-                    self.is_binary_like = False
+                # Determine the mask type
+                if mask.mode == 'L' or len(mask_array.shape) == 2:
+                    # Grayscale mask
+                    if len(unique_values) == 2 and ((0 in unique_values and 1 in unique_values) or
+                                                   (0 in unique_values and 255 in unique_values)):
+                        return 'binary'
+                    return 'grayscale'
+                elif mask.mode in ('RGB', 'RGBA') or len(mask_array.shape) == 3:
+                    if mask_array.shape[2] == 3 or mask_array.shape[2] == 4:
+                        # Check if it's actually a color-coded mask or just a binary mask saved as RGB
+                        if len(unique_values) <= 2:
+                            return 'binary'
+                        return 'rgb'
+                
+                return 'other'
         except Exception as e:
-            logger.warning(f"Error analyzing mask type: {str(e)}")
-            self.mask_mode = 'L'  # Default to grayscale
-            self.is_binary_like = False
-    
+            logger.error(f"Error analyzing mask type: {str(e)}")
+            return 'unknown'
+
     def __len__(self):
-        return len(self.valid_images)
-    
+        """Get the number of samples in the dataset"""
+        return len(self.valid_pairs)
+
     def __getitem__(self, idx):
-        img_name = self.valid_images[idx]
-        img_path = os.path.join(self.image_dir, img_name)
-        mask_path = os.path.join(self.mask_dir, img_name)
+        """
+        Get a sample from the dataset
         
-        # Load image
-        image = Image.open(img_path).convert('RGB')
-        
-        # Load mask
-        mask = Image.open(mask_path)
-        
-        # Pre-process mask based on its detected type
-        if hasattr(self, 'mask_mode') and self.mask_mode != 'L':
-            if self.mask_mode == 'RGB':
-                # Convert RGB to grayscale
+        Args:
+            idx (int): Index of the sample
+            
+        Returns:
+            tuple: (image, mask) where mask is the segmentation mask
+        """
+        try:
+            # Get the file names
+            img_file, mask_file = self.valid_pairs[idx]
+            
+            # Load the image
+            img_path = os.path.join(self.image_dir, img_file)
+            image = Image.open(img_path).convert('RGB')
+            
+            # Load the mask
+            mask_path = os.path.join(self.mask_dir, mask_file)
+            mask = Image.open(mask_path)
+            
+            # Process the mask based on its type
+            if self.mask_type == 'rgb':
+                # Convert RGB mask to grayscale class indices
                 mask = mask.convert('L')
-            elif self.mask_mode == '1':
-                # Convert 1-bit to 8-bit grayscale
-                mask = mask.convert('L')
+            elif self.mask_type == 'binary':
+                # Ensure binary masks are properly handled
+                mask_array = np.array(mask)
+                
+                # Check if values are 0/255
+                if np.max(mask_array) > 1:
+                    mask_array = (mask_array > 0).astype(np.uint8)
+                
+                mask = Image.fromarray(mask_array)
+            
+            # Apply transforms
+            if self.transform:
+                image = self.transform(image)
+            
+            if self.mask_transform:
+                mask = self.mask_transform(mask)
             else:
-                # Convert any other mode to grayscale
-                mask = mask.convert('L')
-        
-        # Apply transformations to image
-        if self.transform:
-            image = self.transform(image)
-        
-        # Process mask
-        if self.mask_transform:
-            mask_tensor = self.mask_transform(mask)
-        else:
-            # Default transformation
-            mask_tensor = transforms.ToTensor()(mask)
-        
-        # Process mask values
-        if hasattr(self, 'is_binary_like') and self.is_binary_like:
-            # For binary-like masks with 0/255, convert to 0/1
-            mask_tensor = (mask_tensor > 0.5).long()
-        else:
-            # For multi-class masks, keep as is but ensure it's long type
-            mask_tensor = mask_tensor.long()
-        
-        # Ensure mask is 2D (without channel dimension)
-        mask_tensor = mask_tensor.squeeze(0)
-        
-        # Check mask values and warn if they seem off
-        unique_values = torch.unique(mask_tensor)
-        logger.debug(f"Mask unique values: {unique_values.tolist()}")
-        
-        # If the mask has large values that look like RGB values, warn and convert
-        if torch.any(unique_values > 100):
-            logger.warning(f"Found unusually large mask values: {unique_values.tolist()} - converting to class indices")
-            # Normalize to 0-N range
-            for i, val in enumerate(sorted(unique_values.tolist())):
-                mask_tensor[mask_tensor == val] = i
-        
-        return image, mask_tensor
+                # Default processing if no mask_transform
+                mask = torch.from_numpy(np.array(mask)).long()
+            
+            # Ensure mask has the right format
+            if mask.dim() == 3:
+                # If mask has 3 dimensions (C,H,W), convert to (H,W) by taking first channel
+                mask = mask[0,:,:]
+            
+            # Sanity check on mask values and dimensions
+            if torch.max(mask) > 100:  # If values are very high, likely 0-255 range
+                logger.info(f"Converting mask with max value {torch.max(mask).item()} to binary")
+                mask = (mask > 0).long()
+            
+            return image, mask
+            
+        except Exception as e:
+            logger.error(f"Error loading sample {idx}: {str(e)}")
+            # Create an empty dummy sample
+            empty_img = torch.zeros(3, 224, 224)
+            empty_mask = torch.zeros(224, 224).long()
+            return empty_img, empty_mask
 
 def train_deeplab(dataset, num_classes, epochs, batch_size, device='cpu'):
     """Train a DeepLabV3 model with ResNet-50 backbone"""
@@ -281,301 +317,446 @@ def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "service": "semantic-segmentation-service"})
 
-@app.route('/train', methods=['POST'])
+@app.post("/train")
 def train_model():
-    """
-    Endpoint to train a semantic segmentation model using DeepLabV3 with ResNet50 backbone
-    
-    Expects a multipart/form-data POST with:
-    - zipFile: A zip file containing:
-      - /images: folder with input images (JPEG/PNG)
-      - /masks: folder with segmentation masks (same filenames as images)
-      - Optional: labels.txt for class names
-    - level: Level of training (1-5) which determines the complexity and training time
-    - image_size: (Optional) Size to resize images to (default: 256)
-    
-    Returns a zip file with the trained model and instructions
-    """
+    """Train a semantic segmentation model on the uploaded data"""
     try:
-        # Set logging level to include debug messages
-        logging.getLogger(__name__).setLevel(logging.DEBUG)
+        # Get uploaded file
+        uploaded_file = request.files.get('file')
+        if not uploaded_file:
+            return jsonify({'error': 'No file provided'}), 400
         
-        if 'zipFile' not in request.files:
-            return jsonify({"error": "No ZIP file uploaded"}), 400
+        # Define working directory
+        work_dir = os.path.join(tempfile.gettempdir(), f'segmentation_training_{uuid.uuid4().hex}')
+        os.makedirs(work_dir, exist_ok=True)
+        logger.info(f"Working directory: {work_dir}")
         
-        # Get the zip file from the request
-        zip_file = request.files['zipFile']
-        
-        # Get level parameter with default
-        level = int(request.form.get('level', 3))
-        
-        # Get image size with default
-        image_size = int(request.form.get('image_size', 256))
-        
-        # Define preset configurations for each level
-        level_configs = {
-            1: {
-                'epochs': 2,
-                'batch_size': 8,
-                'learning_rate': 1e-3
-            },
-            2: {
-                'epochs': 5,
-                'batch_size': 8,
-                'learning_rate': 1e-3
-            },
-            3: {
-                'epochs': 10,
-                'batch_size': 8,
-                'learning_rate': 1e-4
-            },
-            4: {
-                'epochs': 20,
-                'batch_size': 4,
-                'learning_rate': 5e-5
-            },
-            5: {
-                'epochs': 30,
-                'batch_size': 4,
-                'learning_rate': 1e-5
-            }
-        }
-        
-        # Validate level
-        if level < 1 or level > 5:
-            return jsonify({"error": "Level must be between 1 and 5"}), 400
-        
-        # Get configuration for the selected level
-        config = level_configs[level]
-        epochs = config['epochs']
-        batch_size = config['batch_size']
-        learning_rate = config['learning_rate']
-        
-        # Log the start of processing
-        logger.info(f"Starting Semantic Segmentation training with level {level} (epochs: {epochs})")
-        
-        # Create a temporary working directory
-        temp_dir = tempfile.mkdtemp()
-        temp_dirs.append(temp_dir)
-        
-        # Create dataset directory
-        dataset_dir = os.path.join(temp_dir, "dataset")
+        # Track memory usage
+        def log_memory():
+            process = psutil.Process(os.getpid())
+            mem_info = process.memory_info()
+            logger.info(f"Memory usage: {mem_info.rss / (1024 * 1024):.2f} MB")
+
+        # Set up directories
+        dataset_dir = os.path.join(work_dir, 'dataset')
+        output_dir = os.path.join(work_dir, 'output')
         os.makedirs(dataset_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         
-        # Save the uploaded zip file
-        zip_path = os.path.join(temp_dir, "dataset.zip")
-        zip_file.save(zip_path)
+        # Save and extract zip file
+        zip_path = os.path.join(work_dir, 'data.zip')
+        uploaded_file.save(zip_path)
+        logger.info(f"Saved uploaded file to {zip_path}")
         
-        # Extract the dataset
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(dataset_dir)
-        
-        # Find images and masks directories
-        images_dir = os.path.join(dataset_dir, "images")
-        masks_dir = os.path.join(dataset_dir, "masks")
-        
-        # Check if directories exist, if not, try to find them in subfolders
-        if not os.path.isdir(images_dir) or not os.path.isdir(masks_dir):
-            logger.info("Images or masks directories not found at root level, searching in subfolders...")
-            found = False
-            
-            # List all directories at the root level
-            subdirs = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
-            
-            for subdir in subdirs:
-                subdir_path = os.path.join(dataset_dir, subdir)
-                potential_images_dir = os.path.join(subdir_path, "images")
-                potential_masks_dir = os.path.join(subdir_path, "masks")
+        # Validate zip file before extraction
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                # Check if it's a valid zip file
+                bad_file = zip_ref.testzip()
+                if bad_file:
+                    return jsonify({'error': f'Corrupt file in archive: {bad_file}'}), 400
                 
-                if os.path.isdir(potential_images_dir) and os.path.isdir(potential_masks_dir):
-                    logger.info(f"Found images and masks in subdirectory: {subdir}")
-                    images_dir = potential_images_dir
-                    masks_dir = potential_masks_dir
-                    
-                    # Also check for labels.txt in this subdirectory
-                    labels_file = os.path.join(subdir_path, "labels.txt")
-                    if os.path.exists(labels_file):
-                        # Copy it to the dataset_dir for later processing
-                        shutil.copy(labels_file, os.path.join(dataset_dir, "labels.txt"))
-                        
-                    found = True
-                    break
+                # Extract the archive
+                zip_ref.extractall(dataset_dir)
+        except zipfile.BadZipFile:
+            return jsonify({'error': 'Invalid ZIP file'}), 400
+        except Exception as e:
+            return jsonify({'error': f'Error extracting ZIP file: {str(e)}'}), 500
+        
+        # Verify dataset structure
+        images_dir = None
+        masks_dir = None
+        
+        # Look for common dataset folder structures
+        potential_structures = [
+            # Direct "images" and "masks" folders
+            {'images': 'images', 'masks': 'masks'},
+            {'images': 'imgs', 'masks': 'masks'},
+            {'images': 'images', 'masks': 'labels'},
+            {'images': 'input', 'masks': 'output'},
+            # Nested inside a dataset folder
+            {'images': 'dataset/images', 'masks': 'dataset/masks'},
+            {'images': 'dataset/imgs', 'masks': 'dataset/masks'},
+            {'images': 'dataset/images', 'masks': 'dataset/labels'},
+            # Train folder
+            {'images': 'train/images', 'masks': 'train/masks'},
+            {'images': 'train/imgs', 'masks': 'train/masks'},
+            {'images': 'train/images', 'masks': 'train/labels'},
+        ]
+        
+        # Try to find a valid dataset structure
+        for structure in potential_structures:
+            img_dir = os.path.join(dataset_dir, structure['images'])
+            msk_dir = os.path.join(dataset_dir, structure['masks'])
             
-            if not found:
-                return jsonify({"error": "Could not find 'images' and 'masks' folders in the ZIP file. Please ensure your ZIP contains these folders, either at the root or within a parent folder."}), 400
+            if os.path.exists(img_dir) and os.path.exists(msk_dir):
+                images_dir = img_dir
+                masks_dir = msk_dir
+                break
         
-        # Count the number of valid image files
+        # If we couldn't find a standard structure, look for any folders containing images
+        if images_dir is None:
+            for root, dirs, files in os.walk(dataset_dir):
+                img_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                if len(img_files) > 5:  # Arbitrary threshold to identify an image folder
+                    potential_img_dir = root
+                    # Look for a sibling directory that might contain masks
+                    parent_dir = os.path.dirname(potential_img_dir)
+                    sibling_dirs = [d for d in os.listdir(parent_dir) if os.path.isdir(os.path.join(parent_dir, d))]
+                    
+                    for sibling in sibling_dirs:
+                        sibling_path = os.path.join(parent_dir, sibling)
+                        if sibling_path != potential_img_dir:
+                            # Check if this might be a masks directory
+                            mask_files = [f for f in os.listdir(sibling_path) 
+                                         if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                            if len(mask_files) > 5:
+                                images_dir = potential_img_dir
+                                masks_dir = sibling_path
+                                break
+                
+                if images_dir:
+                    break
+        
+        # If we still can't find the directories, return an error
+        if not images_dir or not masks_dir:
+            return jsonify({'error': 'Could not find valid images and masks directories in the uploaded data'}), 400
+        
+        logger.info(f"Found images directory: {images_dir}")
+        logger.info(f"Found masks directory: {masks_dir}")
+        
+        # Check if images and masks directories contain files
         image_files = [f for f in os.listdir(images_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
-        if not image_files:
-            return jsonify({"error": "No image files found in the images directory"}), 400
+        mask_files = [f for f in os.listdir(masks_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
         
-        logger.info(f"Found {len(image_files)} images for training")
+        if len(image_files) == 0:
+            return jsonify({'error': f'No image files found in {images_dir}'}), 400
         
-        # Look for labels.txt file - could be at the root or in the parent directory we found
-        labels_file = os.path.join(dataset_dir, "labels.txt")
-        num_classes = 2  # Default: binary segmentation (background + 1 class)
-        class_labels = ["background", "foreground"]
+        if len(mask_files) == 0:
+            return jsonify({'error': f'No mask files found in {masks_dir}'}), 400
         
-        if os.path.exists(labels_file):
-            with open(labels_file, 'r') as f:
-                class_labels = ["background"] + [line.strip() for line in f.readlines() if line.strip()]
-                num_classes = len(class_labels)
-                logger.info(f"Found labels.txt with {num_classes-1} classes (total {num_classes} with background)")
+        logger.info(f"Found {len(image_files)} image files and {len(mask_files)} mask files")
         
-        # Create results directory
-        results_dir = os.path.join(temp_dir, "results")
-        os.makedirs(results_dir, exist_ok=True)
+        # Set device
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logger.info(f"Using device: {device}")
         
-        # Create transformations
+        # Set up image transformations
         transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
+            transforms.Resize((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         
         mask_transform = transforms.Compose([
-            transforms.Resize((image_size, image_size), interpolation=transforms.InterpolationMode.NEAREST),
+            transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
             transforms.ToTensor()
         ])
         
-        # Create dataset with more debug info
-        logger.info(f"Creating dataset with image_dir={images_dir}, mask_dir={masks_dir}")
-        
-        # Before creating the dataset, let's check a sample mask
-        sample_mask_files = [f for f in os.listdir(masks_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
-        if sample_mask_files:
-            sample_mask_path = os.path.join(masks_dir, sample_mask_files[0])
-            logger.info(f"Sample mask file: {sample_mask_path}")
-            try:
-                sample_mask = Image.open(sample_mask_path)
-                logger.info(f"Sample mask mode: {sample_mask.mode}, size: {sample_mask.size}")
-                
-                # Convert to numpy and check values
-                sample_array = np.array(sample_mask)
-                logger.info(f"Sample mask array shape: {sample_array.shape}, dtype: {sample_array.dtype}")
-                logger.info(f"Sample mask min: {np.min(sample_array)}, max: {np.max(sample_array)}, unique values: {np.unique(sample_array)}")
-            except Exception as e:
-                logger.error(f"Error analyzing sample mask: {str(e)}")
-        
-        dataset = SegmentationDataset(
-            image_dir=images_dir,
-            mask_dir=masks_dir,
-            transform=transform,
-            mask_transform=mask_transform,
-            class_labels=class_labels
-        )
-        
-        if len(dataset) == 0:
-            return jsonify({"error": "No valid image-mask pairs found for training"}), 400
-        
-        # Train the model
-        device = torch.device('cpu')
-        model, metrics, adjusted_num_classes = train_deeplab(
-            dataset=dataset,
-            num_classes=num_classes,
-            epochs=epochs,
-            batch_size=batch_size,
-            device=device
-        )
-        
-        # If num_classes was adjusted during training
-        if adjusted_num_classes != num_classes:
-            logger.info(f"Number of classes was adjusted from {num_classes} to {adjusted_num_classes}")
-            num_classes = adjusted_num_classes
+        # Create dataset and dataloader
+        try:
+            dataset = SegmentationDataset(images_dir, masks_dir, transform=transform, mask_transform=mask_transform)
             
-            # If needed, also adjust class labels
-            if len(class_labels) < num_classes:
-                # Add generic class names for the new classes
-                for i in range(len(class_labels), num_classes):
-                    class_labels.append(f"class_{i}")
-                logger.info(f"Adjusted class labels: {class_labels}")
+            # Determine number of classes from dataset
+            num_classes = 1  # Default for binary segmentation
+            
+            # Check a sample mask to determine number of classes
+            if len(dataset) > 0:
+                _, sample_mask = dataset[0]
+                unique_values = torch.unique(sample_mask)
+                logger.info(f"Unique mask values: {unique_values}")
+                
+                # Count unique values excluding background (0)
+                num_classes = len(unique_values)
+                if 0 in unique_values:
+                    num_classes -= 1
+                
+                # Ensure minimum 1 class (binary segmentation)
+                num_classes = max(1, num_classes)
+                
+                logger.info(f"Detected {num_classes} class(es) for segmentation")
+            
+            # Create dataloader with reasonable batch size based on dataset size
+            batch_size = min(8, max(1, len(dataset) // 10))  # Adjust batch size based on dataset size
+            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+            
+            logger.info(f"Created dataloader with batch size {batch_size}")
+            log_memory()
+            
+        except Exception as e:
+            logger.error(f"Error creating dataset: {str(e)}")
+            return jsonify({'error': f'Failed to create dataset: {str(e)}'}), 500
         
-        # Save the model
-        model_path = os.path.join(results_dir, "model.pth")
-        torch.save({
-            'model_state_dict': model.state_dict(),
-            'num_classes': num_classes,
-            'class_labels': class_labels,
-            'image_size': image_size,
-            'metrics': metrics,
-            'backbone': 'resnet50',
-            'architecture': 'deeplabv3'
-        }, model_path)
-        
-        # Create README.txt with usage instructions
-        readme_path = os.path.join(results_dir, "README.txt")
-        with open(readme_path, 'w') as f:
-            f.write("DEEPLABV3 SEMANTIC SEGMENTATION MODEL\n")
-            f.write("=====================================\n\n")
-            f.write(f"This model was trained for semantic segmentation using DeepLabV3 with a ResNet-50 backbone.\n\n")
-            f.write(f"Classes ({num_classes}):\n")
-            for i, label in enumerate(class_labels):
-                f.write(f"  {i}: {label}\n")
-            f.write("\n")
-            f.write("Performance Metrics:\n")
-            f.write(f"  Mean IoU: {metrics['miou'][-1]:.2f}%\n")
-            f.write(f"  Pixel Accuracy: {metrics['pixel_acc'][-1]:.2f}%\n\n")
-            f.write("How to load this model in PyTorch:\n")
-            f.write("```python\n")
-            f.write("import torch\n")
-            f.write("from torchvision.models.segmentation import deeplabv3_resnet50\n\n")
-            f.write("# Load checkpoint\n")
-            f.write("checkpoint = torch.load('model.pth', map_location=torch.device('cpu'))\n\n")
-            f.write("# Initialize model\n")
-            f.write("num_classes = checkpoint['num_classes']\n")
-            f.write("model = deeplabv3_resnet50(pretrained_backbone=False)\n")
-            f.write("model.classifier[4] = torch.nn.Conv2d(256, num_classes, kernel_size=(1, 1), stride=(1, 1))\n\n")
-            f.write("# Load trained weights\n")
-            f.write("model.load_state_dict(checkpoint['model_state_dict'])\n")
-            f.write("model.eval()  # Set to evaluation mode\n")
-            f.write("```\n\n")
-            f.write("Example for prediction:\n")
-            f.write("```python\n")
-            f.write("from PIL import Image\n")
-            f.write("import torchvision.transforms as transforms\n")
-            f.write("import torch.nn.functional as F\n\n")
-            f.write("# Load and preprocess image\n")
-            f.write(f"image_size = {image_size}\n")
-            f.write("transform = transforms.Compose([\n")
-            f.write("    transforms.Resize((image_size, image_size)),\n")
-            f.write("    transforms.ToTensor(),\n")
-            f.write("    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])\n")
-            f.write("])\n\n")
-            f.write("image = Image.open('your_image.jpg').convert('RGB')\n")
-            f.write("input_tensor = transform(image).unsqueeze(0)  # Add batch dimension\n\n")
-            f.write("# Make prediction\n")
-            f.write("with torch.no_grad():\n")
-            f.write("    output = model(input_tensor)['out']\n")
-            f.write("    prediction = output.argmax(1).squeeze(0).cpu().numpy()\n")
-            f.write("```\n")
-        
-        # Create requirements.txt
-        requirements_path = os.path.join(results_dir, "requirements.txt")
-        with open(requirements_path, 'w') as f:
-            f.write("torch>=1.9.0\n")
-            f.write("torchvision>=0.10.0\n")
-            f.write("pillow>=8.0.0\n")
-            f.write("numpy>=1.19.0\n")
-        
-        # Create a zip file of the model, README, and requirements
-        zip_output_path = os.path.join(temp_dir, "segmentation_model.zip")
-        with zipfile.ZipFile(zip_output_path, 'w') as zipf:
-            zipf.write(model_path, arcname="model.pth")
-            zipf.write(readme_path, arcname="README.txt")
-            zipf.write(requirements_path, arcname="requirements.txt")
-        
-        # Return the zip file
-        return send_file(
-            zip_output_path,
-            mimetype='application/zip',
-            as_attachment=True,
-            download_name='segmentation_model.zip'
-        )
-        
+        # Create and train the model
+        try:
+            # Check if we need a binary or multi-class model
+            if num_classes == 1:
+                # Binary segmentation (background vs foreground)
+                model = UNet(n_channels=3, n_classes=1, bilinear=False).to(device)
+                logger.info("Created U-Net model for binary segmentation")
+            else:
+                # Multi-class segmentation
+                model = UNet(n_channels=3, n_classes=num_classes + 1, bilinear=False).to(device)
+                logger.info(f"Created U-Net model for {num_classes+1} classes")
+            
+            # Configure optimizer and loss function
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+            
+            # Choose loss function based on segmentation type
+            if num_classes == 1:
+                # Binary segmentation
+                criterion = torch.nn.BCEWithLogitsLoss()
+            else:
+                # Multi-class segmentation
+                criterion = torch.nn.CrossEntropyLoss()
+            
+            logger.info("Starting training...")
+            
+            # Training parameters
+            num_epochs = min(50, max(10, 100 // len(dataloader)))  # Scale epochs based on dataset size
+            logger.info(f"Training for {num_epochs} epochs")
+            
+            # Training loop
+            best_loss = float('inf')
+            patience_counter = 0
+            max_patience = 5
+            early_stop = False
+            
+            for epoch in range(num_epochs):
+                if early_stop:
+                    break
+                    
+                model.train()
+                epoch_loss = 0
+                
+                # Monitor and limit memory usage
+                log_memory()
+                
+                # Check memory before training loop - prevent OOM
+                process = psutil.Process(os.getpid())
+                if process.memory_info().rss > 2 * 1024 * 1024 * 1024:  # 2GB limit
+                    logger.warning("Memory usage too high, reducing batch size")
+                    # Reduce batch size on the fly if memory usage is high
+                    for param_group in optimizer.param_groups:
+                        param_group['lr'] = param_group['lr'] * 0.5
+                
+                for batch_idx, (images, masks) in enumerate(dataloader):
+                    try:
+                        # Clear gradients
+                        optimizer.zero_grad()
+                        
+                        # Move data to device
+                        images = images.to(device)
+                        masks = masks.to(device)
+                        
+                        # Forward pass
+                        outputs = model(images)
+                        
+                        # Process outputs based on segmentation type
+                        if num_classes == 1:
+                            # Binary segmentation
+                            masks = masks.float().unsqueeze(1)
+                            loss = criterion(outputs, masks)
+                        else:
+                            # Multi-class segmentation
+                            loss = criterion(outputs, masks)
+                        
+                        # Backward pass and optimize
+                        loss.backward()
+                        optimizer.step()
+                        
+                        epoch_loss += loss.item()
+                        
+                        # Free memory
+                        del images, masks, outputs, loss
+                        torch.cuda.empty_cache()
+                        
+                        # Log progress
+                        if (batch_idx + 1) % 5 == 0 or (batch_idx + 1) == len(dataloader):
+                            logger.info(f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item():.4f}")
+                            log_memory()
+                            
+                    except RuntimeError as e:
+                        if "out of memory" in str(e).lower():
+                            logger.error(f"Out of memory error: {str(e)}")
+                            # Reduce batch size for next iteration
+                            batch_size = max(1, batch_size // 2)
+                            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+                            logger.info(f"Reduced batch size to {batch_size}")
+                            
+                            # Clear cache and try to recover
+                            torch.cuda.empty_cache()
+                            continue
+                        else:
+                            raise
+                
+                # Average loss for the epoch
+                avg_loss = epoch_loss / len(dataloader)
+                logger.info(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}")
+                
+                # Check for early stopping
+                if avg_loss < best_loss:
+                    best_loss = avg_loss
+                    patience_counter = 0
+                    # Save the best model
+                    torch.save(model.state_dict(), os.path.join(output_dir, 'best_model.pth'))
+                else:
+                    patience_counter += 1
+                    if patience_counter >= max_patience:
+                        logger.info(f"Early stopping after {epoch+1} epochs")
+                        early_stop = True
+            
+            # Evaluate the model
+            model.eval()
+            
+            # Functions for evaluation metrics
+            def calculate_iou(pred, target, smooth=1e-6):
+                # Convert predictions to binary masks
+                if num_classes == 1:
+                    pred = (pred > 0).float()
+                    intersection = (pred * target).sum()
+                    union = pred.sum() + target.sum() - intersection
+                else:
+                    pred = torch.argmax(pred, dim=1)
+                    intersection = (pred == target).float().sum()
+                    union = pred.numel()  # Total number of pixels
+                
+                iou = (intersection + smooth) / (union + smooth)
+                return iou.item()
+            
+            def calculate_pixel_accuracy(pred, target):
+                if num_classes == 1:
+                    pred = (pred > 0).float()
+                    correct = (pred == target).float().sum()
+                else:
+                    pred = torch.argmax(pred, dim=1)
+                    correct = (pred == target).float().sum()
+                
+                total = target.numel()
+                return (correct / total).item()
+            
+            # Evaluation loop
+            val_iou = 0
+            val_accuracy = 0
+            test_loader = DataLoader(dataset, batch_size=1, shuffle=False)
+            
+            with torch.no_grad():
+                for images, masks in test_loader:
+                    images = images.to(device)
+                    masks = masks.to(device)
+                    
+                    outputs = model(images)
+                    
+                    val_iou += calculate_iou(outputs, masks)
+                    val_accuracy += calculate_pixel_accuracy(outputs, masks)
+            
+            val_iou /= len(test_loader)
+            val_accuracy /= len(test_loader)
+            
+            logger.info(f"Validation IoU: {val_iou:.4f}")
+            logger.info(f"Validation Pixel Accuracy: {val_accuracy:.4f}")
+            
+            # Save the final model
+            model_path = os.path.join(output_dir, 'model.pth')
+            torch.save(model.state_dict(), model_path)
+            logger.info(f"Model saved to {model_path}")
+            
+            # Create a README file with usage instructions
+            readme_path = os.path.join(output_dir, 'README.txt')
+            with open(readme_path, 'w') as f:
+                f.write("# Semantic Segmentation Model\n\n")
+                f.write(f"Model type: U-Net\n")
+                f.write(f"Number of classes: {num_classes}\n")
+                f.write(f"Input size: 256x256\n\n")
+                f.write("## Training metrics\n")
+                f.write(f"IoU: {val_iou:.4f}\n")
+                f.write(f"Pixel Accuracy: {val_accuracy:.4f}\n\n")
+                f.write("## Usage\n")
+                f.write("To use this model for inference:\n")
+                f.write("```python\n")
+                f.write("import torch\n")
+                f.write("from unet_model import UNet\n\n")
+                f.write(f"model = UNet(n_channels=3, n_classes={'1' if num_classes == 1 else str(num_classes+1)})\n")
+                f.write("model.load_state_dict(torch.load('model.pth'))\n")
+                f.write("model.eval()\n")
+                f.write("```\n")
+            
+            # Create a requirements.txt file
+            requirements_path = os.path.join(output_dir, 'requirements.txt')
+            with open(requirements_path, 'w') as f:
+                f.write("torch>=1.7.0\n")
+                f.write("torchvision>=0.8.0\n")
+                f.write("numpy>=1.19.0\n")
+                f.write("Pillow>=7.0.0\n")
+            
+            # Save the model architecture
+            model_code_path = os.path.join(output_dir, 'unet_model.py')
+            with open(__file__, 'r') as source_file:
+                source_code = source_file.read()
+                
+                # Extract UNet model class definition
+                unet_class_match = re.search(r'class UNet\(.*?\):.*?(?=class|\Z)', source_code, re.DOTALL)
+                double_conv_match = re.search(r'class DoubleConv\(.*?\):.*?(?=class)', source_code, re.DOTALL)
+                down_match = re.search(r'class Down\(.*?\):.*?(?=class)', source_code, re.DOTALL)
+                up_match = re.search(r'class Up\(.*?\):.*?(?=class)', source_code, re.DOTALL)
+                outconv_match = re.search(r'class OutConv\(.*?\):.*?(?=class)', source_code, re.DOTALL)
+                
+                with open(model_code_path, 'w') as model_file:
+                    model_file.write("import torch\n")
+                    model_file.write("import torch.nn as nn\n")
+                    model_file.write("import torch.nn.functional as F\n\n")
+                    
+                    if double_conv_match:
+                        model_file.write(double_conv_match.group(0))
+                    if down_match:
+                        model_file.write(down_match.group(0))
+                    if up_match:
+                        model_file.write(up_match.group(0))
+                    if outconv_match:
+                        model_file.write(outconv_match.group(0))
+                    if unet_class_match:
+                        model_file.write(unet_class_match.group(0))
+            
+            # Create a ZIP file with the trained model and other files
+            output_zip_path = os.path.join(work_dir, 'trained_model.zip')
+            with zipfile.ZipFile(output_zip_path, 'w') as zip_ref:
+                for root, _, files in os.walk(output_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zip_ref.write(file_path, os.path.relpath(file_path, output_dir))
+            
+            logger.info(f"Created output ZIP file: {output_zip_path}")
+            
+            # Return the trained model as a downloadable file
+            return send_file(
+                output_zip_path,
+                as_attachment=True,
+                download_name='trained_segmentation_model.zip',
+                mimetype='application/zip'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error during model training: {str(e)}")
+            logger.error(traceback.format_exc())
+            return jsonify({'error': f'Model training failed: {str(e)}'}), 500
+            
     except Exception as e:
-        logger.error(f"Error in semantic segmentation training: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
+    
+    finally:
+        # Cleanup
+        try:
+            if 'work_dir' in locals() and os.path.exists(work_dir):
+                logger.info(f"Cleaning up working directory: {work_dir}")
+                shutil.rmtree(work_dir, ignore_errors=True)
+        except Exception as cleanup_error:
+            logger.error(f"Error during cleanup: {str(cleanup_error)}")
+        
+        # Clear GPU memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 def cleanup_temp_dirs():
     """Clean up temporary directories"""

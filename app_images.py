@@ -158,12 +158,13 @@ def api_finetune_yolo():
             # Forward the request to the object detection service
             headers = {'Content-Type': form_data.content_type}
             
-            # Stream the request to the service
+            # Stream the request to the service with increased timeout
             response = requests.post(
                 f"{OBJECT_DETECTION_SERVICE_URL}/finetune",
                 headers=headers,
                 data=form_data,
-                stream=True
+                stream=True,
+                timeout=600  # Increase timeout to 10 minutes
             )
         
         # Clean up the temporary file
@@ -184,11 +185,20 @@ def api_finetune_yolo():
             
             return jsonify({"error": error_message}), response.status_code
         
-        # Create a Flask response with the model zip file
-        flask_response = Response(response.content)
+        # Create a Flask response to stream the content
+        def generate():
+            for chunk in response.iter_content(chunk_size=4096):
+                yield chunk
+        
+        # Create a streaming response
+        flask_response = Response(generate(), mimetype='application/zip')
         flask_response.headers["Content-Type"] = "application/zip"
         flask_response.headers["Content-Disposition"] = "attachment; filename=yolov5_model.zip"
+        flask_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        flask_response.headers["Pragma"] = "no-cache"
+        flask_response.headers["Expires"] = "0"
         
+        logger.info("Successfully returned YOLOv5 model file to client")
         return flask_response
         
     except Exception as e:
