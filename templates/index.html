@@ -16,93 +16,65 @@
 
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-12">
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Welcome to DeepMed</h4>
+                    <h4 class="mb-0">DeepMed Tabular Data Training</h4>
                 </div>
                 <div class="card-body">
-                    <h5>Choose Analysis Type</h5>
-                    <p>Select the type of medical data you'd like to analyze with our AI system.</p>
-                    
                     <div class="row mb-4">
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-table fa-3x text-primary mb-3"></i>
-                                    <h5 class="card-title">Tabular Data Analysis</h5>
-                                    <p class="card-text">Analyze structured medical data from spreadsheets, clinical trials, or patient records.</p>
-                                    <button type="button" class="btn btn-primary" id="showTabularUpload">Select</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-image fa-3x text-primary mb-3"></i>
-                                    <h5 class="card-title">Medical Image Analysis</h5>
-                                    <p class="card-text">Analyze medical images including X-rays, MRIs, CT scans, and other diagnostic imagery.</p>
-                                    <a href="{{ url_for('images') }}" class="btn btn-primary">Select</a>
-                                </div>
-                            </div>
+                        <div class="col-md-6 mx-auto text-center">
+                            <i class="fas fa-table fa-4x text-primary mb-3"></i>
+                            <h3 class="card-title">Tabular Data Analysis</h3>
+                            <p class="card-text">Our specialized AI models can analyze your structured medical data to provide valuable insights and accurate predictions. Upload your tabular data to begin.</p>
                         </div>
                     </div>
                     
-                    <div id="tabularUploadSection" style="display: none;">
+                    <div id="tabularUploadSection">
                         <h5>Upload Your Tabular Data</h5>
                         <p>Get started by uploading your dataset for analysis. We accept CSV and Excel files.</p>
                         
                         <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="mb-4" id="upload-form">
-                            <div class="mb-3">
-                                <label for="file" class="form-label">Select File</label>
-                                <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
-                                <div class="form-text">Maximum file size: 16MB</div>
+                            <div class="row">
+                                <div class="col-md-8 mx-auto">
+                                    <div class="mb-3">
+                                        <label for="file" class="form-label">Select File</label>
+                                        <input type="file" class="form-control form-control-lg" id="file" name="file" accept=".csv,.xlsx,.xls">
+                                        <div class="form-text">Maximum file size: 16MB</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" id="upload-btn">Upload and Analyze</button>
+                                </div>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="upload-btn">Upload and Analyze</button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-md-4">
+        <div class="col-md-12">
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">Services Status</h4>
                 </div>
                 <div class="card-body">
-                    <ul class="list-group">
-                        {% for service, status in services_status.items() %}
-                            {% if status == "healthy" %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ service }}
-                                    <span class="badge bg-success rounded-pill">Active</span>
-                                </li>
-                            {% else %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ service }}
-                                    <span class="badge bg-danger rounded-pill">Offline</span>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Quick Actions</h4>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('training') }}" class="btn btn-outline-primary">Training</a>
-                        <a href="{{ url_for('my_models') }}" class="btn btn-outline-primary">Models</a>
-                        <a href="{{ url_for('images') }}" class="btn btn-outline-primary">Images</a>
-                        <a href="{{ url_for('augment') }}" class="btn btn-outline-primary">Augment</a>
-                        <a href="{{ url_for('object_detection') }}" class="btn btn-outline-primary">Object Detection</a>
-                        <a href="{{ url_for('anomaly_detection') }}" class="btn btn-outline-primary">Anomaly Detection</a>
-                        <a href="{{ url_for('semantic_segmentation') }}" class="btn btn-outline-primary">Semantic Segmentation</a>
-                        <a href="{{ url_for('chat') }}" class="btn btn-outline-primary">AI Assistant</a>
+                    <div class="row">
+                        <div class="col-md-6 mx-auto">
+                            <ul class="list-group">
+                                {% for service, status in services_status.items() %}
+                                    {% if status == "healthy" %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ service }}
+                                            <span class="badge bg-success rounded-pill">Active</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ service }}
+                                            <span class="badge bg-danger rounded-pill">Offline</span>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -117,16 +89,6 @@
         const form = document.getElementById('upload-form');
         const loadingOverlay = document.getElementById('loading-overlay');
         const uploadBtn = document.getElementById('upload-btn');
-        const showTabularUploadBtn = document.getElementById('showTabularUpload');
-        const tabularUploadSection = document.getElementById('tabularUploadSection');
-        
-        // Show tabular upload section when selected
-        showTabularUploadBtn.addEventListener('click', function() {
-            tabularUploadSection.style.display = 'block';
-            showTabularUploadBtn.classList.remove('btn-primary');
-            showTabularUploadBtn.classList.add('btn-success');
-            showTabularUploadBtn.textContent = 'Selected';
-        });
         
         form.addEventListener('submit', function(e) {
             // Check if a file was actually selected
