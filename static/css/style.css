@@ -6,6 +6,24 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
+/* Hero section */
+.hero-section {
+    background-color: #0a0c10;
+    position: relative;
+    overflow: hidden;
+    padding: 4rem 0;
+}
+
+.hero-section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    background: none;
+}
+
 /* Navigation */
 .navbar {
     background-color: #0a0c10 !important;
@@ -289,10 +307,4 @@ h1, h2, h3 {
     background-color: rgba(236, 201, 75, 0.1);
     border-color: rgba(236, 201, 75, 0.2);
     color: #f6e05e;
-}
-
-.alert-info {
-    background-color: rgba(99, 179, 237, 0.1);
-    border-color: rgba(99, 179, 237, 0.2);
-    color: #63b3ed;
 } 
