@@ -16,7 +16,8 @@
 
     .hero-section {
         min-height: 85vh;
-        background: linear-gradient(to bottom, rgba(13, 17, 23, 0.99), rgba(13, 17, 23, 0.97));
+        background: linear-gradient(to bottom, rgba(13, 17, 23, 0.99), rgba(13, 17, 23, 0.97)), url('https://cdn.pixabay.com/photo/2021/03/02/17/46/artificial-intelligence-6063504_1280.png') no-repeat center center;
+        background-size: cover;
         position: relative;
         overflow: hidden;
     }
@@ -28,11 +29,11 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at top right, rgba(88, 28, 135, 0.15), transparent 60%);
+        background: radial-gradient(circle at top right, rgba(8, 145, 178, 0.1), transparent 60%);
     }
 
     .gradient-text {
-        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        background: linear-gradient(90deg, #63b3ed, #76e4f7, #9f7aea);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -40,7 +41,7 @@
     }
 
     .btn-primary {
-        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        background: linear-gradient(90deg, #0d6efd, #0891b2);
         border: none;
         padding: 12px 28px;
         border-radius: 8px;
@@ -60,7 +61,7 @@
 
     .btn-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
+        box-shadow: 0 8px 16px rgba(13, 110, 253, 0.2);
     }
 
     .btn-outline:hover {
@@ -95,23 +96,23 @@
     }
 
     .icon-blue {
-        background: rgba(139, 92, 246, 0.15);
-        color: #8b5cf6;
+        background: rgba(13, 110, 253, 0.15);
+        color: #63b3ed;
     }
 
     .icon-purple {
-        background: rgba(139, 92, 246, 0.15);
-        color: #8b5cf6;
+        background: rgba(159, 122, 234, 0.15);
+        color: #9f7aea;
     }
 
     .icon-teal {
-        background: rgba(139, 92, 246, 0.15);
-        color: #8b5cf6;
+        background: rgba(8, 145, 178, 0.15);
+        color: #76e4f7;
     }
 
     .icon-green {
-        background: rgba(139, 92, 246, 0.15);
-        color: #8b5cf6;
+        background: rgba(72, 187, 120, 0.15);
+        color: #68d391;
     }
 
     .stat-card {
@@ -125,7 +126,7 @@
     .stat-number {
         font-size: 3rem;
         font-weight: 700;
-        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        background: linear-gradient(90deg, #63b3ed, #76e4f7);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -143,7 +144,7 @@
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        background: linear-gradient(90deg, #0d6efd, #0891b2);
         color: white;
         display: flex;
         align-items: center;
@@ -167,8 +168,8 @@
     }
 
     .badge-beta {
-        background: rgba(139, 92, 246, 0.2);
-        color: #8b5cf6;
+        background: rgba(8, 145, 178, 0.2);
+        color: #76e4f7;
         padding: 6px 12px;
         border-radius: 20px;
         font-weight: 600;
@@ -185,18 +186,6 @@
         background-color: #161b22;
         padding: 40px 0;
         margin-top: 80px;
-    }
-
-    .text-muted {
-        color: #8b949e !important;
-    }
-
-    h1, h2, h3, h4, h5, h6 {
-        color: #e6edf3;
-    }
-
-    .lead {
-        color: #8b949e;
     }
 </style>
 {% endblock %}
@@ -226,7 +215,7 @@
             <div class="col-lg-8">
                 <img src="https://cdn.pixabay.com/photo/2021/11/04/06/27/artificial-intelligence-6767502_1280.png" alt="DeepMed AI Platform" class="img-fluid mb-4" style="max-width: 120px;">
                 <h2 class="mb-3">DeepMed AI Platform</h2>
-                <p class="lead mb-0">Powerful no-code AI model building for healthcare professionals</p>
+                <p class="lead text-muted mb-0">Powerful no-code AI model building for healthcare professionals</p>
             </div>
         </div>
     </div>
@@ -238,7 +227,7 @@
         <div class="row justify-content-center text-center mb-5">
             <div class="col-lg-8">
                 <h2 class="display-5 fw-bold mb-3">Everything You Need to <span class="gradient-text">Build Powerful AI</span></h2>
-                <p class="lead">Our platform provides all the tools you need to create sophisticated AI models without writing code.</p>
+                <p class="lead text-muted">Our platform provides all the tools you need to create sophisticated AI models without writing code.</p>
             </div>
         </div>
 
@@ -320,7 +309,7 @@
         <div class="row justify-content-center text-center mb-5">
             <div class="col-lg-8">
                 <h2 class="display-5 fw-bold mb-3">Three Simple Steps to <span class="gradient-text">AI Success</span></h2>
-                <p class="lead">Our streamlined workflow makes building AI models accessible to everyone, regardless of technical background.</p>
+                <p class="lead text-muted">Our streamlined workflow makes building AI models accessible to everyone, regardless of technical background.</p>
             </div>
         </div>
 
@@ -358,7 +347,7 @@
         <div class="row justify-content-center text-center mb-5">
             <div class="col-lg-8">
                 <h2 class="display-5 fw-bold mb-3">Trusted by Innovative <span class="gradient-text">Companies</span></h2>
-                <p class="lead">See how organizations are transforming their businesses with our no-code AI platform.</p>
+                <p class="lead text-muted">See how organizations are transforming their businesses with our no-code AI platform.</p>
             </div>
         </div>
 
