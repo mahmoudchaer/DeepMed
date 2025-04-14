@@ -82,9 +82,10 @@ def training():
     filepath = session.get('uploaded_file')
     
     if not filepath:
-        # If accessed directly without upload, show a friendly message
-        flash('Please upload a file first to start training.', 'info')
-        return redirect(url_for('index'))
+        # If accessed directly without upload, show the upload interface
+        # Check services health for status display
+        services_status = check_services()
+        return render_template('index.html', services_status=services_status)
     
     data, _ = load_data(filepath)
     
