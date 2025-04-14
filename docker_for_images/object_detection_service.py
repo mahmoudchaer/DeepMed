@@ -7,6 +7,8 @@ import logging
 import traceback
 import shutil
 import yaml
+import uuid
+import datetime
 from pathlib import Path
 import subprocess
 from flask import Flask, request, jsonify, Response, send_file
@@ -20,8 +22,15 @@ app = Flask(__name__)
 # Define YOLOv5 paths
 YOLOV5_DIR = "/app/yolov5"
 
+# Define a cache directory for model outputs
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "model_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
 # Track temp files for cleanup
 temp_dirs = []
+
+# Keep a dictionary of cached models with metadata
+cached_models = {}
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -52,6 +61,9 @@ def finetune_model():
         
         # New: Get manual num_classes if provided
         manual_num_classes = request.form.get('num_classes')
+        
+        # Create a unique ID for this training run
+        training_id = str(uuid.uuid4())
         
         # Define preset configurations for each level
         level_configs = {
@@ -260,9 +272,9 @@ def finetune_model():
             return jsonify({"error": "Training completed but best model not found"}), 500
         
         # Create a zip file to return the model and related files
-        temp_output_zip = os.path.join(temp_dir, "model_output.zip")
+        output_zip_path = os.path.join(temp_dir, "model_output.zip")
         
-        with zipfile.ZipFile(temp_output_zip, 'w') as zipf:
+        with zipfile.ZipFile(output_zip_path, 'w') as zipf:
             # Add the best model
             zipf.write(best_model_path, arcname="best.pt")
             
@@ -278,20 +290,40 @@ def finetune_model():
                     file_path = os.path.join(exp_dir, file)
                     zipf.write(file_path, arcname=f"results/{file}")
         
+        # Save a copy of the zip file to the cache directory
+        cache_file_path = os.path.join(CACHE_DIR, f"{training_id}.zip")
+        shutil.copy(output_zip_path, cache_file_path)
+        
+        # Cache the model metadata for 24 hours
+        expiration_time = datetime.datetime.now() + datetime.timedelta(hours=24)
+        cached_models[training_id] = {
+            "path": cache_file_path,
+            "expires": expiration_time,
+            "level": level,
+            "num_classes": num_classes,
+            "size": os.path.getsize(cache_file_path)
+        }
+        
+        logger.info(f"Model cached at {cache_file_path} with ID {training_id}")
+        
         # Read the zip file into memory
-        with open(temp_output_zip, 'rb') as f:
+        with open(output_zip_path, 'rb') as f:
             memory_file = io.BytesIO(f.read())
         
         # Clean up
         cleanup_temp_dirs()
         
-        # Return the zip file
-        return send_file(
+        # Include the training ID in the response headers
+        response = send_file(
             memory_file,
             mimetype='application/zip',
             as_attachment=True,
             download_name='yolov5_model.zip'
         )
+        
+        response.headers["X-Training-ID"] = training_id
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error during YOLOv5 fine-tuning: {str(e)}")
@@ -300,6 +332,41 @@ def finetune_model():
     finally:
         # Make sure to clean up temp files even if there's an error
         cleanup_temp_dirs()
+
+@app.route('/retrieve_model/<training_id>', methods=['GET'])
+def retrieve_model(training_id):
+    """Retrieve a previously trained model by its ID"""
+    try:
+        if training_id not in cached_models:
+            return jsonify({"error": "Model not found or has expired"}), 404
+        
+        model_info = cached_models[training_id]
+        cache_file_path = model_info["path"]
+        
+        # Check if the model file still exists
+        if not os.path.exists(cache_file_path):
+            # Remove from cache if file doesn't exist
+            del cached_models[training_id]
+            return jsonify({"error": "Model file no longer exists"}), 404
+            
+        # Check if the model has expired
+        if datetime.datetime.now() > model_info["expires"]:
+            # Remove expired model
+            os.remove(cache_file_path)
+            del cached_models[training_id]
+            return jsonify({"error": "Model has expired and was removed"}), 404
+        
+        # Return the model file
+        return send_file(
+            cache_file_path,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='yolov5_model.zip'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving model: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 def cleanup_temp_dirs():
     """Clean up temporary directories"""
@@ -312,6 +379,30 @@ def cleanup_temp_dirs():
         except Exception as e:
             logger.error(f"Error cleaning up {dir_path}: {e}")
     temp_dirs = []
+
+# Add cleanup of expired cached models
+def cleanup_expired_models():
+    """Clean up expired cached models"""
+    now = datetime.datetime.now()
+    to_remove = []
+    
+    for training_id, model_info in cached_models.items():
+        if now > model_info["expires"]:
+            # Clean up the file
+            try:
+                if os.path.exists(model_info["path"]):
+                    os.remove(model_info["path"])
+                    logger.info(f"Removed expired model file: {model_info['path']}")
+            except Exception as e:
+                logger.error(f"Error removing expired model file {model_info['path']}: {e}")
+            
+            # Mark for removal from cache dictionary
+            to_remove.append(training_id)
+    
+    # Remove expired entries from dictionary
+    for training_id in to_remove:
+        del cached_models[training_id]
+        logger.info(f"Removed expired model from cache: {training_id}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5027))

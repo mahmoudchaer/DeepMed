@@ -185,6 +185,9 @@ def api_finetune_yolo():
             
             return jsonify({"error": error_message}), response.status_code
         
+        # Extract training ID from response headers if available
+        training_id = response.headers.get('X-Training-ID', None)
+        
         # Create a Flask response to stream the content
         def generate():
             for chunk in response.iter_content(chunk_size=4096):
@@ -198,11 +201,73 @@ def api_finetune_yolo():
         flask_response.headers["Pragma"] = "no-cache"
         flask_response.headers["Expires"] = "0"
         
+        # Include the training ID in the response if available
+        if training_id:
+            flask_response.headers["X-Training-ID"] = training_id
+            # Add session storage for recently completed models
+            session_models = session.get('completed_models', {})
+            session_models[training_id] = {
+                'timestamp': datetime.now().isoformat(),
+                'filename': zip_file.filename
+            }
+            session['completed_models'] = session_models
+            logger.info(f"Stored training ID in session: {training_id}")
+        
         logger.info("Successfully returned YOLOv5 model file to client")
         return flask_response
         
     except Exception as e:
         logger.error(f"Error in YOLOv5 fine-tuning: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/retrieve_yolo_model/<training_id>', methods=['GET'])
+@login_required
+def retrieve_yolo_model(training_id):
+    """API endpoint to retrieve a previously trained YOLOv5 model by its ID"""
+    try:
+        # Check if the object detection service is available
+        if not is_service_available(OBJECT_DETECTION_SERVICE_URL):
+            return jsonify({"error": "Object detection service is not available. Please try again later."}), 503
+        
+        logger.info(f"Retrieving YOLOv5 model for training ID: {training_id}")
+        
+        # Request the model from the object detection service
+        response = requests.get(
+            f"{OBJECT_DETECTION_SERVICE_URL}/retrieve_model/{training_id}",
+            stream=True,
+            timeout=60  # 1 minute timeout for retrieval
+        )
+        
+        # Check the response status
+        if response.status_code != 200:
+            error_message = "Error retrieving model from object detection service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error retrieving model (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Create a streaming response
+        def generate():
+            for chunk in response.iter_content(chunk_size=4096):
+                yield chunk
+        
+        # Create a Flask response to stream the content
+        flask_response = Response(generate(), mimetype='application/zip')
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=yolov5_model.zip"
+        flask_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        flask_response.headers["Pragma"] = "no-cache"
+        flask_response.headers["Expires"] = "0"
+        
+        logger.info(f"Successfully retrieved YOLOv5 model with ID: {training_id}")
+        return flask_response
+        
+    except Exception as e:
+        logger.error(f"Error retrieving YOLOv5 model: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/train_model', methods=['POST'])
