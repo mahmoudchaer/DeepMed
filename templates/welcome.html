@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Welcome{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .hero-section {
+        min-height: 85vh;
+        background: linear-gradient(to bottom, rgba(13, 17, 23, 0.99), rgba(13, 17, 23, 0.97)), url('https://cdn.pixabay.com/photo/2021/03/02/17/46/artificial-intelligence-6063504_1280.png') no-repeat center center;
+        background-size: cover;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .hero-section::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at top right, rgba(8, 145, 178, 0.1), transparent 60%);
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #63b3ed, #76e4f7, #9f7aea);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .welcome-container {
+        text-align: center;
+        z-index: 10;
+        padding: 2rem;
+        border-radius: 1rem;
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 800px;
+    }
+
+    .welcome-icon {
+        font-size: 6rem;
+        margin-bottom: 2rem;
+        color: #0d6efd;
+    }
+
+    .btn-primary {
+        background: linear-gradient(90deg, #0d6efd, #0891b2);
+        border: none;
+        padding: 12px 28px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        margin-top: 2rem;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(13, 110, 253, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="welcome-container">
+        <i class="fas fa-robot welcome-icon"></i>
+        <h1 class="display-4 fw-bold mb-4">Bring our <span class="gradient-text">Models</span> to life</h1>
+        <p class="lead fs-3 mb-4">Upload your Data and get your personalised ready to use AI</p>
+        <a href="{{ url_for('training') }}" class="btn btn-primary btn-lg">Get Started</a>
+    </div>
+</section>
+{% endblock %} 

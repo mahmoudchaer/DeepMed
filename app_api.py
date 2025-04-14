@@ -297,9 +297,17 @@ def index():
     # Clean up any files from previous sessions
     cleanup_session_files()
     
-    # Check services health for status display
-    services_status = check_services()
-    return render_template('index.html', services_status=services_status, logout_token=session['logout_token'])
+    # Redirect to the welcome page
+    return redirect(url_for('welcome'))
+
+@app.route('/welcome')
+def welcome():
+    """Welcome page with generic intro message"""
+    if not current_user.is_authenticated:
+        flash('Please log in to access the application.', 'info')
+        return redirect('/login', code=302)
+        
+    return render_template('welcome.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 @app.route('/login/<path:action>', methods=['GET', 'POST'])
@@ -462,7 +470,7 @@ def load_from_temp_file(filepath):
     except Exception as e:
         logger.error(f"Error loading data from file {filepath}: {str(e)}")
         return None
-#pushed
+
 # Add a helper function to estimate session size
 def get_session_size():
     """Estimate the current session size in bytes"""
