@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}DeepMed - Training Pipeline{% endblock %}
+{% block title %}DeepMed - Tabular Data Training{% endblock %}
 
 {% block head %}
 <style>
@@ -47,46 +47,90 @@
     .medical-border {
         border-left: 4px solid #0077b6;
     }
+    
+    /* New card styling for focused tabular training */
+    .tabular-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+        overflow: hidden;
+        margin-bottom: 25px;
+    }
+    
+    .tabular-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .tabular-header {
+        background: linear-gradient(45deg, #0077b6, #00a8e8);
+        color: white;
+        padding: 20px;
+    }
+    
+    .tabular-body {
+        padding: 25px;
+    }
+    
+    .action-btn {
+        padding: 12px 20px;
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.3s;
+    }
+    
+    .action-btn:hover {
+        transform: scale(1.05);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="card shadow">
     <div class="card-body">
-        <h1 class="mb-4">DeepMed Training Pipeline</h1>
+        <h1 class="mb-4">Tabular Data Training</h1>
         
         <div class="status-box medical-border mb-4">
-            <h3 style="color: #0077b6;">Welcome to your Medical AI Assistant</h3>
-            <p>Let's work together to build an accurate diagnostic model. Upload your medical data below to get started.</p>
+            <h3 style="color: #0077b6;">Training Medical Tabular Data</h3>
+            <p>Our specialized training pipeline will analyze your tabular medical data and create accurate predictive models. Select your target variable below to begin.</p>
         </div>
         
         {% if file_stats %}
         <div class="row mb-4">
             <div class="col-md-8">
-                <h3>Data Preview</h3>
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    {{ data | safe }}
-                </div>
-                <div class="text-muted small mt-2">
-                    <em>* Scroll horizontally to view all columns. Showing first 5 rows of the dataset.</em>
+                <div class="tabular-card">
+                    <div class="tabular-header">
+                        <h3 class="mb-0">Data Preview</h3>
+                    </div>
+                    <div class="tabular-body">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            {{ data | safe }}
+                        </div>
+                        <div class="text-muted small mt-2">
+                            <em>* Scroll horizontally to view all columns. Showing first 5 rows of the dataset.</em>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="status-box">
-                    <h4>File Statistics</h4>
-                    <p><strong>Rows:</strong> {{ file_stats.rows }}</p>
-                    <p><strong>Columns:</strong> {{ file_stats.columns }}</p>
-                    <p><strong>Memory Usage:</strong> {{ file_stats.memory_usage }}</p>
-                    <p><strong>Upload Time:</strong> {{ file_stats.upload_time }}</p>
-                </div>
-                
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('download_cleaned') }}" class="btn btn-outline-primary mt-3" target="_blank">
-                        <i class="fas fa-download"></i> Download Cleaned Data
-                    </a>
-                    <a href="{{ url_for('index', reset=1) }}" class="btn btn-primary mt-2">
-                        <i class="fas fa-plus"></i> Start New Training
-                    </a>
+                <div class="tabular-card">
+                    <div class="tabular-header">
+                        <h3 class="mb-0">Dataset Information</h3>
+                    </div>
+                    <div class="tabular-body">
+                        <p><strong>Rows:</strong> {{ file_stats.rows }}</p>
+                        <p><strong>Columns:</strong> {{ file_stats.columns }}</p>
+                        <p><strong>Memory Usage:</strong> {{ file_stats.memory_usage }}</p>
+                        <p><strong>Upload Time:</strong> {{ file_stats.upload_time }}</p>
+                        
+                        <div class="d-grid gap-2 mt-3">
+                            <a href="{{ url_for('download_cleaned') }}" class="btn btn-outline-primary" target="_blank">
+                                <i class="fas fa-download"></i> Download Cleaned Data
+                            </a>
+                            <a href="{{ url_for('index', reset=1) }}" class="btn btn-outline-primary mt-2">
+                                <i class="fas fa-plus"></i> Upload New Dataset
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -94,44 +138,44 @@
         {% if ai_recommendations %}
         <div class="row mb-4">
             <div class="col-12">
-                <div class="status-box p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="fas fa-robot text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h4 class="mb-0">AI Recommendations</h4>
+                <div class="tabular-card">
+                    <div class="tabular-header">
+                        <h3 class="mb-0"><i class="fas fa-robot me-2"></i> AI Recommendations</h3>
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="fw-bold text-primary">Recommended Target Column:</label>
-                                <div class="p-2 bg-light rounded border">{{ ai_recommendations.target_column }}</div>
+                    <div class="tabular-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="fw-bold text-primary">Recommended Target Column:</label>
+                                    <div class="p-2 bg-light rounded border">{{ ai_recommendations.target_column }}</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="fw-bold text-primary">Suggested Model Type:</label>
+                                    <div class="p-2 bg-light rounded border">{{ ai_recommendations.model_type }}</div>
+                                </div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label class="fw-bold text-primary">Suggested Model Type:</label>
-                                <div class="p-2 bg-light rounded border">{{ ai_recommendations.model_type }}</div>
+                            <div class="col-md-6">
+                                <label class="fw-bold text-primary">Analysis Reasoning:</label>
+                                <p class="p-2 bg-light rounded border">{{ ai_recommendations.reasoning }}</p>
                             </div>
                         </div>
                         
-                        <div class="col-md-6">
-                            <label class="fw-bold text-primary">Analysis Reasoning:</label>
-                            <p class="p-2 bg-light rounded border">{{ ai_recommendations.reasoning }}</p>
+                        {% if ai_recommendations.data_issues %}
+                        <div class="alert alert-warning mt-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <h5 class="mb-0">Potential Data Issues:</h5>
+                            </div>
+                            <ul class="mb-0">
+                                {% for issue in ai_recommendations.data_issues %}
+                                <li>{{ issue }}</li>
+                                {% endfor %}
+                            </ul>
                         </div>
+                        {% endif %}
                     </div>
-                    
-                    {% if ai_recommendations.data_issues %}
-                    <div class="alert alert-warning mt-3">
-                        <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <h5 class="mb-0">Potential Data Issues:</h5>
-                        </div>
-                        <ul class="mb-0">
-                            {% for issue in ai_recommendations.data_issues %}
-                            <li>{{ issue }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -139,30 +183,33 @@
         
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="card-title mb-0">Configure Training</h4>
+                <div class="tabular-card">
+                    <div class="tabular-header">
+                        <h3 class="mb-0"><i class="fas fa-cogs me-2"></i> Configure and Start Training</h3>
                     </div>
-                    <div class="card-body">
+                    <div class="tabular-body">
                         <form action="{{ url_for('training') }}" method="post" id="training-form">
-                            <div class="row mb-3">
-                                <div class="col-md-8">
-                                    <label for="target_column" class="form-label fw-bold">Select Target Column</label>
-                                    <select name="target_column" id="target_column" class="form-select" required>
-                                        {% for column in columns %}
-                                        <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
-                                            {{ column }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text">This is the column you want to predict.</div>
+                            <div class="row mb-4">
+                                <div class="col-md-8 mx-auto">
+                                    <div class="form-group">
+                                        <label for="target_column" class="form-label fw-bold">Select Target Column</label>
+                                        <select name="target_column" id="target_column" class="form-select form-select-lg mb-3" required>
+                                            {% for column in columns %}
+                                            <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
+                                                {{ column }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="form-text mb-4">This is the column your model will learn to predict.</div>
+                                    </div>
+                                    
+                                    <!-- Hidden input for test size - fixed at 20% -->
+                                    <input type="hidden" name="test_size" id="test_size" value="0.2">
                                 </div>
-                                <!-- Hidden input for test size - fixed at 20% -->
-                                <input type="hidden" name="test_size" id="test_size" value="0.2">
                             </div>
                             
-                            <button type="submit" class="btn btn-primary w-100 py-2" id="start-pipeline-btn">
-                                <i class="fas fa-play-circle me-2"></i> Start Pipeline
+                            <button type="submit" class="btn btn-primary action-btn w-100 py-3" id="start-pipeline-btn">
+                                <i class="fas fa-play-circle me-2"></i> Train Tabular Models
                             </button>
                         </form>
                     </div>
@@ -170,9 +217,13 @@
             </div>
         </div>
         {% else %}
-        <div class="text-center">
-            <p>You haven't uploaded any data yet.</p>
-            <a href="{{ url_for('index') }}" class="btn btn-primary">Go to Upload Page</a>
+        <div class="text-center py-5">
+            <i class="fas fa-table fa-4x text-primary mb-4"></i>
+            <h3>No Dataset Uploaded</h3>
+            <p class="mb-4">You need to upload tabular data to begin training.</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary action-btn">
+                <i class="fas fa-upload me-2"></i> Upload Dataset
+            </a>
         </div>
         {% endif %}
     </div>
@@ -189,7 +240,7 @@
         }
     
         $('#training-form').on('submit', function() {
-            $('#start-pipeline-btn').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
+            $('#start-pipeline-btn').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Training Models...');
             $('#start-pipeline-btn').prop('disabled', true);
             
             // Show a loading overlay for the pipeline process
@@ -199,8 +250,8 @@
                         <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <h4 class="mt-3">Training models...</h4>
-                        <p>Our AI is training multiple models with your data.<br>This process may take several minutes.</p>
+                        <h4 class="mt-3">Training Tabular Models</h4>
+                        <p>Our AI is building and evaluating multiple predictive models.<br>This process may take several minutes.</p>
                     </div>
                 </div>
             `;
