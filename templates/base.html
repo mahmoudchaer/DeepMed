@@ -9,6 +9,76 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #e6edf3;
+        }
+
+        .navbar {
+            background-color: rgba(13, 17, 23, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .navbar-brand {
+            color: #e6edf3 !important;
+            font-weight: 600;
+        }
+
+        .nav-link {
+            color: #8b949e !important;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #e6edf3 !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #8b5cf6, #6366f1);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
+        }
+
+        .dropdown-menu {
+            background-color: #161b22;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .dropdown-item {
+            color: #8b949e;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #e6edf3;
+        }
+
+        .alert {
+            background-color: #161b22;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e6edf3;
+        }
+
+        .footer {
+            background-color: #161b22;
+            color: #8b949e;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .text-muted {
+            color: #8b949e !important;
+        }
+    </style>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -149,7 +219,7 @@
         overlay.style.display = 'flex';
         overlay.style.justifyContent = 'center';
         overlay.style.alignItems = 'center';
-        overlay.innerHTML = '<div style="background: white; padding: 20px; border-radius: 5px;"><p>Logging out...</p></div>';
+        overlay.innerHTML = '<div style="background: #161b22; color: #e6edf3; padding: 20px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);"><p>Logging out...</p></div>';
         document.body.appendChild(overlay);
         
         // First make the force_logout POST request to destroy the session
