@@ -170,9 +170,8 @@
             </div>
         </div>
         {% else %}
-        <div class="alert alert-info">
-            <h4>No Data Found</h4>
-            <p>Please upload a CSV or Excel file to begin the training process.</p>
+        <div class="text-center">
+            <p>You haven't uploaded any data yet.</p>
             <a href="{{ url_for('index') }}" class="btn btn-primary">Go to Upload Page</a>
         </div>
         {% endif %}

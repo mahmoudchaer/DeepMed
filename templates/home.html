@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to DeepMed{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">Welcome to DeepMed</h1>
+            <p class="lead mb-5">A powerful platform for medical AI and deep learning</p>
+            
+            <div class="row mt-5">
+                <div class="col-md-8 mx-auto">
+                    <div class="card shadow-lg">
+                        <div class="card-body p-5">
+                            <h2 class="mb-4">Revolutionary Medical AI</h2>
+                            <p class="mb-4">DeepMed provides cutting-edge tools for healthcare professionals and researchers to leverage the power of artificial intelligence in medical diagnostics, prediction, and analysis.</p>
+                            
+                            <div class="features mb-4">
+                                <div class="row text-start">
+                                    <div class="col-md-6">
+                                        <div class="feature mb-3">
+                                            <i class="fas fa-brain me-2 text-primary"></i> Neural Network Training
+                                        </div>
+                                        <div class="feature mb-3">
+                                            <i class="fas fa-search me-2 text-primary"></i> Anomaly Detection
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="feature mb-3">
+                                            <i class="fas fa-object-group me-2 text-primary"></i> Object Detection
+                                        </div>
+                                        <div class="feature mb-3">
+                                            <i class="fas fa-project-diagram me-2 text-primary"></i> ML Pipelines
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 col-md-8 mx-auto mt-5">
+                                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Sign In</a>
+                                <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Create Account</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
