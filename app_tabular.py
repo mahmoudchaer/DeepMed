@@ -301,28 +301,52 @@ def training():
                         # Prepare data for storage
                         original_columns = list(data.columns)
                         
-                        # Save cleaning configuration
+                        # Save encoding mappings
+                        encoding_mappings = cleaning_result.get("encoding_mappings", {})
+
+                        # If there are too many mappings, limit or compress them
+                        if len(json.dumps(encoding_mappings)) > 10000:  # Set a reasonable size limit
+                            # Option 1: Only keep mappings for columns with fewer than 50 unique values
+                            reduced_mappings = {}
+                            for col, mapping in encoding_mappings.items():
+                                if len(mapping) < 50:
+                                    reduced_mappings[col] = mapping
+                            encoding_mappings = reduced_mappings
+
+                        # Create cleaner_config without encoding_mappings
                         cleaner_config = {
                             "llm_instructions": cleaning_result.get("prompt", ""),
                             "options": cleaning_result.get("options", {}),
                             "handle_missing": True,
-                            "handle_outliers": True
+                            "handle_outliers": True,
+                            "encoding_mappings_summary": {col: len(mapping) for col, mapping in encoding_mappings.items()}  # Just store summary
                         }
-                        
-                        # Save feature selection configuration
-                        feature_selector_config = {
-                            "llm_instructions": feature_result.get("prompt", ""),
-                            "options": feature_result.get("options", {}),
-                            "method": feature_result.get("method", "auto")
-                        }
-                        
+
+                        # Save encoding_mappings to a separate file
+                        if encoding_mappings:
+                            try:
+                                # Create a file path for this run's encoding mappings
+                                mappings_dir = os.path.join('static', 'temp', 'mappings')
+                                os.makedirs(mappings_dir, exist_ok=True)
+                                mappings_file = os.path.join(mappings_dir, f'encoding_mappings_{local_run_id}.json')
+                                
+                                with open(mappings_file, 'w') as f:
+                                    json.dump(encoding_mappings, f)
+                                
+                                # Add file reference to cleaner_config
+                                cleaner_config["encoding_mappings_file"] = mappings_file
+                                logger.info(f"Saved encoding mappings to {mappings_file}")
+                            except Exception as e:
+                                logger.error(f"Error saving encoding mappings to file: {str(e)}")
+                                # Continue anyway, we'll just have a less detailed cleaner_config
+
                         # Create preprocessing data record
                         preprocessing_data = PreprocessingData(
                             run_id=local_run_id,
                             user_id=user_id,
-                            cleaner_config=json.dumps(cleaner_config),
-                            feature_selector_config=json.dumps(feature_selector_config),
                             original_columns=json.dumps(original_columns),
+                            cleaner_config=json.dumps(cleaner_config),
+                            feature_selector_config=json.dumps(feature_result.get("options", {})),
                             selected_columns=json.dumps(selected_features),
                             cleaning_report=json.dumps(cleaning_result.get("report", {}))
                         )
@@ -494,4 +518,3 @@ def training():
                           columns=data.columns.tolist(),
                           file_stats=session.get('file_stats'),
                           ai_recommendations=ai_recommendations)
-
