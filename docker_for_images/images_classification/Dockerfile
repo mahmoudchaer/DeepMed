@@ -19,4 +19,4 @@ COPY app.py .
 EXPOSE 5021
 
 # Run the application
-CMD ["python", "model_service.py"] 
+CMD ["python", "app.py"] 
