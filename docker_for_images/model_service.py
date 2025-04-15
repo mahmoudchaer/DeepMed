@@ -38,13 +38,35 @@ def train_model(zip_file, num_classes=5, training_level=3):
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(extract_dir)
         
+        # Find the actual dataset root by detecting the first directory with subdirectories
+        # that could be class folders
+        dataset_root = extract_dir
+        for root, dirs, files in os.walk(extract_dir):
+            if dirs and all(os.path.isdir(os.path.join(root, d)) for d in dirs):
+                # Check if these subdirectories contain images
+                has_images = False
+                for d in dirs:
+                    dir_path = os.path.join(root, d)
+                    for f in os.listdir(dir_path):
+                        if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
+                            has_images = True
+                            break
+                    if has_images:
+                        break
+                
+                if has_images:
+                    dataset_root = root
+                    print(f"Found dataset root at: {dataset_root}")
+                    print(f"Detected class folders: {dirs}")
+                    break
+        
         # Create a dataset from the extracted images using folder names as labels
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
         ])
-        dataset = datasets.ImageFolder(root=extract_dir, transform=transform)
+        dataset = datasets.ImageFolder(root=dataset_root, transform=transform)
         
         # Use the user-specified number of classes
         num_classes = int(num_classes)
@@ -56,6 +78,7 @@ def train_model(zip_file, num_classes=5, training_level=3):
         
         dataset_size = len(dataset)
         print(f"Dataset size: {dataset_size}, Minimum recommended: {min_dataset_size}")
+        print(f"Found {len(dataset.classes)} classes: {dataset.classes}")
         
         # Determine whether to split the dataset
         should_split = dataset_size >= min_dataset_size
