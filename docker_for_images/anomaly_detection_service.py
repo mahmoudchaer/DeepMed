@@ -309,6 +309,8 @@ from PIL import Image
 import json
 import numpy as np
 import os
+import glob
+import argparse
 
 # Define the Autoencoder architecture (must match the one used for training)
 class Autoencoder(torch.nn.Module):
@@ -379,34 +381,56 @@ def detect_anomaly(image_path, model_path='autoencoder.pt', metadata_path='metad
         'is_anomaly': is_anomaly
     }
 
+def find_unique_image():
+    # Supported image extensions
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff']
+    image_files = []
+    for ext in image_extensions:
+        image_files.extend(glob.glob(ext))
+        
+    if len(image_files) == 0:
+        return None, "No image file found in the current directory."
+    elif len(image_files) > 1:
+        return None, "Multiple image files found. Please specify one as an argument."
+    else:
+        return image_files[0], f"Found one image file: {image_files[0]}"
+
 if __name__ == "__main__":
-    import sys
+    parser = argparse.ArgumentParser(description='Detect anomaly using a trained autoencoder model.')
+    # Define an optional positional argument for the image path.
+    parser.add_argument('image', nargs='?', default=None, help='Path to the image file (optional; auto-detect if not provided)')
+    parser.add_argument('--model_path', type=str, default='autoencoder.pt', help='Path to the autoencoder model file')
+    parser.add_argument('--metadata_path', type=str, default='metadata.json', help='Path to the metadata JSON file')
     
-    if len(sys.argv) < 2:
-        print("Usage: python predict.py <image_path> [model_path] [metadata_path]")
-        sys.exit(1)
+    args = parser.parse_args()
     
-    image_path = sys.argv[1]
-    model_path = sys.argv[2] if len(sys.argv) > 2 else 'autoencoder.pt'
-    metadata_path = sys.argv[3] if len(sys.argv) > 3 else 'metadata.json'
+    image_path = args.image
+    if image_path is None:
+        image_path, message = find_unique_image()
+        if image_path is None:
+            print(message)
+            exit(1)
+        else:
+            print(message)
     
     if not os.path.exists(image_path):
-        print(f"Error: Image file {image_path} not found")
-        sys.exit(1)
+        print(f"Error: Image file '{image_path}' not found")
+        exit(1)
     
-    if not os.path.exists(model_path):
-        print(f"Error: Model file {model_path} not found")
-        sys.exit(1)
+    if not os.path.exists(args.model_path):
+        print(f"Error: Model file '{args.model_path}' not found")
+        exit(1)
     
-    if not os.path.exists(metadata_path):
-        print(f"Error: Metadata file {metadata_path} not found")
-        sys.exit(1)
+    if not os.path.exists(args.metadata_path):
+        print(f"Error: Metadata file '{args.metadata_path}' not found")
+        exit(1)
     
-    result = detect_anomaly(image_path, model_path, metadata_path)
-    print(f"Anomaly detection result:")
+    result = detect_anomaly(image_path, args.model_path, args.metadata_path)
+    print("Anomaly detection result:")
     print(f"  Reconstruction error: {result['reconstruction_error']:.6f}")
     print(f"  Threshold: {result['threshold']:.6f}")
     print(f"  Is anomaly: {result['is_anomaly']}")
+
 '''
         
         # Create requirements.txt content
