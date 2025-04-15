@@ -297,7 +297,13 @@ def index():
     # Clean up any files from previous sessions
     cleanup_session_files()
     
-    # Redirect to the welcome page
+    # Check if we need to stay in the classification tab
+    stay_tab = request.args.get('stay_tab')
+    if stay_tab == 'classification':
+        # If stay_tab is set to classification, redirect to the training page
+        return redirect(url_for('training'))
+    
+    # Otherwise, redirect to the welcome page as usual
     return redirect(url_for('welcome'))
 
 @app.route('/welcome')
