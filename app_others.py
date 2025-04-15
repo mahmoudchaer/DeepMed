@@ -98,43 +98,52 @@ def ensure_training_models_saved(user_id, run_id, model_result):
                 logger.info(f"Model {model_name} already exists for run_id {run_id}")
                 continue
                 
-            # Get the metric value if available in the model_result
+            # Get the metric value directly from the saved_best_models structure
             metric_value = None
-            if 'model_metrics' in model_result and model_info.get('model_name') in model_result['model_metrics']:
-                model_metrics = model_result['model_metrics'][model_info.get('model_name')]
-                if metric in model_metrics:
-                    metric_value = model_metrics[metric]
-                    logger.info(f"Found metric value for {metric}: {metric_value}")
+            if 'value' in model_info:
+                metric_value = model_info['value']
+                logger.info(f"Found metric value directly in saved_best_models: {metric_value}")
             
-            # Find the actual metric value from the model_result
-            metric_value = None
-            
-            # Extract metrics from the model result structure
-            if 'all_models' in model_result and metric in model_result.get('all_models', {}):
-                # Models are directly indexed by metric name
-                model_data = model_result['all_models'].get(metric, {})
-                if 'score' in model_data:
-                    metric_value = model_data['score']
-                    logger.info(f"Found {metric} score: {metric_value} in all_models")
-            
-            # Try to get metric from best_scores if present
-            if metric_value is None and 'best_scores' in model_result:
-                if metric in model_result['best_scores']:
-                    metric_value = model_result['best_scores'][metric]
-                    logger.info(f"Found {metric} score: {metric_value} in best_scores")
-            
-            # Try model_info structure which might contain metrics
-            if metric_value is None and 'metrics' in model_info:
-                if metric in model_info['metrics']:
-                    metric_value = model_info['metrics'][metric]
-                    logger.info(f"Found {metric} score: {metric_value} in model_info metrics")
-                    
-            # Log the model_result structure for debugging if we couldn't find the metric
+            # If we don't have the value directly, try other locations in the result structure
             if metric_value is None:
-                logger.debug(f"Could not find metric value for {metric}")
-                # Write structure keys to debug log to understand how to find metrics
-                logger.debug(f"Model result keys: {list(model_result.keys())}")
-                logger.debug(f"Model info keys: {list(model_info.keys())}")
+                # Try model_metrics
+                if 'model_metrics' in model_result and model_info.get('model_name') in model_result['model_metrics']:
+                    model_metrics = model_result['model_metrics'][model_info.get('model_name')]
+                    if metric in model_metrics:
+                        metric_value = model_metrics[metric]
+                        logger.info(f"Found metric value in model_metrics: {metric_value}")
+
+                # Try all_models
+                if metric_value is None and 'all_models' in model_result and metric in model_result.get('all_models', {}):
+                    model_data = model_result['all_models'].get(metric, {})
+                    if 'score' in model_data:
+                        metric_value = model_data['score']
+                        logger.info(f"Found {metric} score in all_models: {metric_value}")
+                
+                # Try best_scores
+                if metric_value is None and 'best_scores' in model_result:
+                    if metric in model_result['best_scores']:
+                        metric_value = model_result['best_scores'][metric]
+                        logger.info(f"Found {metric} score in best_scores: {metric_value}")
+                
+                # Try metrics in model_info
+                if metric_value is None and 'metrics' in model_info:
+                    if metric in model_info['metrics']:
+                        metric_value = model_info['metrics'][metric]
+                        logger.info(f"Found {metric} score in model_info metrics: {metric_value}")
+                
+                # Try best_models structure
+                if metric_value is None and 'best_models' in model_result and metric in model_result['best_models']:
+                    best_model_info = model_result['best_models'][metric]
+                    if 'value' in best_model_info:
+                        metric_value = best_model_info['value']
+                        logger.info(f"Found {metric} value in best_models: {metric_value}")
+                        
+                # Log the model_result structure for debugging if we couldn't find the metric
+                if metric_value is None:
+                    logger.debug(f"Could not find metric value for {metric}")
+                    logger.debug(f"Model result keys: {list(model_result.keys())}")
+                    logger.debug(f"Model info keys: {list(model_info.keys())}")
             
             # Create and save the model record with metric information
             model_record = TrainingModel(
@@ -148,7 +157,7 @@ def ensure_training_models_saved(user_id, run_id, model_result):
             )
             
             db.session.add(model_record)
-            logger.info(f"Added model {model_name} with metric {metric_value} to database for run_id {run_id}")
+            logger.info(f"Added model {model_name} with metric {metric}={metric_value} to database for run_id {run_id}")
         
         # Commit all changes
         db.session.commit()

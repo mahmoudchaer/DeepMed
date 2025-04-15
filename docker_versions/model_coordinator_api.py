@@ -237,7 +237,7 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
         logger.error(f"Error saving model to blob: {str(e)}")
         return None, None
 
-def save_model_to_db(user_id, run_id, model_name, model_url, filename=None):
+def save_model_to_db(user_id, run_id, model_name, model_url, filename=None, metric_name=None, metric_value=None):
     """Save model reference to database"""
     try:
         # Create a custom app context
@@ -279,19 +279,21 @@ def save_model_to_db(user_id, run_id, model_name, model_url, filename=None):
                 # Extract filename from URL: https://accountname.blob.core.windows.net/container/filename
                 filename = model_url.split('/')[-1]
             
-            # Create model record
+            # Create model record with metric information
             model_record = TrainingModel(
                 user_id=user_id,
                 run_id=run_id,
                 model_name=model_name,
                 model_url=model_url,
-                file_name=filename
+                file_name=filename,
+                metric_name=metric_name,
+                metric_value=metric_value
             )
             
             # Add and commit in separate try blocks for better error identification
             try:
                 db.session.add(model_record)
-                logger.info(f"Added model {model_name} to session")
+                logger.info(f"Added model {model_name} to session with metric {metric_name}={metric_value}")
             except Exception as add_error:
                 logger.error(f"Error adding model to session: {str(add_error)}")
                 db.session.rollback()
@@ -1005,8 +1007,8 @@ def save_best_models(best_models, user_id, run_id):
                         blob_url = upload_to_blob(model_bytes, filename)
                         
                         if blob_url:
-                            # Save to database
-                            saved = save_model_to_db(user_id, run_id, display_name, blob_url, filename)
+                            # Save to database with metric information
+                            saved = save_model_to_db(user_id, run_id, display_name, blob_url, filename, metric, metric_value)
                             if saved:
                                 saved_models[metric] = {
                                     'model_name': model_name,
