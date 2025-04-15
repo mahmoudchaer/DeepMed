@@ -9,6 +9,9 @@ import requests
 from flask import Flask, request, jsonify, Response, send_file
 from werkzeug.utils import secure_filename
 from requests_toolbelt.multipart.encoder import MultipartEncoder
+from torchvision import transforms
+from PIL import Image
+import argparse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -253,6 +256,7 @@ def predict_image(model, image_path, class_names=None):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
     ])
     
     # Load and preprocess the image
@@ -291,13 +295,30 @@ def main():
         print(f"Error: Model file '{model_path}' not found!")
         return
     
-    num_classes = args.num_classes
-    model = load_model(model_path, num_classes)
-    
-    # Parse class names if provided
+    # Try to automatically load class names from class_names.txt if it exists
     class_names = None
+    if os.path.exists('class_names.txt') and not args.class_names:
+        try:
+            with open('class_names.txt', 'r') as f:
+                class_names_content = f.read().strip().split('\\n')
+            class_names = [line.split(': ')[1] for line in class_names_content if ': ' in line]
+            print(f"Loaded {len(class_names)} class names from class_names.txt")
+        except Exception as e:
+            print(f"Error loading class names from file: {str(e)}")
+    
+    # If class names were provided as an argument, use those instead
     if args.class_names:
         class_names = args.class_names.split(',')
+        print(f"Using {len(class_names)} class names from command line argument")
+    
+    # Determine the number of classes from class names or parameter
+    if class_names:
+        num_classes = len(class_names)
+    else:
+        num_classes = args.num_classes
+    print(f"Using model with {num_classes} classes")
+    
+    model = load_model(model_path, num_classes)
     
     # Process a single image or all images in the folder
     if args.all:
@@ -402,8 +423,23 @@ python model_inference.py --image your_image.jpg --num_classes 3
                     readme += f"- Test accuracy: {training_metrics.get('test_accuracy'):.2f}%\n"
                 if 'training_level' in training_metrics:
                     readme += f"- Training level used: {training_metrics.get('training_level')}\n"
+                if 'classes' in training_metrics:
+                    readme += "\nClasses in dataset:\n"
+                    for i, class_name in enumerate(training_metrics.get('classes')):
+                        readme += f"- Class {i}: {class_name}\n"
                 
             zf.writestr('README.md', readme)
+            
+            # Add class mapping if available
+            if training_metrics and 'class_to_idx' in training_metrics:
+                # Create a class mapping JSON file
+                class_mapping = json.dumps(training_metrics.get('class_to_idx'), indent=2)
+                zf.writestr('class_mapping.json', class_mapping)
+                
+                # Also create a simple text file with class names for easy reference
+                if 'classes' in training_metrics:
+                    class_names_text = "\n".join([f"{i}: {name}" for i, name in enumerate(training_metrics.get('classes'))])
+                    zf.writestr('class_names.txt', class_names_text)
         
         # Rewind the file-like object
         memory_zip.seek(0)
