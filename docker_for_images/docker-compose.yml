@@ -73,13 +73,13 @@ services:
       
   anomaly-detection-service:
     build:
-      context: .
+      context: ./anomaly_detector
       dockerfile: Dockerfile_anomaly_detection
     ports:
       - "5029:5029"
     restart: unless-stopped
     volumes:
-      - ./anomaly_detection_service.py:/app/anomaly_detection_service.py
+      - ./anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
     shm_size: '4gb'
     deploy:
       resources:
