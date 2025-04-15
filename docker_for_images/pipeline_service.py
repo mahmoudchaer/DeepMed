@@ -75,7 +75,11 @@ def process_pipeline():
     - numClasses: Number of classes in the dataset
     - trainingLevel: Training level (1-5)
     
-    Returns the trained model file
+    Returns a zip file containing:
+    - The trained model
+    - An inference script for using the model
+    - Requirements file
+    - README with instructions
     """
     try:
         if 'zipFile' not in request.files:
@@ -203,17 +207,226 @@ def process_pipeline():
             
             return jsonify({"error": error_message}), train_response.status_code
         
-        # Create a Flask response with the model file
-        flask_response = Response(train_response.content)
-        flask_response.headers["Content-Type"] = "application/octet-stream"
-        flask_response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
+        # Get training metrics if available
+        training_metrics = {}
+        if 'X-Training-Metrics' in train_response.headers:
+            try:
+                training_metrics = json.loads(train_response.headers['X-Training-Metrics'])
+            except:
+                logger.warning("Failed to parse training metrics")
+        
+        # Create a temporary zip file to hold all the package contents
+        temp_package_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+        temp_package_zip.close()
+        temp_files.append(temp_package_zip.name)
+        
+        # Create a package zip with the model, inference code, and instructions
+        with zipfile.ZipFile(temp_package_zip.name, 'w') as package_zip:
+            # Add the trained model
+            package_zip.writestr('trained_model.pt', train_response.content)
+            
+            # Add inference script
+            inference_code = """import os
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
+from PIL import Image
+import argparse
+import glob
+
+def load_model(model_path, num_classes):
+    # Load EfficientNet-B0
+    model = models.efficientnet_b0(pretrained=False)
+    
+    # Replace the classifier for our number of classes
+    in_features = model.classifier[1].in_features
+    model.classifier[1] = nn.Linear(in_features, num_classes)
+    
+    # Load the model weights
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    model.eval()
+    
+    return model
+
+def predict_image(model, image_path, class_names=None):
+    # Preprocessing transformations
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
+    
+    # Load and preprocess the image
+    img = Image.open(image_path).convert('RGB')
+    img_tensor = transform(img).unsqueeze(0)  # Add batch dimension
+    
+    # Make prediction
+    with torch.no_grad():
+        outputs = model(img_tensor)
+        _, predicted_idx = torch.max(outputs, 1)
+        
+    # Get the predicted class name or index
+    predicted_class = predicted_idx.item()
+    if class_names and predicted_class < len(class_names):
+        predicted_label = class_names[predicted_class]
+    else:
+        predicted_label = f"Class {predicted_class}"
+    
+    # Get the confidence score
+    confidence = torch.nn.functional.softmax(outputs, dim=1)[0][predicted_class].item() * 100
+    
+    return predicted_label, confidence, predicted_class
+
+def main():
+    parser = argparse.ArgumentParser(description='Predict using a trained medical image model')
+    parser.add_argument('--image', type=str, help='Path to the image file')
+    parser.add_argument('--num_classes', type=int, default=5, help='Number of classes in the model')
+    parser.add_argument('--class_names', type=str, help='Optional comma-separated list of class names')
+    parser.add_argument('--all', action='store_true', help='Process all images in the current folder')
+    
+    args = parser.parse_args()
+    
+    # Load the model
+    model_path = 'trained_model.pt'
+    if not os.path.exists(model_path):
+        print(f"Error: Model file '{model_path}' not found!")
+        return
+    
+    num_classes = args.num_classes
+    model = load_model(model_path, num_classes)
+    
+    # Parse class names if provided
+    class_names = None
+    if args.class_names:
+        class_names = args.class_names.split(',')
+    
+    # Process a single image or all images in the folder
+    if args.all:
+        # Get all image files in the current directory
+        image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff']
+        image_files = []
+        for ext in image_extensions:
+            image_files.extend(glob.glob(ext))
+        
+        if not image_files:
+            print("No image files found in the current directory")
+            return
+        
+        print(f"Processing {len(image_files)} images...")
+        for img_path in image_files:
+            try:
+                predicted_label, confidence, _ = predict_image(model, img_path, class_names)
+                print(f"{img_path}: {predicted_label} (Confidence: {confidence:.2f}%)")
+            except Exception as e:
+                print(f"Error processing {img_path}: {str(e)}")
+    elif args.image:
+        if not os.path.exists(args.image):
+            print(f"Error: Image file '{args.image}' not found!")
+            return
+        
+        # Process the specified image
+        predicted_label, confidence, _ = predict_image(model, args.image, class_names)
+        print(f"Prediction: {predicted_label}")
+        print(f"Confidence: {confidence:.2f}%")
+    else:
+        print("Please provide an image using --image or use --all to process all images in the folder")
+
+if __name__ == '__main__':
+    main()
+"""
+            package_zip.writestr('model_inference.py', inference_code)
+            
+            # Add requirements file
+            requirements = """torch>=1.8.0
+torchvision>=0.9.0
+Pillow>=8.0.0
+numpy>=1.19.0
+"""
+            package_zip.writestr('requirements.txt', requirements)
+            
+            # Add README file
+            readme = """# Medical Image Model Inference Package
+
+This package contains a trained medical image model and code to use it for making predictions.
+
+## Contents
+
+- `trained_model.pt`: The trained PyTorch model
+- `model_inference.py`: Python script for making predictions with the model
+- `requirements.txt`: Required Python packages
+
+## Setup Instructions
+
+1. Install Python 3.8 or newer if not already installed
+2. Place your image files in the same folder as these files
+3. Install the required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+### Basic Usage
+To predict a single image:
+```
+python model_inference.py --image your_image.jpg
+```
+
+### Process All Images
+To process all images in the current directory:
+```
+python model_inference.py --all
+```
+
+### Specify Class Names
+If you know the names of the classes:
+```
+python model_inference.py --image your_image.jpg --class_names "class1,class2,class3,class4,class5"
+```
+
+### Specify Number of Classes
+If your model was trained with a different number of classes:
+```
+python model_inference.py --image your_image.jpg --num_classes 3
+```
+
+## Model Information
+"""
+            # Add model information to README from training metrics
+            if training_metrics:
+                readme += "\nModel training details:\n"
+                if 'num_classes' in training_metrics:
+                    readme += f"- Number of classes: {training_metrics.get('num_classes')}\n"
+                if 'train_accuracy' in training_metrics:
+                    readme += f"- Training accuracy: {training_metrics.get('train_accuracy'):.2f}%\n"
+                if 'test_accuracy' in training_metrics:
+                    readme += f"- Test accuracy: {training_metrics.get('test_accuracy'):.2f}%\n"
+                if 'training_level' in training_metrics:
+                    readme += f"- Training level used: {training_metrics.get('training_level')}\n"
+            
+            package_zip.writestr('README.md', readme)
+        
+        # Return the complete package zip file
+        with open(temp_package_zip.name, 'rb') as f:
+            package_content = f.read()
+        
+        # Clean up the temporary package zip file
+        try:
+            if os.path.exists(temp_package_zip.name):
+                os.unlink(temp_package_zip.name)
+        except Exception as e:
+            logger.error(f"Error removing temporary package file: {str(e)}")
+        
+        # Create a Flask response with the package zip file
+        flask_response = Response(package_content)
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=model_package.zip"
         
         # Forward any training metrics headers
         if 'X-Training-Metrics' in train_response.headers:
             flask_response.headers["X-Training-Metrics"] = train_response.headers['X-Training-Metrics']
             flask_response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
         
-        logger.info("Pipeline completed successfully")
+        logger.info("Pipeline completed successfully - returning model package")
         return flask_response
         
     except Exception as e:
