@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Images Prediction{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Images Prediction with Custom Models</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Use Custom Model Packages</h4>
+                    <p>Upload a model package (ZIP file) containing your trained model and required dependencies, along with an input image to generate predictions.</p>
+                    <p>The model package should include:</p>
+                    <ul>
+                        <li><code>predict.py</code> script that processes the input</li>
+                        <li><code>requirements.txt</code> listing the required dependencies</li>
+                        <li>Any model weights or additional files needed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Files</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="predictionForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="modelPackage" class="form-label">Model Package (ZIP)</label>
+                                <input type="file" class="form-control" id="modelPackage" name="model_package" accept=".zip" required>
+                                <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="inputFile" class="form-label">Input Image</label>
+                                <input type="file" class="form-control" id="inputFile" name="input_file" accept="image/*" required>
+                                <div class="form-text">Image file to analyze with the model</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-cog me-2"></i>Generate Prediction
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultContainer" class="d-none">
+                            <div class="alert alert-success">
+                                <h5>Prediction Completed</h5>
+                                <p id="processingTime"></p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h5>Model Output:</h5>
+                                <pre id="predictionOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
+                            </div>
+                            
+                            <div id="imageResultContainer" class="mb-3 d-none">
+                                <h5>Input Image:</h5>
+                                <img id="inputImage" class="img-fluid rounded border mb-3" alt="Input image">
+                            </div>
+                        </div>
+
+                        <div id="loadingContainer" class="d-none text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">Processing your request...</p>
+                            <p class="text-muted small">This may take a few moments as we set up the environment and run your model.</p>
+                        </div>
+
+                        <div id="initialMessage" class="text-center py-5">
+                            <i class="fas fa-arrow-left fa-3x text-muted mb-3"></i>
+                            <p>Upload your model package and input image to see results here.</p>
+                        </div>
+
+                        <div id="errorContainer" class="d-none">
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+                                <p id="errorMessage"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('predictionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const initialMessage = document.getElementById('initialMessage');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const predictionOutput = document.getElementById('predictionOutput');
+        const processingTime = document.getElementById('processingTime');
+        const inputImage = document.getElementById('inputImage');
+        const imageResultContainer = document.getElementById('imageResultContainer');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Reset UI
+            resultContainer.classList.add('d-none');
+            errorContainer.classList.add('d-none');
+            initialMessage.classList.add('d-none');
+            loadingContainer.classList.remove('d-none');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+            
+            // Create form data
+            const formData = new FormData(form);
+            
+            // Record start time
+            const startTime = new Date();
+            
+            // Send request
+            fetch('/api/predict_image', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'An error occurred during prediction.');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Calculate processing time
+                const endTime = new Date();
+                const processingSeconds = ((endTime - startTime) / 1000).toFixed(2);
+                
+                // Show results
+                loadingContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+                
+                // Display processing time
+                processingTime.textContent = `Processing completed in ${processingSeconds} seconds.`;
+                
+                // Display prediction output
+                predictionOutput.textContent = JSON.stringify(data, null, 2);
+                
+                // Display input image
+                const inputFile = document.getElementById('inputFile').files[0];
+                if (inputFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        inputImage.src = e.target.result;
+                        imageResultContainer.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(inputFile);
+                }
+            })
+            .catch(error => {
+                // Show error
+                loadingContainer.classList.add('d-none');
+                errorContainer.classList.remove('d-none');
+                errorMessage.textContent = error.message || 'An unexpected error occurred.';
+            })
+            .finally(() => {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Generate Prediction';
+            });
+        });
+    });
+</script>
+{% endblock %}
