@@ -118,6 +118,8 @@ def create_tables():
             model_name = db.Column(db.String(255), nullable=False)
             model_url = db.Column(db.Text, nullable=False)
             file_name = db.Column(db.String(255), nullable=True)
+            metric_name = db.Column(db.String(50), nullable=True)
+            metric_value = db.Column(db.Float, nullable=True)
             created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
             
         class PreprocessingData(db.Model):
