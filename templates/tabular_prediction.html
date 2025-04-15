@@ -164,6 +164,18 @@
                     resultMessage.classList.remove('d-none');
                     downloadLink.href = data.download_url;
                     appendToLog(`Download URL: ${data.download_url}`, false);
+                    
+                    // Show information about decoded predictions if available
+                    if (data.decoded_info) {
+                        const decodedInfo = document.createElement('div');
+                        decodedInfo.className = 'mt-2 alert alert-success';
+                        decodedInfo.innerHTML = `
+                            <h6><i class="fas fa-info-circle me-2"></i>Prediction Decoding</h6>
+                            <p class="mb-0">${data.decoded_info.message}</p>
+                            <p class="small mb-0">Note: Categorical values have been added as a new column in the results file.</p>
+                        `;
+                        resultMessage.querySelector('.alert-success').appendChild(decodedInfo);
+                    }
                 } else {
                     appendToLog('ERROR: No download URL provided in the response', true);
                 }

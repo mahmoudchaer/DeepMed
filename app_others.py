@@ -1878,6 +1878,124 @@ def tabular_prediction():
     """Show the tabular prediction page."""
     return render_template('tabular_prediction.html')
 
+def decode_predictions(prediction_file_path, output_path, model_dir):
+    """
+    Decode numeric predictions to their original categorical values
+    using the encoding mappings from the model package.
+    
+    Args:
+        prediction_file_path: Path to the prediction file
+        output_path: Path to save the decoded predictions
+        model_dir: Directory containing the model package
+        
+    Returns:
+        bool: True if decoding was successful, False otherwise
+    """
+    try:
+        # Look for preprocessing_info.json to get the target column
+        preprocessing_info_path = os.path.join(model_dir, 'preprocessing_info.json')
+        if os.path.exists(preprocessing_info_path):
+            with open(preprocessing_info_path, 'r') as f:
+                preprocessing_info = json.load(f)
+                
+            logger.info(f"Loaded preprocessing info from {preprocessing_info_path}")
+            
+            # Look for target column information
+            target_column = None
+            if 'target_column' in preprocessing_info:
+                target_column = preprocessing_info['target_column']
+                logger.info(f"Found target column in preprocessing info: {target_column}")
+            
+            # If target column not found directly, look in label_encoder info
+            if not target_column and 'label_encoder' in preprocessing_info:
+                label_encoder_info = preprocessing_info['label_encoder']
+                if label_encoder_info and 'column' in label_encoder_info:
+                    target_column = label_encoder_info['column']
+                    logger.info(f"Found target column in label_encoder info: {target_column}")
+            
+            # As a fallback, check for cleaner config with target column
+            if not target_column and 'cleaner_config' in preprocessing_info:
+                cleaner_config = preprocessing_info['cleaner_config']
+                if 'target_column' in cleaner_config:
+                    target_column = cleaner_config['target_column']
+                    logger.info(f"Found target column in cleaner_config: {target_column}")
+            
+            # Check if we have encoding mappings for the target column
+            encodings = preprocessing_info.get('encoding_mappings', {})
+            label_encoder_info = preprocessing_info.get('label_encoder', {})
+            
+            # Load the prediction CSV
+            prediction_df = pd.read_csv(prediction_file_path)
+            logger.info(f"Loaded prediction CSV with columns: {prediction_df.columns.tolist()}")
+            
+            # Find the prediction column - typically named 'prediction'
+            prediction_column = None
+            for col in prediction_df.columns:
+                if 'prediction' in col.lower():
+                    prediction_column = col
+                    break
+            
+            if not prediction_column:
+                logger.warning("Could not find prediction column in the output file")
+                return False
+            
+            logger.info(f"Found prediction column: {prediction_column}")
+            
+            # First try using the encoding mappings for the target column
+            if target_column and target_column in encodings:
+                logger.info(f"Found encoding mapping for target column {target_column}")
+                
+                # Get the encoding mapping for the target column
+                target_mapping = encodings[target_column]
+                
+                # Invert the mapping: from {category: code} to {code: category}
+                reverse_mapping = {int(v): k for k, v in target_mapping.items()}
+                logger.info(f"Created reverse mapping: {reverse_mapping}")
+                
+                # Create a new column with decoded predictions
+                decoded_column = f"{prediction_column}_decoded"
+                prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
+                logger.info(f"Added decoded column {decoded_column}")
+                
+                # Save the updated DataFrame to the output path
+                prediction_df.to_csv(output_path, index=False)
+                logger.info(f"Saved prediction file with decoded column to {output_path}")
+                
+                return True
+            
+            # Alternative: try using label_encoder classes if available
+            elif label_encoder_info and 'classes_' in label_encoder_info:
+                logger.info("Using label_encoder classes for decoding")
+                
+                # Get classes from label encoder
+                classes = label_encoder_info['classes_']
+                logger.info(f"Found {len(classes)} classes in label_encoder: {classes}")
+                
+                # Create mapping from int to class name
+                class_mapping = {i: cls for i, cls in enumerate(classes)}
+                logger.info(f"Created class mapping: {class_mapping}")
+                
+                # Create a new column with decoded predictions
+                decoded_column = f"{prediction_column}_decoded"
+                prediction_df[decoded_column] = prediction_df[prediction_column].map(class_mapping)
+                logger.info(f"Added decoded column {decoded_column}")
+                
+                # Save the updated DataFrame to the output path
+                prediction_df.to_csv(output_path, index=False)
+                logger.info(f"Saved prediction file with decoded column to {output_path}")
+                
+                return True
+            
+            # If we reach here, we couldn't find appropriate mapping information
+            logger.warning("No suitable encoding mapping found for decoding predictions")
+            return False
+        else:
+            logger.warning(f"No preprocessing_info.json found in {model_dir}")
+            return False
+    except Exception as e:
+        logger.warning(f"Error decoding predictions: {str(e)}")
+        return False
+
 @app.route('/api/tabular_prediction', methods=['POST'])
 @login_required
 def api_tabular_prediction():
@@ -2034,6 +2152,24 @@ def api_tabular_prediction():
             shutil.copy(prediction_file_path, output_path)
             logger.info(f"Copied prediction file from {prediction_file_path} to {output_path}")
             
+            # Try to decode the predictions and create a more user-friendly output
+            decoded = False
+            decoded_info = None
+            try:
+                decoded = decode_predictions(prediction_file_path, output_path, model_dir)
+                if decoded:
+                    logger.info("Successfully decoded predictions")
+                    # Add info about decoded column to the response
+                    decoded_info = {
+                        "decoded": True,
+                        "message": "Predictions have been decoded to categorical values."
+                    }
+                else:
+                    logger.info("Could not decode predictions - using original output")
+            except Exception as e:
+                logger.warning(f"Error in decode_predictions: {str(e)}")
+                # Continue with the raw predictions
+
             # Save to a session-specific area for download
             user_downloads_dir = os.path.join('static', 'downloads', str(current_user.id))
             os.makedirs(user_downloads_dir, exist_ok=True)
@@ -2057,13 +2193,19 @@ def api_tabular_prediction():
             # Create the download URL
             download_url = url_for('static', filename=f"downloads/{current_user.id}/{download_token}_{output_file}")
             logger.info(f"Generated download URL: {download_url}")
-            
+                
             # Return success with logs and download URL
-            return jsonify({
+            response_data = {
                 "success": True,
                 "logs": logs,
                 "download_url": download_url
-            })
+            }
+            
+            # Add decoded info if available
+            if decoded_info:
+                response_data["decoded_info"] = decoded_info
+                
+            return jsonify(response_data)
             
         except Exception as e:
             error_msg = f"Error running prediction script: {str(e)}"
