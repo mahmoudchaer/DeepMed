@@ -115,6 +115,20 @@ services:
     networks:
       - deepmed-network
 
+  predictor-service:
+    build:
+      context: ./predictor
+      dockerfile: Dockerfile
+    ports:
+      - "5100:5100"
+    restart: unless-stopped
+    volumes:
+      - ./predictor/predictor.py:/app/predictor.py
+    environment:
+      - PORT=5100
+    networks:
+      - deepmed-network
+
 networks:
   deepmed-network:
     driver: bridge 
