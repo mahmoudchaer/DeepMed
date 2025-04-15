@@ -2,6 +2,75 @@
 
 {% block title %}DeepMed - Images Prediction{% endblock %}
 
+{% block head %}
+<style>
+    .json-key {
+        color: #9cdcfe;
+    }
+    .json-string {
+        color: #ce9178;
+    }
+    .json-number {
+        color: #b5cea8;
+    }
+    .json-boolean {
+        color: #569cd6;
+    }
+    .json-null {
+        color: #569cd6;
+    }
+    
+    #predictionOutput {
+        background-color: #1e1e1e;
+        border-radius: 6px;
+        padding: 15px;
+        line-height: 1.5;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #007bff;
+    }
+    
+    .output-card {
+        background-color: #252525;
+        border-radius: 8px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        margin-bottom: 1.5rem;
+    }
+    
+    .output-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+    }
+    
+    .output-header i {
+        margin-right: 8px;
+        color: #007bff;
+    }
+    
+    .output-body {
+        padding: 15px;
+    }
+    
+    .result-tabs {
+        margin-bottom: 15px;
+    }
+    
+    .result-tabs .nav-link {
+        color: #adb5bd;
+        border-radius: 0;
+        padding: 8px 16px;
+    }
+    
+    .result-tabs .nav-link.active {
+        background-color: #252525;
+        color: #fff;
+        border-bottom: 2px solid #007bff;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card shadow">
     <div class="card-body">
@@ -62,9 +131,29 @@
                                 <p id="processingTime"></p>
                             </div>
                             
-                            <div class="mb-3">
-                                <h5>Model Output:</h5>
-                                <pre id="predictionOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
+                            <div class="mb-3 output-card">
+                                <div class="output-header">
+                                    <i class="fas fa-code"></i>
+                                    <h5 class="mb-0">Model Output</h5>
+                                </div>
+                                <div class="output-body">
+                                    <ul class="nav nav-tabs result-tabs" id="outputTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="formatted-tab" data-bs-toggle="tab" data-bs-target="#formatted" type="button" role="tab">Formatted</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab">Raw</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content" id="outputTabContent">
+                                        <div class="tab-pane fade show active" id="formatted" role="tabpanel">
+                                            <pre id="predictionOutput" class="text-light" style="max-height: 300px; overflow-y: auto;"></pre>
+                                        </div>
+                                        <div class="tab-pane fade" id="raw" role="tabpanel">
+                                            <pre id="rawOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div id="imageResultContainer" class="mb-3 d-none">
@@ -160,7 +249,38 @@
                 processingTime.textContent = `Processing completed in ${processingSeconds} seconds.`;
                 
                 // Display prediction output
-                predictionOutput.textContent = JSON.stringify(data, null, 2);
+                const formatJson = function(json) {
+                    if (typeof json === 'string') {
+                        json = JSON.parse(json);
+                    }
+                    
+                    // Format the JSON with highlighting
+                    let formattedOutput = JSON.stringify(json, null, 2)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+                            let cls = 'json-number';
+                            if (/^"/.test(match)) {
+                                if (/:$/.test(match)) {
+                                    cls = 'json-key';
+                                } else {
+                                    cls = 'json-string';
+                                }
+                            } else if (/true|false/.test(match)) {
+                                cls = 'json-boolean';
+                            } else if (/null/.test(match)) {
+                                cls = 'json-null';
+                            }
+                            return '<span class="' + cls + '">' + match + '</span>';
+                        });
+                    
+                    return formattedOutput;
+                };
+                
+                // Display both formatted and raw outputs
+                predictionOutput.innerHTML = formatJson(data);
+                document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2);
                 
                 // Display input image
                 const inputFile = document.getElementById('inputFile').files[0];
