@@ -750,7 +750,7 @@ def images_prediction():
     services_status = check_services()
     
     # Add images prediction service to services status
-    predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5020')
+    predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
     services_status['predictor_service'] = is_service_available(predictor_service_url)
     
     return render_template('images_prediction.html', services_status=services_status, logout_token=session['logout_token'])
@@ -775,7 +775,7 @@ def api_predict_image():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5020')
+        predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
