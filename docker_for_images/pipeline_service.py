@@ -215,18 +215,18 @@ def process_pipeline():
             except:
                 logger.warning("Failed to parse training metrics")
         
-        # Create a temporary zip file to hold all the package contents
-        try:
-            # Create a BytesIO buffer to hold the package zip content in memory
-            package_buffer = io.BytesIO()
+        # Create the model package directly in memory
+        model_content = train_response.content
+        
+        # Create a zip file in memory
+        memory_zip = io.BytesIO()
+        
+        with zipfile.ZipFile(memory_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add the model file
+            zf.writestr('trained_model.pt', model_content)
             
-            # Create a package zip with the model, inference code, and instructions
-            with zipfile.ZipFile(package_buffer, 'w', zipfile.ZIP_DEFLATED) as package_zip:
-                # Add the trained model
-                package_zip.writestr('trained_model.pt', train_response.content)
-                
-                # Add inference script
-                inference_code = """import os
+            # Add inference script
+            inference_code = """import os
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
@@ -333,18 +333,18 @@ def main():
 if __name__ == '__main__':
     main()
 """
-                package_zip.writestr('model_inference.py', inference_code)
-                
-                # Add requirements file
-                requirements = """torch>=1.8.0
+            zf.writestr('model_inference.py', inference_code)
+            
+            # Add requirements.txt
+            requirements = """torch>=1.8.0
 torchvision>=0.9.0
 Pillow>=8.0.0
 numpy>=1.19.0
 """
-                package_zip.writestr('requirements.txt', requirements)
-                
-                # Add README file
-                readme = """# Medical Image Model Inference Package
+            zf.writestr('requirements.txt', requirements)
+            
+            # Add README
+            readme = """# Medical Image Model Inference Package
 
 This package contains a trained medical image model and code to use it for making predictions.
 
@@ -391,39 +391,30 @@ python model_inference.py --image your_image.jpg --num_classes 3
 
 ## Model Information
 """
-                # Add model information to README from training metrics
-                if training_metrics:
-                    readme += "\nModel training details:\n"
-                    if 'num_classes' in training_metrics:
-                        readme += f"- Number of classes: {training_metrics.get('num_classes')}\n"
-                    if 'train_accuracy' in training_metrics:
-                        readme += f"- Training accuracy: {training_metrics.get('train_accuracy'):.2f}%\n"
-                    if 'test_accuracy' in training_metrics:
-                        readme += f"- Test accuracy: {training_metrics.get('test_accuracy'):.2f}%\n"
-                    if 'training_level' in training_metrics:
-                        readme += f"- Training level used: {training_metrics.get('training_level')}\n"
+            # Add model information to README from training metrics
+            if training_metrics:
+                readme += "\nModel training details:\n"
+                if 'num_classes' in training_metrics:
+                    readme += f"- Number of classes: {training_metrics.get('num_classes')}\n"
+                if 'train_accuracy' in training_metrics:
+                    readme += f"- Training accuracy: {training_metrics.get('train_accuracy'):.2f}%\n"
+                if 'test_accuracy' in training_metrics:
+                    readme += f"- Test accuracy: {training_metrics.get('test_accuracy'):.2f}%\n"
+                if 'training_level' in training_metrics:
+                    readme += f"- Training level used: {training_metrics.get('training_level')}\n"
                 
-                package_zip.writestr('README.md', readme)
-            
-            # Set the buffer position to the beginning for reading
-            package_buffer.seek(0)
-            
-            # Create a Flask response with the package zip file
-            flask_response = Response(package_buffer.getvalue())
-            flask_response.headers["Content-Type"] = "application/zip"
-            flask_response.headers["Content-Disposition"] = "attachment; filename=model_package.zip"
-            
-            # Forward any training metrics headers
-            if 'X-Training-Metrics' in train_response.headers:
-                flask_response.headers["X-Training-Metrics"] = train_response.headers['X-Training-Metrics']
-                flask_response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
-            
-            logger.info("Pipeline completed successfully - returning model package")
-            return flask_response
+            zf.writestr('README.md', readme)
         
-        except Exception as e:
-            logger.error(f"Error creating package zip: {str(e)}", exc_info=True)
-            return jsonify({"error": f"Error creating package: {str(e)}"}), 500
+        # Rewind the file-like object
+        memory_zip.seek(0)
+        
+        # Return the zipped package
+        return send_file(
+            memory_zip,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='model_package.zip'
+        )
         
     except Exception as e:
         logger.error(f"Error in pipeline process: {str(e)}", exc_info=True)
