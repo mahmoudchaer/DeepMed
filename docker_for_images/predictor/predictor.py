@@ -73,6 +73,7 @@ def predict():
     finally:
         # Always clean up the temporary directory.
         shutil.rmtree(temp_dir)
+        print(f"✅ Deleted temp directory: {temp_dir}")
 
 if __name__ == '__main__':
     # Run the Flask app on host 0.0.0.0 and port 5100.
