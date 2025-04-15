@@ -18,7 +18,7 @@ services:
   augmentation-service:
     build:
       context: ./data_augmentation
-      dockerfile: Dockerfile_augment
+      dockerfile: Dockerfile
     ports:
       - "5023:5023"
     restart: unless-stopped
@@ -33,12 +33,12 @@ services:
   pipeline-service:
     build:
       context: ./pipeline
-      dockerfile: Dockerfile_pipeline
+      dockerfile: Dockerfile
     ports:
       - "5025:5025"
     restart: unless-stopped
     volumes:
-      - ./pipeline/pipeline_service.py:/app/pipeline_service.py
+      - ./pipeline/app.py:/app/app.py
     environment:
       - PORT=5025
       - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
@@ -74,7 +74,7 @@ services:
   anomaly-detection-service:
     build:
       context: ./anomaly_detector
-      dockerfile: Dockerfile_anomaly_detection
+      dockerfile: Dockerfile
     ports:
       - "5029:5029"
     restart: unless-stopped
