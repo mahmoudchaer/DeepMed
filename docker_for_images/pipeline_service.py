@@ -376,7 +376,7 @@ def main():
 if __name__ == '__main__':
     main()
 """
-            zf.writestr('model_inference.py', inference_code)
+            zf.writestr('predict.py', inference_code)
             
             # Add requirements.txt
             requirements = """torch>=1.8.0
@@ -394,7 +394,7 @@ This package contains a trained medical image model and code to use it for makin
 ## Contents
 
 - `trained_model.pt`: The trained PyTorch model
-- `model_inference.py`: Python script for making predictions with the model
+- `predict.py`: Python script for making predictions with the model
 - `requirements.txt`: Required Python packages
 
 ## Setup Instructions
@@ -411,25 +411,25 @@ This package contains a trained medical image model and code to use it for makin
 ### Basic Usage
 To predict a single image:
 ```
-python model_inference.py --image your_image.jpg
+python predict.py --image your_image.jpg
 ```
 
 ### Process All Images
 To process all images in the current directory:
 ```
-python model_inference.py --all
+python predict.py --all
 ```
 
 ### Specify Class Names
 If you know the names of the classes:
 ```
-python model_inference.py --image your_image.jpg --class_names "class1,class2,class3,class4,class5"
+python predict.py --image your_image.jpg --class_names "class1,class2,class3,class4,class5"
 ```
 
 ### Specify Number of Classes
 If your model was trained with a different number of classes:
 ```
-python model_inference.py --image your_image.jpg --num_classes 3
+python predict.py --image your_image.jpg --num_classes 3
 ```
 
 ## Model Information

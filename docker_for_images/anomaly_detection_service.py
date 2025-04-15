@@ -302,7 +302,7 @@ def train_model():
         # Create a zip file to return the model and related files
         temp_output_zip = os.path.join(temp_dir, "model_output.zip")
         
-        # Create detect_anomaly.py file
+        # Create predict.py file
         detect_script_content = '''import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -383,7 +383,7 @@ if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 2:
-        print("Usage: python detect_anomaly.py <image_path> [model_path] [metadata_path]")
+        print("Usage: python predict.py <image_path> [model_path] [metadata_path]")
         sys.exit(1)
     
     image_path = sys.argv[1]
@@ -425,7 +425,7 @@ This package contains a trained autoencoder model for image anomaly detection. T
 
 - `autoencoder.pt`: The trained PyTorch model
 - `metadata.json`: Model metadata including the detection threshold
-- `detect_anomaly.py`: Python script to run inference on new images
+- `predict.py`: Python script to run inference on new images
 - `requirements.txt`: Required Python packages
 
 ## Setup Instructions
@@ -455,17 +455,17 @@ Place the image(s) you want to analyze in the same directory as the model files,
 
 ```bash
 # Basic usage (uses default model and metadata filenames)
-python detect_anomaly.py your_image.jpg
+python predict.py your_image.jpg
 
 # Specify custom paths for model and metadata if needed
-python detect_anomaly.py your_image.jpg custom_model_name.pt custom_metadata.json
+python predict.py your_image.jpg custom_model_name.pt custom_metadata.json
 ```
 
 ### Example Usage
 
 ```bash
 # Detect anomalies in a single image
-python detect_anomaly.py test_image.jpg
+python predict.py test_image.jpg
 
 # Expected output:
 # Anomaly detection result:
@@ -510,17 +510,17 @@ If you encounter any issues:
 '''
         
         # Save files in the results directory
-        detect_script_path = os.path.join(results_dir, "detect_anomaly.py")
+        detect_script_path = os.path.join(results_dir, "predict.py")
         requirements_path = os.path.join(results_dir, "requirements.txt")
         readme_path = os.path.join(results_dir, "README.md")
         
         try:
             with open(detect_script_path, 'w') as f:
                 f.write(detect_script_content)
-            logger.info(f"Successfully created detect_anomaly.py at {detect_script_path}")
+            logger.info(f"Successfully created predict.py at {detect_script_path}")
             logger.info(f"File exists: {os.path.exists(detect_script_path)}, Size: {os.path.getsize(detect_script_path)} bytes")
         except Exception as e:
-            logger.error(f"Error creating detect_anomaly.py: {str(e)}")
+            logger.error(f"Error creating predict.py: {str(e)}")
         
         try:
             with open(requirements_path, 'w') as f:
@@ -558,8 +558,8 @@ If you encounter any issues:
                 logger.info(f"Added metadata.json to zip")
                 
                 # Add detection script directly
-                zipf.writestr("detect_anomaly.py", detect_script_content)
-                logger.info(f"Added detect_anomaly.py to zip")
+                zipf.writestr("predict.py", detect_script_content)
+                logger.info(f"Added predict.py to zip")
                 
                 # Add requirements directly
                 zipf.writestr("requirements.txt", requirements_content)
@@ -580,7 +580,7 @@ If you encounter any issues:
             logger.info(f"Zip file contains: {contents}")
             
             # Ensure all required files are in the zip
-            required_files = ["autoencoder.pt", "metadata.json", "detect_anomaly.py", "requirements.txt", "README.md"]
+            required_files = ["autoencoder.pt", "metadata.json", "predict.py", "requirements.txt", "README.md"]
             for file in required_files:
                 if file not in contents:
                     logger.error(f"Required file {file} is missing from the zip!")
