@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Tabular Classification Prediction{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Tabular Classification Prediction</h1>
+    
+    <div class="alert alert-info mb-4">
+        <h5><i class="fas fa-info-circle"></i> About Prediction</h5>
+        <p>This page allows you to make predictions using your trained model packages without writing any code.</p>
+        <p>Simply upload your model package zip file and the data you want to predict on, and we'll handle the rest.</p>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Upload Files</h5>
+                </div>
+                <div class="card-body">
+                    <form id="predictionForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="modelPackage" class="form-label">Upload Model Package (ZIP)</label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" id="modelPackage" name="modelPackage" accept=".zip" required>
+                                <span class="input-group-text"><i class="fas fa-file-archive"></i></span>
+                            </div>
+                            <div class="form-text">Upload your zipped model package from "My Models"</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="predictionData" class="form-label">Upload Data (CSV)</label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" id="predictionData" name="predictionData" accept=".csv" required>
+                                <span class="input-group-text"><i class="fas fa-table"></i></span>
+                            </div>
+                            <div class="form-text">Upload the data you want to make predictions on</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary action-btn w-100 py-3" id="predict-btn">
+                            <i class="fas fa-magic me-2"></i> Make Predictions
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Prediction Process</h5>
+                </div>
+                <div class="card-body">
+                    <div id="statusBox" class="d-none">
+                        <div class="alert alert-info mb-3">
+                            <span id="statusMessage">Processing... This may take several minutes.</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6><i class="fas fa-terminal me-2"></i>Execution Log:</h6>
+                            <div id="logContainer" class="border rounded bg-dark p-3 mb-3" style="max-height: 300px; overflow-y: auto;">
+                                <pre id="logOutput" class="text-light mb-0" style="white-space: pre-wrap;"></pre>
+                            </div>
+                        </div>
+                        
+                        <div id="resultMessage" class="d-none">
+                            <div class="alert alert-success">
+                                <p class="mb-1">Prediction complete! <a id="downloadLink" href="#" class="alert-link">Download results</a></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="initialMessage">
+                        <div class="text-center py-4">
+                            <i class="fas fa-arrow-left fa-3x text-muted mb-3"></i>
+                            <h5>Ready for Predictions</h5>
+                            <p class="text-muted">Upload your model package and data file to begin.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const predictionForm = document.getElementById('predictionForm');
+        const statusBox = document.getElementById('statusBox');
+        const initialMessage = document.getElementById('initialMessage');
+        const statusMessage = document.getElementById('statusMessage');
+        const logOutput = document.getElementById('logOutput');
+        const resultMessage = document.getElementById('resultMessage');
+        const downloadLink = document.getElementById('downloadLink');
+        const predictBtn = document.getElementById('predict-btn');
+        
+        // Helper function to append to the log
+        function appendToLog(message, isError = false) {
+            const logLine = document.createElement('div');
+            logLine.textContent = message;
+            if (isError) {
+                logLine.style.color = '#ff6b6b';
+            }
+            logOutput.appendChild(logLine);
+            // Auto-scroll to bottom
+            logOutput.parentElement.scrollTop = logOutput.parentElement.scrollHeight;
+        }
+        
+        predictionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show status box and hide initial message
+            statusBox.classList.remove('d-none');
+            initialMessage.classList.add('d-none');
+            resultMessage.classList.add('d-none');
+            
+            // Clear previous logs
+            logOutput.innerHTML = '';
+            
+            // Disable the button and show loading state
+            predictBtn.disabled = true;
+            predictBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Processing...';
+            
+            // Get form data
+            const formData = new FormData(predictionForm);
+            
+            // Update status
+            statusMessage.textContent = 'Uploading files and preparing prediction...';
+            appendToLog('Starting prediction process...');
+            appendToLog('Uploading model package and data files...');
+            
+            // Send the request
+            fetch('/api/tabular_prediction', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'An error occurred during prediction');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update status and logs
+                statusMessage.textContent = 'Prediction completed successfully!';
+                appendToLog('Prediction process completed successfully!');
+                
+                // Show logs from the response
+                if (data.logs && data.logs.length > 0) {
+                    data.logs.forEach(log => {
+                        appendToLog(log, log.includes('Error') || log.includes('WARNING'));
+                    });
+                }
+                
+                // Show download link
+                resultMessage.classList.remove('d-none');
+                downloadLink.href = data.download_url;
+                
+                // Re-enable the button
+                predictBtn.disabled = false;
+                predictBtn.innerHTML = '<i class="fas fa-magic me-2"></i> Make Predictions';
+            })
+            .catch(error => {
+                // Show error
+                statusMessage.textContent = 'An error occurred during prediction.';
+                appendToLog('ERROR: ' + error.message, true);
+                
+                // Re-enable the button
+                predictBtn.disabled = false;
+                predictBtn.innerHTML = '<i class="fas fa-magic me-2"></i> Make Predictions';
+            });
+        });
+    });
+</script>
+{% endblock %} 

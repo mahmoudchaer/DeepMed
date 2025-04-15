@@ -22,6 +22,9 @@ import joblib
 from sklearn.dummy import DummyClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
+import subprocess
+import threading
+import sys
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -1868,3 +1871,148 @@ def create_placeholder_model(temp_dir, model, error_message):
     
     logger.info(f"Created placeholder model file at {placeholder_path}")
     return placeholder_path
+
+@app.route('/tabular_prediction')
+@login_required
+def tabular_prediction():
+    """Show the tabular prediction page."""
+    return render_template('tabular_prediction.html')
+
+@app.route('/api/tabular_prediction', methods=['POST'])
+@login_required
+def api_tabular_prediction():
+    """API endpoint for making predictions with a model package."""
+    try:
+        # Check if files were uploaded
+        if 'modelPackage' not in request.files or 'predictionData' not in request.files:
+            return jsonify({"error": "Both model package and prediction data are required"}), 400
+            
+        model_package = request.files['modelPackage']
+        prediction_data = request.files['predictionData']
+        
+        # Validate file extensions
+        if not model_package.filename.endswith('.zip'):
+            return jsonify({"error": "Model package must be a zip file"}), 400
+        if not prediction_data.filename.endswith('.csv'):
+            return jsonify({"error": "Prediction data must be a CSV file"}), 400
+            
+        # Create a temporary directory for the extraction
+        temp_dir = tempfile.mkdtemp()
+        model_dir = os.path.join(temp_dir, 'model')
+        os.makedirs(model_dir, exist_ok=True)
+        
+        # Save the data file to a temp location
+        data_path = os.path.join(temp_dir, 'data.csv')
+        prediction_data.save(data_path)
+        
+        # Save the zip file
+        zip_path = os.path.join(temp_dir, 'model_package.zip')
+        model_package.save(zip_path)
+        
+        # Extract the zip file
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(model_dir)
+            
+        # Log the extracted files
+        extracted_files = os.listdir(model_dir)
+        logger.info(f"Extracted {len(extracted_files)} files: {extracted_files}")
+        
+        # Check for required files
+        if not any(file.endswith('.joblib') for file in extracted_files):
+            return jsonify({"error": "No model file (.joblib) found in the package"}), 400
+        if 'predict.py' not in extracted_files:
+            return jsonify({"error": "No predict.py script found in the package"}), 400
+        if 'preprocessing_info.json' not in extracted_files:
+            return jsonify({"error": "No preprocessing_info.json found in the package"}), 400
+            
+        # Set up process to capture output
+        logs = []
+        
+        # Create a unique name for the output file
+        output_file = f"predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        output_path = os.path.join(temp_dir, output_file)
+        
+        # Run the prediction script
+        try:
+            # Change to model directory
+            process_env = os.environ.copy()
+            process_env['PYTHONPATH'] = model_dir + os.pathsep + process_env.get('PYTHONPATH', '')
+            
+            command = [sys.executable, os.path.join(model_dir, 'predict.py'), data_path]
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=model_dir,
+                env=process_env
+            )
+            
+            # Capture output in real-time
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    logs.append(line.rstrip())
+                    logger.info(f"Prediction log: {line.rstrip()}")
+            
+            # Get return code
+            return_code = process.poll()
+            if return_code != 0:
+                logs.append(f"Process exited with code {return_code}")
+                logger.error(f"Prediction process failed with code {return_code}")
+                return jsonify({"error": f"Prediction process failed with code {return_code}", "logs": logs}), 500
+                
+            # Find the output prediction file
+            prediction_files = [f for f in os.listdir(model_dir) if f.endswith('_predictions.csv')]
+            if not prediction_files:
+                return jsonify({"error": "No prediction file was generated", "logs": logs}), 500
+                
+            # Move the prediction file to our temporary directory with a unique name
+            prediction_file = prediction_files[0]
+            prediction_file_path = os.path.join(model_dir, prediction_file)
+            shutil.copy(prediction_file_path, output_path)
+            
+            # Save to a session-specific area for download
+            user_downloads_dir = os.path.join('static', 'downloads', str(current_user.id))
+            os.makedirs(user_downloads_dir, exist_ok=True)
+            
+            # Generate a unique token for this download
+            download_token = secrets.token_hex(16)
+            user_download_path = os.path.join(user_downloads_dir, f"{download_token}_{output_file}")
+            
+            # Copy the file to the downloads directory
+            shutil.copy(output_path, user_download_path)
+            
+            # Create the download URL
+            download_url = url_for('static', filename=f"downloads/{current_user.id}/{download_token}_{output_file}")
+            
+            # Return success with logs and download URL
+            return jsonify({
+                "success": True,
+                "logs": logs,
+                "download_url": download_url
+            })
+            
+        except Exception as e:
+            error_msg = f"Error running prediction script: {str(e)}"
+            logs.append(error_msg)
+            logger.error(error_msg)
+            return jsonify({"error": error_msg, "logs": logs}), 500
+        
+    except Exception as e:
+        logger.error(f"Error in tabular prediction: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        # Clean up temp directory after a delay to ensure download is complete
+        def delayed_cleanup(temp_dir):
+            time.sleep(300)  # 5 minutes should be enough for download
+            try:
+                shutil.rmtree(temp_dir)
+                logger.info(f"Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                logger.error(f"Error cleaning up temporary directory: {str(e)}")
+                
+        # Start a thread for cleanup
+        threading.Thread(target=delayed_cleanup, args=(temp_dir,)).start()
