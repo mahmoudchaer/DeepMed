@@ -106,6 +106,36 @@ def ensure_training_models_saved(user_id, run_id, model_result):
                     metric_value = model_metrics[metric]
                     logger.info(f"Found metric value for {metric}: {metric_value}")
             
+            # Find the actual metric value from the model_result
+            metric_value = None
+            
+            # Extract metrics from the model result structure
+            if 'all_models' in model_result and metric in model_result.get('all_models', {}):
+                # Models are directly indexed by metric name
+                model_data = model_result['all_models'].get(metric, {})
+                if 'score' in model_data:
+                    metric_value = model_data['score']
+                    logger.info(f"Found {metric} score: {metric_value} in all_models")
+            
+            # Try to get metric from best_scores if present
+            if metric_value is None and 'best_scores' in model_result:
+                if metric in model_result['best_scores']:
+                    metric_value = model_result['best_scores'][metric]
+                    logger.info(f"Found {metric} score: {metric_value} in best_scores")
+            
+            # Try model_info structure which might contain metrics
+            if metric_value is None and 'metrics' in model_info:
+                if metric in model_info['metrics']:
+                    metric_value = model_info['metrics'][metric]
+                    logger.info(f"Found {metric} score: {metric_value} in model_info metrics")
+                    
+            # Log the model_result structure for debugging if we couldn't find the metric
+            if metric_value is None:
+                logger.debug(f"Could not find metric value for {metric}")
+                # Write structure keys to debug log to understand how to find metrics
+                logger.debug(f"Model result keys: {list(model_result.keys())}")
+                logger.debug(f"Model info keys: {list(model_info.keys())}")
+            
             # Create and save the model record with metric information
             model_record = TrainingModel(
                 user_id=user_id,
