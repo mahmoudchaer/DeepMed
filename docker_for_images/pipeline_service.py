@@ -319,7 +319,7 @@ def main():
     if os.path.exists('class_names.txt') and not args.class_names:
         try:
             with open('class_names.txt', 'r') as f:
-                class_names_content = f.read().strip().split('\n')
+                class_names_content = f.read().splitlines()
             class_names = []
             for line in class_names_content:
                 if ':' in line:
