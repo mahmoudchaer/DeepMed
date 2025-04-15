@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements first for better caching
 COPY requirements_efficientnet_b0.txt .
-RUN pip install --no-cache-dir -r requirements_efficientnet_b0.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY model_service.py .
+COPY app.py .
 
 # Expose port
 EXPOSE 5021
