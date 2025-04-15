@@ -551,8 +551,8 @@ def api_pipeline():
         
         # Create a Flask response with the model file
         flask_response = Response(response.content)
-        flask_response.headers["Content-Type"] = "application/octet-stream"
-        flask_response.headers["Content-Disposition"] = "attachment; filename=trained_model.pt"
+        flask_response.headers["Content-Type"] = "application/zip"
+        flask_response.headers["Content-Disposition"] = "attachment; filename=model_package.zip"
         
         # Forward any training metrics in headers
         if 'X-Training-Metrics' in response.headers:

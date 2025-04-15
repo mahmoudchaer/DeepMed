@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Create download link for the model
             const url = URL.createObjectURL(blob);
             downloadLink.href = url;
-            downloadLink.download = 'trained_model.pt';
+            downloadLink.download = 'model_package.zip';
             
             // Show result message with download link
             resultMessage.classList.remove('d-none');
