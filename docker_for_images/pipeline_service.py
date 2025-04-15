@@ -394,6 +394,7 @@ if __name__ == '__main__':
     main()
 
 """
+#comment
             zf.writestr('predict.py', inference_code)
             
             # Add requirements.txt
