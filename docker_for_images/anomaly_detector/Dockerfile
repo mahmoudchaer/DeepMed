@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements_anomaly_detection.txt .
-RUN pip install --no-cache-dir -r requirements_anomaly_detection.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir torch==2.0.0 torchvision==0.15.0 --index-url https://download.pytorch.org/whl/cpu
 
 # Set up environment
