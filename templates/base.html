@@ -57,6 +57,8 @@
                                 href="{{ url_for('anomaly_detection') }}">Anomaly Detection</a></li>
                             <li><a class="dropdown-item {% if request.endpoint == 'semantic_segmentation' %}active{% endif %}" 
                                 href="{{ url_for('semantic_segmentation') }}">Semantic Segmentation</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'images_prediction' %}active{% endif %}" 
+                                href="{{ url_for('images_prediction') }}">Images Prediction</a></li>
                         </ul>
                     </li>
                     
