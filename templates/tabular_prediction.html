@@ -146,6 +146,8 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Received response:', data);
+                
                 // Update status and logs
                 statusMessage.textContent = 'Prediction completed successfully!';
                 appendToLog('Prediction process completed successfully!');
@@ -157,15 +159,22 @@
                     });
                 }
                 
-                // Show download link
-                resultMessage.classList.remove('d-none');
-                downloadLink.href = data.download_url;
+                // Show download link if available
+                if (data.download_url) {
+                    resultMessage.classList.remove('d-none');
+                    downloadLink.href = data.download_url;
+                    appendToLog(`Download URL: ${data.download_url}`, false);
+                } else {
+                    appendToLog('ERROR: No download URL provided in the response', true);
+                }
                 
                 // Re-enable the button
                 predictBtn.disabled = false;
                 predictBtn.innerHTML = '<i class="fas fa-magic me-2"></i> Make Predictions';
             })
             .catch(error => {
+                console.error('Prediction error:', error);
+                
                 // Show error
                 statusMessage.textContent = 'An error occurred during prediction.';
                 appendToLog('ERROR: ' + error.message, true);
