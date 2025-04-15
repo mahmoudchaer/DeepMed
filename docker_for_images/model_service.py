@@ -42,6 +42,7 @@ def train_model(zip_file, num_classes=5, training_level=3):
         transform = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
         ])
         dataset = datasets.ImageFolder(root=extract_dir, transform=transform)
         
@@ -218,7 +219,9 @@ def train_model(zip_file, num_classes=5, training_level=3):
             "num_val_images": val_size,
             "num_test_images": test_size,
             "training_level": training_level,
-            "data_was_split": should_split
+            "data_was_split": should_split,
+            "class_to_idx": dataset.class_to_idx,
+            "classes": dataset.classes
         }
         
         # Save the trained model to an in-memory bytes object
