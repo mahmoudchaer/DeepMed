@@ -2055,6 +2055,88 @@ def decode_predictions(prediction_file_path, output_path, model_dir):
         logger.warning(f"Error decoding predictions: {str(e)}")
         return False
 
+# Function for decoding predictions using a specific target feature
+def decode_predictions_using_feature(prediction_file_path, output_path, model_dir, target_feature):
+    """
+    Decode numeric predictions to their original categorical values
+    using a specific target feature's encoding mapping.
+    
+    Args:
+        prediction_file_path: Path to the prediction file
+        output_path: Path to save the decoded predictions
+        model_dir: Directory containing the model package
+        target_feature: The feature to use for decoding
+        
+    Returns:
+        bool: True if decoding was successful, False otherwise
+    """
+    try:
+        # Check if target feature is specified
+        if not target_feature:
+            logger.warning("No target feature specified for decoding")
+            return False
+            
+        # Look for preprocessing_info.json
+        preprocessing_info_path = os.path.join(model_dir, 'preprocessing_info.json')
+        if not os.path.exists(preprocessing_info_path):
+            logger.warning(f"No preprocessing_info.json found in {model_dir}")
+            return False
+            
+        # Load preprocessing info
+        with open(preprocessing_info_path, 'r') as f:
+            preprocessing_info = json.load(f)
+            
+        # Check if encodings exist
+        encodings = preprocessing_info.get('encoding_mappings', {})
+        if not encodings:
+            logger.warning("No encoding mappings found in preprocessing info")
+            return False
+            
+        # Check if target feature exists in encodings
+        if target_feature not in encodings:
+            logger.warning(f"Target feature '{target_feature}' not found in encoding mappings")
+            return False
+            
+        # Get the encoding mapping for the target feature
+        target_mapping = encodings[target_feature]
+        logger.info(f"Using encoding mapping for target feature: {target_feature}")
+        
+        # Load the prediction CSV
+        prediction_df = pd.read_csv(prediction_file_path)
+        logger.info(f"Loaded prediction CSV with columns: {prediction_df.columns.tolist()}")
+        
+        # Find the prediction column - typically named 'prediction'
+        prediction_column = None
+        for col in prediction_df.columns:
+            if 'prediction' in col.lower():
+                prediction_column = col
+                break
+        
+        if not prediction_column:
+            logger.warning("Could not find prediction column in the output file")
+            return False
+            
+        logger.info(f"Found prediction column: {prediction_column}")
+        
+        # Invert the mapping: from {category: code} to {code: category}
+        reverse_mapping = {int(v): k for k, v in target_mapping.items()}
+        logger.info(f"Created reverse mapping for {target_feature}: {reverse_mapping}")
+        
+        # Create a new column with decoded predictions
+        decoded_column = f"{prediction_column}_decoded"
+        prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
+        logger.info(f"Added decoded column {decoded_column}")
+        
+        # Save the updated DataFrame to the output path
+        prediction_df.to_csv(output_path, index=False)
+        logger.info(f"Saved prediction file with decoded column to {output_path}")
+        
+        return True
+    
+    except Exception as e:
+        logger.warning(f"Error decoding predictions using feature '{target_feature}': {str(e)}")
+        return False
+
 @app.route('/api/tabular_prediction', methods=['POST'])
 @login_required
 def api_tabular_prediction():
@@ -2071,7 +2153,7 @@ def api_tabular_prediction():
         target_feature = request.form.get('target_feature', None)
         if target_feature:
             logger.info(f"User specified target feature for decoding: {target_feature}")
-        
+            
         # Validate file extensions
         if not model_package.filename.endswith('.zip'):
             return jsonify({"error": "Model package must be a zip file"}), 400
@@ -2219,69 +2301,26 @@ def api_tabular_prediction():
             # Try to decode the predictions and create a more user-friendly output
             decoded = False
             decoded_info = None
-            try:
-                # Pass the target feature if specified
-                if target_feature:
-                    # Read preprocessing info to pass the encodings
-                    preprocessing_info_path = os.path.join(model_dir, 'preprocessing_info.json')
-                    if os.path.exists(preprocessing_info_path):
-                        with open(preprocessing_info_path, 'r') as f:
-                            preprocessing_info = json.load(f)
-                        
-                        encodings = preprocessing_info.get('encoding_mappings', {})
-                        if target_feature in encodings:
-                            # Read the prediction file
-                            prediction_df = pd.read_csv(prediction_file_path)
-                            
-                            # Find the prediction column
-                            prediction_column = None
-                            for col in prediction_df.columns:
-                                if 'prediction' in col.lower():
-                                    prediction_column = col
-                                    break
-                            
-                            if prediction_column:
-                                # Get the encoding mapping for the specified feature
-                                target_mapping = encodings[target_feature]
-                                
-                                # Invert the mapping
-                                reverse_mapping = {int(v): k for k, v in target_mapping.items()}
-                                
-                                # Create a new column with decoded predictions
-                                decoded_column = f"{prediction_column}_decoded"
-                                prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
-                                
-                                # Save the updated DataFrame
-                                prediction_df.to_csv(output_path, index=False)
-                                
-                                decoded = True
-                                decoded_info = {
-                                    "decoded": True,
-                                    "message": f"Predictions have been decoded using the '{target_feature}' encoding."
-                                }
-                                logger.info(f"Successfully decoded predictions using user-specified feature: {target_feature}")
-                            else:
-                                logger.warning("Could not find prediction column for manual decoding")
-                        else:
-                            logger.warning(f"Specified target feature '{target_feature}' not found in encodings")
-                    else:
-                        logger.warning("Could not find preprocessing info for manual decoding")
-                else:
-                    # Use automatic decoding
-                    decoded = decode_predictions(prediction_file_path, output_path, model_dir)
-                
-                if decoded:
-                    if not decoded_info:
+            
+            if target_feature:
+                try:
+                    # Decode predictions using the specified target feature
+                    decoded = decode_predictions_using_feature(prediction_file_path, output_path, model_dir, target_feature)
+                    
+                    if decoded:
                         decoded_info = {
                             "decoded": True,
-                            "message": "Predictions have been decoded to categorical values."
+                            "message": f"Predictions have been decoded using the '{target_feature}' encoding."
                         }
-                    logger.info("Successfully decoded predictions")
-                else:
-                    logger.info("Could not decode predictions - using original output")
-            except Exception as e:
-                logger.warning(f"Error in decode_predictions: {str(e)}")
-                # Continue with the raw predictions
+                        logger.info(f"Successfully decoded predictions using target feature: {target_feature}")
+                    else:
+                        logger.warning(f"Failed to decode predictions using target feature: {target_feature}")
+                except Exception as e:
+                    logger.warning(f"Error decoding predictions: {str(e)}")
+            else:
+                logger.info("No target feature specified for decoding - skipping decoding step")
+                
+            # ... (keep the rest of the code) ...
 
             # Save to a session-specific area for download
             user_downloads_dir = os.path.join('static', 'downloads', str(current_user.id))
@@ -2389,3 +2428,74 @@ def check_downloads_dir():
             'message': f'Error checking downloads directory: {str(e)}',
             'error': str(e)
         }), 500
+
+@app.route('/api/extract_features', methods=['POST'])
+@login_required
+def extract_features():
+    """Extract available features from a model package for decoding."""
+    try:
+        # Check if model package file was uploaded
+        if 'modelPackage' not in request.files:
+            return jsonify({"error": "Model package is required"}), 400
+            
+        model_package = request.files['modelPackage']
+        
+        # Validate file extension
+        if not model_package.filename.endswith('.zip'):
+            return jsonify({"error": "Model package must be a zip file"}), 400
+            
+        # Create a temporary directory for the extraction
+        temp_dir = tempfile.mkdtemp()
+        
+        try:
+            # Save the zip file
+            zip_path = os.path.join(temp_dir, 'model_package.zip')
+            model_package.save(zip_path)
+            
+            # Extract the preprocessing_info.json file only
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                # Check if preprocessing_info.json exists in the zip
+                preprocessing_info_exists = False
+                for file_info in zip_ref.infolist():
+                    if file_info.filename.endswith('preprocessing_info.json'):
+                        preprocessing_info_exists = True
+                        zip_ref.extract(file_info, temp_dir)
+                        break
+                
+                if not preprocessing_info_exists:
+                    return jsonify({"error": "No preprocessing_info.json found in the package"}), 400
+            
+            # Find the extracted preprocessing_info.json file
+            for root, dirs, files in os.walk(temp_dir):
+                for file in files:
+                    if file == 'preprocessing_info.json':
+                        preprocessing_info_path = os.path.join(root, file)
+                        break
+            
+            # Load the preprocessing info
+            with open(preprocessing_info_path, 'r') as f:
+                preprocessing_info = json.load(f)
+            
+            # Extract available features from encoding mappings
+            features = []
+            encodings = preprocessing_info.get('encoding_mappings', {})
+            for feature in encodings.keys():
+                features.append(feature)
+            
+            logger.info(f"Extracted {len(features)} encoded features from model package")
+            
+            # Return the list of features
+            return jsonify({
+                "features": features
+            })
+            
+        finally:
+            # Clean up temporary directory
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"Error cleaning up temporary directory: {str(e)}")
+    
+    except Exception as e:
+        logger.error(f"Error extracting features: {str(e)}")
+        return jsonify({"error": str(e)}), 500
