@@ -98,17 +98,27 @@ def ensure_training_models_saved(user_id, run_id, model_result):
                 logger.info(f"Model {model_name} already exists for run_id {run_id}")
                 continue
                 
-            # Create and save the model record
+            # Get the metric value if available in the model_result
+            metric_value = None
+            if 'model_metrics' in model_result and model_info.get('model_name') in model_result['model_metrics']:
+                model_metrics = model_result['model_metrics'][model_info.get('model_name')]
+                if metric in model_metrics:
+                    metric_value = model_metrics[metric]
+                    logger.info(f"Found metric value for {metric}: {metric_value}")
+            
+            # Create and save the model record with metric information
             model_record = TrainingModel(
                 user_id=user_id,
                 run_id=run_id,
                 model_name=model_name,
                 model_url=model_url,
-                file_name=filename  # Save the filename too
+                file_name=filename,  # Save the filename too
+                metric_name=metric,  # Store the metric name
+                metric_value=metric_value  # Store the metric value if available
             )
             
             db.session.add(model_record)
-            logger.info(f"Added model {model_name} to database for run_id {run_id}")
+            logger.info(f"Added model {model_name} with metric {metric_value} to database for run_id {run_id}")
         
         # Commit all changes
         db.session.commit()
@@ -1258,6 +1268,26 @@ def my_models():
         # Get the models for this run
         run.models = TrainingModel.query.filter_by(run_id=run.id, user_id=current_user.id).all()
         run.model_count = len(run.models)
+        
+        # Add metric information for display in the template
+        for model in run.models:
+            metric_name = ""
+            metric_value = None
+            
+            # First check if the DB model has the attributes (after the schema change)
+            if hasattr(model, 'metric_name') and model.metric_name:
+                metric_name = model.metric_name
+                metric_value = model.metric_value if hasattr(model, 'metric_value') and model.metric_value else None
+            
+            # If not available, extract from model name
+            if not metric_name and "best_model_for_" in model.model_name:
+                metric_name = model.model_name.replace("best_model_for_", "")
+            
+            # Only use real values from the database, no fake metrics
+            
+            # Set as attributes for use in the template
+            model.metric_name = metric_name
+            model.metric_value = metric_value
     
     # Also get runs that specifically have models
     runs_with_models = [run for run in all_runs if run.model_count > 0]
@@ -1727,14 +1757,45 @@ def model_selection(run_id=None):
     
     # Convert database models to the format expected by the template
     models = []
+    model_metrics = {}
+    
+    try:
+        # Try to load model metrics from database or session
+        if 'model_results' in session and session['model_results']:
+            model_metrics = session['model_results'].get('model_metrics', {})
+    except Exception as e:
+        logger.error(f"Error loading model metrics: {str(e)}")
+    
+    # Define default metric values
+    metric_defaults = {
+        'accuracy': 0.92,
+        'precision': 0.89,
+        'recall': 0.87,
+        'f1': 0.90,
+        'specificity': 0.88
+    }
+    
     for db_model in db_models:
         # Extract metric from model name (e.g., "best_model_for_accuracy" -> "accuracy")
         metric = db_model.model_name.replace("best_model_for_", "")
+        
+        # Get the score for this metric
+        score = None
+        model_name = db_model.model_name.split('_')[-1] if '_' in db_model.model_name else None
+        
+        # Only use real metric values
+        if hasattr(db_model, 'metric_value') and db_model.metric_value:
+            score = float(db_model.metric_value)
+        elif model_metrics and model_name in model_metrics and metric in model_metrics[model_name]:
+            score = model_metrics[model_name][metric]
+        # No fake fallback values
+        
         models.append({
             'id': db_model.id,
             'name': db_model.model_name,
             'metric': metric,
-            'file_name': db_model.file_name
+            'file_name': db_model.file_name,
+            'score': score
         })
     
     # Get feature importance from session (or fall back to empty)

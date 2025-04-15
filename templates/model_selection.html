@@ -33,7 +33,7 @@
                                 <div class="card-body">
                                     <h6 class="card-subtitle mb-2 text-muted">Optimized for {{ model.metric }}</h6>
                                     <p class="card-text">
-                                        <strong>Model ID:</strong> {{ model.id }}
+                                        <strong>{{ model.metric | title }} Score:</strong> {% if model.score is defined and model.score is not none %} {{ "%.3f" | format(model.score) }} {% else %} N/A {% endif %}
                                     </p>
                                     <a href="{{ url_for('select_model', model_name=model.name, metric=model.metric) }}" class="btn btn-primary">Select Model</a>
                                 </div>

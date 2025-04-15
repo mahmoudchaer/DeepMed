@@ -54,6 +54,7 @@
                                         <thead class="table-light">
                                             <tr>
                                                 <th>Model Name</th>
+                                                <th>Best Metric</th>
                                                 <th>Created At</th>
                                                 <th>Action</th>
                                             </tr>
@@ -63,6 +64,19 @@
                                                 <tr>
                                                     <td>
                                                         <strong>{{ model.model_name }}</strong>
+                                                    </td>
+                                                    <td>
+                                                        {% if model.metric_name %}
+                                                            <span class="badge bg-success">{{ model.metric_name | title }}: 
+                                                            {% if model.metric_value is not none %}
+                                                                {{ "%.3f" | format(model.metric_value) }}
+                                                            {% else %}
+                                                                N/A
+                                                            {% endif %}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="text-muted">Not available</span>
+                                                        {% endif %}
                                                     </td>
                                                     <td>{{ model.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                                     <td class="text-center">
