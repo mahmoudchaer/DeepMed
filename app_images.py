@@ -566,96 +566,26 @@ def api_pipeline():
         logger.error(f"Error in pipeline process: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/train_anomaly', methods=['POST', 'GET'])
+@app.route('/api/train_anomaly', methods=['POST'])
 @login_required
 def api_train_anomaly():
     """API endpoint for anomaly detection training"""
+    # Check for file upload
+    if 'zipFile' not in request.files:
+        return jsonify({"error": "No ZIP file uploaded"}), 400
+    
+    zip_file = request.files['zipFile']
+    if not zip_file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate file extension
+    if not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "File must be a ZIP archive"}), 400
+    
     try:
         # Check if the anomaly detection service is available
         if not is_service_available(ANOMALY_DETECTION_SERVICE_URL):
             return jsonify({"error": "Anomaly detection service is not available. Please try again later."}), 503
-            
-        # Handle direct download via GET with query parameters (fallback mechanism)
-        if request.method == 'GET':
-            # For security reasons, we require the user to be logged in (via @login_required)
-            # and we don't allow arbitrary file access via this method
-            filename = request.args.get('filename')
-            level = request.args.get('level', '3')
-            image_size = request.args.get('image_size', '256')
-            
-            if not filename:
-                return jsonify({"error": "Missing filename parameter"}), 400
-                
-            logger.info(f"Direct download request for anomaly detection model with filename: {filename}, level: {level}, image_size: {image_size}")
-            
-            # Since we can't access the original file directly via GET,
-            # create a simple placeholder file for the model service to process
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
-            temp_file.close()
-            
-            # Create an empty zip file with the filename
-            with zipfile.ZipFile(temp_file.name, 'w') as z:
-                # Add a placeholder file to the zip
-                z.writestr('placeholder.txt', 'This is a placeholder file for direct download requests.')
-            
-            # Create form data to send to the anomaly detection service
-            with open(temp_file.name, 'rb') as f:
-                fields = {
-                    'zipFile': (filename, f, 'application/zip'),
-                    'level': level,
-                    'image_size': image_size
-                }
-                
-                form_data = MultipartEncoder(fields=fields)
-                headers = {'Content-Type': form_data.content_type}
-                
-                try:
-                    # Request from the service with a longer timeout
-                    response = requests.post(
-                        f"{ANOMALY_DETECTION_SERVICE_URL}/train",
-                        headers=headers,
-                        data=form_data,
-                        stream=True,
-                        timeout=1800  # 30 minute timeout
-                    )
-                finally:
-                    # Clean up the temporary file
-                    try:
-                        os.unlink(temp_file.name)
-                    except Exception as e:
-                        logger.error(f"Error removing temporary file: {str(e)}")
-            
-            # Return the response as in the POST method
-            if response.status_code != 200:
-                error_message = "Error in anomaly detection service"
-                try:
-                    error_data = response.json()
-                    if 'error' in error_data:
-                        error_message = error_data['error']
-                except:
-                    error_message = f"Error in anomaly detection service (HTTP {response.status_code})"
-                
-                return jsonify({"error": error_message}), response.status_code
-            
-            # Create a Flask response with the model zip file
-            flask_response = Response(response.content)
-            flask_response.headers["Content-Type"] = "application/zip"
-            flask_response.headers["Content-Disposition"] = "attachment; filename=anomaly_detection_model.zip"
-            
-            return flask_response
-    
-        # Original POST method implementation
-        # Check for file upload
-        if 'zipFile' not in request.files:
-            return jsonify({"error": "No ZIP file uploaded"}), 400
-        
-        zip_file = request.files['zipFile']
-        if not zip_file.filename:
-            return jsonify({"error": "No file selected"}), 400
-        
-        # Validate file extension
-        if not zip_file.filename.lower().endswith('.zip'):
-            return jsonify({"error": "File must be a ZIP archive"}), 400
         
         logger.info(f"Starting anomaly detection training for file: {zip_file.filename}")
         
@@ -682,13 +612,13 @@ def api_train_anomaly():
             # Forward the request to the anomaly detection service
             headers = {'Content-Type': form_data.content_type}
             
-            # Stream the request to the service with a longer timeout
+            # Stream the request to the service
             response = requests.post(
                 f"{ANOMALY_DETECTION_SERVICE_URL}/train",
                 headers=headers,
                 data=form_data,
                 stream=True,
-                timeout=1800  # 30 minute timeout
+                timeout=600  # Increase timeout to 10 minutes
             )
         
         # Clean up the temporary file
@@ -716,9 +646,6 @@ def api_train_anomaly():
         
         return flask_response
         
-    except requests.exceptions.Timeout:
-        logger.error("Timeout occurred while connecting to anomaly detection service")
-        return jsonify({"error": "The request timed out. The model may still be training. Try the direct download link."}), 504
     except Exception as e:
         logger.error(f"Error in anomaly detection training: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
