@@ -63,7 +63,6 @@ The **Model Coordinator** (Port 5020) acts as an orchestrator for all model serv
 
 - `GET /health`: Check health status of all model services
 - `POST /train`: Train all models in parallel
-- `POST /predict`: Get predictions from the best models
 - `GET /model_info`: Get information about all available models
 
 #### Individual Model Service API
@@ -72,7 +71,6 @@ Each model service provides the following endpoints:
 
 - `GET /health`: Check health status
 - `POST /train`: Train the specific model
-- `POST /predict`: Get predictions from the model
 - `GET /model_info`: Get information about the model
 - `GET /download_model`: Download the trained model file
 
