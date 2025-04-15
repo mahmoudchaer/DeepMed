@@ -1204,40 +1204,7 @@ def apply_stored_feature_selection(df, feature_selector_config):
     columns_to_exclude = []
     cleaned_df = None
 
-    # ROBUST FEATURE FILTERING: First pass to identify and exclude obviously irrelevant columns
-    # Common patterns for columns that should be excluded
-    irrelevant_patterns = [
-        # ID columns
-        'id', '_id', 'uuid', 'guid', 'identifier',
-        # Name columns  
-        'name', 'firstname', 'lastname', 'fullname', 'patient_name', 'doctor', 'physician', 'provider',
-        # Date/time columns
-        'date', 'time', 'datetime', 'timestamp', 'admission', 'discharge', 'visit',
-        # Contact and personal info
-        'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
-        # Other non-predictive columns
-        'notes', 'comment', 'description', 'url', 'link', 'file', 'path'
-    ]
     
-    # First identify columns to exclude based on name patterns
-    for col in df.columns:
-        col_lower = col.lower()
-        # Check if column name contains any of the irrelevant patterns
-        if any(pattern in col_lower for pattern in irrelevant_patterns):
-            columns_to_exclude.append(col)
-            logger.info(f"💡 Excluding column '{col}' based on name pattern matching irrelevant data.")
-    
-    # Also exclude columns with high cardinality (many unique values) 
-    # which are likely identifiers, names, or free text
-    for col in df.columns:
-        if col not in columns_to_exclude:
-            if df[col].dtype == object or df[col].dtype == 'category':
-                # Calculate cardinality ratio (unique values / total rows)
-                unique_ratio = len(df[col].unique()) / len(df)
-                # If more than 50% of values are unique, it's likely an identifier
-                if unique_ratio > 0.5:
-                    columns_to_exclude.append(col)
-                    logger.info(f"💡 Excluding column '{col}' with high cardinality ratio ({unique_ratio:.2f}).")
     
     # CONFIGURED FEATURE SELECTION: Apply the stored feature selection configuration
     if 'selected_columns' in feature_selector_config and feature_selector_config['selected_columns']:
