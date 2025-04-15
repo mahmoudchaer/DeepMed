@@ -1900,7 +1900,24 @@ def decode_predictions(prediction_file_path, output_path, model_dir):
                 
             logger.info(f"Loaded preprocessing info from {preprocessing_info_path}")
             
-            # Look for target column information
+            # Load the prediction CSV
+            prediction_df = pd.read_csv(prediction_file_path)
+            logger.info(f"Loaded prediction CSV with columns: {prediction_df.columns.tolist()}")
+            
+            # Find the prediction column - typically named 'prediction'
+            prediction_column = None
+            for col in prediction_df.columns:
+                if 'prediction' in col.lower():
+                    prediction_column = col
+                    break
+            
+            if not prediction_column:
+                logger.warning("Could not find prediction column in the output file")
+                return False
+            
+            logger.info(f"Found prediction column: {prediction_column}")
+            
+            # --- APPROACH 1: Look for target column information ---
             target_column = None
             if 'target_column' in preprocessing_info:
                 target_column = preprocessing_info['target_column']
@@ -1920,55 +1937,12 @@ def decode_predictions(prediction_file_path, output_path, model_dir):
                     target_column = cleaner_config['target_column']
                     logger.info(f"Found target column in cleaner_config: {target_column}")
             
-            # Check if we have encoding mappings for the target column
-            encodings = preprocessing_info.get('encoding_mappings', {})
-            label_encoder_info = preprocessing_info.get('label_encoder', {})
-            
-            # Load the prediction CSV
-            prediction_df = pd.read_csv(prediction_file_path)
-            logger.info(f"Loaded prediction CSV with columns: {prediction_df.columns.tolist()}")
-            
-            # Find the prediction column - typically named 'prediction'
-            prediction_column = None
-            for col in prediction_df.columns:
-                if 'prediction' in col.lower():
-                    prediction_column = col
-                    break
-            
-            if not prediction_column:
-                logger.warning("Could not find prediction column in the output file")
-                return False
-            
-            logger.info(f"Found prediction column: {prediction_column}")
-            
-            # First try using the encoding mappings for the target column
-            if target_column and target_column in encodings:
-                logger.info(f"Found encoding mapping for target column {target_column}")
-                
-                # Get the encoding mapping for the target column
-                target_mapping = encodings[target_column]
-                
-                # Invert the mapping: from {category: code} to {code: category}
-                reverse_mapping = {int(v): k for k, v in target_mapping.items()}
-                logger.info(f"Created reverse mapping: {reverse_mapping}")
-                
-                # Create a new column with decoded predictions
-                decoded_column = f"{prediction_column}_decoded"
-                prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
-                logger.info(f"Added decoded column {decoded_column}")
-                
-                # Save the updated DataFrame to the output path
-                prediction_df.to_csv(output_path, index=False)
-                logger.info(f"Saved prediction file with decoded column to {output_path}")
-                
-                return True
-            
-            # Alternative: try using label_encoder classes if available
-            elif label_encoder_info and 'classes_' in label_encoder_info:
+            # --- APPROACH 2: Try using label_encoder with classes ---
+            if 'label_encoder' in preprocessing_info and preprocessing_info['label_encoder'] and 'classes_' in preprocessing_info['label_encoder']:
                 logger.info("Using label_encoder classes for decoding")
                 
                 # Get classes from label encoder
-                classes = label_encoder_info['classes_']
+                classes = preprocessing_info['label_encoder']['classes_']
                 logger.info(f"Found {len(classes)} classes in label_encoder: {classes}")
                 
                 # Create mapping from int to class name
@@ -1986,7 +1960,92 @@ def decode_predictions(prediction_file_path, output_path, model_dir):
                 
                 return True
             
-            # If we reach here, we couldn't find appropriate mapping information
+            # --- APPROACH 3: Try to infer from encoding mappings ---
+            encodings = preprocessing_info.get('encoding_mappings', {})
+            if encodings and (target_column in encodings or not target_column):
+                # If we have the target column and it's in encodings, use it
+                if target_column and target_column in encodings:
+                    target_mapping = encodings[target_column]
+                    mapping_name = target_column
+                    logger.info(f"Using encoding mapping for known target column: {target_column}")
+                # Otherwise, try each encoding map to see if it matches the prediction values
+                else:
+                    # Check unique values in the prediction column
+                    unique_predictions = prediction_df[prediction_column].unique()
+                    logger.info(f"Unique prediction values: {unique_predictions}")
+                    
+                    # For each encoding, check if its values match the prediction values
+                    best_match = None
+                    best_match_name = None
+                    max_matches = 0
+                    
+                    for col_name, mapping in encodings.items():
+                        # Get the values this column was encoded to
+                        encoded_values = list(map(int, set(mapping.values())))
+                        # Count how many prediction values are in this encoding
+                        matches = sum(1 for val in unique_predictions if val in encoded_values)
+                        
+                        logger.info(f"Column {col_name} mapping has {matches}/{len(unique_predictions)} matches with predictions")
+                        
+                        if matches > max_matches:
+                            max_matches = matches
+                            best_match = mapping
+                            best_match_name = col_name
+                    
+                    # Use the best matching encoding if it has at least one match
+                    if max_matches > 0:
+                        target_mapping = best_match
+                        mapping_name = best_match_name
+                        logger.info(f"Using best matching encoding from column: {mapping_name} ({max_matches} matches)")
+                    else:
+                        logger.warning("No encoding mapping matched the prediction values")
+                        return False
+                
+                # Invert the mapping: from {category: code} to {code: category}
+                reverse_mapping = {int(v): k for k, v in target_mapping.items()}
+                logger.info(f"Created reverse mapping for {mapping_name}: {reverse_mapping}")
+                
+                # Create a new column with decoded predictions
+                decoded_column = f"{prediction_column}_decoded"
+                prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
+                logger.info(f"Added decoded column {decoded_column}")
+                
+                # Save the updated DataFrame to the output path
+                prediction_df.to_csv(output_path, index=False)
+                logger.info(f"Saved prediction file with decoded column to {output_path}")
+                
+                return True
+            
+            # --- APPROACH 4: Try using class mapping from README or model metadata ---
+            readme_path = os.path.join(model_dir, 'README.md')
+            if os.path.exists(readme_path):
+                try:
+                    with open(readme_path, 'r') as f:
+                        readme_content = f.read()
+                    
+                    # Look for class mapping information in README
+                    # This is a bit of a hack, but it might work for some cases
+                    import re
+                    # Look for patterns like "Class 0: Category1, Class 1: Category2"
+                    class_patterns = re.findall(r'[Cc]lass (\d+)\s*:\s*([^\n,]+)', readme_content)
+                    if class_patterns:
+                        logger.info(f"Found class mappings in README: {class_patterns}")
+                        class_mapping = {int(idx): name.strip() for idx, name in class_patterns}
+                        
+                        # Create a new column with decoded predictions
+                        decoded_column = f"{prediction_column}_decoded"
+                        prediction_df[decoded_column] = prediction_df[prediction_column].map(class_mapping)
+                        logger.info(f"Added decoded column {decoded_column}")
+                        
+                        # Save the updated DataFrame to the output path
+                        prediction_df.to_csv(output_path, index=False)
+                        logger.info(f"Saved prediction file with decoded column to {output_path}")
+                        
+                        return True
+                except Exception as e:
+                    logger.warning(f"Error parsing README for class mappings: {str(e)}")
+            
+            # If we've tried everything and still can't decode
             logger.warning("No suitable encoding mapping found for decoding predictions")
             return False
         else:
@@ -2007,6 +2066,11 @@ def api_tabular_prediction():
             
         model_package = request.files['modelPackage']
         prediction_data = request.files['predictionData']
+        
+        # Get optional target feature for decoding
+        target_feature = request.form.get('target_feature', None)
+        if target_feature:
+            logger.info(f"User specified target feature for decoding: {target_feature}")
         
         # Validate file extensions
         if not model_package.filename.endswith('.zip'):
@@ -2156,14 +2220,63 @@ def api_tabular_prediction():
             decoded = False
             decoded_info = None
             try:
-                decoded = decode_predictions(prediction_file_path, output_path, model_dir)
+                # Pass the target feature if specified
+                if target_feature:
+                    # Read preprocessing info to pass the encodings
+                    preprocessing_info_path = os.path.join(model_dir, 'preprocessing_info.json')
+                    if os.path.exists(preprocessing_info_path):
+                        with open(preprocessing_info_path, 'r') as f:
+                            preprocessing_info = json.load(f)
+                        
+                        encodings = preprocessing_info.get('encoding_mappings', {})
+                        if target_feature in encodings:
+                            # Read the prediction file
+                            prediction_df = pd.read_csv(prediction_file_path)
+                            
+                            # Find the prediction column
+                            prediction_column = None
+                            for col in prediction_df.columns:
+                                if 'prediction' in col.lower():
+                                    prediction_column = col
+                                    break
+                            
+                            if prediction_column:
+                                # Get the encoding mapping for the specified feature
+                                target_mapping = encodings[target_feature]
+                                
+                                # Invert the mapping
+                                reverse_mapping = {int(v): k for k, v in target_mapping.items()}
+                                
+                                # Create a new column with decoded predictions
+                                decoded_column = f"{prediction_column}_decoded"
+                                prediction_df[decoded_column] = prediction_df[prediction_column].map(reverse_mapping)
+                                
+                                # Save the updated DataFrame
+                                prediction_df.to_csv(output_path, index=False)
+                                
+                                decoded = True
+                                decoded_info = {
+                                    "decoded": True,
+                                    "message": f"Predictions have been decoded using the '{target_feature}' encoding."
+                                }
+                                logger.info(f"Successfully decoded predictions using user-specified feature: {target_feature}")
+                            else:
+                                logger.warning("Could not find prediction column for manual decoding")
+                        else:
+                            logger.warning(f"Specified target feature '{target_feature}' not found in encodings")
+                    else:
+                        logger.warning("Could not find preprocessing info for manual decoding")
+                else:
+                    # Use automatic decoding
+                    decoded = decode_predictions(prediction_file_path, output_path, model_dir)
+                
                 if decoded:
+                    if not decoded_info:
+                        decoded_info = {
+                            "decoded": True,
+                            "message": "Predictions have been decoded to categorical values."
+                        }
                     logger.info("Successfully decoded predictions")
-                    # Add info about decoded column to the response
-                    decoded_info = {
-                        "decoded": True,
-                        "message": "Predictions have been decoded to categorical values."
-                    }
                 else:
                     logger.info("Could not decode predictions - using original output")
             except Exception as e:
