@@ -806,7 +806,7 @@ predictions = predictor.predict(processed_df)
 
 ## Model Information
 - Model Type: {model.model_name}
-- Created: {model.created_at}
+- Created: {model.created_at} 
 - ID: {model.id}
 
 ## Preprocessing Information
@@ -1576,76 +1576,6 @@ def feature_importance():
     # Convert to JSON for frontend
     graphJSON = json.dumps(fig, cls=SafeJSONEncoder)
     return jsonify(graphJSON)
-
-@app.route('/chat', methods=['GET', 'POST'])
-@login_required
-def chat():
-    # Check if Medical Assistant API is available
-    if not is_service_available(MEDICAL_ASSISTANT_URL):
-        flash('Medical Assistant service is not available.', 'error')
-        return render_template('chat.html', messages=[])
-    
-    # Initialize chat history in session if not present
-    if 'messages' not in session:
-        session['messages'] = []
-    
-    if request.method == 'POST':
-        prompt = request.form.get('prompt')
-        if prompt:
-            # Add user message to chat history
-            session['messages'].append({
-                'role': 'user',
-                'content': prompt
-            })
-            
-            # Get AI response via API
-            try:
-                response = safe_requests_post(
-                    f"{MEDICAL_ASSISTANT_URL}/chat",
-                    {
-                        "message": prompt,
-                        "session_id": f"session_{id(session)}"  # Create a unique session ID
-                    },
-                    timeout=60
-                )
-                
-                if response.status_code == 200:
-                    ai_response = response.json()["response"]
-                    
-                    # Add assistant response to chat history
-                    session['messages'].append({
-                        'role': 'assistant',
-                        'content': ai_response
-                    })
-                    # Add logging to verify data being sent to APIs
-                    logger.info(f"Data being sent to Medical Assistant Chat API: {prompt}")
-                else:
-                    flash(f"Error communicating with AI assistant: {response.text}", 'error')
-                
-            except Exception as e:
-                logger.error(f"Error communicating with AI assistant: {str(e)}", exc_info=True)
-                flash(f"Error communicating with AI assistant: {str(e)}", 'error')
-    
-    return render_template('chat.html', messages=session.get('messages', []))
-
-@app.route('/clear_chat')
-@login_required
-def clear_chat():
-    if 'messages' in session:
-        session.pop('messages')
-        
-        # Also clear on the API side
-        if is_service_available(MEDICAL_ASSISTANT_URL):
-            try:
-                safe_requests_post(
-                    f"{MEDICAL_ASSISTANT_URL}/clear_chat",
-                    {"session_id": f"session_{id(session)}"},
-                    timeout=10
-                )
-            except:
-                pass  # Ignore errors in clearing remote chat history
-            
-    return redirect(url_for('chat'))
 
 @app.route('/container_prediction', methods=['POST'])
 def container_prediction():

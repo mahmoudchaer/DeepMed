@@ -60,11 +60,6 @@
                         </ul>
                     </li>
                     
-                    <!-- AI Assistant remains as a standalone item -->
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'chat' %}active{% endif %}" 
-                           href="{{ url_for('chat') }}">AI Assistant</a>
-                    </li>
                     {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="#features">Features</a>
