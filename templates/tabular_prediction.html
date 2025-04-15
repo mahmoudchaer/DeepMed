@@ -43,10 +43,12 @@
                                 Target Feature (Optional)
                                 <i class="fas fa-question-circle ms-1" 
                                    data-bs-toggle="tooltip" 
-                                   title="If you know which feature was the target in your model, specify it here to help decode the numeric predictions back to categorical values."></i>
+                                   title="Select which feature was the target in your model to decode the numeric predictions back to categorical values."></i>
                             </label>
-                            <input type="text" class="form-control" id="targetFeature" name="target_feature" placeholder="e.g. Medical Condition">
-                            <div class="form-text">Specify the target feature to help decode predictions</div>
+                            <select class="form-select" id="targetFeature" name="target_feature" disabled>
+                                <option value="">Select after uploading model package...</option>
+                            </select>
+                            <div class="form-text">Select the target feature to decode predictions</div>
                         </div>
                         
                         <button type="submit" class="btn btn-primary action-btn w-100 py-3" id="predict-btn">
@@ -107,11 +109,90 @@
         const resultMessage = document.getElementById('resultMessage');
         const downloadLink = document.getElementById('downloadLink');
         const predictBtn = document.getElementById('predict-btn');
+        const modelPackageInput = document.getElementById('modelPackage');
+        const targetFeatureSelect = document.getElementById('targetFeature');
         
         // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+        
+        // When model package is uploaded, extract encoding features
+        modelPackageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Clear previous options
+            targetFeatureSelect.innerHTML = '<option value="">Loading available features...</option>';
+            targetFeatureSelect.disabled = true;
+            
+            // Read the zip file
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const zipData = e.target.result;
+                
+                // Use zip.js library to extract preprocessing_info.json
+                // Since we don't have direct access to zip.js, we'll need to make a server request
+                // Create a FormData object to send the file
+                const formData = new FormData();
+                formData.append('modelPackage', file);
+                
+                // Make a request to the server to extract features
+                fetch('/api/extract_features', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error extracting features');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear the select
+                    targetFeatureSelect.innerHTML = '';
+                    
+                    // Add default option
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Select target feature...';
+                    targetFeatureSelect.appendChild(defaultOption);
+                    
+                    // If features were found, add them to the select
+                    if (data.features && data.features.length > 0) {
+                        data.features.forEach(feature => {
+                            const option = document.createElement('option');
+                            option.value = feature;
+                            option.textContent = feature;
+                            targetFeatureSelect.appendChild(option);
+                        });
+                        
+                        // Enable the select
+                        targetFeatureSelect.disabled = false;
+                    } else {
+                        // If no features were found, show a message
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'No encoded features found';
+                        targetFeatureSelect.appendChild(option);
+                        targetFeatureSelect.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Add a default option
+                    targetFeatureSelect.innerHTML = '';
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'Error loading features';
+                    targetFeatureSelect.appendChild(option);
+                    targetFeatureSelect.disabled = true;
+                });
+            };
+            
+            // Read the file as an ArrayBuffer
+            reader.readAsArrayBuffer(file);
         });
         
         // Helper function to append to the log
