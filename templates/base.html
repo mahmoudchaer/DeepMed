@@ -34,7 +34,7 @@
                             Tabular Classification
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="tabularDropdown">
-                            <li><a class="dropdown-item {% if request.endpoint == 'index' or request.endpoint == 'training' %}active{% endif %}" 
+                            <li><a class="dropdown-item {% if request.endpoint == 'training' %}active{% endif %}" 
                                 href="{{ url_for('training') }}">Training Classification</a></li>
                             <li><a class="dropdown-item {% if request.endpoint == 'my_models' %}active{% endif %}" 
                                 href="{{ url_for('my_models') }}">Models Classification</a></li>
