@@ -53,9 +53,11 @@ def predict():
         # Run the prediction with the input file.
         # Adjust the argument name (--input) if needed for your predict.py.
         result = subprocess.run(
-            [python_path, predict_script, "--input", input_file_path],
+            [python_path, predict_script],
+            cwd=temp_dir,
             capture_output=True, text=True, timeout=60
         )
+
         
         # If the prediction script fails, return an error.
         if result.returncode != 0:
