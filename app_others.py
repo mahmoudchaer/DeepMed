@@ -1964,29 +1964,99 @@ def api_tabular_prediction():
                 logger.error(f"Prediction process failed with code {return_code}")
                 return jsonify({"error": f"Prediction process failed with code {return_code}", "logs": logs}), 500
                 
-            # Find the output prediction file
+            # Find the output prediction file using different search patterns
+            prediction_file_path = None
+            
+            # First look for direct matches
             prediction_files = [f for f in os.listdir(model_dir) if f.endswith('_predictions.csv')]
+            
+            # Then check temp directory
             if not prediction_files:
+                prediction_files = [f for f in os.listdir(temp_dir) if f.endswith('_predictions.csv')]
+                
+            # Specifically look for data_predictions.csv (as seen in logs)
+            if not prediction_files:
+                data_predictions = 'data_predictions.csv'
+                if os.path.exists(os.path.join(model_dir, data_predictions)):
+                    prediction_file_path = os.path.join(model_dir, data_predictions)
+                    logger.info(f"Found data_predictions.csv in model_dir: {prediction_file_path}")
+                elif os.path.exists(os.path.join(temp_dir, data_predictions)):
+                    prediction_file_path = os.path.join(temp_dir, data_predictions)
+                    logger.info(f"Found data_predictions.csv in temp_dir: {prediction_file_path}")
+                    
+            # If the standard approaches failed, try other naming patterns
+            if not prediction_files and prediction_file_path is None:
+                # Try with specific data file name pattern
+                data_name = os.path.basename(data_path)
+                expected_prediction_file = data_name.replace('.csv', '_predictions.csv')
+                
+                # Look in model_dir and temp_dir for this specific file
+                for search_dir in [model_dir, temp_dir]:
+                    if os.path.exists(os.path.join(search_dir, expected_prediction_file)):
+                        prediction_file_path = os.path.join(search_dir, expected_prediction_file)
+                        logger.info(f"Found file with expected name pattern: {prediction_file_path}")
+                        break
+                
+                # If still not found, perform full recursive search
+                if prediction_file_path is None:
+                    logger.info("Performing recursive search for prediction files")
+                    for root, dirs, files in os.walk(temp_dir):
+                        for file in files:
+                            if file.endswith('_predictions.csv'):
+                                prediction_file_path = os.path.join(root, file)
+                                logger.info(f"Found prediction file in recursive search: {prediction_file_path}")
+                                break
+                        if prediction_file_path:
+                            break
+            
+            # If we still don't have any prediction files, return an error
+            if not prediction_files and prediction_file_path is None:
+                logger.error("No prediction files found in any location")
+                logger.error(f"Files in model_dir: {os.listdir(model_dir)}")
+                logger.error(f"Files in temp_dir: {os.listdir(temp_dir)}")
                 return jsonify({"error": "No prediction file was generated", "logs": logs}), 500
                 
-            # Move the prediction file to our temporary directory with a unique name
-            prediction_file = prediction_files[0]
-            prediction_file_path = os.path.join(model_dir, prediction_file)
+            # If we have prediction files but not a path, use the first one
+            if prediction_file_path is None and prediction_files:
+                prediction_file = prediction_files[0]
+                if os.path.exists(os.path.join(model_dir, prediction_file)):
+                    prediction_file_path = os.path.join(model_dir, prediction_file)
+                else:
+                    prediction_file_path = os.path.join(temp_dir, prediction_file)
+                logger.info(f"Using first prediction file found: {prediction_file_path}")
+            
+            # Verify the file exists
+            if not os.path.exists(prediction_file_path):
+                logger.error(f"Prediction file {prediction_file_path} not found")
+                return jsonify({"error": f"Prediction file {prediction_file_path} not found", "logs": logs}), 500
+                
+            # Copy the prediction file to our output path
             shutil.copy(prediction_file_path, output_path)
+            logger.info(f"Copied prediction file from {prediction_file_path} to {output_path}")
             
             # Save to a session-specific area for download
             user_downloads_dir = os.path.join('static', 'downloads', str(current_user.id))
             os.makedirs(user_downloads_dir, exist_ok=True)
+            logger.info(f"Created user downloads directory: {user_downloads_dir}")
             
             # Generate a unique token for this download
             download_token = secrets.token_hex(16)
             user_download_path = os.path.join(user_downloads_dir, f"{download_token}_{output_file}")
+            logger.info(f"User download path: {user_download_path}")
             
             # Copy the file to the downloads directory
             shutil.copy(output_path, user_download_path)
+            logger.info(f"Copied prediction file to download path: {user_download_path}")
             
+            # Verify download file exists
+            if os.path.exists(user_download_path):
+                logger.info(f"Verified download file exists: {user_download_path}")
+            else:
+                logger.error(f"Download file not created: {user_download_path}")
+                
             # Create the download URL
             download_url = url_for('static', filename=f"downloads/{current_user.id}/{download_token}_{output_file}")
+            logger.info(f"Generated download URL: {download_url}")
             
             # Return success with logs and download URL
             return jsonify({
@@ -2016,3 +2086,51 @@ def api_tabular_prediction():
                 
         # Start a thread for cleanup
         threading.Thread(target=delayed_cleanup, args=(temp_dir,)).start()
+
+@app.route('/check_downloads_dir')
+@login_required
+def check_downloads_dir():
+    """Utility endpoint to check if the downloads directory is properly set up."""
+    try:
+        # Define paths to check
+        static_dir = os.path.join(os.getcwd(), 'static')
+        downloads_dir = os.path.join(static_dir, 'downloads')
+        user_downloads_dir = os.path.join(downloads_dir, str(current_user.id))
+        
+        # Create directories if they don't exist
+        os.makedirs(static_dir, exist_ok=True)
+        os.makedirs(downloads_dir, exist_ok=True)
+        os.makedirs(user_downloads_dir, exist_ok=True)
+        
+        # Create a test file
+        test_file_path = os.path.join(user_downloads_dir, 'test_file.txt')
+        with open(test_file_path, 'w') as f:
+            f.write('Test file content')
+            
+        # Generate test URL
+        test_url = url_for('static', filename=f"downloads/{current_user.id}/test_file.txt")
+        
+        # Return success
+        return jsonify({
+            'status': 'success',
+            'message': 'Downloads directory is properly set up',
+            'paths': {
+                'static_dir': static_dir,
+                'downloads_dir': downloads_dir,
+                'user_downloads_dir': user_downloads_dir,
+                'test_file': test_file_path,
+                'test_url': test_url
+            },
+            'exists': {
+                'static_dir': os.path.exists(static_dir),
+                'downloads_dir': os.path.exists(downloads_dir),
+                'user_downloads_dir': os.path.exists(user_downloads_dir),
+                'test_file': os.path.exists(test_file_path)
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error checking downloads directory: {str(e)}',
+            'error': str(e)
+        }), 500
