@@ -531,6 +531,15 @@ def is_service_available(service_url):
         logger.error(f"Service {service_url} is not available: {str(e)}")
         return False
 
+# Create upload directory if it doesn't exist
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# Create a directory for downloads
+DOWNLOADS_FOLDER = os.path.join('static', 'downloads')
+if not os.path.exists(DOWNLOADS_FOLDER):
+    os.makedirs(DOWNLOADS_FOLDER)
+
 # Import modularized application components - MOVED TO THE END to avoid circular imports
         
 if __name__ == "__main__":

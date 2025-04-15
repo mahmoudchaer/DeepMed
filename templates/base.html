@@ -44,6 +44,8 @@
                                 href="{{ url_for('training') }}">Training Classification</a></li>
                             <li><a class="dropdown-item {% if request.endpoint == 'my_models' %}active{% endif %}" 
                                 href="{{ url_for('my_models') }}">Models Classification</a></li>
+                            <li><a class="dropdown-item {% if request.endpoint == 'tabular_prediction' %}active{% endif %}" 
+                                href="{{ url_for('tabular_prediction') }}">Prediction Classification</a></li>
                         </ul>
                     </li>
                     
