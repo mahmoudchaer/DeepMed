@@ -274,7 +274,7 @@ def predict_image(model, image_path, class_names=None):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     # Load and preprocess the image
@@ -285,7 +285,7 @@ def predict_image(model, image_path, class_names=None):
     with torch.no_grad():
         outputs = model(img_tensor)
         _, predicted_idx = torch.max(outputs, 1)
-        
+    
     # Get the predicted class name or index
     predicted_class = predicted_idx.item()
     if class_names and predicted_class < len(class_names):
@@ -293,47 +293,48 @@ def predict_image(model, image_path, class_names=None):
     else:
         predicted_label = f"Class {predicted_class}"
     
-    # Get the confidence score
+    # Calculate the confidence score
     confidence = torch.nn.functional.softmax(outputs, dim=1)[0][predicted_class].item() * 100
     
     return predicted_label, confidence, predicted_class
 
 def main():
     parser = argparse.ArgumentParser(description='Predict using a trained medical image model')
-    parser.add_argument('--image', type=str, help='Path to the image file')
+    # Use an optional positional argument for the image
+    parser.add_argument('image', nargs='?', default=None, help='Path to the image file (optional)')
     parser.add_argument('--num_classes', type=int, default=5, help='Number of classes in the model')
     parser.add_argument('--class_names', type=str, help='Optional comma-separated list of class names')
     parser.add_argument('--all', action='store_true', help='Process all images in the current folder')
     
     args = parser.parse_args()
     
-    # Load the model
+    # Load the model file (assumed to be named "trained_model.pt" in the package)
     model_path = 'trained_model.pt'
     if not os.path.exists(model_path):
         print(f"Error: Model file '{model_path}' not found!")
         return
     
-    # Try to automatically load class names from class_names.txt if it exists
+    # Try to automatically load class names from class_names.txt if available
     class_names = None
     if os.path.exists('class_names.txt') and not args.class_names:
         try:
             with open('class_names.txt', 'r') as f:
-                class_names_content = f.read().strip().split('\\n')
+                class_names_content = f.read().strip().split('\n')
             class_names = []
             for line in class_names_content:
                 if ':' in line:
-                    # Extract the class name (after the colon)
+                    # Extract the class name after the colon
                     class_names.append(line.split(':', 1)[1].strip())
             print(f"Loaded {len(class_names)} class names from class_names.txt")
         except Exception as e:
             print(f"Error loading class names from file: {str(e)}")
     
-    # If class names were provided as an argument, use those instead
+    # Overwrite with command-line provided class names if given
     if args.class_names:
         class_names = args.class_names.split(',')
         print(f"Using {len(class_names)} class names from command line argument")
     
-    # Determine the number of classes from class names or parameter
+    # Determine number of classes from class names or parameter
     if class_names:
         num_classes = len(class_names)
     else:
@@ -342,16 +343,16 @@ def main():
     
     model = load_model(model_path, num_classes)
     
-    # Process a single image or all images in the folder
+    # Processing images
     if args.all:
-        # Get all image files in the current directory
+        # Process all images in the current directory
         image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff']
         image_files = []
         for ext in image_extensions:
             image_files.extend(glob.glob(ext))
         
         if not image_files:
-            print("No image files found in the current directory")
+            print("No image files found in the current directory.")
             return
         
         print(f"Processing {len(image_files)} images...")
@@ -361,20 +362,37 @@ def main():
                 print(f"{img_path}: {predicted_label} (Confidence: {confidence:.2f}%)")
             except Exception as e:
                 print(f"Error processing {img_path}: {str(e)}")
-    elif args.image:
-        if not os.path.exists(args.image):
-            print(f"Error: Image file '{args.image}' not found!")
+    else:
+        # If an image is provided as an argument, use that.
+        # Otherwise, search for the only image in the current directory.
+        img_path = args.image
+        if img_path is None:
+            image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff']
+            image_files = []
+            for ext in image_extensions:
+                image_files.extend(glob.glob(ext))
+            
+            if len(image_files) == 0:
+                print("No image file found in the current directory.")
+                return
+            elif len(image_files) > 1:
+                print("Multiple image files found. Please specify one as an argument or use --all to process all images.")
+                return
+            else:
+                img_path = image_files[0]
+                print(f"Found one image file: {img_path}")
+        
+        if not os.path.exists(img_path):
+            print(f"Error: Image file '{img_path}' not found!")
             return
         
-        # Process the specified image
-        predicted_label, confidence, _ = predict_image(model, args.image, class_names)
+        predicted_label, confidence, _ = predict_image(model, img_path, class_names)
         print(f"Prediction: {predicted_label}")
         print(f"Confidence: {confidence:.2f}%")
-    else:
-        print("Please provide an image using --image or use --all to process all images in the folder")
 
 if __name__ == '__main__':
     main()
+
 """
             zf.writestr('predict.py', inference_code)
             
