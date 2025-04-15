@@ -228,6 +228,24 @@ def process_pipeline():
             # Add the model file
             zf.writestr('trained_model.pt', model_content)
             
+            # Add class mapping if available
+            if training_metrics and 'class_to_idx' in training_metrics:
+                # Create a class mapping JSON file
+                class_mapping = json.dumps(training_metrics.get('class_to_idx'), indent=2)
+                zf.writestr('class_mapping.json', class_mapping)
+                
+                # Also create a simple text file with class names for easy reference
+                if 'classes' in training_metrics:
+                    # Log the class mapping for debugging
+                    logger.info(f"Class mapping: {training_metrics.get('class_to_idx')}")
+                    logger.info(f"Class names: {training_metrics.get('classes')}")
+                    
+                    # Create a better formatted class_names.txt file
+                    class_names_text = ""
+                    for i, name in enumerate(training_metrics.get('classes')):
+                        class_names_text += f"{i}: {name}\n"
+                    zf.writestr('class_names.txt', class_names_text)
+            
             # Add inference script
             inference_code = """import os
 import torch
@@ -301,7 +319,11 @@ def main():
         try:
             with open('class_names.txt', 'r') as f:
                 class_names_content = f.read().strip().split('\\n')
-            class_names = [line.split(': ')[1] for line in class_names_content if ': ' in line]
+            class_names = []
+            for line in class_names_content:
+                if ':' in line:
+                    # Extract the class name (after the colon)
+                    class_names.append(line.split(':', 1)[1].strip())
             print(f"Loaded {len(class_names)} class names from class_names.txt")
         except Exception as e:
             print(f"Error loading class names from file: {str(e)}")
@@ -429,17 +451,6 @@ python model_inference.py --image your_image.jpg --num_classes 3
                         readme += f"- Class {i}: {class_name}\n"
                 
             zf.writestr('README.md', readme)
-            
-            # Add class mapping if available
-            if training_metrics and 'class_to_idx' in training_metrics:
-                # Create a class mapping JSON file
-                class_mapping = json.dumps(training_metrics.get('class_to_idx'), indent=2)
-                zf.writestr('class_mapping.json', class_mapping)
-                
-                # Also create a simple text file with class names for easy reference
-                if 'classes' in training_metrics:
-                    class_names_text = "\n".join([f"{i}: {name}" for i, name in enumerate(training_metrics.get('classes'))])
-                    zf.writestr('class_names.txt', class_names_text)
         
         # Rewind the file-like object
         memory_zip.seek(0)
