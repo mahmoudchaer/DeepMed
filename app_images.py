@@ -793,7 +793,7 @@ def api_predict_image():
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
-            timeout=120  # 2 minute timeout
+            timeout=600  # 10 minute timeout
         )
         
         # Check response status
