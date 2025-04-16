@@ -7,7 +7,6 @@ import pandas as pd
 import time
 import csv
 import io
-import json
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -24,7 +23,6 @@ def predict():
 
     model_file = request.files['model_package']
     input_file = request.files['input_file']
-    target_column = request.form.get('target_column')  # Get target column if provided
 
     # Validate file types.
     if not model_file.filename.lower().endswith('.zip'):
@@ -51,13 +49,6 @@ def predict():
         input_file_path = os.path.join(temp_dir, input_file.filename)
         input_file.save(input_file_path)
         print(f"Saved input file to {input_file_path}")
-        
-        # Save target column to a file if provided
-        if target_column:
-            target_column_path = os.path.join(temp_dir, "target_column.txt")
-            with open(target_column_path, 'w') as f:
-                f.write(target_column)
-            print(f"Saved target column '{target_column}' to {target_column_path}")
 
         # Create a virtual environment in the temporary directory.
         venv_path = os.path.join(temp_dir, "venv")
@@ -93,15 +84,9 @@ def predict():
             
         print(f"Running prediction with input file: {input_file.filename}")
         
-        # Command to run with optional target column
-        command = [python_path, predict_script, input_file_path, "--stdout"]
-        if target_column:
-            command.extend(["--target", target_column])
-            print(f"Using target column: {target_column}")
-            
-        # Run the prediction with stdout capture mode and target column if provided
+        # Run the prediction with stdout capture mode instead of file output
         result = subprocess.run(
-            command,
+            [python_path, predict_script, input_file_path, "--stdout"],
             cwd=temp_dir,
             capture_output=True, text=True, timeout=300  # 5 minute timeout
         )
