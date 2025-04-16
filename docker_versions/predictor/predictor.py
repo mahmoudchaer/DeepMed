@@ -473,41 +473,28 @@ def predict():
                             app.logger.info(f"Using prediction column: '{pred_col}'")
                             app.logger.info(f"Sample predictions: {df[pred_col].head(5).tolist()}")
                             
-                            # Make a copy of the original column
-                            original_col = f"{pred_col}_original"
-                            df[original_col] = df[pred_col].copy()
-                            
-                            # Create decoded column using inverse mapping
-                            decoded_col = f"{pred_col}_decoded"
-                            
-                            # Simple direct mapping using the inverse mapping
-                            df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                            # COMPLETELY SIMPLIFIED APPROACH:
+                            # 1. Create the decoded values
+                            decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
                                                                                inverse_mapping.get(str(x), 
                                                                                    inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
                                                                                        None))))
                             
-                            # For clarity, reorder columns to put decoded column right after prediction
-                            cols = df.columns.tolist()
-                            pred_idx = cols.index(pred_col)
-                            cols.remove(decoded_col)
-                            cols.insert(pred_idx + 1, decoded_col)
-                            df = df[cols]
+                            # 2. Remove ALL prediction-related columns
+                            prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
+                            app.logger.info(f"Removing all prediction columns: {prediction_columns}")
+                            df.drop(columns=prediction_columns, inplace=True)
                             
-                            # SIMPLIFIED APPROACH:
-                            # 1. Create a new column with the decoded values at the end
-                            df["Prediction (Decoded)"] = df[decoded_col]
+                            # 3. Add only the final decoded column
+                            df["Prediction (Decoded)"] = decoded_values
                             
-                            # 2. Remove the intermediate decoded column and the original prediction column
-                            df.drop(columns=[decoded_col, pred_col], inplace=True)
-                            
-                            # 3. Move the decoded column to the end
+                            # 4. Ensure it's at the end
                             all_cols = df.columns.tolist()
                             all_cols.remove("Prediction (Decoded)")
                             all_cols.append("Prediction (Decoded)")
-                            
-                            # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Simplified column ordering with only decoded predictions at the end")
+                            
+                            app.logger.info(f"Final output has only one prediction column at the end")
                             
                             # Check if decoding worked
                             null_count = df["Prediction (Decoded)"].isna().sum()
@@ -711,41 +698,28 @@ def predict():
                             app.logger.info(f"Using prediction column: '{pred_col}'")
                             app.logger.info(f"Sample predictions: {df[pred_col].head(5).tolist()}")
                             
-                            # Make a copy of the original column
-                            original_col = f"{pred_col}_original"
-                            df[original_col] = df[pred_col].copy()
-                            
-                            # Create decoded column using inverse mapping
-                            decoded_col = f"{pred_col}_decoded"
-                            
-                            # Simple direct mapping using the inverse mapping
-                            df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                            # COMPLETELY SIMPLIFIED APPROACH:
+                            # 1. Create the decoded values
+                            decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
                                                                                inverse_mapping.get(str(x), 
                                                                                    inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
                                                                                        None))))
                             
-                            # For clarity, reorder columns to put decoded column right after prediction
-                            cols = df.columns.tolist()
-                            pred_idx = cols.index(pred_col)
-                            cols.remove(decoded_col)
-                            cols.insert(pred_idx + 1, decoded_col)
-                            df = df[cols]
+                            # 2. Remove ALL prediction-related columns
+                            prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
+                            app.logger.info(f"Removing all prediction columns: {prediction_columns}")
+                            df.drop(columns=prediction_columns, inplace=True)
                             
-                            # SIMPLIFIED APPROACH:
-                            # 1. Create a new column with the decoded values at the end
-                            df["Prediction (Decoded)"] = df[decoded_col]
+                            # 3. Add only the final decoded column
+                            df["Prediction (Decoded)"] = decoded_values
                             
-                            # 2. Remove the intermediate decoded column and the original prediction column
-                            df.drop(columns=[decoded_col, pred_col], inplace=True)
-                            
-                            # 3. Move the decoded column to the end
+                            # 4. Ensure it's at the end
                             all_cols = df.columns.tolist()
                             all_cols.remove("Prediction (Decoded)")
                             all_cols.append("Prediction (Decoded)")
-                            
-                            # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Simplified column ordering with only decoded predictions at the end")
+                            
+                            app.logger.info(f"Final output has only one prediction column at the end")
                             
                             # Check if decoding worked
                             null_count = df["Prediction (Decoded)"].isna().sum()
