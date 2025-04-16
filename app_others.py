@@ -1197,6 +1197,9 @@ def download_model(model_id):
         # Create README file
         create_readme_file(temp_dir, model, preprocessing_info)
         
+        # Create requirements.txt file
+        create_requirements_file(temp_dir)
+        
         # Create ZIP archive
         zip_filename = f"model_{model.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(tempfile.gettempdir(), zip_filename)
@@ -1611,6 +1614,19 @@ def create_placeholder_model(temp_dir, model, error_message):
     
     logger.info(f"Created placeholder model file at {placeholder_path}")
     return placeholder_path
+
+
+def create_requirements_file(temp_dir):
+    """Create a requirements.txt file with necessary dependencies for the model package."""
+    requirements_path = os.path.join(temp_dir, 'requirements.txt')
+    with open(requirements_path, 'w') as f:
+        f.write("pandas>=1.3.0\n")
+        f.write("numpy>=1.20.0\n")
+        f.write("scikit-learn>=1.0.0\n")
+        f.write("joblib>=1.0.0\n")
+    
+    logger.info(f"Created requirements.txt file at {requirements_path}")
+    return requirements_path
 
 
 # Function for decoding predictions using a specific target feature
