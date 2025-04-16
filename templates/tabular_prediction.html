@@ -37,8 +37,12 @@
                                 <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
                             </div>
 
-                            <div id="encodingSelectContainer" class="mb-3 d-none">
-                                <label for="encodingSelect" class="form-label">Target Column Encoding</label>
+                            <div id="encodingSelectContainer" class="mb-3">
+                                <div class="alert alert-info" id="encodingAlert">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Encoding maps found!</strong> Please select the target column encoding to decode predictions.
+                                </div>
+                                <label for="encodingSelect" class="form-label fw-bold">Target Column Encoding</label>
                                 <select class="form-select" id="encodingSelect" name="encoding_column">
                                     <option value="">-- Select encoding (optional) --</option>
                                 </select>
@@ -167,11 +171,13 @@
         
         // Function to extract encodings from model package
         function extractEncodings(file) {
-            // Reset encoding select
+            // Reset encoding select and hide the container initially
             encodingSelect.innerHTML = '<option value="">-- Select encoding (optional) --</option>';
-            encodingSelectContainer.classList.add('d-none');
             
-            if (!file) return;
+            if (!file) {
+                encodingSelectContainer.classList.add('d-none');
+                return;
+            }
             
             // Create form data with the model package
             const formData = new FormData();
@@ -181,24 +187,32 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Extracting encodings...';
             
+            console.log("Extracting encodings from model package...");
+            
+            // Hide the encoding container during extraction
+            encodingSelectContainer.classList.add('d-none');
+            
             // Send request to extract encodings
             fetch('/api/predict_tabular/extract_encodings', {
                 method: 'POST',
                 body: formData
             })
             .then(response => {
+                console.log("Received response:", response.status);
                 if (!response.ok) {
                     return response.json().then(data => {
                         // Still enable form submission even if encoding extraction fails
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Generate Prediction';
+                        encodingSelectContainer.classList.add('d-none');
                         console.warn("Failed to extract encodings:", data.error);
                     });
                 }
                 return response.json();
             })
             .then(data => {
-                if (data && data.encoding_maps) {
+                console.log("Encoding data:", data);
+                if (data && data.encoding_maps && Object.keys(data.encoding_maps).length > 0) {
                     // Populate encoding select dropdown
                     for (const [key, value] of Object.entries(data.encoding_maps)) {
                         const option = document.createElement('option');
@@ -210,11 +224,21 @@
                     // Show encoding select if encodings were found
                     if (encodingSelect.options.length > 1) {
                         encodingSelectContainer.classList.remove('d-none');
+                        // Highlight the encoding select to make it more noticeable
+                        encodingSelectContainer.classList.add('border', 'border-primary', 'p-2', 'rounded');
+                        // Auto-select first option if available
+                        encodingSelect.selectedIndex = 1;
+                    } else {
+                        encodingSelectContainer.classList.add('d-none');
                     }
+                } else {
+                    console.log("No encoding maps found in response");
+                    encodingSelectContainer.classList.add('d-none');
                 }
             })
             .catch(error => {
                 console.error("Error extracting encodings:", error);
+                encodingSelectContainer.classList.add('d-none');
             })
             .finally(() => {
                 // Re-enable submit button
@@ -230,6 +254,17 @@
             } else {
                 // Hide encoding select if no file is selected
                 encodingSelectContainer.classList.add('d-none');
+            }
+        });
+        
+        // Initial file check on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initially hide the encoding container
+            encodingSelectContainer.classList.add('d-none');
+            
+            // Check if there's a file already selected
+            if (modelPackageInput.files.length > 0) {
+                extractEncodings(modelPackageInput.files[0]);
             }
         });
 
