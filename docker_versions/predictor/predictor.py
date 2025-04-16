@@ -189,8 +189,34 @@ def extract_encodings():
             print("No encoding maps found in any of the JSON files")
             return jsonify({"error": "No valid encoding maps found in the model package"}), 404
         
-        print(f"Successfully extracted {len(encoding_maps)} encoding maps: {list(encoding_maps.keys())}")
-        return jsonify({"encoding_maps": encoding_maps})
+        # Filter out non-feature encoding maps
+        excluded_maps = ['scaler_params', 'encoding_mappings', 'cleaner_config']
+        feature_encoding_maps = {k: v for k, v in encoding_maps.items() if k not in excluded_maps}
+        
+        if not feature_encoding_maps:
+            print("No feature encoding maps found after filtering")
+            return jsonify({"error": "No feature encoding maps found in the model package"}), 404
+        
+        # Add metadata for each encoding map to help the frontend
+        encoding_metadata = {}
+        for feature_name, mapping in feature_encoding_maps.items():
+            # Count the number of values in each encoding map
+            value_count = len(mapping)
+            # Get some sample values for display
+            sample_values = list(mapping.keys())[:3]  # First 3 keys
+            # Create metadata entry
+            encoding_metadata[feature_name] = {
+                "value_count": value_count,
+                "sample_values": sample_values,
+                "display_name": feature_name
+            }
+            
+        # Return both the encoding maps and metadata
+        print(f"Successfully extracted {len(feature_encoding_maps)} feature encoding maps: {list(feature_encoding_maps.keys())}")
+        return jsonify({
+            "encoding_maps": feature_encoding_maps,
+            "metadata": encoding_metadata
+        })
     
     except Exception as e:
         print(f"Error in extract_encodings: {str(e)}")
