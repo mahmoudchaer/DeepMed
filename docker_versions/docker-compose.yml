@@ -196,6 +196,20 @@ services:
     networks:
       - deepmed-network
 
+  tabular-predictor-service:
+    build:
+      context: ../docker_versions/predictor
+      dockerfile: Dockerfile
+    ports:
+      - "5101:5101"
+    restart: unless-stopped
+    volumes:
+      - ../docker_versions/predictor/predictor.py:/app/predictor.py
+    environment:
+      - PORT=5101
+    networks:
+      - deepmed-network
+
 networks:
   deepmed-network:
     driver: bridge 
