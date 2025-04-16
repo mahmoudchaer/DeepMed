@@ -20,6 +20,16 @@
                     </ul>
                     <p>The system will output the prediction results as a CSV file for download.</p>
                 </div>
+                
+                <div class="alert alert-light border">
+                    <h5><i class="fas fa-lightbulb text-warning me-2"></i>Target Column Selection Feature</h5>
+                    <p>When uploading your data file, you can now select a specific target column for predictions:</p>
+                    <ul>
+                        <li><strong>What it does:</strong> Tells the model which column contains the values you want to predict</li>
+                        <li><strong>When to use:</strong> Use this feature when working with categorical data where the model needs to know which column contains the class labels</li>
+                        <li><strong>Auto-detect:</strong> If you don't select a column, the system will try to determine the correct column automatically based on the model package</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -43,6 +53,28 @@
                                 <div class="form-text">Tabular data file to analyze with the model</div>
                             </div>
 
+                            <div class="mb-3" id="targetColumnContainer" style="display: none;">
+                                <label for="targetColumn" class="form-label">Target Column (Optional)</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="targetColumn" name="target_column">
+                                        <option value="" selected>Auto-detect from model</option>
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" id="refreshColumnsBtn">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Select the column to use for predictions</div>
+                            </div>
+
+                            <div id="columnsLoading" style="display: none;" class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span>Loading columns...</span>
+                                </div>
+                            </div>
+
                             <button type="submit" class="btn btn-primary" id="submitBtn">
                                 <i class="fas fa-cog me-2"></i>Generate Prediction
                             </button>
@@ -61,6 +93,7 @@
                             <div class="alert alert-success">
                                 <h5>Prediction Completed</h5>
                                 <p id="processingTime"></p>
+                                <p id="targetColumnInfo" class="mb-0"></p>
                             </div>
                             
                             <div class="mb-3">
@@ -114,9 +147,79 @@
         const resultPreview = document.getElementById('resultPreview');
         const processingTime = document.getElementById('processingTime');
         const downloadBtn = document.getElementById('downloadBtn');
+        const inputFile = document.getElementById('inputFile');
+        const targetColumnContainer = document.getElementById('targetColumnContainer');
+        const targetColumn = document.getElementById('targetColumn');
+        const columnsLoading = document.getElementById('columnsLoading');
+        const refreshColumnsBtn = document.getElementById('refreshColumnsBtn');
+        const targetColumnInfo = document.getElementById('targetColumnInfo');
 
         // Store the raw CSV data
         let csvData = '';
+        
+        // Function to load columns from the input file
+        function loadColumns() {
+            const fileInput = document.getElementById('inputFile');
+            if (fileInput.files.length === 0) {
+                return;
+            }
+            
+            // Show loading indicator
+            columnsLoading.style.display = 'block';
+            targetColumnContainer.style.display = 'none';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            fetch('/api/get_file_columns', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Failed to load columns');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear dropdown
+                targetColumn.innerHTML = '<option value="" selected>Auto-detect from model</option>';
+                
+                // Add columns to dropdown
+                if (data.columns && data.columns.length > 0) {
+                    data.columns.forEach(column => {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        targetColumn.appendChild(option);
+                    });
+                    
+                    // Show dropdown
+                    targetColumnContainer.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading columns:', error);
+                // Show minimal error
+                const errorOption = document.createElement('option');
+                errorOption.value = '';
+                errorOption.textContent = 'Error loading columns';
+                targetColumn.innerHTML = '';
+                targetColumn.appendChild(errorOption);
+                targetColumnContainer.style.display = 'block';
+            })
+            .finally(() => {
+                columnsLoading.style.display = 'none';
+            });
+        }
+        
+        // Load columns when file is selected
+        inputFile.addEventListener('change', loadColumns);
+        
+        // Refresh columns button
+        refreshColumnsBtn.addEventListener('click', loadColumns);
         
         // Function to convert CSV to HTML table for preview
         function csvToHtmlTable(csv) {
@@ -193,6 +296,14 @@
                 
                 // Store CSV data
                 csvData = data.output_file;
+                
+                // Display target column info if one was selected
+                if (targetColumn.value) {
+                    targetColumnInfo.innerHTML = `Target column used: <strong>${targetColumn.value}</strong>`;
+                    targetColumnInfo.style.display = 'block';
+                } else {
+                    targetColumnInfo.style.display = 'none';
+                }
                 
                 // Show results
                 loadingContainer.classList.add('d-none');
