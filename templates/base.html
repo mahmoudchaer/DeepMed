@@ -18,13 +18,15 @@
             display: block !important;
         }
         
-        /* Ensure dropdown menus don't disappear */
-        .dropdown-menu {
-            display: none;
-        }
-        
-        .show > .dropdown-menu {
-            display: block !important;
+        /* Ensure dropdown shows on hover */
+        @media (min-width: 992px) {
+            .dropdown:hover > .dropdown-menu {
+                display: block !important;
+            }
+            
+            .dropdown > .dropdown-toggle:active {
+                pointer-events: none;
+            }
         }
     </style>
 </head>
@@ -151,41 +153,19 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Fix dropdown navigation -->
+    <!-- Fix dropdown navigation for mobile -->
     <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Fix dropdown menus
-        const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
-        
-        dropdownToggles.forEach(toggle => {
-            toggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                const parent = this.parentElement;
-                const menu = parent.querySelector('.dropdown-menu');
-                
-                // Close all other dropdowns
-                document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
-                    if (openMenu !== menu) {
-                        openMenu.classList.remove('show');
-                        openMenu.parentElement.classList.remove('show');
-                    }
+        // Make dropdown menus work on mobile
+        if (window.innerWidth < 992) {
+            const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            
+            dropdownToggles.forEach(toggle => {
+                toggle.addEventListener('click', function(e) {
+                    // Let Bootstrap handle toggle on mobile
                 });
-                
-                // Toggle this dropdown
-                parent.classList.toggle('show');
-                menu.classList.toggle('show');
             });
-        });
-        
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.dropdown')) {
-                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                    menu.classList.remove('show');
-                    menu.parentElement.classList.remove('show');
-                });
-            }
-        });
+        }
     });
     </script>
 
