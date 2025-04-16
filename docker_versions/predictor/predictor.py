@@ -350,22 +350,45 @@ def predict():
                     # If we found an encoding map, decode the prediction column
                     if encoding_map:
                         print(f"Decoding prediction column using {selected_encoding} encoding map")
+                        print(f"Encoding map contains {len(encoding_map)} mappings: {encoding_map}")
+                        
                         # Parse the CSV
                         df = pd.read_csv(io.StringIO(output_data))
+                        print(f"CSV columns: {df.columns.tolist()}")
                         
                         # Identify the prediction column - usually named 'prediction'
                         pred_col = None
-                        for col in df.columns:
-                            if col.lower() in ['prediction', 'predicted', 'target', 'label']:
-                                pred_col = col
+                        potential_pred_cols = ['prediction', 'predicted', 'target', 'label', 'class', 
+                                             'result', 'output', 'outcome', selected_encoding]
+                        
+                        # Try exact matches first
+                        for col_name in potential_pred_cols:
+                            if col_name in df.columns:
+                                pred_col = col_name
+                                print(f"Found exact match prediction column: '{pred_col}'")
                                 break
+                        
+                        # If no exact match, try case-insensitive search
+                        if not pred_col:
+                            for col in df.columns:
+                                for pattern in potential_pred_cols:
+                                    if pattern.lower() in col.lower():
+                                        pred_col = col
+                                        print(f"Found prediction column by pattern match: '{pred_col}'")
+                                        break
+                                if pred_col:
+                                    break
                                 
                         # If no prediction column found, use the last column
                         if not pred_col and len(df.columns) > 0:
                             pred_col = df.columns[-1]
+                            print(f"No prediction column identified, using last column: '{pred_col}'")
                             
                         # Apply decoding if we found a prediction column
                         if pred_col:
+                            print(f"Decoding column: '{pred_col}'")
+                            print(f"Column values before decoding: {df[pred_col].value_counts().to_dict()}")
+                            
                             # Convert encoding map from string keys to the appropriate type if needed
                             fixed_map = {}
                             for k, v in encoding_map.items():
@@ -380,8 +403,60 @@ def predict():
                                     # Keep as string if conversion fails
                                     fixed_map[k] = v
                             
+                            print(f"Fixed encoding map: {fixed_map}")
+                            
+                            # Make a copy of the original column
+                            original_col = f"{pred_col}_original"
+                            df[original_col] = df[pred_col].copy()
+                            
                             # Map values using the encoding
-                            df[f"{pred_col}_decoded"] = df[pred_col].map(fixed_map)
+                            decoded_col = f"{pred_col}_decoded"
+                            df[decoded_col] = df[pred_col].map(fixed_map)
+                            
+                            # Check if decoding worked
+                            null_count = df[decoded_col].isna().sum()
+                            if null_count > 0:
+                                print(f"Warning: {null_count} values couldn't be decoded")
+                                print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
+                                print(f"Keys in encoding map: {list(fixed_map.keys())}")
+                                
+                                # Try converting types if needed
+                                if df[pred_col].dtype != 'object':
+                                    print(f"Converting prediction column from {df[pred_col].dtype} to object type")
+                                    df[pred_col] = df[pred_col].astype('object')
+                                    # Try mapping again
+                                    df[decoded_col] = df[pred_col].map(fixed_map)
+                                    null_count = df[decoded_col].isna().sum()
+                                    print(f"After type conversion: {null_count} values couldn't be decoded")
+                            
+                            # If decoding still failed for some values, try matching keys more flexibly
+                            if null_count > 0:
+                                print("Attempting flexible key matching...")
+                                # For each unmatched value, try to find the closest key
+                                for idx, val in df[df[decoded_col].isna()][pred_col].items():
+                                    # Convert val to string for comparison
+                                    str_val = str(val)
+                                    # Look for exact string match
+                                    if str_val in fixed_map:
+                                        df.at[idx, decoded_col] = fixed_map[str_val]
+                                    # Try matching numeric values
+                                    elif isinstance(val, (int, float)):
+                                        for k in fixed_map.keys():
+                                            try:
+                                                if float(k) == float(val):
+                                                    df.at[idx, decoded_col] = fixed_map[k]
+                                                    break
+                                            except (ValueError, TypeError):
+                                                pass
+                            
+                            print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
+                            
+                            # Add a message at the top of the CSV indicating decoding was applied
+                            df_with_message = pd.DataFrame([
+                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP", 
+                                 decoded_col: "Original values preserved in column " + original_col}
+                            ])
+                            df = pd.concat([df_with_message, df], ignore_index=True)
                             
                             # Convert back to CSV
                             output_data = df.to_csv(index=False)
@@ -460,19 +535,46 @@ def predict():
                     
                     # If we found an encoding map, decode the prediction column
                     if encoding_map:
+                        print(f"Decoding prediction column using {selected_encoding} encoding map")
+                        print(f"Encoding map contains {len(encoding_map)} mappings: {encoding_map}")
+                        
+                        # Parse the CSV
+                        df = pd.read_csv(io.StringIO(output_data))
+                        print(f"CSV columns: {df.columns.tolist()}")
+                        
                         # Identify the prediction column - usually named 'prediction'
                         pred_col = None
-                        for col in df.columns:
-                            if col.lower() in ['prediction', 'predicted', 'target', 'label']:
-                                pred_col = col
+                        potential_pred_cols = ['prediction', 'predicted', 'target', 'label', 'class', 
+                                             'result', 'output', 'outcome', selected_encoding]
+                        
+                        # Try exact matches first
+                        for col_name in potential_pred_cols:
+                            if col_name in df.columns:
+                                pred_col = col_name
+                                print(f"Found exact match prediction column: '{pred_col}'")
                                 break
+                        
+                        # If no exact match, try case-insensitive search
+                        if not pred_col:
+                            for col in df.columns:
+                                for pattern in potential_pred_cols:
+                                    if pattern.lower() in col.lower():
+                                        pred_col = col
+                                        print(f"Found prediction column by pattern match: '{pred_col}'")
+                                        break
+                                if pred_col:
+                                    break
                                 
                         # If no prediction column found, use the last column
                         if not pred_col and len(df.columns) > 0:
                             pred_col = df.columns[-1]
+                            print(f"No prediction column identified, using last column: '{pred_col}'")
                             
                         # Apply decoding if we found a prediction column
                         if pred_col:
+                            print(f"Decoding column: '{pred_col}'")
+                            print(f"Column values before decoding: {df[pred_col].value_counts().to_dict()}")
+                            
                             # Convert encoding map from string keys to the appropriate type if needed
                             fixed_map = {}
                             for k, v in encoding_map.items():
@@ -487,11 +589,65 @@ def predict():
                                     # Keep as string if conversion fails
                                     fixed_map[k] = v
                             
+                            print(f"Fixed encoding map: {fixed_map}")
+                            
+                            # Make a copy of the original column
+                            original_col = f"{pred_col}_original"
+                            df[original_col] = df[pred_col].copy()
+                            
                             # Map values using the encoding
-                            df[f"{pred_col}_decoded"] = df[pred_col].map(fixed_map)
+                            decoded_col = f"{pred_col}_decoded"
+                            df[decoded_col] = df[pred_col].map(fixed_map)
+                            
+                            # Check if decoding worked
+                            null_count = df[decoded_col].isna().sum()
+                            if null_count > 0:
+                                print(f"Warning: {null_count} values couldn't be decoded")
+                                print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
+                                print(f"Keys in encoding map: {list(fixed_map.keys())}")
+                                
+                                # Try converting types if needed
+                                if df[pred_col].dtype != 'object':
+                                    print(f"Converting prediction column from {df[pred_col].dtype} to object type")
+                                    df[pred_col] = df[pred_col].astype('object')
+                                    # Try mapping again
+                                    df[decoded_col] = df[pred_col].map(fixed_map)
+                                    null_count = df[decoded_col].isna().sum()
+                                    print(f"After type conversion: {null_count} values couldn't be decoded")
+                            
+                            # If decoding still failed for some values, try matching keys more flexibly
+                            if null_count > 0:
+                                print("Attempting flexible key matching...")
+                                # For each unmatched value, try to find the closest key
+                                for idx, val in df[df[decoded_col].isna()][pred_col].items():
+                                    # Convert val to string for comparison
+                                    str_val = str(val)
+                                    # Look for exact string match
+                                    if str_val in fixed_map:
+                                        df.at[idx, decoded_col] = fixed_map[str_val]
+                                    # Try matching numeric values
+                                    elif isinstance(val, (int, float)):
+                                        for k in fixed_map.keys():
+                                            try:
+                                                if float(k) == float(val):
+                                                    df.at[idx, decoded_col] = fixed_map[k]
+                                                    break
+                                            except (ValueError, TypeError):
+                                                pass
+                            
+                            print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
+                            
+                            # Add a message at the top of the CSV indicating decoding was applied
+                            df_with_message = pd.DataFrame([
+                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP", 
+                                 decoded_col: "Original values preserved in column " + original_col}
+                            ])
+                            df = pd.concat([df_with_message, df], ignore_index=True)
                             
                             # Write back to the file
                             df.to_csv(output_path, index=False)
+                          else:
+                              print("No prediction column found to decode")
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
