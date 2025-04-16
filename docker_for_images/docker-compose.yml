@@ -3,13 +3,13 @@ version: '3'
 services:
   model-training-service:
     build:
-      context: .
+      context: ./images_classification
       dockerfile: Dockerfile
     ports:
       - "5021:5021"
     restart: unless-stopped
     volumes:
-      - ./model_service.py:/app/model_service.py
+      - ./images_classification/app.py:/app/app.py
     environment:
       - PORT=5021
     networks:
@@ -17,14 +17,14 @@ services:
 
   augmentation-service:
     build:
-      context: .
-      dockerfile: Dockerfile_augment
+      context: ./data_augmentation
+      dockerfile: Dockerfile
     ports:
       - "5023:5023"
     restart: unless-stopped
     volumes:
-      - ./data_augmentation.py:/app/data_augmentation.py
-      - ./augment_service.py:/app/augment_service.py
+      - ./data_augmentation/data_augmentation.py:/app/data_augmentation.py
+      - ./data_augmentation/augment_service.py:/app/augment_service.py
     environment:
       - PORT=5023
     networks:
@@ -32,13 +32,13 @@ services:
       
   pipeline-service:
     build:
-      context: .
-      dockerfile: Dockerfile_pipeline
+      context: ./pipeline
+      dockerfile: Dockerfile
     ports:
       - "5025:5025"
     restart: unless-stopped
     volumes:
-      - ./pipeline_service.py:/app/pipeline_service.py
+      - ./pipeline/app.py:/app/app.py
     environment:
       - PORT=5025
       - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
@@ -51,13 +51,13 @@ services:
       
   object-detection-service:
     build:
-      context: .
+      context: ./object_detection
       dockerfile: Dockerfile_object_detection
     ports:
       - "5027:5027"
     restart: unless-stopped
     volumes:
-      - ./:/app/service
+      - ./object_detection:/app/service
     shm_size: '4gb'
     deploy:
       resources:
@@ -73,13 +73,13 @@ services:
       
   anomaly-detection-service:
     build:
-      context: .
-      dockerfile: Dockerfile_anomaly_detection
+      context: ./anomaly_detector
+      dockerfile: Dockerfile
     ports:
       - "5029:5029"
     restart: unless-stopped
     volumes:
-      - ./anomaly_detection_service.py:/app/anomaly_detection_service.py
+      - ./anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
     shm_size: '4gb'
     deploy:
       resources:
@@ -95,13 +95,13 @@ services:
 
   semantic-segmentation-service:
     build:
-      context: .
+      context: ./semantic_regression
       dockerfile: Dockerfile_semantic_segmentation
     ports:
       - "5031:5031"
     restart: unless-stopped
     volumes:
-      - ./semantic_segmentation_service.py:/app/semantic_segmentation_service.py
+      - ./semantic_regression/semantic_segmentation_service.py:/app/semantic_segmentation_service.py
     shm_size: '4gb'
     deploy:
       resources:
@@ -112,6 +112,20 @@ services:
           memory: 2G
     environment:
       - PORT=5031
+    networks:
+      - deepmed-network
+
+  predictor-service:
+    build:
+      context: ./predictor
+      dockerfile: Dockerfile
+    ports:
+      - "5100:5100"
+    restart: unless-stopped
+    volumes:
+      - ./predictor/predictor.py:/app/predictor.py
+    environment:
+      - PORT=5100
     networks:
       - deepmed-network
 

@@ -13,7 +13,7 @@
                     <h4>Train Custom Anomaly Detection Models</h4>
                     <p>Train an autoencoder to detect anomalies in your images. Upload a ZIP file containing normal (non-anomalous) images to train the model.</p>
                     <p>Once trained, the model can identify images that deviate from the normal patterns it learned.</p>
-                    <p><strong>Note:</strong> Training is computationally intensive and may take several minutes.</p>
+                    <p><strong>Note:</strong> Training is computationally intensive and may take several minutes, even up to 30 minutes for large datasets.</p>
                 </div>
             </div>
         </div>
@@ -74,6 +74,15 @@
                                 <span id="statusMessage">Processing... This may take several minutes.</span>
                             </div>
                             
+                            <!-- Progress indicator -->
+                            <div id="progressContainer" class="progress mb-3 d-none">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                            </div>
+                            
+                            <div id="timeEstimate" class="text-muted small mb-3 d-none">
+                                <p>Estimated time remaining: <span id="timeRemaining">calculating...</span></p>
+                            </div>
+                            
                             <div id="resultMessage" class="d-none">
                                 <div class="alert alert-success">
                                     <p class="mb-1">Training complete! <a id="downloadLink" href="#" class="alert-link">Download Anomaly Detection model</a></p>
@@ -101,6 +110,15 @@
                             <li>For industrial applications, use images of normal, defect-free products</li>
                             <li>For medical imaging, train on healthy tissue samples</li>
                         </ul>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <h5 class="mb-2">Troubleshooting</h5>
+                            <ul class="mb-0">
+                                <li>If training seems stuck, it's likely still processing. Large datasets may take 30+ minutes.</li>
+                                <li>If download doesn't start automatically, use the direct download link after training completes.</li>
+                                <li>For very large datasets (1000+ images), consider using a smaller subset of representative images.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
