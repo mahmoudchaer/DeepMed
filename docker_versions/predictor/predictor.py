@@ -362,6 +362,17 @@ def predict():
                                 print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
                                 break
                                 
+                            # Restructure the encoding mapping - we only want the specific encoding
+                            # Check if this is an encoding_mappings.json file with multiple columns
+                            if os.path.basename(file_path) == "encoding_mappings.json" or "encoding" in os.path.basename(file_path).lower():
+                                if selected_encoding in data:
+                                    # Extract only the specific column's encoding
+                                    app.logger.info(f"Using specific encoding for column '{selected_encoding}' from encoding_mappings.json")
+                                    encoding_map = data[selected_encoding]
+                                else:
+                                    app.logger.info(f"Column '{selected_encoding}' not found in encoding_mappings.json")
+                                    app.logger.info(f"Available columns: {list(data.keys())}")
+                            
                             # Also check under common keys
                             for key in ['target_map', 'target_encoding', 'label_encoding']:
                                 if key in data and selected_encoding == key:
@@ -388,6 +399,30 @@ def predict():
                         # Log that we're beginning the decoding process
                         app.logger.info(f"===== BEGINNING DECODING PROCESS FOR '{selected_encoding}' =====")
                         app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
+                        
+                        # Validate encoding map format - should be a direct mapping of category -> code
+                        # If it's in reverse format (code -> category), invert it
+                        if encoding_map and all(isinstance(v, (int, float)) for v in encoding_map.values()):
+                            app.logger.info("Encoding map is in the correct format (category -> code)")
+                        else:
+                            app.logger.warning("Encoding map may be in the wrong format, attempting to fix")
+                            try:
+                                # Check if it's the full encoding_mappings structure
+                                if selected_encoding in encoding_map:
+                                    app.logger.info(f"Found full encoding structure, extracting only '{selected_encoding}' mapping")
+                                    encoding_map = encoding_map[selected_encoding]
+                                
+                                # If values are dictionaries instead of codes, it's the wrong format
+                                if isinstance(next(iter(encoding_map.values()), None), dict):
+                                    app.logger.info("Encoding map contains nested dictionaries, extracting data")
+                                    for key, value in list(encoding_map.items()):
+                                        if isinstance(value, dict) and selected_encoding in value:
+                                            encoding_map = value[selected_encoding]
+                                            break
+                            except Exception as e:
+                                app.logger.error(f"Error fixing encoding map format: {str(e)}")
+                            
+                        app.logger.info(f"Final encoding map for decoding: {encoding_map}")
                         
                         # Make sure encoding map uses integers as keys wherever possible
                         integer_encoding_map = {}
@@ -599,6 +634,17 @@ def predict():
                                 print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
                                 break
                             
+                            # Restructure the encoding mapping - we only want the specific encoding
+                            # Check if this is an encoding_mappings.json file with multiple columns
+                            if os.path.basename(file_path) == "encoding_mappings.json" or "encoding" in os.path.basename(file_path).lower():
+                                if selected_encoding in data:
+                                    # Extract only the specific column's encoding
+                                    app.logger.info(f"Using specific encoding for column '{selected_encoding}' from encoding_mappings.json")
+                                    encoding_map = data[selected_encoding]
+                                else:
+                                    app.logger.info(f"Column '{selected_encoding}' not found in encoding_mappings.json")
+                                    app.logger.info(f"Available columns: {list(data.keys())}")
+                            
                             # Also check under common keys
                             for key in ['target_map', 'target_encoding', 'label_encoding']:
                                 if key in data and selected_encoding == key:
@@ -625,6 +671,30 @@ def predict():
                         # Log that we're beginning the decoding process
                         app.logger.info(f"===== BEGINNING DECODING PROCESS FOR '{selected_encoding}' =====")
                         app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
+                        
+                        # Validate encoding map format - should be a direct mapping of category -> code
+                        # If it's in reverse format (code -> category), invert it
+                        if encoding_map and all(isinstance(v, (int, float)) for v in encoding_map.values()):
+                            app.logger.info("Encoding map is in the correct format (category -> code)")
+                        else:
+                            app.logger.warning("Encoding map may be in the wrong format, attempting to fix")
+                            try:
+                                # Check if it's the full encoding_mappings structure
+                                if selected_encoding in encoding_map:
+                                    app.logger.info(f"Found full encoding structure, extracting only '{selected_encoding}' mapping")
+                                    encoding_map = encoding_map[selected_encoding]
+                                
+                                # If values are dictionaries instead of codes, it's the wrong format
+                                if isinstance(next(iter(encoding_map.values()), None), dict):
+                                    app.logger.info("Encoding map contains nested dictionaries, extracting data")
+                                    for key, value in list(encoding_map.items()):
+                                        if isinstance(value, dict) and selected_encoding in value:
+                                            encoding_map = value[selected_encoding]
+                                            break
+                            except Exception as e:
+                                app.logger.error(f"Error fixing encoding map format: {str(e)}")
+                            
+                        app.logger.info(f"Final encoding map for decoding: {encoding_map}")
                         
                         # Make sure encoding map uses integers as keys wherever possible
                         integer_encoding_map = {}
