@@ -425,7 +425,15 @@ def predict():
                                     # Keep as string if conversion fails
                                     fixed_map[k] = v
                             
-                            print(f"Fixed encoding map: {fixed_map}")
+                            # Also add float versions of integer keys to handle float predictions
+                            int_keys = [k for k in fixed_map.keys() if isinstance(k, int)]
+                            for k in int_keys:
+                                fixed_map[float(k)] = fixed_map[k]
+                                # Also add string representations
+                                fixed_map[str(k)] = fixed_map[k]
+                                fixed_map[str(float(k))] = fixed_map[k]
+                            
+                            print(f"Enhanced fixed encoding map: {fixed_map}")
                             
                             # Make a copy of the original column
                             original_col = f"{pred_col}_original"
@@ -435,21 +443,44 @@ def predict():
                             decoded_col = f"{pred_col}_decoded"
                             
                             # First try to convert all predictions to integers for lookup
-                            # Create a mapping function that first tries to convert to int
-                            def safe_map_with_int_conversion(x, mapping):
+                            # Create a mapping function that tries multiple type conversions
+                            def enhanced_map_with_conversion(x, mapping):
+                                # Try different type conversions in sequence
+                                # Original value
+                                if x in mapping:
+                                    return mapping[x]
+                                
+                                # Try as string
+                                str_x = str(x)
+                                if str_x in mapping:
+                                    return mapping[str_x]
+                                
+                                # Try as int
                                 try:
-                                    # Try to convert to int first
                                     int_x = int(float(x))
                                     if int_x in mapping:
                                         return mapping[int_x]
-                                    # Fall back to original value
-                                    return mapping.get(x)
                                 except (ValueError, TypeError):
-                                    # If conversion fails, use original value
-                                    return mapping.get(x)
+                                    pass
+                                
+                                # Try as float
+                                try:
+                                    float_x = float(x)
+                                    if float_x in mapping:
+                                        return mapping[float_x]
+                                    
+                                    # Try rounding to handle potential floating point issues
+                                    rounded_x = round(float_x)
+                                    if rounded_x in mapping:
+                                        return mapping[rounded_x]
+                                except (ValueError, TypeError):
+                                    pass
+                                
+                                # If nothing worked, return None to indicate failure
+                                return None
                             
-                            # Apply mapping with int conversion
-                            df[decoded_col] = df[pred_col].apply(lambda x: safe_map_with_int_conversion(x, fixed_map))
+                            # Apply enhanced mapping function
+                            df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
                             
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
@@ -645,7 +676,15 @@ def predict():
                                     # Keep as string if conversion fails
                                     fixed_map[k] = v
                             
-                            print(f"Fixed encoding map: {fixed_map}")
+                            # Also add float versions of integer keys to handle float predictions
+                            int_keys = [k for k in fixed_map.keys() if isinstance(k, int)]
+                            for k in int_keys:
+                                fixed_map[float(k)] = fixed_map[k]
+                                # Also add string representations
+                                fixed_map[str(k)] = fixed_map[k]
+                                fixed_map[str(float(k))] = fixed_map[k]
+                            
+                            print(f"Enhanced fixed encoding map: {fixed_map}")
                             
                             # Make a copy of the original column
                             original_col = f"{pred_col}_original"
@@ -655,21 +694,44 @@ def predict():
                             decoded_col = f"{pred_col}_decoded"
                             
                             # First try to convert all predictions to integers for lookup
-                            # Create a mapping function that first tries to convert to int
-                            def safe_map_with_int_conversion(x, mapping):
+                            # Create a mapping function that tries multiple type conversions
+                            def enhanced_map_with_conversion(x, mapping):
+                                # Try different type conversions in sequence
+                                # Original value
+                                if x in mapping:
+                                    return mapping[x]
+                                
+                                # Try as string
+                                str_x = str(x)
+                                if str_x in mapping:
+                                    return mapping[str_x]
+                                
+                                # Try as int
                                 try:
-                                    # Try to convert to int first
                                     int_x = int(float(x))
                                     if int_x in mapping:
                                         return mapping[int_x]
-                                    # Fall back to original value
-                                    return mapping.get(x)
                                 except (ValueError, TypeError):
-                                    # If conversion fails, use original value
-                                    return mapping.get(x)
+                                    pass
+                                
+                                # Try as float
+                                try:
+                                    float_x = float(x)
+                                    if float_x in mapping:
+                                        return mapping[float_x]
+                                    
+                                    # Try rounding to handle potential floating point issues
+                                    rounded_x = round(float_x)
+                                    if rounded_x in mapping:
+                                        return mapping[rounded_x]
+                                except (ValueError, TypeError):
+                                    pass
+                                
+                                # If nothing worked, return None to indicate failure
+                                return None
                             
-                            # Apply mapping with int conversion
-                            df[decoded_col] = df[pred_col].apply(lambda x: safe_map_with_int_conversion(x, fixed_map))
+                            # Apply enhanced mapping function
+                            df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
                             
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
