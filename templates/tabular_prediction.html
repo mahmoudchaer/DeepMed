@@ -37,8 +37,9 @@
                                 <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
                             </div>
 
-                            <div id="encodingSelectContainer" class="mb-3">
-                                <div class="alert alert-info" id="encodingAlert">
+                            <!-- Target Column Encoding selection - initially hidden -->
+                            <div id="encodingSelectContainer" class="mb-3 border border-primary p-2 rounded bg-light">
+                                <div class="alert alert-info mb-2" id="encodingAlert">
                                     <i class="fas fa-info-circle me-2"></i>
                                     <strong>Encoding maps found!</strong> Please select the target column encoding to decode predictions.
                                 </div>
@@ -130,6 +131,9 @@
         const encodingSelectContainer = document.getElementById('encodingSelectContainer');
         const encodingSelect = document.getElementById('encodingSelect');
 
+        // IMPORTANT: Initially hide the encoding container
+        encodingSelectContainer.classList.add('d-none');
+
         // Store the raw CSV data
         let csvData = '';
         
@@ -171,7 +175,7 @@
         
         // Function to extract encodings from model package
         function extractEncodings(file) {
-            // Reset encoding select and hide the container initially
+            // Reset encoding select
             encodingSelect.innerHTML = '<option value="">-- Select encoding (optional) --</option>';
             
             if (!file) {
@@ -189,7 +193,7 @@
             
             console.log("Extracting encodings from model package...");
             
-            // Hide the encoding container during extraction
+            // Make sure encoding container is hidden during extraction
             encodingSelectContainer.classList.add('d-none');
             
             // Send request to extract encodings
@@ -214,6 +218,7 @@
                 console.log("Encoding data:", data);
                 if (data && data.encoding_maps && Object.keys(data.encoding_maps).length > 0) {
                     // Populate encoding select dropdown
+                    encodingSelect.innerHTML = '<option value="">-- Select encoding (optional) --</option>';
                     for (const [key, value] of Object.entries(data.encoding_maps)) {
                         const option = document.createElement('option');
                         option.value = key;
@@ -223,12 +228,12 @@
                     
                     // Show encoding select if encodings were found
                     if (encodingSelect.options.length > 1) {
+                        console.log("Showing encoding container with", encodingSelect.options.length - 1, "options");
                         encodingSelectContainer.classList.remove('d-none');
-                        // Highlight the encoding select to make it more noticeable
-                        encodingSelectContainer.classList.add('border', 'border-primary', 'p-2', 'rounded');
                         // Auto-select first option if available
                         encodingSelect.selectedIndex = 1;
                     } else {
+                        console.log("No options in encoding select");
                         encodingSelectContainer.classList.add('d-none');
                     }
                 } else {
@@ -249,24 +254,19 @@
         
         // Extract encodings when model package is selected
         modelPackageInput.addEventListener('change', function() {
+            console.log("Model package file changed");
             if (this.files.length > 0) {
+                console.log("Selected file:", this.files[0].name);
                 extractEncodings(this.files[0]);
             } else {
                 // Hide encoding select if no file is selected
+                console.log("No file selected");
                 encodingSelectContainer.classList.add('d-none');
             }
         });
         
-        // Initial file check on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initially hide the encoding container
-            encodingSelectContainer.classList.add('d-none');
-            
-            // Check if there's a file already selected
-            if (modelPackageInput.files.length > 0) {
-                extractEncodings(modelPackageInput.files[0]);
-            }
-        });
+        // Initial setup - make sure encoding container is hidden
+        encodingSelectContainer.classList.add('d-none');
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
