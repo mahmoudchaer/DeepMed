@@ -6,6 +6,11 @@
 <div class="container mt-4">
     <h1 class="mb-4">Model Selection</h1>
     
+    <div class="d-flex justify-content-between mb-4">
+        <a href="{{ url_for('training') }}" class="btn btn-primary">Return to Training</a>
+        <a href="{{ url_for('my_models') }}" class="btn btn-success">My Models</a>
+    </div>
+    
     <div class="alert alert-info" role="alert">
         <h4>Training Results</h4>
         <ul>
@@ -35,7 +40,6 @@
                                     <p class="card-text">
                                         <strong>{{ model.metric | title }} Score:</strong> {% if model.score is defined and model.score is not none %} {{ "%.3f" | format(model.score) }} {% else %} N/A {% endif %}
                                     </p>
-                                    <a href="{{ url_for('select_model', model_name=model.name, metric=model.metric) }}" class="btn btn-primary">Select Model</a>
                                 </div>
                             </div>
                         </div>
