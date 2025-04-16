@@ -493,6 +493,16 @@ def predict():
                             cols.insert(pred_idx + 1, decoded_col)
                             df = df[cols]
                             
+                            # Radical approach: Swap the columns - put decoded values in main prediction column
+                            # Save the original numeric prediction in a separate column
+                            df[f"{pred_col}_numeric"] = df[pred_col].copy()
+                            # Replace the prediction column with decoded values
+                            df[pred_col] = df[decoded_col]
+                            # Remove the redundant decoded column
+                            df.drop(columns=[decoded_col], inplace=True)
+                            # Create a new decoded column name for logging purposes
+                            decoded_col = pred_col
+                            
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
                             decoded_count = len(df) - null_count
@@ -508,6 +518,14 @@ def predict():
                                      decoded_col: f"This column contains the decoded values for the predictions"}
                                 ])
                                 df = pd.concat([df_with_message, df], ignore_index=True)
+                                
+                                # DEBUG: Print final DataFrame structure and sample
+                                output_csv = df.to_csv(index=False)
+                                app.logger.info(f"===== FINAL CSV STRUCTURE =====")
+                                app.logger.info(f"Columns in output CSV: {df.columns.tolist()}")
+                                app.logger.info(f"First 5 rows sample (decoded column included):")
+                                for i, row in df.head(6).iterrows():
+                                    app.logger.info(f"Row {i}: prediction={row.get('prediction', 'N/A')}, {decoded_col}={row.get(decoded_col, 'N/A')}")
                             else:
                                 app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                                 
@@ -521,7 +539,10 @@ def predict():
                     print(f"Error decoding prediction: {str(decode_error)}")
                     # Continue without decoding if there's an error
             
-            return jsonify({"output_file": df.to_csv(index=False)})
+            # Return the CSV content with all columns including decoded values
+            output_csv = df.to_csv(index=False)
+            app.logger.info(f"Total CSV size before return: {len(output_csv)} bytes")
+            return jsonify({"output_file": output_csv})
             
         # If no stdout, check if output.csv was created
         output_path = os.path.join(temp_dir, "output.csv")
@@ -721,6 +742,16 @@ def predict():
                             cols.insert(pred_idx + 1, decoded_col)
                             df = df[cols]
                             
+                            # Radical approach: Swap the columns - put decoded values in main prediction column
+                            # Save the original numeric prediction in a separate column
+                            df[f"{pred_col}_numeric"] = df[pred_col].copy()
+                            # Replace the prediction column with decoded values
+                            df[pred_col] = df[decoded_col]
+                            # Remove the redundant decoded column
+                            df.drop(columns=[decoded_col], inplace=True)
+                            # Create a new decoded column name for logging purposes
+                            decoded_col = pred_col
+                            
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
                             decoded_count = len(df) - null_count
@@ -736,6 +767,16 @@ def predict():
                                      decoded_col: f"This column contains the decoded values for the predictions"}
                                 ])
                                 df = pd.concat([df_with_message, df], ignore_index=True)
+                                
+                                # Write the dataframe back to the file including the decoded column
+                                df.to_csv(output_path, index=False)
+                                
+                                # DEBUG: Print final DataFrame structure and sample
+                                app.logger.info(f"===== FINAL CSV STRUCTURE (FILE OUTPUT) =====")
+                                app.logger.info(f"Columns in output CSV: {df.columns.tolist()}")
+                                app.logger.info(f"First 5 rows sample (decoded column included):")
+                                for i, row in df.head(6).iterrows():
+                                    app.logger.info(f"Row {i}: prediction={row.get('prediction', 'N/A')}, {decoded_col}={row.get(decoded_col, 'N/A')}")
                             else:
                                 app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                                 
