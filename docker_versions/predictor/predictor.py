@@ -493,31 +493,26 @@ def predict():
                             cols.insert(pred_idx + 1, decoded_col)
                             df = df[cols]
                             
-                            # Radical approach: Swap the columns - put decoded values in main prediction column
-                            # Save the original numeric prediction in a separate column
-                            df[f"{pred_col}_numeric"] = df[pred_col].copy()
-                            # Replace the prediction column with decoded values
-                            df[pred_col] = df[decoded_col]
-                            # Remove the redundant decoded column
-                            df.drop(columns=[decoded_col], inplace=True)
-                            # Create a new decoded column name for logging purposes
-                            decoded_col = pred_col
+                            # SIMPLIFIED APPROACH:
+                            # 1. Create a new column with the decoded values at the end
+                            df["Prediction (Decoded)"] = df[decoded_col]
                             
-                            # Move both prediction columns to the end of the DataFrame
-                            # First get all column names
+                            # 2. Remove the intermediate decoded column 
+                            df.drop(columns=[decoded_col], inplace=True)
+                            
+                            # 3. Move the decoded column to the end
                             all_cols = df.columns.tolist()
-                            # Remove the prediction columns
-                            all_cols.remove(pred_col)
-                            all_cols.remove(f"{pred_col}_numeric")
-                            # Add them back at the end
-                            all_cols.append(pred_col)
-                            all_cols.append(f"{pred_col}_numeric")
-                            # Reorder the DataFrame
+                            all_cols.remove("Prediction (Decoded)")
+                            all_cols.append("Prediction (Decoded)")
+                            
+                            # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Reordered columns to put predictions at the end: {all_cols[-2:]}")
+                            app.logger.info(f"Simplified column ordering with decoded predictions at the end")
+                            
+                            # No need to add a message row anymore
                             
                             # Check if decoding worked
-                            null_count = df[decoded_col].isna().sum()
+                            null_count = df["Prediction (Decoded)"].isna().sum()
                             decoded_count = len(df) - null_count
                             
                             if decoded_count > 0:
@@ -525,29 +520,12 @@ def predict():
                                 success_percentage = (decoded_count / len(df)) * 100
                                 app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
                                 
-                                # Add a visibility indicator in the CSV output
-                                df_with_message = pd.DataFrame([
-                                    {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
-                                     decoded_col: f"This column contains the decoded values for the predictions"}
-                                ])
-                                df = pd.concat([df_with_message, df], ignore_index=True)
-                                
-                                # DEBUG: Print final DataFrame structure and sample
-                                output_csv = df.to_csv(index=False)
-                                app.logger.info(f"===== FINAL CSV STRUCTURE =====")
-                                app.logger.info(f"Columns in output CSV: {df.columns.tolist()}")
-                                app.logger.info(f"First 5 rows sample (decoded column included):")
-                                for i, row in df.head(6).iterrows():
-                                    app.logger.info(f"Row {i}: prediction={row.get('prediction', 'N/A')}, {decoded_col}={row.get(decoded_col, 'N/A')}")
+                                # No message row - just log to console
                             else:
                                 app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                                 
-                                # Add a message indicating failure
-                                df_with_message = pd.DataFrame([
-                                    {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
-                                     pred_col: "Please try a different encoding map"}
-                                ])
-                                df = pd.concat([df_with_message, df], ignore_index=True)
+                                # If decoding completely failed, we'll remove the decoded column
+                                df.drop(columns=["Prediction (Decoded)"], inplace=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction: {str(decode_error)}")
                     # Continue without decoding if there's an error
@@ -755,31 +733,26 @@ def predict():
                             cols.insert(pred_idx + 1, decoded_col)
                             df = df[cols]
                             
-                            # Radical approach: Swap the columns - put decoded values in main prediction column
-                            # Save the original numeric prediction in a separate column
-                            df[f"{pred_col}_numeric"] = df[pred_col].copy()
-                            # Replace the prediction column with decoded values
-                            df[pred_col] = df[decoded_col]
-                            # Remove the redundant decoded column
-                            df.drop(columns=[decoded_col], inplace=True)
-                            # Create a new decoded column name for logging purposes
-                            decoded_col = pred_col
+                            # SIMPLIFIED APPROACH:
+                            # 1. Create a new column with the decoded values at the end
+                            df["Prediction (Decoded)"] = df[decoded_col]
                             
-                            # Move both prediction columns to the end of the DataFrame
-                            # First get all column names
+                            # 2. Remove the intermediate decoded column 
+                            df.drop(columns=[decoded_col], inplace=True)
+                            
+                            # 3. Move the decoded column to the end
                             all_cols = df.columns.tolist()
-                            # Remove the prediction columns
-                            all_cols.remove(pred_col)
-                            all_cols.remove(f"{pred_col}_numeric")
-                            # Add them back at the end
-                            all_cols.append(pred_col)
-                            all_cols.append(f"{pred_col}_numeric")
-                            # Reorder the DataFrame
+                            all_cols.remove("Prediction (Decoded)")
+                            all_cols.append("Prediction (Decoded)")
+                            
+                            # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Reordered columns to put predictions at the end: {all_cols[-2:]}")
+                            app.logger.info(f"Simplified column ordering with decoded predictions at the end")
+                            
+                            # No need to add a message row anymore
                             
                             # Check if decoding worked
-                            null_count = df[decoded_col].isna().sum()
+                            null_count = df["Prediction (Decoded)"].isna().sum()
                             decoded_count = len(df) - null_count
                             
                             if decoded_count > 0:
@@ -787,31 +760,12 @@ def predict():
                                 success_percentage = (decoded_count / len(df)) * 100
                                 app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
                                 
-                                # Add a visibility indicator in the CSV output
-                                df_with_message = pd.DataFrame([
-                                    {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
-                                     decoded_col: f"This column contains the decoded values for the predictions"}
-                                ])
-                                df = pd.concat([df_with_message, df], ignore_index=True)
-                                
-                                # Write the dataframe back to the file including the decoded column
-                                df.to_csv(output_path, index=False)
-                                
-                                # DEBUG: Print final DataFrame structure and sample
-                                app.logger.info(f"===== FINAL CSV STRUCTURE (FILE OUTPUT) =====")
-                                app.logger.info(f"Columns in output CSV: {df.columns.tolist()}")
-                                app.logger.info(f"First 5 rows sample (decoded column included):")
-                                for i, row in df.head(6).iterrows():
-                                    app.logger.info(f"Row {i}: prediction={row.get('prediction', 'N/A')}, {decoded_col}={row.get(decoded_col, 'N/A')}")
+                                # No message row - just log to console
                             else:
                                 app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                                 
-                                # Add a message indicating failure
-                                df_with_message = pd.DataFrame([
-                                    {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
-                                     pred_col: "Please try a different encoding map"}
-                                ])
-                                df = pd.concat([df_with_message, df], ignore_index=True)
+                                # If decoding completely failed, we'll remove the decoded column
+                                df.drop(columns=["Prediction (Decoded)"], inplace=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
