@@ -581,10 +581,18 @@ def api_predict_tabular():
             'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
         }
         
+        # Add selected encoding column if provided
+        data = {}
+        encoding_column = request.form.get('encoding_column')
+        if encoding_column:
+            data['encoding_column'] = encoding_column
+            logger.info(f"Using encoding column: {encoding_column}")
+        
         # Send request to the predictor service
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
+            data=data,
             timeout=600  # 10 minute timeout
         )
         
@@ -607,4 +615,59 @@ def api_predict_tabular():
         
     except Exception as e:
         logger.error(f"Error in tabular prediction: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/predict_tabular/extract_encodings', methods=['POST'])
+@login_required
+def api_extract_encodings():
+    """API endpoint to extract encoding maps from a model package"""
+    if 'model_package' not in request.files:
+        return jsonify({"error": "Model package file is required"}), 400
+    
+    model_package = request.files['model_package']
+    
+    if not model_package.filename or not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    try:
+        # Define the predictor service URL
+        predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+        
+        # Check if the predictor service is available
+        if not is_service_available(predictor_service_url):
+            return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
+        
+        logger.info(f"Extracting encodings from model package: {model_package.filename}")
+        
+        # Forward the file to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip')
+        }
+        
+        # Send request to the predictor service
+        response = requests.post(
+            f"{predictor_service_url}/extract_encodings",
+            files=files,
+            timeout=60  # 1 minute timeout
+        )
+        
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error extracting encodings"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error extracting encodings (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return encoding maps
+        result = response.json()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error extracting encodings: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
