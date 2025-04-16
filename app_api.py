@@ -315,6 +315,11 @@ def welcome():
         
     return render_template('welcome.html')
 
+@app.route('/home')
+def home():
+    """Home page - accessible to everyone, logged in or not"""
+    return render_template('home.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 @app.route('/login/<path:action>', methods=['GET', 'POST'])
 def login(action=None):
