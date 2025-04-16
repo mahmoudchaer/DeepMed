@@ -7,7 +7,7 @@ This Docker container provides a service for training image classification model
 - `model_service.py`: The Flask application that handles model training
 - `Dockerfile`: Instructions for building the Docker image
 - `docker-compose.yml`: Configuration for running the service
-- `requirements_efficientnet_b0.txt`: Python dependencies
+- `requirements.txt`: Python dependencies
 
 ## Usage
 

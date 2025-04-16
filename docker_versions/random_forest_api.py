@@ -310,75 +310,7 @@ def train():
         logger.error(f"Error in train endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    """
-    Make predictions using the trained model
-    
-    Expected JSON input:
-    {
-        "data": {...}  # Features in JSON format
-    }
-    
-    Returns:
-    {
-        "predictions": [...],  # List of predictions
-        "probabilities": [...],  # List of probability distributions for each class
-        "message": "Predictions made successfully"
-    }
-    """
-    try:
-        # Check if model exists
-        model_path = os.path.join(MODELS_DIR, 'model.joblib')
-        if not os.path.exists(model_path):
-            return jsonify({"error": "Model not found. Train model first."}), 404
-        
-        # Get request data
-        request_data = request.json
-        
-        if not request_data or 'data' not in request_data:
-            return jsonify({"error": "Invalid request. Missing 'data'."}), 400
-        
-        # Convert JSON to DataFrame
-        try:
-            data = pd.DataFrame.from_dict(request_data['data'])
-        except Exception as e:
-            return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
-        
-        # Load model and make predictions
-        model_info = model_trainer.load_model(model_path)
-        model = model_info['model']
-        
-        predictions = model.predict(data)
-        probabilities = model.predict_proba(data).tolist()
-        
-        # If classification with label encoder, decode predictions
-        if 'label_encoder' in model_info and model_info['label_encoder'] is not None:
-            label_encoder = model_info['label_encoder']
-            mapping = dict(zip(range(len(label_encoder.classes_)), label_encoder.classes_))
-            decoded_predictions = [mapping[pred] for pred in predictions]
-            predictions = decoded_predictions
-        
-        # Convert NumPy values to native Python types
-        converted_predictions = []
-        for p in predictions:
-            if isinstance(p, (np.integer, np.floating)):
-                converted_value = float(p)
-                if abs(converted_value - int(converted_value)) < 1e-10:
-                    converted_value = int(converted_value)
-            else:
-                converted_value = str(p)
-            converted_predictions.append(converted_value)
-        
-        return jsonify({
-            "predictions": converted_predictions,
-            "probabilities": probabilities,
-            "message": "Predictions made successfully"
-        })
-    
-    except Exception as e:
-        logger.error(f"Error in predict endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/model_info', methods=['GET'])
 def model_info():

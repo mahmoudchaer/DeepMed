@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Images Prediction{% endblock %}
+
+{% block head %}
+<style>
+    .json-key {
+        color: #9cdcfe;
+    }
+    .json-string {
+        color: #ce9178;
+    }
+    .json-number {
+        color: #b5cea8;
+    }
+    .json-boolean {
+        color: #569cd6;
+    }
+    .json-null {
+        color: #569cd6;
+    }
+    
+    #predictionOutput {
+        background-color: #1e1e1e;
+        border-radius: 6px;
+        padding: 15px;
+        line-height: 1.5;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #007bff;
+    }
+    
+    .output-card {
+        background-color: #252525;
+        border-radius: 8px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        margin-bottom: 1.5rem;
+    }
+    
+    .output-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+    }
+    
+    .output-header i {
+        margin-right: 8px;
+        color: #007bff;
+    }
+    
+    .output-body {
+        padding: 15px;
+    }
+    
+    .result-tabs {
+        margin-bottom: 15px;
+    }
+    
+    .result-tabs .nav-link {
+        color: #adb5bd;
+        border-radius: 0;
+        padding: 8px 16px;
+    }
+    
+    .result-tabs .nav-link.active {
+        background-color: #252525;
+        color: #fff;
+        border-bottom: 2px solid #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Images Prediction with Custom Models</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Use Custom Model Packages</h4>
+                    <p>Upload a model package (ZIP file) containing your trained model and required dependencies, along with an input image to generate predictions.</p>
+                    <p>The model package should include:</p>
+                    <ul>
+                        <li><code>predict.py</code> script that processes the input</li>
+                        <li><code>requirements.txt</code> listing the required dependencies</li>
+                        <li>Any model weights or additional files needed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Files</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="predictionForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="modelPackage" class="form-label">Model Package (ZIP)</label>
+                                <input type="file" class="form-control" id="modelPackage" name="model_package" accept=".zip" required>
+                                <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="inputFile" class="form-label">Input Image</label>
+                                <input type="file" class="form-control" id="inputFile" name="input_file" accept="image/*" required>
+                                <div class="form-text">Image file to analyze with the model</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-cog me-2"></i>Generate Prediction
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultContainer" class="d-none">
+                            <div class="alert alert-success">
+                                <h5>Prediction Completed</h5>
+                                <p id="processingTime"></p>
+                            </div>
+                            
+                            <div class="mb-3 output-card">
+                                <div class="output-header">
+                                    <i class="fas fa-code"></i>
+                                    <h5 class="mb-0">Model Output</h5>
+                                </div>
+                                <div class="output-body">
+                                    <ul class="nav nav-tabs result-tabs" id="outputTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="formatted-tab" data-bs-toggle="tab" data-bs-target="#formatted" type="button" role="tab">Formatted</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab">Raw</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content" id="outputTabContent">
+                                        <div class="tab-pane fade show active" id="formatted" role="tabpanel">
+                                            <pre id="predictionOutput" class="text-light" style="max-height: 300px; overflow-y: auto;"></pre>
+                                        </div>
+                                        <div class="tab-pane fade" id="raw" role="tabpanel">
+                                            <pre id="rawOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="imageResultContainer" class="mb-3 d-none">
+                                <h5>Input Image:</h5>
+                                <img id="inputImage" class="img-fluid rounded border mb-3" alt="Input image">
+                            </div>
+                        </div>
+
+                        <div id="loadingContainer" class="d-none text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">Processing your request...</p>
+                            <p class="text-muted small">This may take a few moments as we set up the environment and run your model.</p>
+                        </div>
+
+                        <div id="initialMessage" class="text-center py-5">
+                            <i class="fas fa-arrow-left fa-3x text-muted mb-3"></i>
+                            <p>Upload your model package and input image to see results here.</p>
+                        </div>
+
+                        <div id="errorContainer" class="d-none">
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+                                <p id="errorMessage"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('predictionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const initialMessage = document.getElementById('initialMessage');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const predictionOutput = document.getElementById('predictionOutput');
+        const processingTime = document.getElementById('processingTime');
+        const inputImage = document.getElementById('inputImage');
+        const imageResultContainer = document.getElementById('imageResultContainer');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Reset UI
+            resultContainer.classList.add('d-none');
+            errorContainer.classList.add('d-none');
+            initialMessage.classList.add('d-none');
+            loadingContainer.classList.remove('d-none');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+            
+            // Create form data
+            const formData = new FormData(form);
+            
+            // Record start time
+            const startTime = new Date();
+            
+            // Send request
+            fetch('/api/predict_image', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'An error occurred during prediction.');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Calculate processing time
+                const endTime = new Date();
+                const processingSeconds = ((endTime - startTime) / 1000).toFixed(2);
+                
+                // Show results
+                loadingContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+                
+                // Display processing time
+                processingTime.textContent = `Processing completed in ${processingSeconds} seconds.`;
+                
+                // Display prediction output
+                const formatJson = function(json) {
+                    if (typeof json === 'string') {
+                        json = JSON.parse(json);
+                    }
+                    
+                    // Format the JSON with highlighting
+                    let formattedOutput = JSON.stringify(json, null, 2)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+                            let cls = 'json-number';
+                            if (/^"/.test(match)) {
+                                if (/:$/.test(match)) {
+                                    cls = 'json-key';
+                                } else {
+                                    cls = 'json-string';
+                                }
+                            } else if (/true|false/.test(match)) {
+                                cls = 'json-boolean';
+                            } else if (/null/.test(match)) {
+                                cls = 'json-null';
+                            }
+                            return '<span class="' + cls + '">' + match + '</span>';
+                        });
+                    
+                    return formattedOutput;
+                };
+                
+                // Display both formatted and raw outputs
+                predictionOutput.innerHTML = formatJson(data);
+                document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2);
+                
+                // Display input image
+                const inputFile = document.getElementById('inputFile').files[0];
+                if (inputFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        inputImage.src = e.target.result;
+                        imageResultContainer.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(inputFile);
+                }
+            })
+            .catch(error => {
+                // Show error
+                loadingContainer.classList.add('d-none');
+                errorContainer.classList.remove('d-none');
+                errorMessage.textContent = error.message || 'An unexpected error occurred.';
+            })
+            .finally(() => {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Generate Prediction';
+            });
+        });
+    });
+</script>
+{% endblock %}

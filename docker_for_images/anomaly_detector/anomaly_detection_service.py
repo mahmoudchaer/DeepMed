@@ -302,13 +302,15 @@ def train_model():
         # Create a zip file to return the model and related files
         temp_output_zip = os.path.join(temp_dir, "model_output.zip")
         
-        # Create detect_anomaly.py file
+        # Create predict.py file
         detect_script_content = '''import torch
 import torchvision.transforms as transforms
 from PIL import Image
 import json
 import numpy as np
 import os
+import glob
+import argparse
 
 # Define the Autoencoder architecture (must match the one used for training)
 class Autoencoder(torch.nn.Module):
@@ -379,34 +381,56 @@ def detect_anomaly(image_path, model_path='autoencoder.pt', metadata_path='metad
         'is_anomaly': is_anomaly
     }
 
+def find_unique_image():
+    # Supported image extensions
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff']
+    image_files = []
+    for ext in image_extensions:
+        image_files.extend(glob.glob(ext))
+        
+    if len(image_files) == 0:
+        return None, "No image file found in the current directory."
+    elif len(image_files) > 1:
+        return None, "Multiple image files found. Please specify one as an argument."
+    else:
+        return image_files[0], f"Found one image file: {image_files[0]}"
+
 if __name__ == "__main__":
-    import sys
+    parser = argparse.ArgumentParser(description='Detect anomaly using a trained autoencoder model.')
+    # Define an optional positional argument for the image path.
+    parser.add_argument('image', nargs='?', default=None, help='Path to the image file (optional; auto-detect if not provided)')
+    parser.add_argument('--model_path', type=str, default='autoencoder.pt', help='Path to the autoencoder model file')
+    parser.add_argument('--metadata_path', type=str, default='metadata.json', help='Path to the metadata JSON file')
     
-    if len(sys.argv) < 2:
-        print("Usage: python detect_anomaly.py <image_path> [model_path] [metadata_path]")
-        sys.exit(1)
+    args = parser.parse_args()
     
-    image_path = sys.argv[1]
-    model_path = sys.argv[2] if len(sys.argv) > 2 else 'autoencoder.pt'
-    metadata_path = sys.argv[3] if len(sys.argv) > 3 else 'metadata.json'
+    image_path = args.image
+    if image_path is None:
+        image_path, message = find_unique_image()
+        if image_path is None:
+            print(message)
+            exit(1)
+        else:
+            print(message)
     
     if not os.path.exists(image_path):
-        print(f"Error: Image file {image_path} not found")
-        sys.exit(1)
+        print(f"Error: Image file '{image_path}' not found")
+        exit(1)
     
-    if not os.path.exists(model_path):
-        print(f"Error: Model file {model_path} not found")
-        sys.exit(1)
+    if not os.path.exists(args.model_path):
+        print(f"Error: Model file '{args.model_path}' not found")
+        exit(1)
     
-    if not os.path.exists(metadata_path):
-        print(f"Error: Metadata file {metadata_path} not found")
-        sys.exit(1)
+    if not os.path.exists(args.metadata_path):
+        print(f"Error: Metadata file '{args.metadata_path}' not found")
+        exit(1)
     
-    result = detect_anomaly(image_path, model_path, metadata_path)
-    print(f"Anomaly detection result:")
+    result = detect_anomaly(image_path, args.model_path, args.metadata_path)
+    print("Anomaly detection result:")
     print(f"  Reconstruction error: {result['reconstruction_error']:.6f}")
     print(f"  Threshold: {result['threshold']:.6f}")
     print(f"  Is anomaly: {result['is_anomaly']}")
+
 '''
         
         # Create requirements.txt content
@@ -425,7 +449,7 @@ This package contains a trained autoencoder model for image anomaly detection. T
 
 - `autoencoder.pt`: The trained PyTorch model
 - `metadata.json`: Model metadata including the detection threshold
-- `detect_anomaly.py`: Python script to run inference on new images
+- `predict.py`: Python script to run inference on new images
 - `requirements.txt`: Required Python packages
 
 ## Setup Instructions
@@ -455,17 +479,17 @@ Place the image(s) you want to analyze in the same directory as the model files,
 
 ```bash
 # Basic usage (uses default model and metadata filenames)
-python detect_anomaly.py your_image.jpg
+python predict.py your_image.jpg
 
 # Specify custom paths for model and metadata if needed
-python detect_anomaly.py your_image.jpg custom_model_name.pt custom_metadata.json
+python predict.py your_image.jpg custom_model_name.pt custom_metadata.json
 ```
 
 ### Example Usage
 
 ```bash
 # Detect anomalies in a single image
-python detect_anomaly.py test_image.jpg
+python predict.py test_image.jpg
 
 # Expected output:
 # Anomaly detection result:
@@ -510,17 +534,17 @@ If you encounter any issues:
 '''
         
         # Save files in the results directory
-        detect_script_path = os.path.join(results_dir, "detect_anomaly.py")
+        detect_script_path = os.path.join(results_dir, "predict.py")
         requirements_path = os.path.join(results_dir, "requirements.txt")
         readme_path = os.path.join(results_dir, "README.md")
         
         try:
             with open(detect_script_path, 'w') as f:
                 f.write(detect_script_content)
-            logger.info(f"Successfully created detect_anomaly.py at {detect_script_path}")
+            logger.info(f"Successfully created predict.py at {detect_script_path}")
             logger.info(f"File exists: {os.path.exists(detect_script_path)}, Size: {os.path.getsize(detect_script_path)} bytes")
         except Exception as e:
-            logger.error(f"Error creating detect_anomaly.py: {str(e)}")
+            logger.error(f"Error creating predict.py: {str(e)}")
         
         try:
             with open(requirements_path, 'w') as f:
@@ -558,8 +582,8 @@ If you encounter any issues:
                 logger.info(f"Added metadata.json to zip")
                 
                 # Add detection script directly
-                zipf.writestr("detect_anomaly.py", detect_script_content)
-                logger.info(f"Added detect_anomaly.py to zip")
+                zipf.writestr("predict.py", detect_script_content)
+                logger.info(f"Added predict.py to zip")
                 
                 # Add requirements directly
                 zipf.writestr("requirements.txt", requirements_content)
@@ -580,7 +604,7 @@ If you encounter any issues:
             logger.info(f"Zip file contains: {contents}")
             
             # Ensure all required files are in the zip
-            required_files = ["autoencoder.pt", "metadata.json", "detect_anomaly.py", "requirements.txt", "README.md"]
+            required_files = ["autoencoder.pt", "metadata.json", "predict.py", "requirements.txt", "README.md"]
             for file in required_files:
                 if file not in contents:
                     logger.error(f"Required file {file} is missing from the zip!")
