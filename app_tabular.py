@@ -519,3 +519,92 @@ def training():
                           columns=data.columns.tolist(),
                           file_stats=session.get('file_stats'),
                           ai_recommendations=ai_recommendations)
+
+@app.route('/tabular_prediction')
+@login_required
+def tabular_prediction():
+    """Route for tabular prediction page that uses custom models"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the tabular prediction page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Generate a CSRF token for logout form if needed
+    if 'logout_token' not in session:
+        session['logout_token'] = secrets.token_hex(16)
+    
+    # Check services health for status display
+    services_status = check_services()
+    
+    # Add tabular prediction service to services status
+    predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+    services_status['tabular_predictor_service'] = is_service_available(predictor_service_url)
+    
+    return render_template('tabular_prediction.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/api/predict_tabular', methods=['POST'])
+@login_required
+def api_predict_tabular():
+    """API endpoint for tabular prediction using custom models"""
+    # Check for file uploads
+    if 'model_package' not in request.files or 'input_file' not in request.files:
+        return jsonify({"error": "Both model package and input file are required"}), 400
+    
+    model_package = request.files['model_package']
+    input_file = request.files['input_file']
+    
+    if not model_package.filename or not input_file.filename:
+        return jsonify({"error": "Both model package and input file must be selected"}), 400
+    
+    # Validate file extensions
+    if not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    if not (input_file.filename.lower().endswith('.xlsx') or 
+            input_file.filename.lower().endswith('.xls') or 
+            input_file.filename.lower().endswith('.csv')):
+        return jsonify({"error": "Input file must be an Excel or CSV file"}), 400
+    
+    try:
+        # Define the predictor service URL
+        predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+        
+        # Check if the predictor service is available
+        if not is_service_available(predictor_service_url):
+            return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting tabular prediction for model: {model_package.filename} and input: {input_file.filename}")
+        
+        # Forward the files to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip'),
+            'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
+        }
+        
+        # Send request to the predictor service
+        response = requests.post(
+            f"{predictor_service_url}/predict",
+            files=files,
+            timeout=600  # 10 minute timeout
+        )
+        
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error in prediction service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in prediction service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return prediction results (CSV content)
+        result = response.json()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error in tabular prediction: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
