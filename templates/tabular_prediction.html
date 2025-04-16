@@ -20,28 +20,6 @@
                     </ul>
                     <p>The system will output the prediction results as a CSV file for download.</p>
                 </div>
-                
-                <div class="alert alert-light border">
-                    <h5><i class="fas fa-bullseye text-primary me-2"></i>Target Column Selection</h5>
-                    <p class="mb-2">After uploading your data file, you'll see a dropdown menu to select your <strong>target column</strong>:</p>
-                    <div class="d-flex">
-                        <div class="me-4">
-                            <ul class="mb-0">
-                                <li><strong>What it is:</strong> The column you want to predict (e.g., "disease", "diagnosis", "outcome")</li>
-                                <li><strong>When to use:</strong> When the model needs to know which column contains the values to predict</li>
-                                <li><strong>Auto-detect:</strong> If unsure, leave it on "Auto-detect" and the model will try to figure it out</li>
-                            </ul>
-                        </div>
-                        <div class="bg-light p-2 rounded border" style="min-width:200px;">
-                            <div class="small fw-bold mb-1">Example Target Columns:</div>
-                            <span class="badge bg-primary">diagnosis</span>
-                            <span class="badge bg-primary">disease_type</span>
-                            <span class="badge bg-primary">outcome</span>
-                            <span class="badge bg-primary">result</span>
-                            <span class="badge bg-primary">category</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -65,31 +43,6 @@
                                 <div class="form-text">Tabular data file to analyze with the model</div>
                             </div>
 
-                            <div class="mb-3" id="targetColumnContainer" style="display: none;">
-                                <label for="targetColumn" class="form-label fw-bold">
-                                    <i class="fas fa-bullseye text-primary me-1"></i>Target Column 
-                                    <span id="columnCount" class="badge bg-info text-white ms-2"></span>
-                                </label>
-                                <div class="input-group">
-                                    <select class="form-select" id="targetColumn" name="target_column" style="max-height: 200px;">
-                                        <option value="" selected>Auto-detect from model</option>
-                                    </select>
-                                    <button class="btn btn-outline-primary" type="button" id="refreshColumnsBtn" title="Refresh column list">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                </div>
-                                <div class="form-text">Select the column containing the values you want to predict</div>
-                            </div>
-
-                            <div id="columnsLoading" style="display: none;" class="mb-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                                        <span class="visually-hidden">Loading columns...</span>
-                                    </div>
-                                    <span>Loading columns from file...</span>
-                                </div>
-                            </div>
-
                             <button type="submit" class="btn btn-primary" id="submitBtn">
                                 <i class="fas fa-cog me-2"></i>Generate Prediction
                             </button>
@@ -108,10 +61,6 @@
                             <div class="alert alert-success">
                                 <h5>Prediction Completed</h5>
                                 <p id="processingTime"></p>
-                                <p id="targetColumnInfo" class="mb-0 mt-2 p-2 bg-light rounded" style="display: none;">
-                                    <i class="fas fa-bullseye text-primary me-2"></i>
-                                    <span id="targetColumnText"></span>
-                                </p>
                             </div>
                             
                             <div class="mb-3">
@@ -165,155 +114,9 @@
         const resultPreview = document.getElementById('resultPreview');
         const processingTime = document.getElementById('processingTime');
         const downloadBtn = document.getElementById('downloadBtn');
-        const inputFile = document.getElementById('inputFile');
-        const targetColumnContainer = document.getElementById('targetColumnContainer');
-        const targetColumn = document.getElementById('targetColumn');
-        const columnsLoading = document.getElementById('columnsLoading');
-        const refreshColumnsBtn = document.getElementById('refreshColumnsBtn');
-        const targetColumnInfo = document.getElementById('targetColumnInfo');
 
         // Store the raw CSV data
         let csvData = '';
-        
-        // Function to create and show a Bootstrap toast notification
-        function showToast(title, message) {
-            // Remove any existing toasts
-            const existingToasts = document.querySelectorAll('.toast-container');
-            existingToasts.forEach(toast => toast.remove());
-            
-            // Create new toast
-            const toast = document.createElement('div');
-            toast.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-            toast.innerHTML = `
-                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header bg-primary text-white">
-                        <strong class="me-auto">${title}</strong>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                    <div class="toast-body">
-                        ${message}
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(toast);
-            
-            // Initialize and show the toast
-            const toastElement = toast.querySelector('.toast');
-            const bsToast = new bootstrap.Toast(toastElement);
-            bsToast.show();
-        }
-        
-        // Function to load columns from the input file
-        function loadColumns() {
-            const fileInput = document.getElementById('inputFile');
-            if (fileInput.files.length === 0) {
-                return;
-            }
-            
-            // Show loading indicator
-            columnsLoading.style.display = 'block';
-            targetColumnContainer.style.display = 'none';
-            
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            
-            // Add visual feedback
-            inputFile.classList.add('border-primary');
-            
-            fetch('/api/get_file_columns', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
-                        throw new Error(data.error || 'Failed to load columns');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Clear dropdown
-                targetColumn.innerHTML = '<option value="" selected>Auto-detect from model</option>';
-                
-                // Add columns to dropdown
-                if (data.columns && data.columns.length > 0) {
-                    // Show column count
-                    const columnCount = document.getElementById('columnCount');
-                    columnCount.textContent = `${data.columns.length} columns`;
-                    
-                    // Sort columns alphabetically for easier selection
-                    const sortedColumns = [...data.columns].sort((a, b) => 
-                        a.toLowerCase().localeCompare(b.toLowerCase())
-                    );
-                    
-                    // Add all columns to the dropdown
-                    sortedColumns.forEach(column => {
-                        const option = document.createElement('option');
-                        option.value = column;
-                        option.textContent = column;
-                        targetColumn.appendChild(option);
-                    });
-                    
-                    // Show dropdown with animation
-                    targetColumnContainer.style.display = 'none';
-                    setTimeout(() => {
-                        targetColumnContainer.style.display = 'block';
-                        targetColumnContainer.classList.add('highlight-new');
-                        setTimeout(() => {
-                            targetColumnContainer.classList.remove('highlight-new');
-                        }, 1000);
-                    }, 300);
-                    
-                    // Show notification with column count
-                    showToast('Columns Loaded', 
-                        `Found ${data.columns.length} columns in your file. Select a target column or use auto-detect.`);
-                        
-                    // Try to preselect a likely target column if one exists
-                    const likelyTargetColumns = ['label', 'target', 'class', 'outcome', 'result', 'diagnosis', 'category', 'prediction'];
-                    for (const likely of likelyTargetColumns) {
-                        const matchingOption = Array.from(targetColumn.options).find(option => 
-                            option.value && option.value.toLowerCase().includes(likely)
-                        );
-                        if (matchingOption) {
-                            targetColumn.value = matchingOption.value;
-                            break;
-                        }
-                    }
-                } else {
-                    // Show warning if no columns found
-                    targetColumnContainer.style.display = 'block';
-                    showToast('Warning', 'No columns found in the file or file could not be properly read.');
-                }
-            })
-            .catch(error => {
-                console.error('Error loading columns:', error);
-                // Show minimal error
-                const errorOption = document.createElement('option');
-                errorOption.value = '';
-                errorOption.textContent = 'Error loading columns';
-                targetColumn.innerHTML = '';
-                targetColumn.appendChild(errorOption);
-                targetColumnContainer.style.display = 'block';
-                
-                // Show error notification
-                alert(`Failed to load columns: ${error.message}`);
-            })
-            .finally(() => {
-                columnsLoading.style.display = 'none';
-            });
-        }
-        
-        // Load columns when file is selected
-        inputFile.addEventListener('change', loadColumns);
-        
-        // Refresh columns button
-        refreshColumnsBtn.addEventListener('click', loadColumns);
-        
-        // Help user understand the target column selection on hover
-        targetColumn.addEventListener('focus', function() {
-            targetColumn.setAttribute('title', 'Select the column containing the values you want to predict (e.g., "diagnosis", "condition", "result")');
-        });
         
         // Function to convert CSV to HTML table for preview
         function csvToHtmlTable(csv) {
@@ -391,14 +194,6 @@
                 // Store CSV data
                 csvData = data.output_file;
                 
-                // Display target column info if one was selected
-                if (targetColumn.value) {
-                    document.getElementById('targetColumnText').innerHTML = `Target column used: <strong class="text-primary">${targetColumn.value}</strong>`;
-                    targetColumnInfo.style.display = 'block';
-                } else {
-                    targetColumnInfo.style.display = 'none';
-                }
-                
                 // Show results
                 loadingContainer.classList.add('d-none');
                 resultContainer.classList.remove('d-none');
@@ -416,9 +211,7 @@
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-                    // Include target column in filename if selected
-                    const targetSuffix = targetColumn.value ? `_${targetColumn.value.replace(/[^a-z0-9]/gi, '_')}` : '';
-                    a.download = `prediction_results${targetSuffix}.csv`;
+                    a.download = 'prediction_results.csv';
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
@@ -430,11 +223,6 @@
                 loadingContainer.classList.add('d-none');
                 errorContainer.classList.remove('d-none');
                 errorMessage.textContent = error.message || 'An unexpected error occurred.';
-                
-                // Add more details if it's a target column related error
-                if (error.message && error.message.toLowerCase().includes('target')) {
-                    errorMessage.innerHTML += '<br><br>This may be related to the target column selection. Try selecting a different column or letting the model auto-detect it.';
-                }
             })
             .finally(() => {
                 // Re-enable submit button
@@ -444,75 +232,4 @@
         });
     });
 </script>
-
-<style>
-    /* Add some styling for the target column dropdown */
-    #targetColumnContainer {
-        transition: all 0.3s ease;
-        border-left: 3px solid transparent;
-        padding-left: 10px;
-    }
-    
-    .highlight-new {
-        border-left: 3px solid #0d6efd !important;
-        background-color: rgba(13, 110, 253, 0.05);
-    }
-    
-    /* Improved dropdown styling to handle many columns */
-    #targetColumn {
-        overflow-y: auto !important;
-    }
-    
-    /* Make dropdown options more readable */
-    #targetColumn option {
-        padding: 5px;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    
-    /* Show scrollbar for dropdown */
-    select::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    select::-webkit-scrollbar-track {
-        background: #f1f1f1; 
-    }
-    
-    select::-webkit-scrollbar-thumb {
-        background: #888; 
-        border-radius: 4px;
-    }
-    
-    select::-webkit-scrollbar-thumb:hover {
-        background: #555; 
-    }
-    
-    /* Fix for Firefox */
-    @-moz-document url-prefix() {
-        #targetColumn {
-            scrollbar-width: thin;
-            scrollbar-color: #888 #f1f1f1;
-        }
-    }
-    
-    /* Improved table styling for results */
-    #resultPreview table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    #resultPreview th {
-        position: sticky;
-        top: 0;
-        background-color: #212529;
-        z-index: 10;
-    }
-    
-    /* Highlight prediction column */
-    #resultPreview td:last-child,
-    #resultPreview th:last-child {
-        background-color: rgba(25, 135, 84, 0.2);
-        font-weight: bold;
-    }
-</style>
 {% endblock %} 
