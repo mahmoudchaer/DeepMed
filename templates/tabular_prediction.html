@@ -348,15 +348,30 @@
             // Record start time
             const startTime = new Date();
             
+            // Log the selected encoding option if any
+            if (encodingSelect.value) {
+                console.log("Using encoding map:", encodingSelect.value);
+            }
+            
             // Send request
             fetch('/api/predict_tabular', {
                 method: 'POST',
                 body: formData
             })
             .then(response => {
+                console.log("Prediction response status:", response.status);
                 if (!response.ok) {
                     return response.json().then(data => {
                         throw new Error(data.error || 'An error occurred during prediction.');
+                    }).catch(jsonError => {
+                        // Handle case where response isn't valid JSON
+                        if (response.status === 404) {
+                            throw new Error('Prediction service not found. The server may be unavailable.');
+                        } else if (response.status === 500) {
+                            throw new Error('Server error during prediction. Check server logs for details.');
+                        } else {
+                            throw new Error(`Prediction failed with status ${response.status}`);
+                        }
                     });
                 }
                 return response.json();
@@ -395,9 +410,21 @@
             })
             .catch(error => {
                 // Show error
+                console.error("Prediction error:", error);
                 loadingContainer.classList.add('d-none');
                 errorContainer.classList.remove('d-none');
                 errorMessage.textContent = error.message || 'An unexpected error occurred.';
+                
+                // Add additional debug info
+                const debugErrorInfo = document.createElement('div');
+                debugErrorInfo.className = 'mt-2 small text-muted';
+                debugErrorInfo.innerHTML = 'This could be caused by:<ul>' +
+                    '<li>The prediction service may be unavailable</li>' +
+                    '<li>There may be an issue with the model package format</li>' +
+                    '<li>The selected encoding map might not be compatible with the predictions</li>' +
+                    '<li>Check the browser console and server logs for more details</li>' +
+                    '</ul>';
+                errorMessage.appendChild(debugErrorInfo);
             })
             .finally(() => {
                 // Re-enable submit button
