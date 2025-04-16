@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import csv
 import io
+import json
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -14,6 +15,74 @@ app = Flask(__name__)
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok"}), 200
+
+@app.route('/extract_encodings', methods=['POST'])
+def extract_encodings():
+    """Extract encoding maps from a model package"""
+    if 'model_package' not in request.files:
+        return jsonify({"error": "Model package file is required"}), 400
+    
+    model_file = request.files['model_package']
+    
+    # Validate file type
+    if not model_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    # Create a temporary directory to extract files
+    temp_dir = tempfile.mkdtemp(prefix="encoding_extract_")
+    
+    try:
+        # Save and extract the ZIP package
+        zip_path = os.path.join(temp_dir, "model_package.zip")
+        model_file.save(zip_path)
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        # Look for encoding files
+        encoding_files = []
+        for filename in os.listdir(temp_dir):
+            if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
+                encoding_files.append(filename)
+        
+        if not encoding_files:
+            return jsonify({"error": "No encoding files found in the model package"}), 404
+        
+        # Extract encoding maps from each file
+        encoding_maps = {}
+        for file in encoding_files:
+            file_path = os.path.join(temp_dir, file)
+            try:
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+                    
+                # Process different potential formats
+                if isinstance(data, dict):
+                    # If it's a dict of column name -> encoding map
+                    for column, mapping in data.items():
+                        if isinstance(mapping, dict):
+                            encoding_maps[column] = mapping
+                    
+                    # Also check if there's a 'target_map' or similar key
+                    for key in ['target_map', 'target_encoding', 'label_encoding']:
+                        if key in data and isinstance(data[key], dict):
+                            encoding_maps[key] = data[key]
+            except Exception as e:
+                # Skip files that can't be parsed
+                print(f"Error parsing {file}: {str(e)}")
+                continue
+        
+        if not encoding_maps:
+            return jsonify({"error": "No valid encoding maps found in the model package"}), 404
+        
+        return jsonify({"encoding_maps": encoding_maps})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    finally:
+        # Clean up
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -23,6 +92,9 @@ def predict():
 
     model_file = request.files['model_package']
     input_file = request.files['input_file']
+    
+    # Get selected encoding map if provided
+    selected_encoding = request.form.get('encoding_column', None)
 
     # Validate file types.
     if not model_file.filename.lower().endswith('.zip'):
@@ -114,12 +186,161 @@ def predict():
             except Exception as e:
                 print(f"Warning: Output is not valid CSV: {str(e)}")
             
+            # If selected_encoding is provided, try to decode the prediction column
+            if selected_encoding:
+                try:
+                    # Find encoding files
+                    encoding_files = []
+                    for filename in os.listdir(temp_dir):
+                        if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
+                            encoding_files.append(os.path.join(temp_dir, filename))
+                    
+                    # Extract encoding maps from files
+                    encoding_map = None
+                    for file_path in encoding_files:
+                        try:
+                            with open(file_path, 'r') as f:
+                                data = json.load(f)
+                                
+                            # Check if the selected encoding column exists in this file
+                            if selected_encoding in data:
+                                encoding_map = data[selected_encoding]
+                                break
+                                
+                            # Also check under common keys
+                            for key in ['target_map', 'target_encoding', 'label_encoding']:
+                                if key in data and selected_encoding == key:
+                                    encoding_map = data[key]
+                                    break
+                                    
+                            if encoding_map:
+                                break
+                        except:
+                            continue
+                    
+                    # If we found an encoding map, decode the prediction column
+                    if encoding_map:
+                        print(f"Decoding prediction column using {selected_encoding} encoding map")
+                        # Parse the CSV
+                        df = pd.read_csv(io.StringIO(output_data))
+                        
+                        # Identify the prediction column - usually named 'prediction'
+                        pred_col = None
+                        for col in df.columns:
+                            if col.lower() in ['prediction', 'predicted', 'target', 'label']:
+                                pred_col = col
+                                break
+                                
+                        # If no prediction column found, use the last column
+                        if not pred_col and len(df.columns) > 0:
+                            pred_col = df.columns[-1]
+                            
+                        # Apply decoding if we found a prediction column
+                        if pred_col:
+                            # Convert encoding map from string keys to the appropriate type if needed
+                            fixed_map = {}
+                            for k, v in encoding_map.items():
+                                # The predictions are likely to be numbers, so try to convert keys
+                                try:
+                                    # First try int, then float if that fails
+                                    try:
+                                        fixed_map[int(k)] = v
+                                    except ValueError:
+                                        fixed_map[float(k)] = v
+                                except ValueError:
+                                    # Keep as string if conversion fails
+                                    fixed_map[k] = v
+                            
+                            # Map values using the encoding
+                            df[f"{pred_col}_decoded"] = df[pred_col].map(fixed_map)
+                            
+                            # Convert back to CSV
+                            output_data = df.to_csv(index=False)
+                            print("Successfully decoded prediction column")
+                except Exception as decode_error:
+                    print(f"Error decoding prediction: {str(decode_error)}")
+                    # Continue without decoding if there's an error
+            
             return jsonify({"output_file": output_data})
             
         # If no stdout, check if output.csv was created
         output_path = os.path.join(temp_dir, "output.csv")
         if os.path.exists(output_path):
             print(f"Reading output from file: {output_path}")
+            
+            # If selected_encoding is provided, try to decode the prediction column
+            if selected_encoding:
+                try:
+                    # Load CSV
+                    df = pd.read_csv(output_path)
+                    
+                    # Find encoding files and decode as above
+                    encoding_files = []
+                    for filename in os.listdir(temp_dir):
+                        if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
+                            encoding_files.append(os.path.join(temp_dir, filename))
+                    
+                    # Extract encoding maps from files
+                    encoding_map = None
+                    for file_path in encoding_files:
+                        try:
+                            with open(file_path, 'r') as f:
+                                data = json.load(f)
+                                
+                            # Check if the selected encoding column exists in this file
+                            if selected_encoding in data:
+                                encoding_map = data[selected_encoding]
+                                break
+                                
+                            # Also check under common keys
+                            for key in ['target_map', 'target_encoding', 'label_encoding']:
+                                if key in data and selected_encoding == key:
+                                    encoding_map = data[key]
+                                    break
+                                    
+                            if encoding_map:
+                                break
+                        except:
+                            continue
+                    
+                    # If we found an encoding map, decode the prediction column
+                    if encoding_map:
+                        # Identify the prediction column - usually named 'prediction'
+                        pred_col = None
+                        for col in df.columns:
+                            if col.lower() in ['prediction', 'predicted', 'target', 'label']:
+                                pred_col = col
+                                break
+                                
+                        # If no prediction column found, use the last column
+                        if not pred_col and len(df.columns) > 0:
+                            pred_col = df.columns[-1]
+                            
+                        # Apply decoding if we found a prediction column
+                        if pred_col:
+                            # Convert encoding map from string keys to the appropriate type if needed
+                            fixed_map = {}
+                            for k, v in encoding_map.items():
+                                # The predictions are likely to be numbers, so try to convert keys
+                                try:
+                                    # First try int, then float if that fails
+                                    try:
+                                        fixed_map[int(k)] = v
+                                    except ValueError:
+                                        fixed_map[float(k)] = v
+                                except ValueError:
+                                    # Keep as string if conversion fails
+                                    fixed_map[k] = v
+                            
+                            # Map values using the encoding
+                            df[f"{pred_col}_decoded"] = df[pred_col].map(fixed_map)
+                            
+                            # Write back to the file
+                            df.to_csv(output_path, index=False)
+                except Exception as decode_error:
+                    print(f"Error decoding prediction from file: {str(decode_error)}")
+                    # Continue without decoding if there's an error
+            
             with open(output_path, "r") as f:
                 output_data = f.read()
             return jsonify({"output_file": output_data})
