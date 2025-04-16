@@ -401,7 +401,6 @@ def predict():
                         app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
                         
                         # Validate encoding map format - should be a direct mapping of category -> code
-                        # If it's in reverse format (code -> category), invert it
                         if encoding_map and all(isinstance(v, (int, float)) for v in encoding_map.values()):
                             app.logger.info("Encoding map is in the correct format (category -> code)")
                         else:
@@ -423,20 +422,6 @@ def predict():
                                 app.logger.error(f"Error fixing encoding map format: {str(e)}")
                             
                         app.logger.info(f"Final encoding map for decoding: {encoding_map}")
-                        
-                        # Make sure encoding map uses integers as keys wherever possible
-                        integer_encoding_map = {}
-                        for k, v in encoding_map.items():
-                            try:
-                                # Force conversion to integer if possible
-                                integer_encoding_map[int(float(k))] = v
-                            except (ValueError, TypeError):
-                                # If conversion fails, keep original key
-                                integer_encoding_map[k] = v
-                        
-                        # Replace original encoding map with integer-keyed version
-                        encoding_map = integer_encoding_map
-                        app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
                         # *** CREATE INVERSE MAPPING FOR DECODING ***
                         # The encoding map is category -> code, but for decoding we need code -> category
@@ -484,63 +469,54 @@ def predict():
                             pred_col = df.columns[-1]
                             print(f"No prediction column identified, using last column: '{pred_col}'")
                             
-                        # Force prediction column to be numeric if possible
-                        try:
-                            numeric_pred_col = f"{pred_col}_numeric"
-                            app.logger.info(f"Converting prediction column to numeric: {df[pred_col].head(5)}")
-                            df[numeric_pred_col] = pd.to_numeric(df[pred_col], errors='coerce')
-                            # Check if conversion worked
-                            null_count = df[numeric_pred_col].isna().sum()
-                            if null_count == 0:
-                                app.logger.info("Successfully converted all predictions to numeric")
-                                # Use the numeric column for decoding
-                                df[pred_col] = df[numeric_pred_col].astype(int)
-                                app.logger.info(f"Converted to integers: {df[pred_col].head(5)}")
+                        if pred_col:
+                            app.logger.info(f"Using prediction column: '{pred_col}'")
+                            app.logger.info(f"Sample predictions: {df[pred_col].head(5).tolist()}")
+                            
+                            # Make a copy of the original column
+                            original_col = f"{pred_col}_original"
+                            df[original_col] = df[pred_col].copy()
+                            
+                            # Create decoded column using inverse mapping
+                            decoded_col = f"{pred_col}_decoded"
+                            
+                            # Simple direct mapping using the inverse mapping
+                            df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                               inverse_mapping.get(str(x), 
+                                                                                   inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                                       None))))
+                            
+                            # For clarity, reorder columns to put decoded column right after prediction
+                            cols = df.columns.tolist()
+                            pred_idx = cols.index(pred_col)
+                            cols.remove(decoded_col)
+                            cols.insert(pred_idx + 1, decoded_col)
+                            df = df[cols]
+                            
+                            # Check if decoding worked
+                            null_count = df[decoded_col].isna().sum()
+                            decoded_count = len(df) - null_count
+                            
+                            if decoded_count > 0:
+                                # At least some values were decoded
+                                success_percentage = (decoded_count / len(df)) * 100
+                                app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                                
+                                # Add a visibility indicator in the CSV output
+                                df_with_message = pd.DataFrame([
+                                    {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
+                                     decoded_col: f"This column contains the decoded values for the predictions"}
+                                ])
+                                df = pd.concat([df_with_message, df], ignore_index=True)
                             else:
-                                app.logger.info(f"Could not convert {null_count} values to numeric")
-                            # Drop the temporary column
-                            df.drop(columns=[numeric_pred_col], inplace=True)
-                        except Exception as e:
-                            app.logger.info(f"Error converting to numeric: {str(e)}")
-                            
-                        # Make a copy of the original column
-                        original_col = f"{pred_col}_original"
-                        df[original_col] = df[pred_col].copy()
-                        app.logger.info(f"Saved original values in {original_col}")
-                        
-                        # Create decoded column using inverse mapping
-                        decoded_col = f"{pred_col}_decoded"
-                        
-                        # Simple direct mapping using the inverse mapping
-                        df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
-                                                                                         inverse_mapping.get(str(x), 
-                                                                                                            inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
-                                                                                                                                       None))))
-                        
-                        # Check if decoding worked
-                        null_count = df[decoded_col].isna().sum()
-                        decoded_count = len(df) - null_count
-                        
-                        if decoded_count > 0:
-                            # At least some values were decoded
-                            success_percentage = (decoded_count / len(df)) * 100
-                            app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
-                            
-                            # Add a visibility indicator in the CSV output
-                            df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
-                                 decoded_col: f"Original values preserved in column {original_col}"}
-                            ])
-                            df = pd.concat([df_with_message, df], ignore_index=True)
-                        else:
-                            app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
-                            
-                            # Add a message indicating failure
-                            df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
-                                 pred_col: "Please try a different encoding map"}
-                            ])
-                            df = pd.concat([df_with_message, df], ignore_index=True)
+                                app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                
+                                # Add a message indicating failure
+                                df_with_message = pd.DataFrame([
+                                    {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
+                                     pred_col: "Please try a different encoding map"}
+                                ])
+                                df = pd.concat([df_with_message, df], ignore_index=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction: {str(decode_error)}")
                     # Continue without decoding if there's an error
@@ -653,7 +629,6 @@ def predict():
                         app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
                         
                         # Validate encoding map format - should be a direct mapping of category -> code
-                        # If it's in reverse format (code -> category), invert it
                         if encoding_map and all(isinstance(v, (int, float)) for v in encoding_map.values()):
                             app.logger.info("Encoding map is in the correct format (category -> code)")
                         else:
@@ -675,20 +650,6 @@ def predict():
                                 app.logger.error(f"Error fixing encoding map format: {str(e)}")
                             
                         app.logger.info(f"Final encoding map for decoding: {encoding_map}")
-                        
-                        # Make sure encoding map uses integers as keys wherever possible
-                        integer_encoding_map = {}
-                        for k, v in encoding_map.items():
-                            try:
-                                # Force conversion to integer if possible
-                                integer_encoding_map[int(float(k))] = v
-                            except (ValueError, TypeError):
-                                # If conversion fails, keep original key
-                                integer_encoding_map[k] = v
-                        
-                        # Replace original encoding map with integer-keyed version
-                        encoding_map = integer_encoding_map
-                        app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
                         # *** CREATE INVERSE MAPPING FOR DECODING ***
                         # The encoding map is category -> code, but for decoding we need code -> category
@@ -736,63 +697,54 @@ def predict():
                             pred_col = df.columns[-1]
                             print(f"No prediction column identified, using last column: '{pred_col}'")
                             
-                        # Force prediction column to be numeric if possible
-                        try:
-                            numeric_pred_col = f"{pred_col}_numeric"
-                            app.logger.info(f"Converting prediction column to numeric: {df[pred_col].head(5)}")
-                            df[numeric_pred_col] = pd.to_numeric(df[pred_col], errors='coerce')
-                            # Check if conversion worked
-                            null_count = df[numeric_pred_col].isna().sum()
-                            if null_count == 0:
-                                app.logger.info("Successfully converted all predictions to numeric")
-                                # Use the numeric column for decoding
-                                df[pred_col] = df[numeric_pred_col].astype(int)
-                                app.logger.info(f"Converted to integers: {df[pred_col].head(5)}")
+                        if pred_col:
+                            app.logger.info(f"Using prediction column: '{pred_col}'")
+                            app.logger.info(f"Sample predictions: {df[pred_col].head(5).tolist()}")
+                            
+                            # Make a copy of the original column
+                            original_col = f"{pred_col}_original"
+                            df[original_col] = df[pred_col].copy()
+                            
+                            # Create decoded column using inverse mapping
+                            decoded_col = f"{pred_col}_decoded"
+                            
+                            # Simple direct mapping using the inverse mapping
+                            df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                               inverse_mapping.get(str(x), 
+                                                                                   inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                                       None))))
+                            
+                            # For clarity, reorder columns to put decoded column right after prediction
+                            cols = df.columns.tolist()
+                            pred_idx = cols.index(pred_col)
+                            cols.remove(decoded_col)
+                            cols.insert(pred_idx + 1, decoded_col)
+                            df = df[cols]
+                            
+                            # Check if decoding worked
+                            null_count = df[decoded_col].isna().sum()
+                            decoded_count = len(df) - null_count
+                            
+                            if decoded_count > 0:
+                                # At least some values were decoded
+                                success_percentage = (decoded_count / len(df)) * 100
+                                app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                                
+                                # Add a visibility indicator in the CSV output
+                                df_with_message = pd.DataFrame([
+                                    {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
+                                     decoded_col: f"This column contains the decoded values for the predictions"}
+                                ])
+                                df = pd.concat([df_with_message, df], ignore_index=True)
                             else:
-                                app.logger.info(f"Could not convert {null_count} values to numeric")
-                            # Drop the temporary column
-                            df.drop(columns=[numeric_pred_col], inplace=True)
-                        except Exception as e:
-                            app.logger.info(f"Error converting to numeric: {str(e)}")
-                            
-                        # Make a copy of the original column
-                        original_col = f"{pred_col}_original"
-                        df[original_col] = df[pred_col].copy()
-                        app.logger.info(f"Saved original values in {original_col}")
-                        
-                        # Create decoded column using inverse mapping
-                        decoded_col = f"{pred_col}_decoded"
-                        
-                        # Simple direct mapping using the inverse mapping
-                        df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
-                                                                                         inverse_mapping.get(str(x), 
-                                                                                                            inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
-                                                                                                                                       None))))
-                        
-                        # Check if decoding worked
-                        null_count = df[decoded_col].isna().sum()
-                        decoded_count = len(df) - null_count
-                        
-                        if decoded_count > 0:
-                            # At least some values were decoded
-                            success_percentage = (decoded_count / len(df)) * 100
-                            app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
-                            
-                            # Add a visibility indicator in the CSV output
-                            df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
-                                 decoded_col: f"Original values preserved in column {original_col}"}
-                            ])
-                            df = pd.concat([df_with_message, df], ignore_index=True)
-                        else:
-                            app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
-                            
-                            # Add a message indicating failure
-                            df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
-                                 pred_col: "Please try a different encoding map"}
-                            ])
-                            df = pd.concat([df_with_message, df], ignore_index=True)
+                                app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                
+                                # Add a message indicating failure
+                                df_with_message = pd.DataFrame([
+                                    {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
+                                     pred_col: "Please try a different encoding map"}
+                                ])
+                                df = pd.concat([df_with_message, df], ignore_index=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
