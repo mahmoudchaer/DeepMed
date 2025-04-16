@@ -321,18 +321,26 @@ class ModelPredictor:
         cleaner_config = self.preprocessing_info.get('cleaner_config', {})
         cleaned_df = df.copy()
         encoding_mappings = {}
+        
+        # First check if encoding mappings exist in preprocessing info
         if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
             encoding_mappings = self.preprocessing_info['encoding_mappings']
             logger.info(f"Using encoding mappings from preprocessing info: {len(encoding_mappings)} columns")
+        # Then check if it's in cleaner_config
         elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in cleaner_config:
             encoding_mappings = cleaner_config['encoding_mappings']
             logger.info(f"Using encoding mappings from cleaner_config: {len(encoding_mappings)} columns")
+        # Finally, try to load directly from encoding_mappings.json file
         else:
             encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
             if os.path.exists(encodings_path):
-                with open(encodings_path, 'r') as f:
-                    encoding_mappings = json.load(f)
-                logger.info(f"Loaded encoding mappings from separate file: {len(encoding_mappings)} columns")
+                try:
+                    with open(encodings_path, 'r') as f:
+                        encoding_mappings = json.load(f)
+                    logger.info(f"Loaded encoding mappings from file: {encodings_path} with {len(encoding_mappings)} columns")
+                except Exception as e:
+                    logger.error(f"Error loading encoding_mappings.json: {str(e)}")
+                    logger.warning("Proceeding without encoding mappings")
         
         if encoding_mappings:
             logger.info("Starting categorical encoding for inference")
@@ -343,10 +351,12 @@ class ModelPredictor:
                     mapping = encoding_mappings[col]
                     logger.info(f"Applying mapping for column '{col}'")
                     col_values = cleaned_df[col].astype(str)
-                    unmapped_values = set(col_values.unique()) - set(mapping.keys())
+                    unmapped_values = set(col_values.unique()) - set(str(k) for k in mapping.keys())
                     for i, val in enumerate(unmapped_values):
                         mapping[val] = -(i+1)
-                    cleaned_df[col] = col_values.map(mapping).fillna(-999).astype(int)
+                    # Convert mapping keys to strings to ensure compatibility
+                    string_mapping = {str(k): v for k, v in mapping.items()}
+                    cleaned_df[col] = col_values.map(string_mapping).fillna(-999).astype(int)
                 else:
                     logger.warning(f"No mapping for column '{col}'; using -999 for all values")
                     cleaned_df[col] = -999
@@ -410,6 +420,8 @@ class ModelPredictor:
                     logger.info("Obtained prediction probabilities")
                 except Exception as e:
                     logger.warning(f"Could not get probabilities: {str(e)}")
+                    
+            # First try to decode using label encoder from preprocessing info
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
                 label_encoder_info = self.preprocessing_info['label_encoder']
                 if label_encoder_info and label_encoder_info['type'] == 'LabelEncoder':
@@ -417,6 +429,46 @@ class ModelPredictor:
                     mapping = dict(zip(range(len(classes)), classes))
                     predictions = [mapping[pred] for pred in predictions]
                     logger.info("Decoded predictions using label encoder")
+            # If no label encoder is available, try to use encoding_mappings.json
+            else:
+                # Get encoding mappings - check various locations as in _apply_cleaning
+                encoding_mappings = {}
+                if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                    encoding_mappings = self.preprocessing_info['encoding_mappings']
+                elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
+                    encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
+                else:
+                    encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
+                    if os.path.exists(encodings_path):
+                        try:
+                            with open(encodings_path, 'r') as f:
+                                encoding_mappings = json.load(f)
+                            logger.info(f"Loaded encoding mappings from file for decoding predictions")
+                        except Exception as e:
+                            logger.error(f"Error loading encoding_mappings.json for decoding: {str(e)}")
+                
+                # If we have encoding_mappings and target_column is known, try to decode predictions
+                if encoding_mappings and 'target_column' in self.preprocessing_info:
+                    target_col = self.preprocessing_info['target_column']
+                    if target_col in encoding_mappings:
+                        # Reverse the mapping to get from numerical value back to class label
+                        inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                        predictions = [inv_mapping.get(int(pred), f"unknown_{pred}") for pred in predictions]
+                        logger.info(f"Decoded predictions using encoding mappings for {target_col}")
+                    else:
+                        logger.warning(f"Target column '{target_col}' not found in encoding mappings, keeping numerical predictions")
+                elif encoding_mappings:
+                    # If we don't know the target column but have only one mapping, try using that
+                    if len(encoding_mappings) == 1:
+                        target_col = list(encoding_mappings.keys())[0]
+                        inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                        predictions = [inv_mapping.get(int(pred), f"unknown_{pred}") for pred in predictions]
+                        logger.info(f"Decoded predictions using the only available encoding mapping: {target_col}")
+                    else:
+                        logger.warning("Multiple encoding mappings found but target_column not specified, keeping numerical predictions")
+                else:
+                    logger.warning("No encoding mappings available for decoding predictions")
+                    
             result = {'predictions': predictions.tolist() if isinstance(predictions, np.ndarray) else predictions}
             if probabilities is not None:
                 result['probabilities'] = probabilities.tolist() if isinstance(probabilities, np.ndarray) else probabilities
@@ -457,14 +509,57 @@ if __name__ == "__main__":
         logger.info(f"Loaded data from {data_file} with shape {df.shape}")
         predictor = ModelPredictor()
         predictions = predictor.predict(df)
+        
         # Write predictions to a fixed output file "output.csv"
         output_file = "output.csv"
         result_df = df.copy()
-        result_df['prediction'] = predictions['predictions']
+        
+        # Ensure predictions are class names, not numbers
+        prediction_values = predictions['predictions']
+        
+        # Check if predictions are still numeric and try to decode them if needed
+        if isinstance(prediction_values, list) and len(prediction_values) > 0 and (
+            isinstance(prediction_values[0], (int, float, np.integer, np.floating)) or 
+            (isinstance(prediction_values[0], str) and prediction_values[0].isdigit())
+        ):
+            logger.warning("Predictions appear to be numeric, attempting to decode to class names")
+            
+            # Try to get encoding mappings
+            encoding_mappings = {}
+            if 'encoding_mappings' in predictor.preprocessing_info and predictor.preprocessing_info['encoding_mappings']:
+                encoding_mappings = predictor.preprocessing_info['encoding_mappings']
+            else:
+                encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
+                if os.path.exists(encodings_path):
+                    try:
+                        with open(encodings_path, 'r') as f:
+                            encoding_mappings = json.load(f)
+                    except Exception as e:
+                        logger.error(f"Failed to load encoding_mappings.json: {str(e)}")
+            
+            # Try to decode using the available mappings
+            if encoding_mappings:
+                if 'target_column' in predictor.preprocessing_info:
+                    target_col = predictor.preprocessing_info['target_column']
+                    if target_col in encoding_mappings:
+                        inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                        prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
+                        logger.info("Successfully decoded predictions to class names")
+                elif len(encoding_mappings) == 1:
+                    target_col = list(encoding_mappings.keys())[0]
+                    inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                    prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
+                    logger.info(f"Used {target_col} mapping to decode predictions to class names")
+                else:
+                    logger.warning("Could not determine which mapping to use for decoding")
+        
+        result_df['prediction'] = prediction_values
         result_df.to_csv(output_file, index=False)
         logger.info(f"Predictions saved to {output_file}")
     except Exception as e:
         logger.error(f"Error during prediction: {str(e)}")
+
+
 
 
 '''
