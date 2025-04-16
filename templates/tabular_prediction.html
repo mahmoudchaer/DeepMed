@@ -37,6 +37,17 @@
                                 <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
                             </div>
 
+                            <div id="targetColumnContainer" class="mb-3 d-none">
+                                <label for="targetColumn" class="form-label">Target Column</label>
+                                <select class="form-select" id="targetColumn" name="target_column">
+                                    <option value="">-- Select a target column --</option>
+                                </select>
+                                <div class="form-text">Select the column you want to predict</div>
+                                <div class="spinner-border spinner-border-sm text-primary mt-2 d-none" id="targetColumnSpinner" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+
                             <div class="mb-3">
                                 <label for="inputFile" class="form-label">Input File (CSV/Excel)</label>
                                 <input type="file" class="form-control" id="inputFile" name="input_file" accept=".csv,.xlsx,.xls" required>
@@ -114,6 +125,10 @@
         const resultPreview = document.getElementById('resultPreview');
         const processingTime = document.getElementById('processingTime');
         const downloadBtn = document.getElementById('downloadBtn');
+        const modelPackageInput = document.getElementById('modelPackage');
+        const targetColumnContainer = document.getElementById('targetColumnContainer');
+        const targetColumnSelect = document.getElementById('targetColumn');
+        const targetColumnSpinner = document.getElementById('targetColumnSpinner');
 
         // Store the raw CSV data
         let csvData = '';
@@ -153,6 +168,80 @@
             htmlTable += '</tbody></table>';
             return htmlTable;
         }
+
+        // Event listener for model package selection
+        modelPackageInput.addEventListener('change', function() {
+            // Reset target column selector
+            targetColumnSelect.innerHTML = '<option value="">-- Select a target column --</option>';
+            
+            // Check if a file was selected
+            if (!this.files || !this.files[0]) {
+                targetColumnContainer.classList.add('d-none');
+                return;
+            }
+            
+            // Show spinner
+            targetColumnContainer.classList.remove('d-none');
+            targetColumnSpinner.classList.remove('d-none');
+            
+            // Create form data with just the model package
+            const formData = new FormData();
+            formData.append('model_package', this.files[0]);
+            
+            // Call API to get potential target columns
+            fetch('/api/get_target_columns', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Failed to extract target columns from model package.');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide spinner
+                targetColumnSpinner.classList.add('d-none');
+                
+                // Check if we found any columns
+                if (data.columns && data.columns.length > 0) {
+                    // Populate the select with columns
+                    data.columns.forEach(column => {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        targetColumnSelect.appendChild(option);
+                    });
+                    
+                    // Log the found mappings for debugging
+                    console.log('Found encoding mappings:', data.mappings);
+                } else {
+                    // No columns found, show message
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No target columns found in model";
+                    option.disabled = true;
+                    targetColumnSelect.appendChild(option);
+                    
+                    console.log('No encoding mappings found in model package');
+                }
+            })
+            .catch(error => {
+                // Hide spinner
+                targetColumnSpinner.classList.add('d-none');
+                
+                // Show error option
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "Error extracting target columns";
+                option.disabled = true;
+                targetColumnSelect.appendChild(option);
+                
+                console.error('Error extracting target columns:', error);
+            });
+        });
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
