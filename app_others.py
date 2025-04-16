@@ -181,9 +181,11 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 import logging
 import sys
+import glob
+from sklearn.preprocessing import StandardScaler
+from sklearn.dummy import DummyClassifier  # For fallback predictions if needed
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -191,14 +193,7 @@ logger = logging.getLogger(__name__)
 
 class ModelPredictor:
     def __init__(self, model_path=None, preprocessing_info_path=None):
-        """
-        Initialize the predictor with model and preprocessing information.
-        
-        Args:
-            model_path: Path to the .joblib model file
-            preprocessing_info_path: Path to the preprocessing_info.json file
-        """
-        # Find paths automatically if in the same directory
+        # Auto-detect model file (.joblib) in current directory if not provided
         if model_path is None:
             for file in os.listdir('.'):
                 if file.endswith('.joblib'):
@@ -213,11 +208,8 @@ class ModelPredictor:
             else:
                 raise ValueError("preprocessing_info.json is required but not found. Cannot proceed without it.")
         
-        # Load the model
         logger.info(f"Loading model from {model_path}")
         self.model_data = joblib.load(model_path)
-        
-        # Handle both direct model objects and dictionary storage format
         if isinstance(self.model_data, dict) and 'model' in self.model_data:
             self.model = self.model_data['model']
             logger.info("Model loaded from dictionary format")
@@ -225,11 +217,10 @@ class ModelPredictor:
             self.model = self.model_data
             logger.info("Model loaded directly")
             
-        # Get model type information
         self.model_type = type(self.model).__name__
         logger.info(f"Model type: {self.model_type}")
         
-        # Extract components if model is a pipeline
+        # If the model is a pipeline, try to extract components
         self.classifier = None
         self.scaler = None
         if hasattr(self.model, 'steps'):
@@ -241,100 +232,65 @@ class ModelPredictor:
                 elif name == 'scaler':
                     self.scaler = step
         
-        # Load preprocessing info - REQUIRED
+        # Load preprocessing info (required)
         self.preprocessing_info = None
-        if preprocessing_info_path and os.path.exists(preprocessing_info_path):
-            try:
-                with open(preprocessing_info_path, 'r') as f:
-                    self.preprocessing_info = json.load(f)
-                logger.info("Loaded preprocessing information")
-                
-                # Check for encoding mappings - these are REQUIRED
-                if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
-                    mappings = self.preprocessing_info['encoding_mappings']
-                    logger.info(f"Found encoding mappings for {len(mappings)} columns: {list(mappings.keys())}")
-                    # Validate the encoding mappings
-                    self._validate_encoding_mappings(mappings)
+        try:
+            with open(preprocessing_info_path, 'r') as f:
+                self.preprocessing_info = json.load(f)
+            logger.info("Loaded preprocessing information")
+            if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                mappings = self.preprocessing_info['encoding_mappings']
+                logger.info(f"Found encoding mappings for {len(mappings)} columns: {list(mappings.keys())}")
+                self._validate_encoding_mappings(mappings)
+            else:
+                encodings_path = os.path.join(os.path.dirname(preprocessing_info_path), 'encoding_mappings.json')
+                if os.path.exists(encodings_path):
+                    with open(encodings_path, 'r') as f:
+                        encodings = json.load(f)
+                    logger.info(f"Loaded encoding mappings from separate file with {len(encodings)} columns")
+                    self._validate_encoding_mappings(encodings)
+                    self.preprocessing_info['encoding_mappings'] = encodings
                 else:
-                    # Look for a separate encoding_mappings.json file
-                    encodings_path = os.path.join(os.path.dirname(preprocessing_info_path), 'encoding_mappings.json')
-                    if os.path.exists(encodings_path):
-                        try:
-                            with open(encodings_path, 'r') as f:
-                                encodings = json.load(f)
-                            logger.info(f"Loaded encoding mappings from separate file with {len(encodings)} columns")
-                            # Validate the encoding mappings
-                            self._validate_encoding_mappings(encodings)
-                            # Add to preprocessing info
-                            self.preprocessing_info['encoding_mappings'] = encodings
-                        except Exception as e:
-                            logger.error(f"Error loading separate encoding mappings file: {str(e)}")
-                            raise ValueError(f"Failed to load encoding_mappings.json: {str(e)}")
-                    else:
-                        logger.error("No encoding mappings found in preprocessing_info.json or separate file")
-                        raise ValueError("Encoding mappings are required but not found. Cannot proceed without them.")
-            except Exception as e:
-                logger.error(f"Error loading preprocessing info: {str(e)}")
-                raise ValueError("Failed to load preprocessing_info.json, which is required for proper prediction.")
-        else:
-            logger.error("No preprocessing_info.json found")
-            raise ValueError("preprocessing_info.json is required but not found. Cannot proceed without it.")
+                    raise ValueError("Encoding mappings are required but not found.")
+        except Exception as e:
+            logger.error(f"Error loading preprocessing info: {str(e)}")
+            raise ValueError("Failed to load preprocessing_info.json, which is required for proper prediction.")
         
-        # Validate the pipeline
         self.validate_pipeline()
 
     def _validate_encoding_mappings(self, mappings):
-        """Validate encoding mappings for consistency and quality."""
         if not mappings:
             logger.warning("Empty encoding mappings provided!")
             return
-            
         logger.info(f"Validating encoding mappings for {len(mappings)} columns")
-        
         issues_found = False
         fixed_mappings = {}
-        
         for column, mapping in mappings.items():
             if not mapping:
                 logger.warning(f"Empty mapping for column '{column}'!")
-                fixed_mappings[column] = {"unknown": -999}  # Add a fallback mapping
+                fixed_mappings[column] = {"unknown": -999}
                 issues_found = True
                 continue
-                
-            # Check for non-string keys (common issue)
             non_string_keys = [k for k in mapping.keys() if not isinstance(k, str)]
             if non_string_keys:
-                logger.warning(f"Column '{column}' has {len(non_string_keys)} non-string keys in mapping")
-                # Fix by converting all keys to strings
+                logger.warning(f"Column '{column}' has non-string keys; converting them to strings")
                 fixed_mapping = {str(k): v for k, v in mapping.items()}
                 fixed_mappings[column] = fixed_mapping
                 issues_found = True
                 continue
-                
-            # Check for duplicate numeric values
             values = list(mapping.values())
             if len(set(values)) < len(values):
                 logger.warning(f"Column '{column}' has duplicate numeric values in mapping")
-                # This requires more complex fixing - build a new consistent mapping
                 unique_values = set(mapping.keys())
                 fixed_mapping = {val: i for i, val in enumerate(unique_values)}
                 fixed_mappings[column] = fixed_mapping
                 issues_found = True
                 continue
-                
-            # Check for gaps in sequential values starting from 0
             if set(values) != set(range(len(set(values)))):
                 logger.warning(f"Column '{column}' has non-sequential mapping values")
-                # Not fixing this as it shouldn't cause functional issues
-            
-            # Check for "None" or empty string keys
             problematic_keys = ["None", "none", "null", "NULL", ""]
-            has_problematic = any(k in problematic_keys for k in mapping.keys())
-            if has_problematic:
-                logger.warning(f"Column '{column}' has problematic keys like 'None' or empty string")
-                # This will be handled during prediction anyway
-        
-        # Apply fixes if needed
+            if any(k in problematic_keys for k in mapping.keys()):
+                logger.warning(f"Column '{column}' has problematic keys")
         if issues_found:
             logger.warning("Issues found in encoding mappings - applying fixes")
             for column, fixed_mapping in fixed_mappings.items():
@@ -342,396 +298,118 @@ class ModelPredictor:
                 logger.info(f"Fixed mapping for column '{column}'")
         else:
             logger.info("All encoding mappings passed validation")
-        
         return
     
     def validate_pipeline(self):
-        """Validate that the pipeline is properly configured."""
         if not hasattr(self.model, 'steps'):
-            raise ValueError("Model is not a pipeline. Expected a pipeline with StandardScaler and classifier steps.")
-        
+            raise ValueError("Model is not a pipeline. Expected pipeline with scaler and classifier steps.")
         if 'scaler' not in self.model.named_steps:
-            raise ValueError("Pipeline does not contain a scaler step. Expected StandardScaler in the pipeline.")
-        
+            raise ValueError("Pipeline does not contain a scaler step.")
         if 'classifier' not in self.model.named_steps:
             raise ValueError("Pipeline does not contain a classifier step.")
-        
         if self.preprocessing_info is None:
-            raise ValueError("No preprocessing information available. This is required for proper prediction.")
-            
-        # NOTE: We no longer require encoding mappings - will use fallbacks if not available
+            raise ValueError("Preprocessing information is required for proper prediction.")
         logger.info("Pipeline validation successful")
         
     def preprocess_data(self, df):
-        """Apply the same preprocessing steps as during training."""
-        if self.preprocessing_info is None:
-            raise ValueError("No preprocessing information available. Cannot proceed.")
-            
-        # Make a copy to avoid modifying the original
         processed_df = df.copy()
-        
-        # FIRST: Apply feature selection to keep only the columns expected by the model
-        # This must happen before any other preprocessing to ensure we only work with relevant features
         processed_df = self._apply_feature_selection(processed_df)
-        
-        # SECOND: Apply data cleaning only to the selected columns
         processed_df = self._apply_cleaning(processed_df)
-        
         return processed_df
         
     def _apply_cleaning(self, df):
-        """Apply cleaning operations based on stored configuration."""
-        if self.preprocessing_info is None:
-            raise ValueError("No preprocessing information available. Cannot proceed.")
-            
         cleaner_config = self.preprocessing_info.get('cleaner_config', {})
-        
-        # Make a copy to avoid modifying the original
         cleaned_df = df.copy()
-        
-        # Get encoding mappings from multiple possible locations
         encoding_mappings = {}
-        
-        # Try preprocessing_info directly first
         if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
             encoding_mappings = self.preprocessing_info['encoding_mappings']
-            logger.info(f"Using encoding mappings from preprocessing_info: {len(encoding_mappings)} columns")
-        
-        # Try cleaner_config next if we didn't find any
+            logger.info(f"Using encoding mappings from preprocessing info: {len(encoding_mappings)} columns")
         elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in cleaner_config:
             encoding_mappings = cleaner_config['encoding_mappings']
             logger.info(f"Using encoding mappings from cleaner_config: {len(encoding_mappings)} columns")
-        
-        # Try external file as a last resort
-        if not encoding_mappings:
+        else:
             encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
             if os.path.exists(encodings_path):
-                try:
-                    with open(encodings_path, 'r') as f:
-                        encoding_mappings = json.load(f)
-                    logger.info(f"Loaded encoding mappings from separate file: {len(encoding_mappings)} columns")
-                except Exception as e:
-                    logger.warning(f"Error loading encoding mappings file: {str(e)}")
+                with open(encodings_path, 'r') as f:
+                    encoding_mappings = json.load(f)
+                logger.info(f"Loaded encoding mappings from separate file: {len(encoding_mappings)} columns")
         
-        # Log what we found
         if encoding_mappings:
-            logger.info("=== Starting categorical encoding for inference ===")
-            logger.info(f"Found {len(encoding_mappings)} encoding mappings")
-            
-            # Log the column types in the input data
+            logger.info("Starting categorical encoding for inference")
             categorical_cols = cleaned_df.select_dtypes(include=['object', 'category']).columns
-            logger.info(f"Input data has {len(categorical_cols)} categorical columns: {categorical_cols.tolist()}")
-            
-            # Detect missing encoding mappings for categorical columns
-            missing_mappings = [col for col in categorical_cols if col not in encoding_mappings]
-            if missing_mappings:
-                logger.warning(f"⚠️ Found {len(missing_mappings)} categorical columns WITHOUT encoding mappings: {missing_mappings}")
-                # We'll handle these later in the encoding section
-        else:
-            logger.warning("No encoding mappings found. Categorical columns will use basic label encoding.")
-        
-        # Apply basic cleaning operations based on cleaner_config
-        # Handle missing values
-        if cleaner_config.get('handle_missing', True):
-            for col in cleaned_df.columns:
-                if pd.api.types.is_numeric_dtype(cleaned_df[col]):
-                    # Fill numeric columns with mean or specified value
-                    fill_value = cleaner_config.get('numeric_fill', 'mean')
-                    if fill_value == 'mean':
-                        if cleaned_df[col].isna().any():
-                            # Calculate mean excluding NaN values
-                            mean_value = cleaned_df[col].mean()
-                            cleaned_df[col] = cleaned_df[col].fillna(mean_value)
-                    elif fill_value == 'median':
-                        if cleaned_df[col].isna().any():
-                            # Calculate median excluding NaN values
-                            median_value = cleaned_df[col].median()
-                            cleaned_df[col] = cleaned_df[col].fillna(median_value)
-                    elif fill_value == 'zero':
-                        cleaned_df[col] = cleaned_df[col].fillna(0)
+            logger.info(f"Found categorical columns: {categorical_cols.tolist()}")
+            for col in categorical_cols:
+                if col in encoding_mappings:
+                    mapping = encoding_mappings[col]
+                    logger.info(f"Applying mapping for column '{col}'")
+                    col_values = cleaned_df[col].astype(str)
+                    unmapped_values = set(col_values.unique()) - set(mapping.keys())
+                    for i, val in enumerate(unmapped_values):
+                        mapping[val] = -(i+1)
+                    cleaned_df[col] = col_values.map(mapping).fillna(-999).astype(int)
                 else:
-                    # Fill categorical/text columns with mode or specified value
-                    fill_value = cleaner_config.get('categorical_fill', 'mode')
-                    if fill_value == 'mode':
-                        if cleaned_df[col].isna().any():
-                            mode = cleaned_df[col].mode()
-                            if not mode.empty:
-                                cleaned_df[col] = cleaned_df[col].fillna(mode[0])
-                    elif fill_value == 'unknown':
-                        cleaned_df[col] = cleaned_df[col].fillna('unknown')
-        
-        # Apply encoding for categorical columns
-        categorical_cols = cleaned_df.select_dtypes(include=['object', 'category']).columns
-        logger.info(f"Encoding {len(categorical_cols)} categorical columns...")
-        
-        for col in categorical_cols:
-            # Generate a log message to identify the column type and values
-            unique_vals = cleaned_df[col].unique()
-            logger.info(f"Column '{col}' has dtype={cleaned_df[col].dtype} with {len(unique_vals)} unique values")
-            if len(unique_vals) < 10:  # Only show values if there aren't too many
-                logger.info(f"  Values: {unique_vals.tolist()}")
-                
-            # Check if we have a mapping for this column
-            if encoding_mappings and col in encoding_mappings:
-                mapping = encoding_mappings[col]
-                logger.info(f"Applying stored mapping for column '{col}' with {len(mapping)} values")
-                
-                # Convert column values to strings to ensure consistent mapping
-                col_values = cleaned_df[col].astype(str)
-                
-                # Check if any values don't have mappings
-                unmapped_values = set(col_values.unique()) - set(mapping.keys())
-                if unmapped_values:
-                    if len(unmapped_values) < 10:
-                        logger.warning(f"Column '{col}' has {len(unmapped_values)} unmapped values: {unmapped_values}")
-                    else:
-                        logger.warning(f"Column '{col}' has {len(unmapped_values)} unmapped values (too many to display)")
-                
-                # Create a safe mapping with numeric fallback values for unknown categories
-                # Start from the max existing value + 1 to avoid collisions
-                max_val = max(mapping.values()) if mapping else -1
-                # Create new mappings for unknown values using negative numbers to distinguish them
-                for i, val in enumerate(unmapped_values):
-                    mapping[val] = -(i+1)  # Use negative integers (-1, -2, etc.) for unmapped values
-                
-                # Apply mapping with defaulting to -999 for any other unmapped values
-                cleaned_df[col] = col_values.map(mapping).fillna(-999).astype(int)
-                logger.info(f"Successfully applied mapping for '{col}'")
-            else:
-                # No mapping found, handle this column carefully
-                logger.warning(f"⚠️ No mapping found for column '{col}'. Using safe encoding and marking as -999.")
-                # Create simple mapping from scratch
-                unique_values = cleaned_df[col].dropna().astype(str).unique()
-                if len(unique_values) <= 1:
-                    # For single-value columns, just use 0
-                    cleaned_df[col] = 0
-                elif len(unique_values) == 2:
-                    # For binary columns, use 0/1 mapping
-                    binary_map = {str(unique_values[0]): 0, str(unique_values[1]): 1}
-                    cleaned_df[col] = cleaned_df[col].astype(str).map(binary_map).fillna(-999)
-                else:
-                    # For multi-valued columns, identify this as potentially problematic
-                    # and use -999 as special value to reduce impact on model
-                    logger.warning(f"⚠️ Multi-valued categorical column '{col}' has no encoding map! Using -999 for all values.")
+                    logger.warning(f"No mapping for column '{col}'; using -999 for all values")
                     cleaned_df[col] = -999
+        else:
+            logger.warning("No encoding mappings found; categorical columns will remain unchanged")
         
-        # Remove duplicates if specified
         if cleaner_config.get('remove_duplicates', True):
             orig_len = len(cleaned_df)
             cleaned_df = cleaned_df.drop_duplicates()
             if len(cleaned_df) < orig_len:
                 logger.info(f"Removed {orig_len - len(cleaned_df)} duplicate rows")
         
-        # Handle outliers if specified (using IQR method)
         if cleaner_config.get('handle_outliers', False):
             for col in cleaned_df.select_dtypes(include=['float64', 'int64']).columns:
                 Q1 = cleaned_df[col].quantile(0.25)
                 Q3 = cleaned_df[col].quantile(0.75)
                 IQR = Q3 - Q1
-                
-                outlier_action = cleaner_config.get('outlier_action', 'clip')
-                if outlier_action == 'clip':
-                    # Count outliers before clipping
+                if cleaner_config.get('outlier_action', 'clip') == 'clip':
                     lower_bound = Q1 - 1.5 * IQR
                     upper_bound = Q3 + 1.5 * IQR
-                    n_outliers = ((cleaned_df[col] < lower_bound) | (cleaned_df[col] > upper_bound)).sum()
-                    if n_outliers > 0:
-                        logger.info(f"Clipping {n_outliers} outliers in column '{col}'")
                     cleaned_df[col] = cleaned_df[col].clip(lower_bound, upper_bound)
-                elif outlier_action == 'remove':
+                elif cleaner_config.get('outlier_action') == 'remove':
                     mask = (cleaned_df[col] >= Q1 - 1.5 * IQR) & (cleaned_df[col] <= Q3 + 1.5 * IQR)
-                    n_outliers = (~mask).sum()
-                    if n_outliers > 0:
-                        logger.info(f"Removing {n_outliers} rows with outliers in column '{col}'")
                     cleaned_df = cleaned_df[mask]
-        
         return cleaned_df
     
     def _apply_feature_selection(self, df):
-        """Apply feature selection based on stored configuration."""
-        if self.preprocessing_info is None:
-            return df
-            
-        # Make a copy to avoid modifying the original
         result_df = df.copy()
-        
-        # Only use features explicitly specified in the preprocessing info
         if 'selected_columns' in self.preprocessing_info and self.preprocessing_info['selected_columns']:
             selected_columns = self.preprocessing_info['selected_columns']
-            logger.info(f"Found {len(selected_columns)} selected columns in preprocessing info")
-            
-            # Check which columns are available in the DataFrame
             available_columns = [col for col in selected_columns if col in result_df.columns]
-            
             if len(available_columns) != len(selected_columns):
-                missing_columns = set(selected_columns) - set(available_columns)
-                logger.warning(f"Missing expected columns: {missing_columns}")
-                if len(available_columns) < len(selected_columns) * 0.5:
-                    logger.warning(f"More than 50% of expected columns are missing ({len(available_columns)}/{len(selected_columns)})")
-            
-            # Check if any encoding mappings exist for the selected columns
-            if len(available_columns) > 0:
-                if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
-                    encoding_columns = set(self.preprocessing_info['encoding_mappings'].keys())
-                    columns_without_encoding = [col for col in available_columns 
-                                              if not pd.api.types.is_numeric_dtype(result_df[col]) 
-                                              and col not in encoding_columns]
-                    
-                    if columns_without_encoding:
-                        logger.warning(f"Selected columns without encoding mappings: {columns_without_encoding}")
-            
-            # Only keep the available columns from preprocessing_info
-            logger.info(f"Using {len(available_columns)} columns from preprocessing info")
+                missing = set(selected_columns) - set(available_columns)
+                logger.warning(f"Missing columns: {missing}")
+            logger.info(f"Using selected columns: {available_columns}")
             return result_df[available_columns].copy()
-        
-        # If no selected columns in preprocessing_info, return the original dataframe
-        logger.warning("No selected_columns found in preprocessing_info. Using all available columns.")
+        logger.warning("No selected_columns provided; using all columns")
         return result_df
     
     def predict(self, df):
-        """Preprocess data and make predictions using the trained pipeline."""
         try:
             logger.info(f"Input data shape: {df.shape}")
-            logger.info(f"Input data columns: {df.columns.tolist()}")
-            
-            # STEP 1: Preprocess the data
-            logger.info("Starting preprocessing pipeline for inference")
             processed_df = self.preprocess_data(df)
-            logger.info(f"Preprocessed data shape: {processed_df.shape}")
-            logger.info(f"Preprocessed data columns: {processed_df.columns.tolist()}")
-            
-            # STEP 2: Validate preprocessed data
-            # Check if we have empty data after preprocessing
             if processed_df.empty:
-                raise ValueError("Data is empty after preprocessing. Cannot make predictions.")
-            
-            # STEP 3: Log feature expectations and potential issues
-            # Print pipeline steps
-            if hasattr(self.model, 'steps'):
-                logger.info("Pipeline steps:")
-                for name, step in self.model.steps:
-                    logger.info(f"- {name}: {type(step).__name__}")
-            
-            # Get the classifier from the pipeline
-            classifier = None
-            if hasattr(self.model, 'named_steps') and 'classifier' in self.model.named_steps:
-                classifier = self.model.named_steps['classifier']
-                logger.info(f"Classifier parameters: {classifier.get_params()}")
-            
-            # STEP 4: Check for and align feature order
-            # Check for preprocessing steps
-            preprocessor = None
-            scaler = None
-            if hasattr(self.model, 'named_steps'):
-                if 'preprocessor' in self.model.named_steps:
-                    logger.info("Pipeline includes a preprocessor step")
-                    preprocessor = self.model.named_steps['preprocessor']
-                elif 'scaler' in self.model.named_steps:
-                    logger.info("Pipeline includes a scaler step")
-                    scaler = self.model.named_steps['scaler']
-                    # Log scaler parameters if available
-                    if hasattr(scaler, 'mean_'):
-                        logger.info(f"Scaler type: {type(scaler).__name__}")
-                        scaler_feature_count = len(scaler.mean_)
-                        logger.info(f"Scaler expects {scaler_feature_count} features")
-                    
-                    # Check if the number of features matches the scaler's expectations
-                    if hasattr(scaler, 'n_features_in_'):
-                        if scaler.n_features_in_ != processed_df.shape[1]:
-                            logger.warning(f"⚠️ FEATURE COUNT MISMATCH: Scaler expects {scaler.n_features_in_} features but got {processed_df.shape[1]}")
-                            # This is a serious error - return detailed error information
-                            if hasattr(scaler, 'feature_names_in_'):
-                                expected_features = set(scaler.feature_names_in_)
-                                actual_features = set(processed_df.columns)
-                                missing_features = expected_features - actual_features
-                                extra_features = actual_features - expected_features
-                                
-                                error_details = {
-                                    "error": "Feature count mismatch",
-                                    "expected_count": int(scaler.n_features_in_),
-                                    "actual_count": int(processed_df.shape[1]),
-                                    "missing_features": list(missing_features) if missing_features else None,
-                                    "extra_features": list(extra_features) if extra_features else None
-                                }
-                                logger.error(f"Feature mismatch details: {error_details}")
-                                raise ValueError(f"Feature count mismatch. Model expects {scaler.n_features_in_} features but got {processed_df.shape[1]}.")
-                
-                    # Ensure feature order matches the scaler's expectations
-                    if hasattr(scaler, 'feature_names_in_'):
-                        logger.info(f"Scaler expected features: {scaler.feature_names_in_}")
-                        logger.info(f"Our preprocessed features: {processed_df.columns.tolist()}")
-                        
-                        # Check if all expected features are available
-                        missing_features = set(scaler.feature_names_in_) - set(processed_df.columns)
-                        if missing_features:
-                            logger.error(f"⚠️ Missing features required by the model: {missing_features}")
-                            raise ValueError(f"Missing {len(missing_features)} features required by model: {missing_features}")
-                        
-                        if all(col in processed_df.columns for col in scaler.feature_names_in_):
-                            # Reorder columns to match scaler's feature order
-                            processed_df = processed_df[scaler.feature_names_in_]
-                            logger.info("Reordered features to match model's expected order")
-            
-            # STEP 5: Final data validation
-            # Make sure we don't have any NaN or infinite values
-            if processed_df.isna().any().any():
-                nan_columns = processed_df.columns[processed_df.isna().any()].tolist()
-                logger.warning(f"Data contains NaN values in columns: {nan_columns}")
-                # Replace NaNs with zeros as a last resort
-                processed_df = processed_df.fillna(0)
-                logger.info("Replaced NaN values with zeros for prediction")
-            
-            # Check for infinities
-            if np.isinf(processed_df.values).any():
-                inf_columns = processed_df.columns[np.isinf(processed_df.values).any(axis=0)].tolist()
-                logger.warning(f"Data contains infinite values in columns: {inf_columns}")
-                # Replace infinities with large finite values
-                processed_df = processed_df.replace([np.inf, -np.inf], [1e30, -1e30])
-                logger.info("Replaced infinite values with large finite values for prediction")
-            
-            # STEP 6: Make predictions
-            logger.info("Making predictions with the model pipeline")
+                raise ValueError("Data is empty after preprocessing.")
+            logger.info(f"Preprocessed data shape: {processed_df.shape}")
             try:
                 predictions = self.model.predict(processed_df)
-                logger.info(f"Made predictions for {len(predictions)} samples")
+                logger.info(f"Predictions made for {len(predictions)} samples")
             except Exception as e:
                 logger.error(f"Error during prediction: {str(e)}")
-                
-                # Try with a dummy classifier as a last resort to avoid complete failure
-                logger.warning("Attempting fallback prediction with dummy classifier")
+                logger.warning("Falling back to DummyClassifier prediction")
                 dummy = DummyClassifier(strategy='most_frequent')
-                
-                # Check if we know the possible classes
-                if classifier and hasattr(classifier, 'classes_'):
-                    logger.info(f"Using classes from classifier: {classifier.classes_}")
-                    y_dummy = np.zeros(len(processed_df))
-                    dummy.fit(processed_df, y_dummy)
-                    dummy.classes_ = classifier.classes_
-                else:
-                    # If we don't know the classes, just use binary
-                    y_dummy = np.zeros(len(processed_df))
-                    dummy.fit(processed_df, y_dummy)
-                
+                y_dummy = np.zeros(len(processed_df))
+                dummy.fit(processed_df, y_dummy)
                 predictions = dummy.predict(processed_df)
-                logger.warning(f"Returned {len(predictions)} fallback predictions. THESE ARE NOT RELIABLE.")
-            
-            # STEP 7: Get probabilities if available
             probabilities = None
             if hasattr(self.model, 'predict_proba'):
                 try:
                     probabilities = self.model.predict_proba(processed_df)
-                    logger.info("Successfully obtained prediction probabilities")
-                    
-                    # Log probability distribution
-                    if classifier and hasattr(classifier, 'classes_'):
-                        for i, class_name in enumerate(classifier.classes_):
-                            probs = probabilities[:, i]
-                            logger.info(f"Probability distribution for class {class_name}:")
-                            logger.info(f"  Min: {probs.min():.4f}, Max: {probs.max():.4f}, Mean: {probs.mean():.4f}")
+                    logger.info("Obtained prediction probabilities")
                 except Exception as e:
                     logger.warning(f"Could not get probabilities: {str(e)}")
-            
-            # STEP 8: Decode predictions if we have label encoder info
             if self.preprocessing_info and 'label_encoder' in self.preprocessing_info:
                 label_encoder_info = self.preprocessing_info['label_encoder']
                 if label_encoder_info and label_encoder_info['type'] == 'LabelEncoder':
@@ -739,61 +417,56 @@ class ModelPredictor:
                     mapping = dict(zip(range(len(classes)), classes))
                     predictions = [mapping[pred] for pred in predictions]
                     logger.info("Decoded predictions using label encoder")
-            
-            # STEP 9: Print prediction distribution
-            unique, counts = np.unique(predictions, return_counts=True)
-            logger.info("Prediction distribution:")
-            for val, count in zip(unique, counts):
-                logger.info(f"  {val}: {count} ({count/len(predictions)*100:.1f}%)")
-            
-            # Return both predictions and probabilities if available
             result = {'predictions': predictions.tolist() if isinstance(predictions, np.ndarray) else predictions}
             if probabilities is not None:
                 result['probabilities'] = probabilities.tolist() if isinstance(probabilities, np.ndarray) else probabilities
-            
             return result
-            
         except Exception as e:
-            error_msg = f"Prediction failed: {str(e)}"
-            logger.error(error_msg)
-            # Include traceback for debugging
-            import traceback
-            logger.error(traceback.format_exc())
-            raise ValueError(error_msg)
-        
+            logger.error(f"Prediction failed: {str(e)}", exc_info=True)
+            raise
+
+def find_unique_data_file():
+    csv_files = glob.glob("*.csv")
+    xlsx_files = glob.glob("*.xlsx") + glob.glob("*.xls")
+    data_files = csv_files + xlsx_files
+    if len(data_files) == 0:
+        return None, "No CSV or Excel file found in the current directory."
+    elif len(data_files) > 1:
+        return None, "Multiple CSV/Excel files found. Please specify one as an argument."
+    else:
+        return data_files[0], f"Found one data file: {data_files[0]}"
+
 if __name__ == "__main__":
-    import sys
-    
     if len(sys.argv) < 2:
-        print("Usage: python predict.py <data_file.csv>")
-        print("The data file should be a CSV file with features.")
-        sys.exit(1)
-        
-    data_file = sys.argv[1]
-    
+        data_file, message = find_unique_data_file()
+        if data_file is None:
+            print(message)
+            sys.exit(1)
+        else:
+            print(message)
+    else:
+        data_file = sys.argv[1]
     try:
-        # Load the data
-        df = pd.read_csv(data_file)
+        if data_file.lower().endswith('.csv'):
+            df = pd.read_csv(data_file)
+        elif data_file.lower().endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(data_file)
+        else:
+            print("Unsupported file format. Provide a CSV or Excel file.")
+            sys.exit(1)
         logger.info(f"Loaded data from {data_file} with shape {df.shape}")
-        
-        # Create a predictor instance
         predictor = ModelPredictor()
-        
-        # Make predictions
         predictions = predictor.predict(df)
-        
-        # Save predictions to file
-        output_file = data_file.replace(".csv", "_predictions.csv")
-        # If the file doesn't end with .csv, just append _predictions.csv
-        if output_file == data_file:
-            output_file = data_file + "_predictions.csv"
-            
+        # Write predictions to a fixed output file "output.csv"
+        output_file = "output.csv"
         result_df = df.copy()
         result_df['prediction'] = predictions['predictions']
         result_df.to_csv(output_file, index=False)
         logger.info(f"Predictions saved to {output_file}")
     except Exception as e:
         logger.error(f"Error during prediction: {str(e)}")
+
+
 '''
 
     # Write the utility script to a file

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Tabular Prediction{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-body">
+        <h1 class="mb-4">Tabular Prediction with Custom Models</h1>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <h4>Use Custom Model Packages</h4>
+                    <p>Upload a model package (ZIP file) containing your trained model and required dependencies, along with tabular data to generate predictions.</p>
+                    <p>The model package should include:</p>
+                    <ul>
+                        <li><code>predict.py</code> script that processes the input</li>
+                        <li><code>requirements.txt</code> listing the required dependencies</li>
+                        <li>Any model weights or additional files needed</li>
+                    </ul>
+                    <p>The system will output the prediction results as a CSV file for download.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Upload Files</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="predictionForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="modelPackage" class="form-label">Model Package (ZIP)</label>
+                                <input type="file" class="form-control" id="modelPackage" name="model_package" accept=".zip" required>
+                                <div class="form-text">ZIP file containing model, predict.py script, and requirements.txt</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="inputFile" class="form-label">Input File (CSV/Excel)</label>
+                                <input type="file" class="form-control" id="inputFile" name="input_file" accept=".csv,.xlsx,.xls" required>
+                                <div class="form-text">Tabular data file to analyze with the model</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-cog me-2"></i>Generate Prediction
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultContainer" class="d-none">
+                            <div class="alert alert-success">
+                                <h5>Prediction Completed</h5>
+                                <p id="processingTime"></p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h5>Preview of Results:</h5>
+                                <div id="resultPreview" class="bg-dark text-light p-3 rounded overflow-auto" style="max-height: 300px;"></div>
+                                <div class="mt-3">
+                                    <button id="downloadBtn" class="btn btn-success">
+                                        <i class="fas fa-download me-2"></i>Download Results
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="loadingContainer" class="d-none text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">Processing your request...</p>
+                            <p class="text-muted small">This may take a few moments as we set up the environment and run your model.</p>
+                        </div>
+
+                        <div id="initialMessage" class="text-center py-5">
+                            <i class="fas fa-arrow-left fa-3x text-muted mb-3"></i>
+                            <p>Upload your model package and input file to see results here.</p>
+                        </div>
+
+                        <div id="errorContainer" class="d-none">
+                            <div class="alert alert-danger">
+                                <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+                                <p id="errorMessage"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('predictionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const initialMessage = document.getElementById('initialMessage');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultPreview = document.getElementById('resultPreview');
+        const processingTime = document.getElementById('processingTime');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Store the raw CSV data
+        let csvData = '';
+        
+        // Function to convert CSV to HTML table for preview
+        function csvToHtmlTable(csv) {
+            const lines = csv.split('\n');
+            if (lines.length === 0) return '';
+            
+            const headers = lines[0].split(',').map(h => h.trim());
+            let htmlTable = '<table class="table table-sm table-dark table-striped"><thead><tr>';
+            
+            // Add headers
+            headers.forEach(header => {
+                htmlTable += `<th>${header}</th>`;
+            });
+            htmlTable += '</tr></thead><tbody>';
+            
+            // Add rows (limit to 10 for preview)
+            const maxRows = Math.min(lines.length, 11);
+            for (let i = 1; i < maxRows; i++) {
+                if (lines[i].trim() === '') continue;
+                
+                htmlTable += '<tr>';
+                const cells = lines[i].split(',').map(c => c.trim());
+                cells.forEach(cell => {
+                    htmlTable += `<td>${cell}</td>`;
+                });
+                htmlTable += '</tr>';
+            }
+            
+            // Add indicator if there are more rows
+            if (lines.length > 11) {
+                htmlTable += '<tr><td colspan="' + headers.length + '" class="text-center text-muted">...</td></tr>';
+            }
+            
+            htmlTable += '</tbody></table>';
+            return htmlTable;
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Reset UI
+            resultContainer.classList.add('d-none');
+            errorContainer.classList.add('d-none');
+            initialMessage.classList.add('d-none');
+            loadingContainer.classList.remove('d-none');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+            
+            // Create form data
+            const formData = new FormData(form);
+            
+            // Record start time
+            const startTime = new Date();
+            
+            // Send request
+            fetch('/api/predict_tabular', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'An error occurred during prediction.');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Calculate processing time
+                const endTime = new Date();
+                const processingSeconds = ((endTime - startTime) / 1000).toFixed(2);
+                
+                // Store CSV data
+                csvData = data.output_file;
+                
+                // Show results
+                loadingContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+                
+                // Display processing time
+                processingTime.textContent = `Processing completed in ${processingSeconds} seconds.`;
+                
+                // Display preview
+                resultPreview.innerHTML = csvToHtmlTable(csvData);
+                
+                // Setup download button
+                downloadBtn.addEventListener('click', function() {
+                    const blob = new Blob([csvData], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'prediction_results.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                });
+            })
+            .catch(error => {
+                // Show error
+                loadingContainer.classList.add('d-none');
+                errorContainer.classList.remove('d-none');
+                errorMessage.textContent = error.message || 'An unexpected error occurred.';
+            })
+            .finally(() => {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Generate Prediction';
+            });
+        });
+    });
+</script>
+{% endblock %} 
