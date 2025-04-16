@@ -177,6 +177,7 @@ def create_utility_script(temp_dir, model_filename, preprocessing_info):
     """Create a utility script for using the model with proper preprocessing."""
     script_content = '''
 
+
 import os
 import json
 import joblib
@@ -664,10 +665,10 @@ if __name__ == "__main__":
             # Last resort
             if use_stdout:
                 print("error,message")
-                print(f'True,"{str(e).replace('"', '\"')}"')
             else:
                 with open("output.csv", 'w') as f:
                     f.write("error,message")
+
 
 
 
