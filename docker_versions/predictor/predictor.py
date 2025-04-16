@@ -23,15 +23,6 @@ def predict():
 
     model_file = request.files['model_package']
     input_file = request.files['input_file']
-    
-    # Get target_column if provided (optional parameter)
-    target_column = request.form.get('target_column', '')
-    
-    # Log whether target_column was provided
-    if target_column:
-        print(f"Target column specified by user: {target_column}")
-    else:
-        print("No target column specified by user, will use default from model")
 
     # Validate file types.
     if not model_file.filename.lower().endswith('.zip'):
@@ -93,17 +84,9 @@ def predict():
             
         print(f"Running prediction with input file: {input_file.filename}")
         
-        # Prepare command with arguments
-        command = [python_path, predict_script, input_file_path, "--stdout"]
-        
-        # Add target_column parameter if provided
-        if target_column:
-            command.extend(["--target_column", target_column])
-            print(f"Passing target column '{target_column}' to prediction script")
-        
-        # Run the prediction with stdout capture mode
+        # Run the prediction with stdout capture mode instead of file output
         result = subprocess.run(
-            command,
+            [python_path, predict_script, input_file_path, "--stdout"],
             cwd=temp_dir,
             capture_output=True, text=True, timeout=300  # 5 minute timeout
         )

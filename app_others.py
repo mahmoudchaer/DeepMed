@@ -25,7 +25,6 @@ from sklearn.compose import ColumnTransformer
 import subprocess
 import threading
 import sys
-import argparse
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -240,6 +239,26 @@ class ModelPredictor:
             with open(preprocessing_info_path, 'r') as f:
                 self.preprocessing_info = json.load(f)
             logger.info("Loaded preprocessing information")
+            
+            # Load the target column information
+            self.target_column = self.preprocessing_info.get('target_column')
+            if not self.target_column:
+                # Try to load from target_column.txt
+                if os.path.exists('target_column.txt'):
+                    with open('target_column.txt', 'r') as f:
+                        self.target_column = f.read().strip()
+                        logger.info(f"Loaded target column from txt file: {self.target_column}")
+                        self.preprocessing_info['target_column'] = self.target_column
+                # Try to load from target_column.json
+                elif os.path.exists('target_column.json'):
+                    with open('target_column.json', 'r') as f:
+                        target_data = json.load(f)
+                        self.target_column = target_data.get('target_column')
+                        logger.info(f"Loaded target column from json file: {self.target_column}")
+                        self.preprocessing_info['target_column'] = self.target_column
+            else:
+                logger.info(f"Using target column from preprocessing info: {self.target_column}")
+            
             if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
                 mappings = self.preprocessing_info['encoding_mappings']
                 logger.info(f"Found encoding mappings for {len(mappings)} columns: {list(mappings.keys())}")
@@ -431,35 +450,54 @@ class ModelPredictor:
                     mapping = dict(zip(range(len(classes)), classes))
                     predictions = [mapping[pred] for pred in predictions]
                     logger.info("Decoded predictions using label encoder")
-            # If no label encoder is available, try to use encoding_mappings.json
+            # If no label encoder is available, try to use target column from encoding_mappings
             else:
-                # Get encoding mappings - check various locations as in _apply_cleaning
-                encoding_mappings = {}
-                if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
-                    encoding_mappings = self.preprocessing_info['encoding_mappings']
-                elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
-                    encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
-                else:
-                    encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
-                    if os.path.exists(encodings_path):
-                        try:
-                            with open(encodings_path, 'r') as f:
-                                encoding_mappings = json.load(f)
-                            logger.info(f"Loaded encoding mappings from file for decoding predictions")
-                        except Exception as e:
-                            logger.error(f"Error loading encoding_mappings.json for decoding: {str(e)}")
-                
-                # If we have encoding_mappings and target_column is known, try to decode predictions
-                if encoding_mappings and 'target_column' in self.preprocessing_info:
-                    target_col = self.preprocessing_info['target_column']
-                    if target_col in encoding_mappings:
-                        # Reverse the mapping to get from numerical value back to class label
-                        inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
-                        predictions = [inv_mapping.get(int(pred), f"unknown_{pred}") for pred in predictions]
-                        logger.info(f"Decoded predictions using encoding mappings for {target_col}")
+                # First check if we have a target column
+                target_column = self.preprocessing_info.get('target_column')
+                if target_column:
+                    logger.info(f"Using target column for prediction decoding: {target_column}")
+                    
+                    # Get encoding mappings
+                    encoding_mappings = {}
+                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                        encoding_mappings = self.preprocessing_info['encoding_mappings']
+                    elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
+                        encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
                     else:
-                        logger.warning(f"Target column '{target_col}' not found in encoding mappings, keeping numerical predictions")
-                elif encoding_mappings:
+                        encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
+                        if os.path.exists(encodings_path):
+                            try:
+                                with open(encodings_path, 'r') as f:
+                                    encoding_mappings = json.load(f)
+                                logger.info(f"Loaded encoding mappings from file for decoding predictions")
+                            except Exception as e:
+                                logger.error(f"Error loading encoding_mappings.json for decoding: {str(e)}")
+                    
+                    # Check if target column exists in mappings
+                    if target_column in encoding_mappings:
+                        # Reverse the mapping to convert numeric predictions back to categorical
+                        inv_mapping = {v: k for k, v in encoding_mappings[target_column].items()}
+                        predictions = [inv_mapping.get(int(pred), f"unknown_{pred}") for pred in predictions]
+                        logger.info(f"Decoded predictions using target column mapping: {len(inv_mapping)} classes")
+                    else:
+                        logger.warning(f"Target column '{target_column}' not found in encoding mappings")
+                else:
+                    # Get encoding mappings - check various locations as in _apply_cleaning
+                    encoding_mappings = {}
+                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                        encoding_mappings = self.preprocessing_info['encoding_mappings']
+                    elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
+                        encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
+                    else:
+                        encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
+                        if os.path.exists(encodings_path):
+                            try:
+                                with open(encodings_path, 'r') as f:
+                                    encoding_mappings = json.load(f)
+                                logger.info(f"Loaded encoding mappings from file for decoding predictions")
+                            except Exception as e:
+                                logger.error(f"Error loading encoding_mappings.json for decoding: {str(e)}")
+                    
                     # If we don't know the target column but have only one mapping, try using that
                     if len(encoding_mappings) == 1:
                         target_col = list(encoding_mappings.keys())[0]
@@ -468,8 +506,6 @@ class ModelPredictor:
                         logger.info(f"Decoded predictions using the only available encoding mapping: {target_col}")
                     else:
                         logger.warning("Multiple encoding mappings found but target_column not specified, keeping numerical predictions")
-                else:
-                    logger.warning("No encoding mappings available for decoding predictions")
                     
             result = {'predictions': predictions.tolist() if isinstance(predictions, np.ndarray) else predictions}
             if probabilities is not None:
@@ -491,36 +527,29 @@ def find_unique_data_file():
         return data_files[0], f"Found one data file: {data_files[0]}"
 
 if __name__ == "__main__":
-    import argparse
-    
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Make predictions using a trained model')
-    parser.add_argument('input_file', help='Input data file (CSV or Excel)')
-    parser.add_argument('--stdout', action='store_true', help='Output results to stdout instead of file')
-    parser.add_argument('--target_column', help='Specify target column for predictions')
-    args = parser.parse_args()
-    
+    if len(sys.argv) < 2:
+        data_file, message = find_unique_data_file()
+        if data_file is None:
+            print(message)
+            sys.exit(1)
+        else:
+            print(message)
+    else:
+        data_file = sys.argv[1]
+
+    # Check for stdout flag
+    use_stdout = "--stdout" in sys.argv
+
     try:
-        if args.input_file.lower().endswith('.csv'):
-            df = pd.read_csv(args.input_file)
-        elif args.input_file.lower().endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(args.input_file)
+        if data_file.lower().endswith('.csv'):
+            df = pd.read_csv(data_file)
+        elif data_file.lower().endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(data_file)
         else:
             print("Unsupported file format. Provide a CSV or Excel file.")
             sys.exit(1)
-        logger.info(f"Loaded data from {args.input_file} with shape {df.shape}")
-        
-        # Initialize the predictor with target column override if specified
-        if args.target_column:
-            logger.info(f"Using user-specified target column: {args.target_column}")
-            predictor = ModelPredictor()
-            # Override target column in preprocessing info if user specified one
-            if predictor.preprocessing_info:
-                predictor.preprocessing_info['target_column'] = args.target_column
-                logger.info(f"Overriding target column with: {args.target_column}")
-        else:
-            predictor = ModelPredictor()
-        
+        logger.info(f"Loaded data from {data_file} with shape {df.shape}")
+        predictor = ModelPredictor()
         predictions = predictor.predict(df)
         
         # Create result dataframe
@@ -530,7 +559,7 @@ if __name__ == "__main__":
         if result_df.empty:
             logger.warning("Input dataframe is empty, creating minimal output")
             empty_df = pd.DataFrame({'warning': ['No data to predict']})
-            if args.stdout:
+            if use_stdout:
                 print(empty_df.to_csv(index=False))
                 sys.exit(0)
             else:
@@ -544,7 +573,7 @@ if __name__ == "__main__":
         if not predictions or 'predictions' not in predictions:
             logger.warning("No predictions returned, creating minimal output")
             result_df['prediction'] = "PREDICTION_FAILED"
-            if args.stdout:
+            if use_stdout:
                 print(result_df.to_csv(index=False))
                 sys.exit(0)
             else:
@@ -577,16 +606,18 @@ if __name__ == "__main__":
                     except Exception as e:
                         logger.error(f"Failed to load encoding_mappings.json: {str(e)}")
             
-            # Try to decode using the available mappings
+            # First check if there's a target column we can use
+            target_column = predictor.preprocessing_info.get('target_column')
+            
+            # Try to decode using the target column or available mappings
             if encoding_mappings:
-                # Use the user-specified target column if provided
-                target_col = args.target_column if args.target_column else predictor.preprocessing_info.get('target_column')
-                
-                if target_col and target_col in encoding_mappings:
-                    inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                if target_column and target_column in encoding_mappings:
+                    # Use the target column mapping specifically
+                    inv_mapping = {v: k for k, v in encoding_mappings[target_column].items()}
                     prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
-                    logger.info(f"Successfully decoded predictions using mapping for {target_col}")
+                    logger.info(f"Decoded predictions using target column mapping: {target_column}")
                 elif len(encoding_mappings) == 1:
+                    # If only one mapping available, use it
                     target_col = list(encoding_mappings.keys())[0]
                     inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
                     prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
@@ -597,7 +628,7 @@ if __name__ == "__main__":
         result_df['prediction'] = prediction_values
         
         # Output results - either to stdout or to a file
-        if args.stdout:
+        if use_stdout:
             print(result_df.to_csv(index=False))
         else:
             output_file = "output.csv"
@@ -621,7 +652,7 @@ if __name__ == "__main__":
         # Even on error, create output
         try:
             error_df = pd.DataFrame({'error_message': [str(e)]})
-            if args.stdout:
+            if use_stdout:
                 print(error_df.to_csv(index=False))
             else:
                 error_df.to_csv("output.csv", index=False)
@@ -631,7 +662,7 @@ if __name__ == "__main__":
         except Exception as write_error:
             logger.error(f"Failed to create error output: {str(write_error)}")
             # Last resort
-            if args.stdout:
+            if use_stdout:
                 print("error,message")
                 print(f'True,"{str(e).replace('"', '\"')}"')
             else:
@@ -657,6 +688,9 @@ def create_readme_file(temp_dir, model, preprocessing_info):
 
 - {model.file_name if model.file_name else model.model_name + ".joblib"}: The trained model file
 - preprocessing_info.json: Configuration for data preprocessing
+- target_column.txt: The target column used for training
+- target_column.json: The target column in JSON format
+- encoding_mappings.json: Categorical feature encodings
 - predict.py: Utility script for making predictions
 - README.md: This file
 
@@ -708,6 +742,7 @@ predictions = predictor.predict(processed_df)
 - Model Type: {model.model_name}
 - Created: {model.created_at} 
 - ID: {model.id}
+- Target Column: {preprocessing_info.get('target_column', 'Unknown')}
 
 ## Preprocessing Information
 '''
@@ -747,6 +782,15 @@ predictions = predictor.predict(processed_df)
         readme_content += "- The model prediction script (`predict.py`) automatically applies these mappings\n"
         readme_content += "- When making predictions on new data, categorical columns will be encoded using these mappings\n"
         readme_content += "- If a categorical value isn't found in the mappings, it will be assigned a default value of -1\n"
+    
+    # Add info about the target column
+    target_column = preprocessing_info.get('target_column')
+    if target_column:
+        readme_content += "\n## Target Column Information\n"
+        readme_content += f"This model was trained to predict: **{target_column}**\n"
+        readme_content += "- The target column name is saved in `target_column.txt` and `target_column.json`\n"
+        readme_content += "- When using the predict.py script, the predictions will be decoded to the original target categories\n"
+        readme_content += "- The script will automatically find the target column's encoding mappings to decode predictions\n"
     
     readme_path = os.path.join(temp_dir, 'README.md')
     with open(readme_path, 'w') as f:
@@ -1292,7 +1336,8 @@ def download_model(model_id):
             'cleaning_report': {},
             'scaler_params': scaler_params,
             'label_encoder': label_encoder_info,
-            'encoding_mappings': {}
+            'encoding_mappings': {},
+            'target_column': run.target_column if run and hasattr(run, 'target_column') else None
         }
         
         # Add data from preprocessing_data if available
@@ -1362,6 +1407,20 @@ def download_model(model_id):
             with open(mappings_file, 'w') as f:
                 json.dump(preprocessing_info['encoding_mappings'], f, indent=2, cls=NumpyEncoder)
             logger.info(f"Created separate encoding_mappings.json file with {len(preprocessing_info['encoding_mappings'])} columns")
+        
+        # Create a separate target column file
+        target_column = preprocessing_info['target_column']
+        if target_column:
+            target_file = os.path.join(temp_dir, 'target_column.txt')
+            with open(target_file, 'w') as f:
+                f.write(f"{target_column}")
+            logger.info(f"Created target_column.txt file with value: {target_column}")
+            
+            # Also create a JSON version for programmatic access
+            target_json_file = os.path.join(temp_dir, 'target_column.json')
+            with open(target_json_file, 'w') as f:
+                json.dump({"target_column": target_column}, f, indent=2)
+            logger.info(f"Created target_column.json file")
         
         # Create utility script for using the model
         create_utility_script(temp_dir, model.file_name or 'model.joblib', preprocessing_info)
