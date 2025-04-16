@@ -43,7 +43,8 @@
                                 <select class="form-select" id="encodingSelect" name="encoding_column" disabled>
                                     <option value="">-- Upload model package to see available options --</option>
                                 </select>
-                                <div class="form-text">Select the target column encoding to decode predictions (available after uploading model package)</div>
+                                <div id="encodingHelpText" class="form-text">Select the target column encoding to decode predictions (available after uploading model package)</div>
+                                <div id="encodingDebugInfo" class="small text-muted mt-1 d-none"></div>
                             </div>
 
                             <div class="mb-3">
@@ -168,14 +169,21 @@
         
         // Function to extract encodings from model package
         function extractEncodings(file) {
+            // Get references to help text and debug info elements
+            const encodingHelpText = document.getElementById('encodingHelpText');
+            const encodingDebugInfo = document.getElementById('encodingDebugInfo');
+            
             // Reset encoding select to initial state
             encodingSelect.innerHTML = '<option value="">-- Loading available encodings... --</option>';
             encodingSelect.disabled = true;
+            encodingDebugInfo.classList.add('d-none');
+            encodingHelpText.textContent = 'Looking for encoding maps in the model package...';
             
             if (!file) {
                 // Reset to default state if no file
                 encodingSelect.innerHTML = '<option value="">-- Upload model package to see available options --</option>';
                 encodingSelect.disabled = true;
+                encodingHelpText.textContent = 'Select the target column encoding to decode predictions (available after uploading model package)';
                 return;
             }
             
@@ -187,7 +195,7 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Extracting encodings...';
             
-            console.log("Extracting encodings from model package...");
+            console.log("Extracting encodings from model package:", file.name);
             
             // Send request to extract encodings
             fetch('/api/predict_tabular/extract_encodings', {
@@ -198,14 +206,19 @@
                 console.log("Received response:", response.status);
                 if (!response.ok) {
                     return response.json().then(data => {
-                        // Reset the encoding select on error
+                        // Show error message
+                        const errorMsg = data.error || 'Unknown error extracting encodings';
                         encodingSelect.innerHTML = '<option value="">-- No encodings found (error) --</option>';
                         encodingSelect.disabled = true;
+                        encodingHelpText.textContent = errorMsg;
+                        encodingDebugInfo.textContent = 'Try providing a model package with encoding_maps.json, preprocessing.json, or similar files containing target column mappings.';
+                        encodingDebugInfo.classList.remove('d-none');
                         
                         // Re-enable submit button
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Generate Prediction';
-                        console.warn("Failed to extract encodings:", data.error);
+                        console.warn("Failed to extract encodings:", errorMsg);
+                        throw new Error(errorMsg);
                     });
                 }
                 return response.json();
@@ -217,11 +230,23 @@
                     // Found encoding maps - populate dropdown
                     encodingSelect.innerHTML = '<option value="">-- Select target column encoding --</option>';
                     
+                    // Get list of maps to display
+                    const maps = Object.keys(data.encoding_maps);
+                    
                     // Add each encoding option
                     for (const [key, value] of Object.entries(data.encoding_maps)) {
                         const option = document.createElement('option');
                         option.value = key;
-                        option.textContent = key;
+                        
+                        // Try to make the display name more user-friendly
+                        if (key.endsWith('_encoding') || key.endsWith('_map')) {
+                            // Remove the suffix for display
+                            const displayName = key.replace(/_encoding$|_map$/g, '');
+                            option.textContent = `${displayName} (${Object.keys(value).length} values)`;
+                        } else {
+                            option.textContent = `${key} (${Object.keys(value).length} values)`;
+                        }
+                        
                         encodingSelect.appendChild(option);
                     }
                     
@@ -230,6 +255,15 @@
                     
                     // Add success styling
                     encodingSelectContainer.classList.add('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                    
+                    // Update help text
+                    encodingHelpText.textContent = `Found ${maps.length} encoding maps. Select one to decode predictions.`;
+                    
+                    // Add debug info with the names of available maps
+                    if (maps.length > 0) {
+                        encodingDebugInfo.textContent = `Available maps: ${maps.join(', ')}`;
+                        encodingDebugInfo.classList.remove('d-none');
+                    }
                     
                     // Auto-select first option if available
                     if (encodingSelect.options.length > 1) {
@@ -242,15 +276,33 @@
                     encodingSelect.innerHTML = '<option value="">-- No encoding maps found in package --</option>';
                     encodingSelect.disabled = true;
                     encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                    
+                    // Update help text
+                    encodingHelpText.textContent = 'No encoding maps found in the model package.';
+                    
+                    // Show debug info
+                    encodingDebugInfo.textContent = 'Your model package should include files like encoding_maps.json, preprocessing.json, or similar that contain mappings for categorical variables.';
+                    encodingDebugInfo.classList.remove('d-none');
+                    
                     console.log("No encoding maps found in response");
                 }
             })
             .catch(error => {
                 // Handle errors
+                console.error("Error extracting encodings:", error);
+                
                 encodingSelect.innerHTML = '<option value="">-- Error loading encodings --</option>';
                 encodingSelect.disabled = true;
                 encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded', 'bg-light');
-                console.error("Error extracting encodings:", error);
+                
+                // Update help text
+                encodingHelpText.textContent = `Error: ${error.message || 'Failed to extract encodings'}`;
+                
+                // Show debug info
+                if (!encodingDebugInfo.textContent) {
+                    encodingDebugInfo.textContent = 'Check that your model package contains valid JSON files with encoding maps.';
+                    encodingDebugInfo.classList.remove('d-none');
+                }
             })
             .finally(() => {
                 // Re-enable submit button
