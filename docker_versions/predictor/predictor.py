@@ -438,6 +438,20 @@ def predict():
                         encoding_map = integer_encoding_map
                         app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
+                        # *** CREATE INVERSE MAPPING FOR DECODING ***
+                        # The encoding map is category -> code, but for decoding we need code -> category
+                        inverse_mapping = {}
+                        for category, code in encoding_map.items():
+                            # Handle both numeric and string codes
+                            if isinstance(code, (int, float)):
+                                inverse_mapping[code] = category
+                                # Also add string version of the code
+                                inverse_mapping[str(code)] = category
+                            else:
+                                inverse_mapping[code] = category
+                        
+                        app.logger.info(f"Created inverse mapping for decoding: {inverse_mapping}")
+                        
                         # Parse the CSV
                         df = pd.read_csv(io.StringIO(output_data))
                         print(f"CSV columns: {df.columns.tolist()}")
@@ -494,48 +508,14 @@ def predict():
                         df[original_col] = df[pred_col].copy()
                         app.logger.info(f"Saved original values in {original_col}")
                         
-                        # Map values using the encoding
+                        # Create decoded column using inverse mapping
                         decoded_col = f"{pred_col}_decoded"
                         
-                        # First try to convert all predictions to integers for lookup
-                        # Create a mapping function that tries multiple type conversions
-                        def enhanced_map_with_conversion(x, mapping):
-                            # Try different type conversions in sequence
-                            # Original value
-                            if x in mapping:
-                                return mapping[x]
-                            
-                            # Try as string
-                            str_x = str(x)
-                            if str_x in mapping:
-                                return mapping[str_x]
-                            
-                            # Try as int
-                            try:
-                                int_x = int(float(x))
-                                if int_x in mapping:
-                                    return mapping[int_x]
-                            except (ValueError, TypeError):
-                                pass
-                            
-                            # Try as float
-                            try:
-                                float_x = float(x)
-                                if float_x in mapping:
-                                    return mapping[float_x]
-                                
-                                # Try rounding to handle potential floating point issues
-                                rounded_x = round(float_x)
-                                if rounded_x in mapping:
-                                    return mapping[rounded_x]
-                            except (ValueError, TypeError):
-                                pass
-                            
-                            # If nothing worked, return None to indicate failure
-                            return None
-                        
-                        # Apply enhanced mapping function
-                        df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, encoding_map))
+                        # Simple direct mapping using the inverse mapping
+                        df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                                         inverse_mapping.get(str(x), 
+                                                                                                            inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                                                                                       None))))
                         
                         # Check if decoding worked
                         null_count = df[decoded_col].isna().sum()
@@ -710,6 +690,24 @@ def predict():
                         encoding_map = integer_encoding_map
                         app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
+                        # *** CREATE INVERSE MAPPING FOR DECODING ***
+                        # The encoding map is category -> code, but for decoding we need code -> category
+                        inverse_mapping = {}
+                        for category, code in encoding_map.items():
+                            # Handle both numeric and string codes
+                            if isinstance(code, (int, float)):
+                                inverse_mapping[code] = category
+                                # Also add string version of the code
+                                inverse_mapping[str(code)] = category
+                            else:
+                                inverse_mapping[code] = category
+                        
+                        app.logger.info(f"Created inverse mapping for decoding: {inverse_mapping}")
+                        
+                        # Parse the CSV
+                        df = pd.read_csv(output_path)
+                        print(f"CSV columns: {df.columns.tolist()}")
+                        
                         # Identify the prediction column - usually named 'prediction'
                         pred_col = None
                         potential_pred_cols = ['prediction', 'predicted', 'target', 'label', 'class', 
@@ -762,48 +760,14 @@ def predict():
                         df[original_col] = df[pred_col].copy()
                         app.logger.info(f"Saved original values in {original_col}")
                         
-                        # Map values using the encoding
+                        # Create decoded column using inverse mapping
                         decoded_col = f"{pred_col}_decoded"
                         
-                        # First try to convert all predictions to integers for lookup
-                        # Create a mapping function that tries multiple type conversions
-                        def enhanced_map_with_conversion(x, mapping):
-                            # Try different type conversions in sequence
-                            # Original value
-                            if x in mapping:
-                                return mapping[x]
-                            
-                            # Try as string
-                            str_x = str(x)
-                            if str_x in mapping:
-                                return mapping[str_x]
-                            
-                            # Try as int
-                            try:
-                                int_x = int(float(x))
-                                if int_x in mapping:
-                                    return mapping[int_x]
-                            except (ValueError, TypeError):
-                                pass
-                            
-                            # Try as float
-                            try:
-                                float_x = float(x)
-                                if float_x in mapping:
-                                    return mapping[float_x]
-                                
-                                # Try rounding to handle potential floating point issues
-                                rounded_x = round(float_x)
-                                if rounded_x in mapping:
-                                    return mapping[rounded_x]
-                            except (ValueError, TypeError):
-                                pass
-                            
-                            # If nothing worked, return None to indicate failure
-                            return None
-                        
-                        # Apply enhanced mapping function
-                        df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, encoding_map))
+                        # Simple direct mapping using the inverse mapping
+                        df[decoded_col] = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                                         inverse_mapping.get(str(x), 
+                                                                                                            inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                                                                                       None))))
                         
                         # Check if decoding worked
                         null_count = df[decoded_col].isna().sum()
