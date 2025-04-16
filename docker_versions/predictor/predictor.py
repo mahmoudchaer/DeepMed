@@ -38,13 +38,66 @@ def extract_encodings():
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
         
-        # Look for encoding files
+        print(f"Extracted model package to {temp_dir}")
+        
+        # List all files for debugging
+        all_files = os.listdir(temp_dir)
+        print(f"All files in extracted package: {all_files}")
+        
+        # Look for encoding files with broader search
         encoding_files = []
-        for filename in os.listdir(temp_dir):
-            if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
-                encoding_files.append(filename)
+        json_files = []
+        
+        # First pass: look for standard encoding file names
+        for filename in all_files:
+            if filename.lower().endswith('.json'):
+                json_files.append(filename)
+                if (filename.endswith('_encoding.json') or 
+                    filename == 'encoding.json' or 
+                    filename == 'preprocessing.json' or
+                    'encod' in filename.lower() or
+                    'target' in filename.lower() or
+                    'label' in filename.lower() or
+                    'map' in filename.lower()):
+                    encoding_files.append(filename)
+        
+        print(f"Found {len(json_files)} JSON files: {json_files}")
+        print(f"Potential encoding files based on name: {encoding_files}")
+        
+        # If no encoding files found by name, try all JSON files
+        if not encoding_files and json_files:
+            print("No encoding files found by name pattern, examining all JSON files")
+            encoding_files = json_files
         
         if not encoding_files:
+            # Look deeper in subdirectories
+            print("Looking in subdirectories for encoding files")
+            for root, dirs, files in os.walk(temp_dir):
+                for filename in files:
+                    if filename.lower().endswith('.json'):
+                        file_path = os.path.join(root, filename)
+                        rel_path = os.path.relpath(file_path, temp_dir)
+                        if (filename.endswith('_encoding.json') or 
+                            filename == 'encoding.json' or 
+                            filename == 'preprocessing.json' or
+                            'encod' in filename.lower() or
+                            'target' in filename.lower() or
+                            'label' in filename.lower() or
+                            'map' in filename.lower()):
+                            encoding_files.append(rel_path)
+                        elif rel_path not in json_files:
+                            json_files.append(rel_path)
+            
+            print(f"After subdirectory search - JSON files: {json_files}")
+            print(f"After subdirectory search - Potential encoding files: {encoding_files}")
+            
+            # If still no encoding files but found JSON files, try them all
+            if not encoding_files and json_files:
+                print("No encoding files found in subdirectories by name pattern, examining all JSON files")
+                encoding_files = json_files
+        
+        if not encoding_files:
+            print("No JSON files found in the model package")
             return jsonify({"error": "No encoding files found in the model package"}), 404
         
         # Extract encoding maps from each file
@@ -54,17 +107,56 @@ def extract_encodings():
             try:
                 with open(file_path, 'r') as f:
                     data = json.load(f)
-                    
+                
+                print(f"Examining file {file} for encoding maps")
+                
                 # Process different potential formats
                 if isinstance(data, dict):
-                    # If it's a dict of column name -> encoding map
+                    # Look for dictionary structures that could be encoding maps
                     for column, mapping in data.items():
                         if isinstance(mapping, dict):
-                            encoding_maps[column] = mapping
+                            # Look for typical encoding patterns (numeric keys or values)
+                            is_encoding_map = False
+                            
+                            # Check if it maps numbers to strings (common encoding pattern)
+                            numeric_keys = False
+                            string_values = False
+                            
+                            for k, v in mapping.items():
+                                # Try to convert key to number
+                                try:
+                                    float(k)
+                                    numeric_keys = True
+                                except (ValueError, TypeError):
+                                    pass
+                                
+                                # Check if value is string
+                                if isinstance(v, str):
+                                    string_values = True
+                            
+                            # If keys are numbers and values are strings, likely an encoding map
+                            if numeric_keys and string_values:
+                                is_encoding_map = True
+                            
+                            # Also check if it has a reasonable number of entries to be a category mapping
+                            if len(mapping) > 0 and len(mapping) < 100:
+                                # More likely to be an encoding map than a large data structure
+                                is_encoding_map = True
+                                
+                            if is_encoding_map:
+                                print(f"Found encoding map for column '{column}' with {len(mapping)} values")
+                                encoding_maps[column] = mapping
                     
                     # Also check if there's a 'target_map' or similar key
-                    for key in ['target_map', 'target_encoding', 'label_encoding']:
+                    for key in ['target_map', 'target_encoding', 'label_encoding', 'class_mapping', 'label_map']:
                         if key in data and isinstance(data[key], dict):
+                            print(f"Found encoding map with key '{key}' containing {len(data[key])} values")
+                            encoding_maps[key] = data[key]
+                    
+                    # Check for patterns like "column_name_encoding" or "column_name_map"
+                    for key in data.keys():
+                        if (key.endswith('_encoding') or key.endswith('_map') or '_encoding_' in key) and isinstance(data[key], dict):
+                            print(f"Found encoding map with pattern-matched key '{key}' containing {len(data[key])} values")
                             encoding_maps[key] = data[key]
             except Exception as e:
                 # Skip files that can't be parsed
@@ -72,11 +164,14 @@ def extract_encodings():
                 continue
         
         if not encoding_maps:
+            print("No encoding maps found in any of the JSON files")
             return jsonify({"error": "No valid encoding maps found in the model package"}), 404
         
+        print(f"Successfully extracted {len(encoding_maps)} encoding maps: {list(encoding_maps.keys())}")
         return jsonify({"encoding_maps": encoding_maps})
     
     except Exception as e:
+        print(f"Error in extract_encodings: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
     finally:
