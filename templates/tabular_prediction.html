@@ -67,10 +67,11 @@
 
                             <div class="mb-3" id="targetColumnContainer" style="display: none;">
                                 <label for="targetColumn" class="form-label fw-bold">
-                                    <i class="fas fa-bullseye text-primary me-1"></i>Target Column
+                                    <i class="fas fa-bullseye text-primary me-1"></i>Target Column 
+                                    <span id="columnCount" class="badge bg-info text-white ms-2"></span>
                                 </label>
                                 <div class="input-group">
-                                    <select class="form-select" id="targetColumn" name="target_column">
+                                    <select class="form-select" id="targetColumn" name="target_column" style="max-height: 200px;">
                                         <option value="" selected>Auto-detect from model</option>
                                     </select>
                                     <button class="btn btn-outline-primary" type="button" id="refreshColumnsBtn" title="Refresh column list">
@@ -237,7 +238,17 @@
                 
                 // Add columns to dropdown
                 if (data.columns && data.columns.length > 0) {
-                    data.columns.forEach(column => {
+                    // Show column count
+                    const columnCount = document.getElementById('columnCount');
+                    columnCount.textContent = `${data.columns.length} columns`;
+                    
+                    // Sort columns alphabetically for easier selection
+                    const sortedColumns = [...data.columns].sort((a, b) => 
+                        a.toLowerCase().localeCompare(b.toLowerCase())
+                    );
+                    
+                    // Add all columns to the dropdown
+                    sortedColumns.forEach(column => {
                         const option = document.createElement('option');
                         option.value = column;
                         option.textContent = column;
@@ -254,8 +265,25 @@
                         }, 1000);
                     }, 300);
                     
-                    // Show notification
-                    showToast('Columns Loaded', `Found ${data.columns.length} columns in your file. Select a target column or use auto-detect.`);
+                    // Show notification with column count
+                    showToast('Columns Loaded', 
+                        `Found ${data.columns.length} columns in your file. Select a target column or use auto-detect.`);
+                        
+                    // Try to preselect a likely target column if one exists
+                    const likelyTargetColumns = ['label', 'target', 'class', 'outcome', 'result', 'diagnosis', 'category', 'prediction'];
+                    for (const likely of likelyTargetColumns) {
+                        const matchingOption = Array.from(targetColumn.options).find(option => 
+                            option.value && option.value.toLowerCase().includes(likely)
+                        );
+                        if (matchingOption) {
+                            targetColumn.value = matchingOption.value;
+                            break;
+                        }
+                    }
+                } else {
+                    // Show warning if no columns found
+                    targetColumnContainer.style.display = 'block';
+                    showToast('Warning', 'No columns found in the file or file could not be properly read.');
                 }
             })
             .catch(error => {
@@ -428,6 +456,43 @@
     .highlight-new {
         border-left: 3px solid #0d6efd !important;
         background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Improved dropdown styling to handle many columns */
+    #targetColumn {
+        overflow-y: auto !important;
+    }
+    
+    /* Make dropdown options more readable */
+    #targetColumn option {
+        padding: 5px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    /* Show scrollbar for dropdown */
+    select::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    select::-webkit-scrollbar-track {
+        background: #f1f1f1; 
+    }
+    
+    select::-webkit-scrollbar-thumb {
+        background: #888; 
+        border-radius: 4px;
+    }
+    
+    select::-webkit-scrollbar-thumb:hover {
+        background: #555; 
+    }
+    
+    /* Fix for Firefox */
+    @-moz-document url-prefix() {
+        #targetColumn {
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+        }
     }
     
     /* Improved table styling for results */
