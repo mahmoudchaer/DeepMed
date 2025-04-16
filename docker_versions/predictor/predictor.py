@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import csv
 import io
+import json
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -14,6 +15,58 @@ app = Flask(__name__)
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok"}), 200
+
+@app.route('/get_target_columns', methods=['POST'])
+def get_target_columns():
+    """Get potential target columns from model package by extracting encoding_mappings.json"""
+    if 'model_package' not in request.files:
+        return jsonify({"error": "Model package file is required."}), 400
+
+    model_file = request.files['model_package']
+
+    # Validate file type
+    if not model_file.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive."}), 400
+
+    # Create a temporary working directory
+    temp_dir = tempfile.mkdtemp(prefix="mapper_")
+    print(f"Created temporary directory for mapping extraction: {temp_dir}")
+    
+    try:
+        # Save and extract the ZIP package
+        zip_path = os.path.join(temp_dir, "model_package.zip")
+        model_file.save(zip_path)
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+        print(f"Extracted model package to {temp_dir}")
+
+        # Look for encoding_mappings.json file
+        mappings_file = os.path.join(temp_dir, "encoding_mappings.json")
+        if not os.path.exists(mappings_file):
+            return jsonify({"columns": [], "message": "No encoding_mappings.json found in model package"}), 200
+        
+        # Read the mappings file
+        with open(mappings_file, 'r') as f:
+            mappings = json.load(f)
+        
+        # Extract column names from the mappings
+        columns = list(mappings.keys())
+        print(f"Found {len(columns)} columns in encoding mappings")
+        
+        # Return the mappings and columns
+        return jsonify({
+            "columns": columns,
+            "mappings": mappings,
+            "message": "Successfully extracted encoding mappings"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error extracting target columns: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        # Clean up temporary directory
+        shutil.rmtree(temp_dir)
+        print(f"Deleted temporary directory: {temp_dir}")
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -23,6 +76,7 @@ def predict():
 
     model_file = request.files['model_package']
     input_file = request.files['input_file']
+    target_column = request.form.get('target_column')  # Get target column if provided
 
     # Validate file types.
     if not model_file.filename.lower().endswith('.zip'):
@@ -84,9 +138,15 @@ def predict():
             
         print(f"Running prediction with input file: {input_file.filename}")
         
-        # Run the prediction with stdout capture mode instead of file output
+        # Command to run with optional target column
+        command = [python_path, predict_script, input_file_path, "--stdout"]
+        if target_column:
+            command.extend(["--target", target_column])
+            print(f"Using target column: {target_column}")
+            
+        # Run the prediction with stdout capture mode and target column if provided
         result = subprocess.run(
-            [python_path, predict_script, input_file_path, "--stdout"],
+            command,
             cwd=temp_dir,
             capture_output=True, text=True, timeout=300  # 5 minute timeout
         )

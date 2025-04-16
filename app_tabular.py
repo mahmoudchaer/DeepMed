@@ -542,6 +542,66 @@ def tabular_prediction():
     
     return render_template('tabular_prediction.html', services_status=services_status, logout_token=session['logout_token'])
 
+@app.route('/api/get_target_columns', methods=['POST'])
+@login_required
+def api_get_target_columns():
+    """API endpoint to extract potential target columns from a model package"""
+    # Check for file upload
+    if 'model_package' not in request.files:
+        return jsonify({"error": "Model package is required"}), 400
+    
+    model_package = request.files['model_package']
+    
+    if not model_package.filename:
+        return jsonify({"error": "Model package must be selected"}), 400
+    
+    # Validate file extension
+    if not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    try:
+        # Define the predictor service URL
+        predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+        
+        # Check if the predictor service is available
+        if not is_service_available(predictor_service_url):
+            return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
+        
+        logger.info(f"Extracting target columns from model package: {model_package.filename}")
+        
+        # Forward the file to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip')
+        }
+        
+        # Send request to the predictor service
+        response = requests.post(
+            f"{predictor_service_url}/get_target_columns",
+            files=files,
+            timeout=60  # 1 minute timeout
+        )
+        
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error in prediction service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in prediction service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return target columns and mappings
+        result = response.json()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error extracting target columns: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/predict_tabular', methods=['POST'])
 @login_required
 def api_predict_tabular():
@@ -552,6 +612,7 @@ def api_predict_tabular():
     
     model_package = request.files['model_package']
     input_file = request.files['input_file']
+    target_column = request.form.get('target_column')  # Get target column if provided
     
     if not model_package.filename or not input_file.filename:
         return jsonify({"error": "Both model package and input file must be selected"}), 400
@@ -574,6 +635,8 @@ def api_predict_tabular():
             return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
         
         logger.info(f"Starting tabular prediction for model: {model_package.filename} and input: {input_file.filename}")
+        if target_column:
+            logger.info(f"Using target column: {target_column}")
         
         # Forward the files to the prediction service
         files = {
@@ -581,10 +644,16 @@ def api_predict_tabular():
             'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
         }
         
+        # Prepare form data with target column if provided
+        data = {}
+        if target_column:
+            data['target_column'] = target_column
+        
         # Send request to the predictor service
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
+            data=data,
             timeout=600  # 10 minute timeout
         )
         
