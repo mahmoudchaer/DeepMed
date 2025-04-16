@@ -503,6 +503,19 @@ def predict():
                             # Create a new decoded column name for logging purposes
                             decoded_col = pred_col
                             
+                            # Move both prediction columns to the end of the DataFrame
+                            # First get all column names
+                            all_cols = df.columns.tolist()
+                            # Remove the prediction columns
+                            all_cols.remove(pred_col)
+                            all_cols.remove(f"{pred_col}_numeric")
+                            # Add them back at the end
+                            all_cols.append(pred_col)
+                            all_cols.append(f"{pred_col}_numeric")
+                            # Reorder the DataFrame
+                            df = df[all_cols]
+                            app.logger.info(f"Reordered columns to put predictions at the end: {all_cols[-2:]}")
+                            
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
                             decoded_count = len(df) - null_count
@@ -751,6 +764,19 @@ def predict():
                             df.drop(columns=[decoded_col], inplace=True)
                             # Create a new decoded column name for logging purposes
                             decoded_col = pred_col
+                            
+                            # Move both prediction columns to the end of the DataFrame
+                            # First get all column names
+                            all_cols = df.columns.tolist()
+                            # Remove the prediction columns
+                            all_cols.remove(pred_col)
+                            all_cols.remove(f"{pred_col}_numeric")
+                            # Add them back at the end
+                            all_cols.append(pred_col)
+                            all_cols.append(f"{pred_col}_numeric")
+                            # Reorder the DataFrame
+                            df = df[all_cols]
+                            app.logger.info(f"Reordered columns to put predictions at the end: {all_cols[-2:]}")
                             
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
