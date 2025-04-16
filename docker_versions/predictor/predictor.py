@@ -497,8 +497,8 @@ def predict():
                             # 1. Create a new column with the decoded values at the end
                             df["Prediction (Decoded)"] = df[decoded_col]
                             
-                            # 2. Remove the intermediate decoded column 
-                            df.drop(columns=[decoded_col], inplace=True)
+                            # 2. Remove the intermediate decoded column and the original prediction column
+                            df.drop(columns=[decoded_col, pred_col], inplace=True)
                             
                             # 3. Move the decoded column to the end
                             all_cols = df.columns.tolist()
@@ -507,9 +507,7 @@ def predict():
                             
                             # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Simplified column ordering with decoded predictions at the end")
-                            
-                            # No need to add a message row anymore
+                            app.logger.info(f"Simplified column ordering with only decoded predictions at the end")
                             
                             # Check if decoding worked
                             null_count = df["Prediction (Decoded)"].isna().sum()
@@ -737,8 +735,8 @@ def predict():
                             # 1. Create a new column with the decoded values at the end
                             df["Prediction (Decoded)"] = df[decoded_col]
                             
-                            # 2. Remove the intermediate decoded column 
-                            df.drop(columns=[decoded_col], inplace=True)
+                            # 2. Remove the intermediate decoded column and the original prediction column
+                            df.drop(columns=[decoded_col, pred_col], inplace=True)
                             
                             # 3. Move the decoded column to the end
                             all_cols = df.columns.tolist()
@@ -747,9 +745,7 @@ def predict():
                             
                             # 4. Reorder and keep only what we need
                             df = df[all_cols]
-                            app.logger.info(f"Simplified column ordering with decoded predictions at the end")
-                            
-                            # No need to add a message row anymore
+                            app.logger.info(f"Simplified column ordering with only decoded predictions at the end")
                             
                             # Check if decoding worked
                             null_count = df["Prediction (Decoded)"].isna().sum()
