@@ -646,22 +646,47 @@ def get_file_columns():
         file.save(file_path)
         
         try:
-            # Read just the headers to get column names
+            # Read the headers with appropriate parameters to ensure all columns are captured
             if file_path.lower().endswith('.csv'):
-                df = pd.read_csv(file_path, nrows=0)
+                try:
+                    # First try with default settings
+                    df = pd.read_csv(file_path, nrows=5)
+                except Exception as e:
+                    logger.warning(f"First CSV read attempt failed: {str(e)}, trying with different settings")
+                    # Try with different encoding and separator options
+                    try:
+                        df = pd.read_csv(file_path, nrows=5, encoding='latin1')
+                    except:
+                        # Last attempt with very flexible parameters
+                        df = pd.read_csv(file_path, nrows=5, sep=None, engine='python')
             else:
-                df = pd.read_excel(file_path, nrows=0)
-                
-            # Get list of columns
-            columns = df.columns.tolist()
+                # For Excel files, try to read the first sheet
+                try:
+                    df = pd.read_excel(file_path, nrows=5)
+                except Exception as excel_err:
+                    logger.error(f"Excel read error: {str(excel_err)}")
+                    return jsonify({"error": f"Failed to read Excel file: {str(excel_err)}"}), 400
+            
+            # Get all columns and ensure they're strings
+            columns = [str(col) for col in df.columns.tolist()]
+            
+            logger.info(f"Found {len(columns)} columns in uploaded file: {columns[:10]}{'...' if len(columns) > 10 else ''}")
             
             # Return columns
             return jsonify({
-                "columns": columns
+                "columns": columns,
+                "total_columns": len(columns),
+                "preview_rows": df.head(3).to_dict(orient='records')
             })
+        except Exception as e:
+            logger.error(f"Error reading file columns: {str(e)}", exc_info=True)
+            return jsonify({"error": f"Failed to read columns: {str(e)}"}), 500
         finally:
             # Clean up temp directory
-            shutil.rmtree(temp_dir)
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as cleanup_err:
+                logger.warning(f"Error cleaning up temp directory: {str(cleanup_err)}")
             
     except Exception as e:
         logger.error(f"Error getting file columns: {str(e)}", exc_info=True)
