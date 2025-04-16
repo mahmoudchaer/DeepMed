@@ -538,10 +538,6 @@ def predict():
                         print(f"Decoding prediction column using {selected_encoding} encoding map")
                         print(f"Encoding map contains {len(encoding_map)} mappings: {encoding_map}")
                         
-                        # Parse the CSV
-                        df = pd.read_csv(io.StringIO(output_data))
-                        print(f"CSV columns: {df.columns.tolist()}")
-                        
                         # Identify the prediction column - usually named 'prediction'
                         pred_col = None
                         potential_pred_cols = ['prediction', 'predicted', 'target', 'label', 'class', 
@@ -646,8 +642,11 @@ def predict():
                             
                             # Write back to the file
                             df.to_csv(output_path, index=False)
-                          else:
-                              print("No prediction column found to decode")
+                       # else:
+                          #  print("No prediction column found to decode")
+                   # else:
+                       # print("No encoding map found for the selected encoding column")
+                        
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
