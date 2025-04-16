@@ -16,58 +16,6 @@ app = Flask(__name__)
 def health():
     return jsonify({"status": "ok"}), 200
 
-@app.route('/get_target_columns', methods=['POST'])
-def get_target_columns():
-    """Get potential target columns from model package by extracting encoding_mappings.json"""
-    if 'model_package' not in request.files:
-        return jsonify({"error": "Model package file is required."}), 400
-
-    model_file = request.files['model_package']
-
-    # Validate file type
-    if not model_file.filename.lower().endswith('.zip'):
-        return jsonify({"error": "Model package must be a ZIP archive."}), 400
-
-    # Create a temporary working directory
-    temp_dir = tempfile.mkdtemp(prefix="mapper_")
-    print(f"Created temporary directory for mapping extraction: {temp_dir}")
-    
-    try:
-        # Save and extract the ZIP package
-        zip_path = os.path.join(temp_dir, "model_package.zip")
-        model_file.save(zip_path)
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-        print(f"Extracted model package to {temp_dir}")
-
-        # Look for encoding_mappings.json file
-        mappings_file = os.path.join(temp_dir, "encoding_mappings.json")
-        if not os.path.exists(mappings_file):
-            return jsonify({"columns": [], "message": "No encoding_mappings.json found in model package"}), 200
-        
-        # Read the mappings file
-        with open(mappings_file, 'r') as f:
-            mappings = json.load(f)
-        
-        # Extract column names from the mappings
-        columns = list(mappings.keys())
-        print(f"Found {len(columns)} columns in encoding mappings")
-        
-        # Return the mappings and columns
-        return jsonify({
-            "columns": columns,
-            "mappings": mappings,
-            "message": "Successfully extracted encoding mappings"
-        }), 200
-        
-    except Exception as e:
-        print(f"Error extracting target columns: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        # Clean up temporary directory
-        shutil.rmtree(temp_dir)
-        print(f"Deleted temporary directory: {temp_dir}")
-
 @app.route('/predict', methods=['POST'])
 def predict():
     # Verify that both files are provided.
@@ -103,6 +51,13 @@ def predict():
         input_file_path = os.path.join(temp_dir, input_file.filename)
         input_file.save(input_file_path)
         print(f"Saved input file to {input_file_path}")
+        
+        # Save target column to a file if provided
+        if target_column:
+            target_column_path = os.path.join(temp_dir, "target_column.txt")
+            with open(target_column_path, 'w') as f:
+                f.write(target_column)
+            print(f"Saved target column '{target_column}' to {target_column_path}")
 
         # Create a virtual environment in the temporary directory.
         venv_path = os.path.join(temp_dir, "venv")
