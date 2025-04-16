@@ -15,6 +15,7 @@ import tempfile
 import secrets
 import uuid
 from werkzeug.utils import secure_filename
+import shutil
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, ANOMALY_DETECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -581,10 +582,20 @@ def api_predict_tabular():
             'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
         }
         
+        # Get target_column from request if specified
+        target_column = request.form.get('target_column', '')
+        form_data = {}
+        
+        # Add target_column to the request if specified
+        if target_column:
+            logger.info(f"Using user-specified target column: {target_column}")
+            form_data['target_column'] = target_column
+        
         # Send request to the predictor service
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
+            data=form_data,
             timeout=600  # 10 minute timeout
         )
         
@@ -607,4 +618,51 @@ def api_predict_tabular():
         
     except Exception as e:
         logger.error(f"Error in tabular prediction: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/get_file_columns', methods=['POST'])
+@login_required
+def get_file_columns():
+    """API endpoint to get columns from an uploaded file for target column selection"""
+    try:
+        # Check if a file was uploaded
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+        
+        file = request.files['file']
+        
+        if not file.filename:
+            return jsonify({"error": "No file selected"}), 400
+        
+        # Validate file extension
+        if not (file.filename.lower().endswith('.xlsx') or 
+                file.filename.lower().endswith('.xls') or 
+                file.filename.lower().endswith('.csv')):
+            return jsonify({"error": "File must be an Excel or CSV file"}), 400
+        
+        # Save the file temporarily
+        temp_dir = tempfile.mkdtemp()
+        file_path = os.path.join(temp_dir, secure_filename(file.filename))
+        file.save(file_path)
+        
+        try:
+            # Read just the headers to get column names
+            if file_path.lower().endswith('.csv'):
+                df = pd.read_csv(file_path, nrows=0)
+            else:
+                df = pd.read_excel(file_path, nrows=0)
+                
+            # Get list of columns
+            columns = df.columns.tolist()
+            
+            # Return columns
+            return jsonify({
+                "columns": columns
+            })
+        finally:
+            # Clean up temp directory
+            shutil.rmtree(temp_dir)
+            
+    except Exception as e:
+        logger.error(f"Error getting file columns: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
