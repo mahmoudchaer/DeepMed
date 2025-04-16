@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import pandas as pd
 import time
+import csv
+import io
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -75,67 +77,81 @@ def predict():
             subprocess.run([pip_path, "install", "pandas", "numpy", "scikit-learn", "joblib"], 
                           capture_output=True, text=True)
 
-        # Run the predict.py script from the package, passing the input file as an argument
+        # Run the predict.py script from the package
         predict_script = os.path.join(temp_dir, "predict.py")
         if not os.path.exists(predict_script):
             return jsonify({"error": "predict.py script not found in model package"}), 500
             
         print(f"Running prediction with input file: {input_file.filename}")
+        
+        # Run the prediction with stdout capture mode instead of file output
         result = subprocess.run(
-            [python_path, predict_script, input_file_path],
+            [python_path, predict_script, input_file_path, "--stdout"],
             cwd=temp_dir,
             capture_output=True, text=True, timeout=300  # 5 minute timeout
         )
         
         print(f"Prediction completed with return code {result.returncode}")
-        print(f"STDOUT: {result.stdout}")
         
+        # Check if the process succeeded
         if result.returncode != 0:
             print(f"STDERR: {result.stderr}")
+            return jsonify({"error": f"Prediction script failed: {result.stderr}"}), 400
             
-        # Read the fixed output file "output.csv"
+        # If we have output in stdout, parse it as CSV    
+        if result.stdout.strip():
+            print("Found prediction output in stdout")
+            output_data = result.stdout
+            
+            # Try to validate it's valid CSV
+            try:
+                reader = csv.reader(io.StringIO(output_data))
+                rows = list(reader)
+                if len(rows) > 0:
+                    print(f"Valid CSV found with {len(rows)} rows")
+                else:
+                    print("Warning: Empty CSV output")
+            except Exception as e:
+                print(f"Warning: Output is not valid CSV: {str(e)}")
+            
+            return jsonify({"output_file": output_data})
+            
+        # If no stdout, check if output.csv was created
         output_path = os.path.join(temp_dir, "output.csv")
-        
-        # If output file doesn't exist, try to create it as a fallback
-        if not os.path.exists(output_path):
-            print(f"Output file not found at {output_path}")
+        if os.path.exists(output_path):
+            print(f"Reading output from file: {output_path}")
+            with open(output_path, "r") as f:
+                output_data = f.read()
+            return jsonify({"output_file": output_data})
             
-            # Try to find if output was created with a different name
-            csv_files = [f for f in os.listdir(temp_dir) if f.endswith('.csv') and f != input_file.filename]
-            if csv_files:
-                print(f"Found alternative CSV files: {csv_files}")
-                output_path = os.path.join(temp_dir, csv_files[0])
-                print(f"Using alternative output file: {output_path}")
-            else:
-                # Create a minimal output file with error info
-                print("Creating fallback output file")
-                try:
-                    # Try to read the input file to get its structure
-                    if input_file_path.lower().endswith('.csv'):
-                        df = pd.read_csv(input_file_path, nrows=5)
-                    elif input_file_path.lower().endswith(('.xlsx', '.xls')):
-                        df = pd.read_excel(input_file_path, nrows=5)
-                    
-                    # Add error column
-                    df['prediction'] = "ERROR"
-                    df['error_message'] = f"Prediction failed: {result.stderr if result.returncode != 0 else 'No output file created'}"
-                    
-                    # Save as output.csv
-                    df.to_csv(output_path, index=False)
-                    print(f"Created fallback output file at {output_path}")
-                except Exception as fallback_error:
-                    # Last resort - create minimal CSV
-                    with open(output_path, 'w') as f:
-                        f.write("error,message\n")
-                        f.write(f"True,\"Prediction failed: {result.stderr if result.returncode != 0 else 'No output file created'}\"\n")
-                    print(f"Created minimal fallback file at {output_path}")
+        # No output found in stdout or file, create a fallback response
+        print("No output found in stdout or file, creating fallback")
+        
+        try:
+            # Try to read the input file to get its structure
+            if input_file_path.lower().endswith('.csv'):
+                df = pd.read_csv(input_file_path)
+            elif input_file_path.lower().endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(input_file_path)
+            
+            # Add error column
+            df['prediction'] = "ERROR"
+            df['error_message'] = "Prediction script did not produce any output"
+            
+            # Convert to CSV string
+            output_buffer = io.StringIO()
+            df.to_csv(output_buffer, index=False)
+            output_data = output_buffer.getvalue()
+            print("Created fallback response from input data")
+            
+            return jsonify({"output_file": output_data})
+            
+        except Exception as fallback_error:
+            print(f"Error creating fallback response: {str(fallback_error)}")
+            # Last resort - create minimal error CSV
+            error_csv = "error,message\nTrue,\"No output produced by prediction script\"\n"
+            return jsonify({"output_file": error_csv})
 
-        with open(output_path, "r") as f:
-            output_data = f.read()
-
-        elapsed_time = time.time() - start_time
-        print(f"Prediction completed in {elapsed_time:.2f} seconds")
-        return jsonify({"output_file": output_data})
     except subprocess.TimeoutExpired:
         print("Prediction timed out")
         return jsonify({"error": "Inference process timed out."}), 504
@@ -144,7 +160,8 @@ def predict():
         return jsonify({"error": str(e)}), 500
     finally:
         shutil.rmtree(temp_dir)
-        print(f"Deleted temporary directory: {temp_dir}")
+        elapsed_time = time.time() - start_time
+        print(f"Deleted temporary directory: {temp_dir} (process took {elapsed_time:.2f} seconds)")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5101)
