@@ -52,7 +52,11 @@ def extract_encodings():
         for filename in all_files:
             if filename.lower().endswith('.json'):
                 json_files.append(filename)
-                if (filename.endswith('_encoding.json') or 
+                if (filename == 'encoding_mappings.json' or 
+                    filename == 'encoding_mappings' or
+                    filename == 'preprocessing_info.json' or 
+                    filename == 'preprocessing_info' or
+                    filename.endswith('_encoding.json') or 
                     filename == 'encoding.json' or 
                     filename == 'preprocessing.json' or
                     'encod' in filename.lower() or
@@ -77,7 +81,11 @@ def extract_encodings():
                     if filename.lower().endswith('.json'):
                         file_path = os.path.join(root, filename)
                         rel_path = os.path.relpath(file_path, temp_dir)
-                        if (filename.endswith('_encoding.json') or 
+                        if (filename == 'encoding_mappings.json' or 
+                            filename == 'encoding_mappings' or
+                            filename == 'preprocessing_info.json' or 
+                            filename == 'preprocessing_info' or
+                            filename.endswith('_encoding.json') or 
                             filename == 'encoding.json' or 
                             filename == 'preprocessing.json' or
                             'encod' in filename.lower() or
@@ -286,31 +294,57 @@ def predict():
                 try:
                     # Find encoding files
                     encoding_files = []
+                    print(f"Looking for encoding files to decode predictions using '{selected_encoding}'")
+                    
                     for filename in os.listdir(temp_dir):
-                        if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
+                        if (filename == 'encoding_mappings.json' or 
+                            filename == 'encoding_mappings' or
+                            filename == 'preprocessing_info.json' or 
+                            filename == 'preprocessing_info' or
+                            filename.endswith('_encoding.json') or 
+                            filename == 'encoding.json' or 
+                            filename == 'preprocessing.json' or
+                            'encod' in filename.lower() or
+                            'target' in filename.lower() or
+                            'label' in filename.lower() or
+                            'map' in filename.lower()):
                             encoding_files.append(os.path.join(temp_dir, filename))
+                    
+                    print(f"Found potential encoding files: {encoding_files}")
                     
                     # Extract encoding maps from files
                     encoding_map = None
                     for file_path in encoding_files:
                         try:
+                            print(f"Examining file {os.path.basename(file_path)} for encoding map")
                             with open(file_path, 'r') as f:
                                 data = json.load(f)
                                 
                             # Check if the selected encoding column exists in this file
                             if selected_encoding in data:
                                 encoding_map = data[selected_encoding]
+                                print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
                                 break
                                 
                             # Also check under common keys
                             for key in ['target_map', 'target_encoding', 'label_encoding']:
                                 if key in data and selected_encoding == key:
                                     encoding_map = data[key]
+                                    print(f"Found encoding map for '{selected_encoding}' under key '{key}' in {os.path.basename(file_path)}")
                                     break
-                                    
+                                
+                            # Check if we need to find the encoding for a specific column
+                            if selected_encoding in data.keys():
+                                for col, mapping in data.items():
+                                    if col == selected_encoding and isinstance(mapping, dict):
+                                        encoding_map = mapping
+                                        print(f"Found encoding map for column '{selected_encoding}' in {os.path.basename(file_path)}")
+                                        break
+                                        
                             if encoding_map:
                                 break
-                        except:
+                        except Exception as e:
+                            print(f"Error reading {os.path.basename(file_path)}: {str(e)}")
                             continue
                     
                     # If we found an encoding map, decode the prediction column
@@ -371,31 +405,57 @@ def predict():
                     
                     # Find encoding files and decode as above
                     encoding_files = []
+                    print(f"Looking for encoding files to decode predictions in output.csv using '{selected_encoding}'")
+                    
                     for filename in os.listdir(temp_dir):
-                        if filename.endswith('_encoding.json') or filename == 'encoding.json' or filename == 'preprocessing.json':
+                        if (filename == 'encoding_mappings.json' or 
+                            filename == 'encoding_mappings' or
+                            filename == 'preprocessing_info.json' or 
+                            filename == 'preprocessing_info' or
+                            filename.endswith('_encoding.json') or 
+                            filename == 'encoding.json' or 
+                            filename == 'preprocessing.json' or
+                            'encod' in filename.lower() or
+                            'target' in filename.lower() or
+                            'label' in filename.lower() or
+                            'map' in filename.lower()):
                             encoding_files.append(os.path.join(temp_dir, filename))
+                    
+                    print(f"Found potential encoding files: {encoding_files}")
                     
                     # Extract encoding maps from files
                     encoding_map = None
                     for file_path in encoding_files:
                         try:
+                            print(f"Examining file {os.path.basename(file_path)} for encoding map")
                             with open(file_path, 'r') as f:
                                 data = json.load(f)
-                                
+                            
                             # Check if the selected encoding column exists in this file
                             if selected_encoding in data:
                                 encoding_map = data[selected_encoding]
+                                print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
                                 break
-                                
+                            
                             # Also check under common keys
                             for key in ['target_map', 'target_encoding', 'label_encoding']:
                                 if key in data and selected_encoding == key:
                                     encoding_map = data[key]
+                                    print(f"Found encoding map for '{selected_encoding}' under key '{key}' in {os.path.basename(file_path)}")
                                     break
+                            
+                            # Check if we need to find the encoding for a specific column
+                            if selected_encoding in data.keys():
+                                for col, mapping in data.items():
+                                    if col == selected_encoding and isinstance(mapping, dict):
+                                        encoding_map = mapping
+                                        print(f"Found encoding map for column '{selected_encoding}' in {os.path.basename(file_path)}")
+                                        break
                                     
                             if encoding_map:
                                 break
-                        except:
+                        except Exception as e:
+                            print(f"Error reading {os.path.basename(file_path)}: {str(e)}")
                             continue
                     
                     # If we found an encoding map, decode the prediction column
