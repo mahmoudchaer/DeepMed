@@ -498,6 +498,10 @@ if __name__ == "__main__":
             print(message)
     else:
         data_file = sys.argv[1]
+
+    # Check for stdout flag
+    use_stdout = "--stdout" in sys.argv
+
     try:
         if data_file.lower().endswith('.csv'):
             df = pd.read_csv(data_file)
@@ -510,40 +514,36 @@ if __name__ == "__main__":
         predictor = ModelPredictor()
         predictions = predictor.predict(df)
         
-        # Write predictions to a fixed output file "output.csv"
-        output_file = "output.csv"
-        
-        # Ensure the output directory exists
-        output_dir = os.path.dirname(output_file)
-        if output_dir and not os.path.exists(output_dir):
-            try:
-                os.makedirs(output_dir, exist_ok=True)
-                logger.info(f"Created output directory: {output_dir}")
-            except Exception as dir_error:
-                logger.error(f"Failed to create output directory: {str(dir_error)}")
-                # Fallback to current directory
-                output_file = os.path.basename(output_file)
-                logger.info(f"Using current directory for output: {output_file}")
-        
+        # Create result dataframe
         result_df = df.copy()
         
         # Make sure we have at least one row in the dataframe
         if result_df.empty:
-            logger.warning("Input dataframe is empty, creating minimal output file")
+            logger.warning("Input dataframe is empty, creating minimal output")
             empty_df = pd.DataFrame({'warning': ['No data to predict']})
-            empty_df.to_csv(output_file, index=False)
-            logger.info(f"Created empty result file at {output_file}")
-            print("Warning: No data to predict. Empty output file created.")
-            sys.exit(0)
+            if use_stdout:
+                print(empty_df.to_csv(index=False))
+                sys.exit(0)
+            else:
+                output_file = "output.csv"
+                empty_df.to_csv(output_file, index=False)
+                logger.info(f"Created empty result file at {output_file}")
+                print("Warning: No data to predict. Empty output file created.")
+                sys.exit(0)
             
         # Ensure predictions exist and are valid
         if not predictions or 'predictions' not in predictions:
-            logger.warning("No predictions returned, creating minimal output file")
+            logger.warning("No predictions returned, creating minimal output")
             result_df['prediction'] = "PREDICTION_FAILED"
-            result_df.to_csv(output_file, index=False)
-            logger.info(f"Created fallback output file at {output_file}")
-            print("Warning: Prediction failed but output file was created.")
-            sys.exit(0)
+            if use_stdout:
+                print(result_df.to_csv(index=False))
+                sys.exit(0)
+            else:
+                output_file = "output.csv"
+                result_df.to_csv(output_file, index=False)
+                logger.info(f"Created fallback output file at {output_file}")
+                print("Warning: Prediction failed but output file was created.")
+                sys.exit(0)
         
         # Ensure predictions are class names, not numbers
         prediction_values = predictions['predictions']
@@ -585,23 +585,49 @@ if __name__ == "__main__":
                     logger.warning("Could not determine which mapping to use for decoding")
         
         result_df['prediction'] = prediction_values
-        result_df.to_csv(output_file, index=False)
-        logger.info(f"Predictions saved to {output_file}")
+        
+        # Output results - either to stdout or to a file
+        if use_stdout:
+            print(result_df.to_csv(index=False))
+        else:
+            output_file = "output.csv"
+            
+            # Ensure the output directory exists
+            output_dir = os.path.dirname(output_file)
+            if output_dir and not os.path.exists(output_dir):
+                try:
+                    os.makedirs(output_dir, exist_ok=True)
+                    logger.info(f"Created output directory: {output_dir}")
+                except Exception as dir_error:
+                    logger.error(f"Failed to create output directory: {str(dir_error)}")
+                    # Fallback to current directory
+                    output_file = os.path.basename(output_file)
+                    logger.info(f"Using current directory for output: {output_file}")
+            
+            result_df.to_csv(output_file, index=False)
+            logger.info(f"Predictions saved to {output_file}")
     except Exception as e:
         logger.error(f"Error during prediction: {str(e)}")
-        # Even on error, create a minimal output file so it's always present
+        # Even on error, create output
         try:
             error_df = pd.DataFrame({'error_message': [str(e)]})
-            error_df.to_csv(output_file, index=False)
-            logger.info(f"Created error output file at {output_file}")
-            print(f"Error occurred during prediction: {str(e)}")
-            print(f"Created error report in {output_file}")
+            if use_stdout:
+                print(error_df.to_csv(index=False))
+            else:
+                error_df.to_csv("output.csv", index=False)
+                logger.info(f"Created error output file at output.csv")
+                print(f"Error occurred during prediction: {str(e)}")
+                print(f"Created error report in output.csv")
         except Exception as write_error:
-            logger.error(f"Failed to create error output file: {str(write_error)}")
-            # Last resort - create empty file
-            with open(output_file, 'w') as f:
-                f.write("error,message\n")
-                f.write(f"True,\"{str(e).replace('\"', '\\\"')}\"\n")
+            logger.error(f"Failed to create error output: {str(write_error)}")
+            # Last resort
+            if use_stdout:
+                print("error,message")
+                print(f'True,"{str(e).replace('"', '\\"')}"')
+            else:
+                with open("output.csv", 'w') as f:
+                    f.write("error,message\n")
+                    f.write(f"True,\"{str(e).replace('\"', '\\\"')}\"\n")
 
 
 
