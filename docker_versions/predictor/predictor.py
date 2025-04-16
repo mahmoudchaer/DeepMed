@@ -8,9 +8,23 @@ import time
 import csv
 import io
 import json
+import sys
+import logging
 from flask import Flask, request, jsonify
 
+# Configure logging to ensure all output appears
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
 app = Flask(__name__)
+# Ensure Flask app logs everything to stdout
+app.logger.handlers = []
+for handler in logging.getLogger().handlers:
+    app.logger.addHandler(handler)
+app.logger.setLevel(logging.DEBUG)
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -371,8 +385,23 @@ def predict():
                     
                     # If we found an encoding map, decode the prediction column
                     if encoding_map:
-                        print(f"Decoding prediction column using {selected_encoding} encoding map")
-                        print(f"Encoding map contains {len(encoding_map)} mappings: {encoding_map}")
+                        # Log that we're beginning the decoding process
+                        app.logger.info(f"===== BEGINNING DECODING PROCESS FOR '{selected_encoding}' =====")
+                        app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
+                        
+                        # Make sure encoding map uses integers as keys wherever possible
+                        integer_encoding_map = {}
+                        for k, v in encoding_map.items():
+                            try:
+                                # Force conversion to integer if possible
+                                integer_encoding_map[int(float(k))] = v
+                            except (ValueError, TypeError):
+                                # If conversion fails, keep original key
+                                integer_encoding_map[k] = v
+                        
+                        # Replace original encoding map with integer-keyed version
+                        encoding_map = integer_encoding_map
+                        app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
                         # Parse the CSV
                         df = pd.read_csv(io.StringIO(output_data))
@@ -406,194 +435,102 @@ def predict():
                             pred_col = df.columns[-1]
                             print(f"No prediction column identified, using last column: '{pred_col}'")
                             
-                        # Apply decoding if we found a prediction column
-                        if pred_col:
-                            print(f"Decoding column: '{pred_col}'")
-                            print(f"Column values before decoding: {df[pred_col].value_counts().to_dict()}")
+                        # Force prediction column to be numeric if possible
+                        try:
+                            numeric_pred_col = f"{pred_col}_numeric"
+                            app.logger.info(f"Converting prediction column to numeric: {df[pred_col].head(5)}")
+                            df[numeric_pred_col] = pd.to_numeric(df[pred_col], errors='coerce')
+                            # Check if conversion worked
+                            null_count = df[numeric_pred_col].isna().sum()
+                            if null_count == 0:
+                                app.logger.info("Successfully converted all predictions to numeric")
+                                # Use the numeric column for decoding
+                                df[pred_col] = df[numeric_pred_col].astype(int)
+                                app.logger.info(f"Converted to integers: {df[pred_col].head(5)}")
+                            else:
+                                app.logger.info(f"Could not convert {null_count} values to numeric")
+                            # Drop the temporary column
+                            df.drop(columns=[numeric_pred_col], inplace=True)
+                        except Exception as e:
+                            app.logger.info(f"Error converting to numeric: {str(e)}")
                             
-                            # Convert encoding map from string keys to the appropriate type if needed
-                            fixed_map = {}
-                            for k, v in encoding_map.items():
-                                # The predictions are likely to be numbers, so try to convert keys
-                                try:
-                                    # First try int, then float if that fails
-                                    try:
-                                        fixed_map[int(k)] = v
-                                    except ValueError:
-                                        fixed_map[float(k)] = v
-                                except ValueError:
-                                    # Keep as string if conversion fails
-                                    fixed_map[k] = v
+                        # Make a copy of the original column
+                        original_col = f"{pred_col}_original"
+                        df[original_col] = df[pred_col].copy()
+                        app.logger.info(f"Saved original values in {original_col}")
+                        
+                        # Map values using the encoding
+                        decoded_col = f"{pred_col}_decoded"
+                        
+                        # First try to convert all predictions to integers for lookup
+                        # Create a mapping function that tries multiple type conversions
+                        def enhanced_map_with_conversion(x, mapping):
+                            # Try different type conversions in sequence
+                            # Original value
+                            if x in mapping:
+                                return mapping[x]
                             
-                            # Also add float versions of integer keys to handle float predictions
-                            int_keys = [k for k in fixed_map.keys() if isinstance(k, int)]
-                            for k in int_keys:
-                                fixed_map[float(k)] = fixed_map[k]
-                                # Also add string representations
-                                fixed_map[str(k)] = fixed_map[k]
-                                fixed_map[str(float(k))] = fixed_map[k]
+                            # Try as string
+                            str_x = str(x)
+                            if str_x in mapping:
+                                return mapping[str_x]
                             
-                            print(f"Enhanced fixed encoding map: {fixed_map}")
+                            # Try as int
+                            try:
+                                int_x = int(float(x))
+                                if int_x in mapping:
+                                    return mapping[int_x]
+                            except (ValueError, TypeError):
+                                pass
                             
-                            # Make a copy of the original column
-                            original_col = f"{pred_col}_original"
-                            df[original_col] = df[pred_col].copy()
-                            
-                            # Map values using the encoding
-                            decoded_col = f"{pred_col}_decoded"
-                            
-                            # First try to convert all predictions to integers for lookup
-                            # Create a mapping function that tries multiple type conversions
-                            def enhanced_map_with_conversion(x, mapping):
-                                # Try different type conversions in sequence
-                                # Original value
-                                if x in mapping:
-                                    return mapping[x]
+                            # Try as float
+                            try:
+                                float_x = float(x)
+                                if float_x in mapping:
+                                    return mapping[float_x]
                                 
-                                # Try as string
-                                str_x = str(x)
-                                if str_x in mapping:
-                                    return mapping[str_x]
-                                
-                                # Try as int
-                                try:
-                                    int_x = int(float(x))
-                                    if int_x in mapping:
-                                        return mapping[int_x]
-                                except (ValueError, TypeError):
-                                    pass
-                                
-                                # Try as float
-                                try:
-                                    float_x = float(x)
-                                    if float_x in mapping:
-                                        return mapping[float_x]
-                                    
-                                    # Try rounding to handle potential floating point issues
-                                    rounded_x = round(float_x)
-                                    if rounded_x in mapping:
-                                        return mapping[rounded_x]
-                                except (ValueError, TypeError):
-                                    pass
-                                
-                                # If nothing worked, return None to indicate failure
-                                return None
+                                # Try rounding to handle potential floating point issues
+                                rounded_x = round(float_x)
+                                if rounded_x in mapping:
+                                    return mapping[rounded_x]
+                            except (ValueError, TypeError):
+                                pass
                             
-                            # Apply enhanced mapping function
-                            df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
+                            # If nothing worked, return None to indicate failure
+                            return None
+                        
+                        # Apply enhanced mapping function
+                        df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, encoding_map))
+                        
+                        # Check if decoding worked
+                        null_count = df[decoded_col].isna().sum()
+                        decoded_count = len(df) - null_count
+                        
+                        if decoded_count > 0:
+                            # At least some values were decoded
+                            success_percentage = (decoded_count / len(df)) * 100
+                            app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
                             
-                            # Check if decoding worked
-                            null_count = df[decoded_col].isna().sum()
-                            if null_count > 0:
-                                print(f"Warning: {null_count} values couldn't be decoded")
-                                print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
-                                print(f"Keys in encoding map: {list(fixed_map.keys())}")
-                                
-                                # Output detailed diagnostic info for debugging
-                                print("============ DETAILED DIAGNOSTICS ============")
-                                print(f"Prediction column dtype: {df[pred_col].dtype}")
-                                
-                                # Sample values that failed to decode
-                                failed_samples = df[df[decoded_col].isna()][pred_col].head(10).tolist()
-                                print(f"Sample values that failed to decode: {failed_samples}")
-                                
-                                # Show exact type and value for each failed sample
-                                for i, val in enumerate(failed_samples):
-                                    print(f"Failed value {i}: {val} (type: {type(val).__name__}, repr: {repr(val)})")
-                                    
-                                    # Try to find this in the encoding map with different transformations
-                                    transforms = [
-                                        ("Original", val),
-                                        ("String", str(val)),
-                                        ("Int", int(float(val)) if isinstance(val, (int, float, str)) and val != '' else None),
-                                        ("Float", float(val) if isinstance(val, (int, float, str)) and val != '' else None),
-                                        ("Rounded", round(float(val)) if isinstance(val, (int, float, str)) and val != '' else None)
-                                    ]
-                                    
-                                    for name, transformed in transforms:
-                                        if transformed is not None:
-                                            present = transformed in fixed_map
-                                            print(f"  {name}: {transformed} (type: {type(transformed).__name__}) -> Present in map: {present}")
-                                
-                                # Show full mapping again for reference
-                                print("Full mapping with key types:")
-                                for k, v in fixed_map.items():
-                                    print(f"  {k} (type: {type(k).__name__}) -> {v}")
-                                    
-                                print("=========== END DIAGNOSTICS ===========")
-                                
-                                # Try converting types if needed
-                                if df[pred_col].dtype != 'object':
-                                    print(f"Converting prediction column from {df[pred_col].dtype} to object type")
-                                    df[pred_col] = df[pred_col].astype('object')
-                                    # Try mapping again
-                                    df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
-                                    null_count = df[decoded_col].isna().sum()
-                                    print(f"After type conversion: {null_count} values couldn't be decoded")
-                            
-                            # If decoding still failed for some values, try matching keys more flexibly
-                            if null_count > 0:
-                                print("Attempting flexible key matching...")
-                                # For each unmatched value, try to find the closest key
-                                for idx, val in df[df[decoded_col].isna()][pred_col].items():
-                                    # Convert val to string for comparison
-                                    str_val = str(val)
-                                    # Look for exact string match
-                                    if str_val in fixed_map:
-                                        df.at[idx, decoded_col] = fixed_map[str_val]
-                                    # Try matching numeric values
-                                    elif isinstance(val, (int, float)):
-                                        for k in fixed_map.keys():
-                                            try:
-                                                if float(k) == float(val):
-                                                    df.at[idx, decoded_col] = fixed_map[k]
-                                                    break
-                                            except (ValueError, TypeError):
-                                                pass
-                                
-                                # Check if there are still unmatched values after flexible matching
-                                null_count = df[decoded_col].isna().sum()
-                                if null_count > 0:
-                                    print(f"Still have {null_count} unmatched values after flexible matching")
-                                    
-                                    # LAST RESORT: Create a mapping based on ordering
-                                    print("Attempting last resort mapping based on ordering...")
-                                    # Get unique prediction values (sorted)
-                                    unique_preds = sorted(df[pred_col].unique())
-                                    # Get unique target values from the encoding map (sorted)
-                                    unique_targets = sorted(set(fixed_map.values()))
-                                    
-                                    print(f"Unique predictions (sorted): {unique_preds}")
-                                    print(f"Unique targets (sorted): {unique_targets}")
-                                    
-                                    # If counts match, we can try position-based mapping
-                                    if len(unique_preds) == len(unique_targets):
-                                        print("Counts match! Creating position-based mapping...")
-                                        position_map = {unique_preds[i]: unique_targets[i] for i in range(len(unique_preds))}
-                                        print(f"Position-based map: {position_map}")
-                                        
-                                        # Apply this mapping to still-null values
-                                        for idx, val in df[df[decoded_col].isna()][pred_col].items():
-                                            if val in position_map:
-                                                df.at[idx, decoded_col] = position_map[val]
-                            
-                            print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
-                            
-                            # Add a message at the top of the CSV indicating decoding was applied
+                            # Add a visibility indicator in the CSV output
                             df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP", 
-                                 decoded_col: "Original values preserved in column " + original_col}
+                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
+                                 decoded_col: f"Original values preserved in column {original_col}"}
                             ])
                             df = pd.concat([df_with_message, df], ignore_index=True)
+                        else:
+                            app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                             
-                            # Convert back to CSV
-                            output_data = df.to_csv(index=False)
-                            print("Successfully decoded prediction column")
+                            # Add a message indicating failure
+                            df_with_message = pd.DataFrame([
+                                {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
+                                 pred_col: "Please try a different encoding map"}
+                            ])
+                            df = pd.concat([df_with_message, df], ignore_index=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction: {str(decode_error)}")
                     # Continue without decoding if there's an error
             
-            return jsonify({"output_file": output_data})
+            return jsonify({"output_file": df.to_csv(index=False)})
             
         # If no stdout, check if output.csv was created
         output_path = os.path.join(temp_dir, "output.csv")
@@ -685,8 +622,23 @@ def predict():
                     
                     # If we found an encoding map, decode the prediction column
                     if encoding_map:
-                        print(f"Decoding prediction column using {selected_encoding} encoding map")
-                        print(f"Encoding map contains {len(encoding_map)} mappings: {encoding_map}")
+                        # Log that we're beginning the decoding process
+                        app.logger.info(f"===== BEGINNING DECODING PROCESS FOR '{selected_encoding}' =====")
+                        app.logger.info(f"Encoding map contains {len(encoding_map)} mappings")
+                        
+                        # Make sure encoding map uses integers as keys wherever possible
+                        integer_encoding_map = {}
+                        for k, v in encoding_map.items():
+                            try:
+                                # Force conversion to integer if possible
+                                integer_encoding_map[int(float(k))] = v
+                            except (ValueError, TypeError):
+                                # If conversion fails, keep original key
+                                integer_encoding_map[k] = v
+                        
+                        # Replace original encoding map with integer-keyed version
+                        encoding_map = integer_encoding_map
+                        app.logger.info(f"Converted encoding map to use integer keys: {encoding_map}")
                         
                         # Identify the prediction column - usually named 'prediction'
                         pred_col = None
@@ -716,193 +668,97 @@ def predict():
                             pred_col = df.columns[-1]
                             print(f"No prediction column identified, using last column: '{pred_col}'")
                             
-                        # Apply decoding if we found a prediction column
-                        if pred_col:
-                            print(f"Decoding column: '{pred_col}'")
-                            print(f"Column values before decoding: {df[pred_col].value_counts().to_dict()}")
+                        # Force prediction column to be numeric if possible
+                        try:
+                            numeric_pred_col = f"{pred_col}_numeric"
+                            app.logger.info(f"Converting prediction column to numeric: {df[pred_col].head(5)}")
+                            df[numeric_pred_col] = pd.to_numeric(df[pred_col], errors='coerce')
+                            # Check if conversion worked
+                            null_count = df[numeric_pred_col].isna().sum()
+                            if null_count == 0:
+                                app.logger.info("Successfully converted all predictions to numeric")
+                                # Use the numeric column for decoding
+                                df[pred_col] = df[numeric_pred_col].astype(int)
+                                app.logger.info(f"Converted to integers: {df[pred_col].head(5)}")
+                            else:
+                                app.logger.info(f"Could not convert {null_count} values to numeric")
+                            # Drop the temporary column
+                            df.drop(columns=[numeric_pred_col], inplace=True)
+                        except Exception as e:
+                            app.logger.info(f"Error converting to numeric: {str(e)}")
                             
-                            # Convert encoding map from string keys to the appropriate type if needed
-                            fixed_map = {}
-                            for k, v in encoding_map.items():
-                                # The predictions are likely to be numbers, so try to convert keys
-                                try:
-                                    # First try int, then float if that fails
-                                    try:
-                                        fixed_map[int(k)] = v
-                                    except ValueError:
-                                        fixed_map[float(k)] = v
-                                except ValueError:
-                                    # Keep as string if conversion fails
-                                    fixed_map[k] = v
+                        # Make a copy of the original column
+                        original_col = f"{pred_col}_original"
+                        df[original_col] = df[pred_col].copy()
+                        app.logger.info(f"Saved original values in {original_col}")
+                        
+                        # Map values using the encoding
+                        decoded_col = f"{pred_col}_decoded"
+                        
+                        # First try to convert all predictions to integers for lookup
+                        # Create a mapping function that tries multiple type conversions
+                        def enhanced_map_with_conversion(x, mapping):
+                            # Try different type conversions in sequence
+                            # Original value
+                            if x in mapping:
+                                return mapping[x]
                             
-                            # Also add float versions of integer keys to handle float predictions
-                            int_keys = [k for k in fixed_map.keys() if isinstance(k, int)]
-                            for k in int_keys:
-                                fixed_map[float(k)] = fixed_map[k]
-                                # Also add string representations
-                                fixed_map[str(k)] = fixed_map[k]
-                                fixed_map[str(float(k))] = fixed_map[k]
+                            # Try as string
+                            str_x = str(x)
+                            if str_x in mapping:
+                                return mapping[str_x]
                             
-                            print(f"Enhanced fixed encoding map: {fixed_map}")
+                            # Try as int
+                            try:
+                                int_x = int(float(x))
+                                if int_x in mapping:
+                                    return mapping[int_x]
+                            except (ValueError, TypeError):
+                                pass
                             
-                            # Make a copy of the original column
-                            original_col = f"{pred_col}_original"
-                            df[original_col] = df[pred_col].copy()
-                            
-                            # Map values using the encoding
-                            decoded_col = f"{pred_col}_decoded"
-                            
-                            # First try to convert all predictions to integers for lookup
-                            # Create a mapping function that tries multiple type conversions
-                            def enhanced_map_with_conversion(x, mapping):
-                                # Try different type conversions in sequence
-                                # Original value
-                                if x in mapping:
-                                    return mapping[x]
+                            # Try as float
+                            try:
+                                float_x = float(x)
+                                if float_x in mapping:
+                                    return mapping[float_x]
                                 
-                                # Try as string
-                                str_x = str(x)
-                                if str_x in mapping:
-                                    return mapping[str_x]
-                                
-                                # Try as int
-                                try:
-                                    int_x = int(float(x))
-                                    if int_x in mapping:
-                                        return mapping[int_x]
-                                except (ValueError, TypeError):
-                                    pass
-                                
-                                # Try as float
-                                try:
-                                    float_x = float(x)
-                                    if float_x in mapping:
-                                        return mapping[float_x]
-                                    
-                                    # Try rounding to handle potential floating point issues
-                                    rounded_x = round(float_x)
-                                    if rounded_x in mapping:
-                                        return mapping[rounded_x]
-                                except (ValueError, TypeError):
-                                    pass
-                                
-                                # If nothing worked, return None to indicate failure
-                                return None
+                                # Try rounding to handle potential floating point issues
+                                rounded_x = round(float_x)
+                                if rounded_x in mapping:
+                                    return mapping[rounded_x]
+                            except (ValueError, TypeError):
+                                pass
                             
-                            # Apply enhanced mapping function
-                            df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
+                            # If nothing worked, return None to indicate failure
+                            return None
+                        
+                        # Apply enhanced mapping function
+                        df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, encoding_map))
+                        
+                        # Check if decoding worked
+                        null_count = df[decoded_col].isna().sum()
+                        decoded_count = len(df) - null_count
+                        
+                        if decoded_count > 0:
+                            # At least some values were decoded
+                            success_percentage = (decoded_count / len(df)) * 100
+                            app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
                             
-                            # Check if decoding worked
-                            null_count = df[decoded_col].isna().sum()
-                            if null_count > 0:
-                                print(f"Warning: {null_count} values couldn't be decoded")
-                                print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
-                                print(f"Keys in encoding map: {list(fixed_map.keys())}")
-                                
-                                # Output detailed diagnostic info for debugging
-                                print("============ DETAILED DIAGNOSTICS ============")
-                                print(f"Prediction column dtype: {df[pred_col].dtype}")
-                                
-                                # Sample values that failed to decode
-                                failed_samples = df[df[decoded_col].isna()][pred_col].head(10).tolist()
-                                print(f"Sample values that failed to decode: {failed_samples}")
-                                
-                                # Show exact type and value for each failed sample
-                                for i, val in enumerate(failed_samples):
-                                    print(f"Failed value {i}: {val} (type: {type(val).__name__}, repr: {repr(val)})")
-                                    
-                                    # Try to find this in the encoding map with different transformations
-                                    transforms = [
-                                        ("Original", val),
-                                        ("String", str(val)),
-                                        ("Int", int(float(val)) if isinstance(val, (int, float, str)) and val != '' else None),
-                                        ("Float", float(val) if isinstance(val, (int, float, str)) and val != '' else None),
-                                        ("Rounded", round(float(val)) if isinstance(val, (int, float, str)) and val != '' else None)
-                                    ]
-                                    
-                                    for name, transformed in transforms:
-                                        if transformed is not None:
-                                            present = transformed in fixed_map
-                                            print(f"  {name}: {transformed} (type: {type(transformed).__name__}) -> Present in map: {present}")
-                                
-                                # Show full mapping again for reference
-                                print("Full mapping with key types:")
-                                for k, v in fixed_map.items():
-                                    print(f"  {k} (type: {type(k).__name__}) -> {v}")
-                                    
-                                print("=========== END DIAGNOSTICS ===========")
-                                
-                                # Try converting types if needed
-                                if df[pred_col].dtype != 'object':
-                                    print(f"Converting prediction column from {df[pred_col].dtype} to object type")
-                                    df[pred_col] = df[pred_col].astype('object')
-                                    # Try mapping again
-                                    df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
-                                    null_count = df[decoded_col].isna().sum()
-                                    print(f"After type conversion: {null_count} values couldn't be decoded")
-                            
-                            # If decoding still failed for some values, try matching keys more flexibly
-                            if null_count > 0:
-                                print("Attempting flexible key matching...")
-                                # For each unmatched value, try to find the closest key
-                                for idx, val in df[df[decoded_col].isna()][pred_col].items():
-                                    # Convert val to string for comparison
-                                    str_val = str(val)
-                                    # Look for exact string match
-                                    if str_val in fixed_map:
-                                        df.at[idx, decoded_col] = fixed_map[str_val]
-                                    # Try matching numeric values
-                                    elif isinstance(val, (int, float)):
-                                        for k in fixed_map.keys():
-                                            try:
-                                                if float(k) == float(val):
-                                                    df.at[idx, decoded_col] = fixed_map[k]
-                                                    break
-                                            except (ValueError, TypeError):
-                                                pass
-                                
-                                # Check if there are still unmatched values after flexible matching
-                                null_count = df[decoded_col].isna().sum()
-                                if null_count > 0:
-                                    print(f"Still have {null_count} unmatched values after flexible matching")
-                                    
-                                    # LAST RESORT: Create a mapping based on ordering
-                                    print("Attempting last resort mapping based on ordering...")
-                                    # Get unique prediction values (sorted)
-                                    unique_preds = sorted(df[pred_col].unique())
-                                    # Get unique target values from the encoding map (sorted)
-                                    unique_targets = sorted(set(fixed_map.values()))
-                                    
-                                    print(f"Unique predictions (sorted): {unique_preds}")
-                                    print(f"Unique targets (sorted): {unique_targets}")
-                                    
-                                    # If counts match, we can try position-based mapping
-                                    if len(unique_preds) == len(unique_targets):
-                                        print("Counts match! Creating position-based mapping...")
-                                        position_map = {unique_preds[i]: unique_targets[i] for i in range(len(unique_preds))}
-                                        print(f"Position-based map: {position_map}")
-                                        
-                                        # Apply this mapping to still-null values
-                                        for idx, val in df[df[decoded_col].isna()][pred_col].items():
-                                            if val in position_map:
-                                                df.at[idx, decoded_col] = position_map[val]
-                            
-                            print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
-                            
-                            # Add a message at the top of the CSV indicating decoding was applied
+                            # Add a visibility indicator in the CSV output
                             df_with_message = pd.DataFrame([
-                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP", 
-                                 decoded_col: "Original values preserved in column " + original_col}
+                                {df.columns[0]: f"DECODED USING '{selected_encoding}' MAP - SUCCESS RATE: {success_percentage:.1f}%", 
+                                 decoded_col: f"Original values preserved in column {original_col}"}
                             ])
                             df = pd.concat([df_with_message, df], ignore_index=True)
+                        else:
+                            app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
                             
-                            # Write back to the file
-                            df.to_csv(output_path, index=False)
-                       # else:
-                          #  print("No prediction column found to decode")
-                   # else:
-                       # print("No encoding map found for the selected encoding column")
-                        
+                            # Add a message indicating failure
+                            df_with_message = pd.DataFrame([
+                                {df.columns[0]: f"DECODING FAILED - Couldn't decode values using '{selected_encoding}' map", 
+                                 pred_col: "Please try a different encoding map"}
+                            ])
+                            df = pd.concat([df_with_message, df], ignore_index=True)
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
@@ -951,4 +807,6 @@ def predict():
         print(f"Deleted temporary directory: {temp_dir} (process took {elapsed_time:.2f} seconds)")
 
 if __name__ == '__main__':
+    # Make sure logging is properly initialized
+    logging.info("Starting predictor service")
     app.run(host='0.0.0.0', port=5101)
