@@ -296,6 +296,11 @@ def predict():
                     encoding_files = []
                     print(f"Looking for encoding files to decode predictions using '{selected_encoding}'")
                     
+                    # First get a list of original model files to verify encoding file belongs to this model
+                    model_files = [f for f in os.listdir(temp_dir) if f.endswith('.py') or f.endswith('.json')]
+                    model_file_timestamps = {f: os.path.getmtime(os.path.join(temp_dir, f)) for f in model_files}
+                    print(f"Model files with timestamps: {model_file_timestamps}")
+                    
                     for filename in os.listdir(temp_dir):
                         if (filename == 'encoding_mappings.json' or 
                             filename == 'encoding_mappings' or
@@ -308,7 +313,24 @@ def predict():
                             'target' in filename.lower() or
                             'label' in filename.lower() or
                             'map' in filename.lower()):
-                            encoding_files.append(os.path.join(temp_dir, filename))
+                            
+                            # Check if this file was extracted from the model package and not pre-existing
+                            encoding_file_path = os.path.join(temp_dir, filename)
+                            encoding_file_time = os.path.getmtime(encoding_file_path)
+                            
+                            # Compare with model extraction time - should be close in timestamp
+                            is_valid_file = False
+                            for _, model_time in model_file_timestamps.items():
+                                # Allow for small differences in file modification time
+                                if abs(encoding_file_time - model_time) < 10:  # 10 seconds difference max
+                                    is_valid_file = True
+                                    break
+                            
+                            if is_valid_file:
+                                print(f"Adding valid encoding file: {filename}")
+                                encoding_files.append(encoding_file_path)
+                            else:
+                                print(f"Skipping potentially invalid encoding file: {filename} (timestamp differs from model files)")
                     
                     print(f"Found potential encoding files: {encoding_files}")
                     
@@ -411,7 +433,23 @@ def predict():
                             
                             # Map values using the encoding
                             decoded_col = f"{pred_col}_decoded"
-                            df[decoded_col] = df[pred_col].map(fixed_map)
+                            
+                            # First try to convert all predictions to integers for lookup
+                            # Create a mapping function that first tries to convert to int
+                            def safe_map_with_int_conversion(x, mapping):
+                                try:
+                                    # Try to convert to int first
+                                    int_x = int(float(x))
+                                    if int_x in mapping:
+                                        return mapping[int_x]
+                                    # Fall back to original value
+                                    return mapping.get(x)
+                                except (ValueError, TypeError):
+                                    # If conversion fails, use original value
+                                    return mapping.get(x)
+                            
+                            # Apply mapping with int conversion
+                            df[decoded_col] = df[pred_col].apply(lambda x: safe_map_with_int_conversion(x, fixed_map))
                             
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
@@ -482,6 +520,11 @@ def predict():
                     encoding_files = []
                     print(f"Looking for encoding files to decode predictions in output.csv using '{selected_encoding}'")
                     
+                    # First get a list of original model files to verify encoding file belongs to this model
+                    model_files = [f for f in os.listdir(temp_dir) if f.endswith('.py') or f.endswith('.json')]
+                    model_file_timestamps = {f: os.path.getmtime(os.path.join(temp_dir, f)) for f in model_files}
+                    print(f"Model files with timestamps: {model_file_timestamps}")
+                    
                     for filename in os.listdir(temp_dir):
                         if (filename == 'encoding_mappings.json' or 
                             filename == 'encoding_mappings' or
@@ -494,7 +537,24 @@ def predict():
                             'target' in filename.lower() or
                             'label' in filename.lower() or
                             'map' in filename.lower()):
-                            encoding_files.append(os.path.join(temp_dir, filename))
+                            
+                            # Check if this file was extracted from the model package and not pre-existing
+                            encoding_file_path = os.path.join(temp_dir, filename)
+                            encoding_file_time = os.path.getmtime(encoding_file_path)
+                            
+                            # Compare with model extraction time - should be close in timestamp
+                            is_valid_file = False
+                            for _, model_time in model_file_timestamps.items():
+                                # Allow for small differences in file modification time
+                                if abs(encoding_file_time - model_time) < 10:  # 10 seconds difference max
+                                    is_valid_file = True
+                                    break
+                            
+                            if is_valid_file:
+                                print(f"Adding valid encoding file: {filename}")
+                                encoding_files.append(encoding_file_path)
+                            else:
+                                print(f"Skipping potentially invalid encoding file: {filename} (timestamp differs from model files)")
                     
                     print(f"Found potential encoding files: {encoding_files}")
                     
@@ -593,7 +653,23 @@ def predict():
                             
                             # Map values using the encoding
                             decoded_col = f"{pred_col}_decoded"
-                            df[decoded_col] = df[pred_col].map(fixed_map)
+                            
+                            # First try to convert all predictions to integers for lookup
+                            # Create a mapping function that first tries to convert to int
+                            def safe_map_with_int_conversion(x, mapping):
+                                try:
+                                    # Try to convert to int first
+                                    int_x = int(float(x))
+                                    if int_x in mapping:
+                                        return mapping[int_x]
+                                    # Fall back to original value
+                                    return mapping.get(x)
+                                except (ValueError, TypeError):
+                                    # If conversion fails, use original value
+                                    return mapping.get(x)
+                            
+                            # Apply mapping with int conversion
+                            df[decoded_col] = df[pred_col].apply(lambda x: safe_map_with_int_conversion(x, fixed_map))
                             
                             # Check if decoding worked
                             null_count = df[decoded_col].isna().sum()
