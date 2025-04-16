@@ -489,12 +489,45 @@ def predict():
                                 print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
                                 print(f"Keys in encoding map: {list(fixed_map.keys())}")
                                 
+                                # Output detailed diagnostic info for debugging
+                                print("============ DETAILED DIAGNOSTICS ============")
+                                print(f"Prediction column dtype: {df[pred_col].dtype}")
+                                
+                                # Sample values that failed to decode
+                                failed_samples = df[df[decoded_col].isna()][pred_col].head(10).tolist()
+                                print(f"Sample values that failed to decode: {failed_samples}")
+                                
+                                # Show exact type and value for each failed sample
+                                for i, val in enumerate(failed_samples):
+                                    print(f"Failed value {i}: {val} (type: {type(val).__name__}, repr: {repr(val)})")
+                                    
+                                    # Try to find this in the encoding map with different transformations
+                                    transforms = [
+                                        ("Original", val),
+                                        ("String", str(val)),
+                                        ("Int", int(float(val)) if isinstance(val, (int, float, str)) and val != '' else None),
+                                        ("Float", float(val) if isinstance(val, (int, float, str)) and val != '' else None),
+                                        ("Rounded", round(float(val)) if isinstance(val, (int, float, str)) and val != '' else None)
+                                    ]
+                                    
+                                    for name, transformed in transforms:
+                                        if transformed is not None:
+                                            present = transformed in fixed_map
+                                            print(f"  {name}: {transformed} (type: {type(transformed).__name__}) -> Present in map: {present}")
+                                
+                                # Show full mapping again for reference
+                                print("Full mapping with key types:")
+                                for k, v in fixed_map.items():
+                                    print(f"  {k} (type: {type(k).__name__}) -> {v}")
+                                    
+                                print("=========== END DIAGNOSTICS ===========")
+                                
                                 # Try converting types if needed
                                 if df[pred_col].dtype != 'object':
                                     print(f"Converting prediction column from {df[pred_col].dtype} to object type")
                                     df[pred_col] = df[pred_col].astype('object')
                                     # Try mapping again
-                                    df[decoded_col] = df[pred_col].map(fixed_map)
+                                    df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
                                     null_count = df[decoded_col].isna().sum()
                                     print(f"After type conversion: {null_count} values couldn't be decoded")
                             
@@ -517,6 +550,32 @@ def predict():
                                                     break
                                             except (ValueError, TypeError):
                                                 pass
+                                
+                                # Check if there are still unmatched values after flexible matching
+                                null_count = df[decoded_col].isna().sum()
+                                if null_count > 0:
+                                    print(f"Still have {null_count} unmatched values after flexible matching")
+                                    
+                                    # LAST RESORT: Create a mapping based on ordering
+                                    print("Attempting last resort mapping based on ordering...")
+                                    # Get unique prediction values (sorted)
+                                    unique_preds = sorted(df[pred_col].unique())
+                                    # Get unique target values from the encoding map (sorted)
+                                    unique_targets = sorted(set(fixed_map.values()))
+                                    
+                                    print(f"Unique predictions (sorted): {unique_preds}")
+                                    print(f"Unique targets (sorted): {unique_targets}")
+                                    
+                                    # If counts match, we can try position-based mapping
+                                    if len(unique_preds) == len(unique_targets):
+                                        print("Counts match! Creating position-based mapping...")
+                                        position_map = {unique_preds[i]: unique_targets[i] for i in range(len(unique_preds))}
+                                        print(f"Position-based map: {position_map}")
+                                        
+                                        # Apply this mapping to still-null values
+                                        for idx, val in df[df[decoded_col].isna()][pred_col].items():
+                                            if val in position_map:
+                                                df.at[idx, decoded_col] = position_map[val]
                             
                             print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
                             
@@ -740,12 +799,45 @@ def predict():
                                 print(f"Unique values in prediction column: {df[pred_col].unique().tolist()}")
                                 print(f"Keys in encoding map: {list(fixed_map.keys())}")
                                 
+                                # Output detailed diagnostic info for debugging
+                                print("============ DETAILED DIAGNOSTICS ============")
+                                print(f"Prediction column dtype: {df[pred_col].dtype}")
+                                
+                                # Sample values that failed to decode
+                                failed_samples = df[df[decoded_col].isna()][pred_col].head(10).tolist()
+                                print(f"Sample values that failed to decode: {failed_samples}")
+                                
+                                # Show exact type and value for each failed sample
+                                for i, val in enumerate(failed_samples):
+                                    print(f"Failed value {i}: {val} (type: {type(val).__name__}, repr: {repr(val)})")
+                                    
+                                    # Try to find this in the encoding map with different transformations
+                                    transforms = [
+                                        ("Original", val),
+                                        ("String", str(val)),
+                                        ("Int", int(float(val)) if isinstance(val, (int, float, str)) and val != '' else None),
+                                        ("Float", float(val) if isinstance(val, (int, float, str)) and val != '' else None),
+                                        ("Rounded", round(float(val)) if isinstance(val, (int, float, str)) and val != '' else None)
+                                    ]
+                                    
+                                    for name, transformed in transforms:
+                                        if transformed is not None:
+                                            present = transformed in fixed_map
+                                            print(f"  {name}: {transformed} (type: {type(transformed).__name__}) -> Present in map: {present}")
+                                
+                                # Show full mapping again for reference
+                                print("Full mapping with key types:")
+                                for k, v in fixed_map.items():
+                                    print(f"  {k} (type: {type(k).__name__}) -> {v}")
+                                    
+                                print("=========== END DIAGNOSTICS ===========")
+                                
                                 # Try converting types if needed
                                 if df[pred_col].dtype != 'object':
                                     print(f"Converting prediction column from {df[pred_col].dtype} to object type")
                                     df[pred_col] = df[pred_col].astype('object')
                                     # Try mapping again
-                                    df[decoded_col] = df[pred_col].map(fixed_map)
+                                    df[decoded_col] = df[pred_col].apply(lambda x: enhanced_map_with_conversion(x, fixed_map))
                                     null_count = df[decoded_col].isna().sum()
                                     print(f"After type conversion: {null_count} values couldn't be decoded")
                             
@@ -768,6 +860,32 @@ def predict():
                                                     break
                                             except (ValueError, TypeError):
                                                 pass
+                                
+                                # Check if there are still unmatched values after flexible matching
+                                null_count = df[decoded_col].isna().sum()
+                                if null_count > 0:
+                                    print(f"Still have {null_count} unmatched values after flexible matching")
+                                    
+                                    # LAST RESORT: Create a mapping based on ordering
+                                    print("Attempting last resort mapping based on ordering...")
+                                    # Get unique prediction values (sorted)
+                                    unique_preds = sorted(df[pred_col].unique())
+                                    # Get unique target values from the encoding map (sorted)
+                                    unique_targets = sorted(set(fixed_map.values()))
+                                    
+                                    print(f"Unique predictions (sorted): {unique_preds}")
+                                    print(f"Unique targets (sorted): {unique_targets}")
+                                    
+                                    # If counts match, we can try position-based mapping
+                                    if len(unique_preds) == len(unique_targets):
+                                        print("Counts match! Creating position-based mapping...")
+                                        position_map = {unique_preds[i]: unique_targets[i] for i in range(len(unique_preds))}
+                                        print(f"Position-based map: {position_map}")
+                                        
+                                        # Apply this mapping to still-null values
+                                        for idx, val in df[df[decoded_col].isna()][pred_col].items():
+                                            if val in position_map:
+                                                df.at[idx, decoded_col] = position_map[val]
                             
                             print(f"Column values after decoding: {df[decoded_col].value_counts().to_dict()}")
                             
