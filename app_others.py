@@ -25,6 +25,7 @@ from sklearn.compose import ColumnTransformer
 import subprocess
 import threading
 import sys
+import argparse
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -490,29 +491,36 @@ def find_unique_data_file():
         return data_files[0], f"Found one data file: {data_files[0]}"
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        data_file, message = find_unique_data_file()
-        if data_file is None:
-            print(message)
-            sys.exit(1)
-        else:
-            print(message)
-    else:
-        data_file = sys.argv[1]
-
-    # Check for stdout flag
-    use_stdout = "--stdout" in sys.argv
-
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Make predictions using a trained model')
+    parser.add_argument('input_file', help='Input data file (CSV or Excel)')
+    parser.add_argument('--stdout', action='store_true', help='Output results to stdout instead of file')
+    parser.add_argument('--target_column', help='Specify target column for predictions')
+    args = parser.parse_args()
+    
     try:
-        if data_file.lower().endswith('.csv'):
-            df = pd.read_csv(data_file)
-        elif data_file.lower().endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(data_file)
+        if args.input_file.lower().endswith('.csv'):
+            df = pd.read_csv(args.input_file)
+        elif args.input_file.lower().endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(args.input_file)
         else:
             print("Unsupported file format. Provide a CSV or Excel file.")
             sys.exit(1)
-        logger.info(f"Loaded data from {data_file} with shape {df.shape}")
-        predictor = ModelPredictor()
+        logger.info(f"Loaded data from {args.input_file} with shape {df.shape}")
+        
+        # Initialize the predictor with target column override if specified
+        if args.target_column:
+            logger.info(f"Using user-specified target column: {args.target_column}")
+            predictor = ModelPredictor()
+            # Override target column in preprocessing info if user specified one
+            if predictor.preprocessing_info:
+                predictor.preprocessing_info['target_column'] = args.target_column
+                logger.info(f"Overriding target column with: {args.target_column}")
+        else:
+            predictor = ModelPredictor()
+        
         predictions = predictor.predict(df)
         
         # Create result dataframe
@@ -522,7 +530,7 @@ if __name__ == "__main__":
         if result_df.empty:
             logger.warning("Input dataframe is empty, creating minimal output")
             empty_df = pd.DataFrame({'warning': ['No data to predict']})
-            if use_stdout:
+            if args.stdout:
                 print(empty_df.to_csv(index=False))
                 sys.exit(0)
             else:
@@ -536,7 +544,7 @@ if __name__ == "__main__":
         if not predictions or 'predictions' not in predictions:
             logger.warning("No predictions returned, creating minimal output")
             result_df['prediction'] = "PREDICTION_FAILED"
-            if use_stdout:
+            if args.stdout:
                 print(result_df.to_csv(index=False))
                 sys.exit(0)
             else:
@@ -571,12 +579,13 @@ if __name__ == "__main__":
             
             # Try to decode using the available mappings
             if encoding_mappings:
-                if 'target_column' in predictor.preprocessing_info:
-                    target_col = predictor.preprocessing_info['target_column']
-                    if target_col in encoding_mappings:
-                        inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
-                        prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
-                        logger.info("Successfully decoded predictions to class names")
+                # Use the user-specified target column if provided
+                target_col = args.target_column if args.target_column else predictor.preprocessing_info.get('target_column')
+                
+                if target_col and target_col in encoding_mappings:
+                    inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
+                    prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
+                    logger.info(f"Successfully decoded predictions using mapping for {target_col}")
                 elif len(encoding_mappings) == 1:
                     target_col = list(encoding_mappings.keys())[0]
                     inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
@@ -588,7 +597,7 @@ if __name__ == "__main__":
         result_df['prediction'] = prediction_values
         
         # Output results - either to stdout or to a file
-        if use_stdout:
+        if args.stdout:
             print(result_df.to_csv(index=False))
         else:
             output_file = "output.csv"
@@ -612,7 +621,7 @@ if __name__ == "__main__":
         # Even on error, create output
         try:
             error_df = pd.DataFrame({'error_message': [str(e)]})
-            if use_stdout:
+            if args.stdout:
                 print(error_df.to_csv(index=False))
             else:
                 error_df.to_csv("output.csv", index=False)
@@ -622,7 +631,7 @@ if __name__ == "__main__":
         except Exception as write_error:
             logger.error(f"Failed to create error output: {str(write_error)}")
             # Last resort
-            if use_stdout:
+            if args.stdout:
                 print("error,message")
                 print(f'True,"{str(e).replace('"', '\"')}"')
             else:
