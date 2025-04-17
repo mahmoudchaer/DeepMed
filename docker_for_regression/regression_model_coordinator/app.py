@@ -352,12 +352,15 @@ model_coordinator = RegressionModelCoordinator()
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
-    available_services = model_coordinator._get_available_services()
+    """Health check endpoint with service availability information"""
+    coordinator = RegressionModelCoordinator()
+    available_services = coordinator._get_available_services()
+    
     return jsonify({
-        "status": "healthy", 
+        "status": "healthy",
         "service": "regression_model_coordinator",
-        "model_services": available_services
+        "model_services": available_services,
+        "database_connected": coordinator.db_connection is not None
     })
 
 @app.route('/train', methods=['POST'])
