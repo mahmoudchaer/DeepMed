@@ -14,7 +14,7 @@ import uuid
 from werkzeug.utils import secure_filename
 
 # Import common components from app_api.py
-from app_api import app, DATA_CLEANER_URL, MODEL_COORDINATOR_URL, FEATURE_SELECTOR_URL, ANOMALY_DETECTOR_URL, MEDICAL_ASSISTANT_URL
+from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
 from app_api import is_service_available, get_temp_filepath, safe_requests_post, cleanup_session_files, check_services
 from app_api import allowed_file, load_data, clean_data_for_json, SafeJSONEncoder, logger
 from app_api import save_to_temp_file, load_from_temp_file, check_session_size
@@ -22,17 +22,75 @@ from app_api import save_to_temp_file, load_from_temp_file, check_session_size
 # Import database models
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 
-# Define regression-specific service URLs
-REGRESSION_DATA_CLEANER_URL = os.getenv('REGRESSION_DATA_CLEANER_URL', 'http://regression-data-cleaner:5031')
-REGRESSION_FEATURE_SELECTOR_URL = os.getenv('REGRESSION_FEATURE_SELECTOR_URL', 'http://regression-feature-selector:5032')
-REGRESSION_MODEL_COORDINATOR_URL = os.getenv('REGRESSION_MODEL_COORDINATOR_URL', 'http://regression-model-coordinator:5040')
-REGRESSION_PREDICTOR_SERVICE_URL = os.getenv('REGRESSION_PREDICTOR_SERVICE_URL', 'http://regression-predictor:5050')
+# Define regression-specific service URLs - Do not rely on default values that use localhost
+# Check the environment variables first
+REGRESSION_DATA_CLEANER_URL = os.environ.get('REGRESSION_DATA_CLEANER_URL') 
+if not REGRESSION_DATA_CLEANER_URL:
+    # Use Docker service names as fallback
+    REGRESSION_DATA_CLEANER_URL = 'http://regression-data-cleaner:5031'
+    logger.warning(f"REGRESSION_DATA_CLEANER_URL not found in environment, using default: {REGRESSION_DATA_CLEANER_URL}")
+
+REGRESSION_FEATURE_SELECTOR_URL = os.environ.get('REGRESSION_FEATURE_SELECTOR_URL')
+if not REGRESSION_FEATURE_SELECTOR_URL:
+    REGRESSION_FEATURE_SELECTOR_URL = 'http://regression-feature-selector:5032'
+    logger.warning(f"REGRESSION_FEATURE_SELECTOR_URL not found in environment, using default: {REGRESSION_FEATURE_SELECTOR_URL}")
+
+REGRESSION_MODEL_COORDINATOR_URL = os.environ.get('REGRESSION_MODEL_COORDINATOR_URL')
+if not REGRESSION_MODEL_COORDINATOR_URL:
+    REGRESSION_MODEL_COORDINATOR_URL = 'http://regression-model-coordinator:5040'
+    logger.warning(f"REGRESSION_MODEL_COORDINATOR_URL not found in environment, using default: {REGRESSION_MODEL_COORDINATOR_URL}")
+
+# Fix: Use the correct predictor service name from docker-compose.yml
+REGRESSION_PREDICTOR_SERVICE_URL = os.environ.get('REGRESSION_PREDICTOR_SERVICE_URL')
+if not REGRESSION_PREDICTOR_SERVICE_URL:
+    REGRESSION_PREDICTOR_SERVICE_URL = 'http://regression-predictor-service:5050'
+    logger.warning(f"REGRESSION_PREDICTOR_SERVICE_URL not found in environment, using default: {REGRESSION_PREDICTOR_SERVICE_URL}")
 
 # Log the actual URLs being used
 logger.info(f"Regression Data Cleaner URL: {REGRESSION_DATA_CLEANER_URL}")
 logger.info(f"Regression Feature Selector URL: {REGRESSION_FEATURE_SELECTOR_URL}")
 logger.info(f"Regression Model Coordinator URL: {REGRESSION_MODEL_COORDINATOR_URL}")
 logger.info(f"Regression Predictor Service URL: {REGRESSION_PREDICTOR_SERVICE_URL}")
+
+# Add regression services to the services check
+def check_regression_services():
+    """Check the health of regression-specific services"""
+    status = {}
+    regression_services = {
+        "Regression Data Cleaner": {"url": REGRESSION_DATA_CLEANER_URL, "endpoint": "/health"},
+        "Regression Feature Selector": {"url": REGRESSION_FEATURE_SELECTOR_URL, "endpoint": "/health"},
+        "Regression Model Coordinator": {"url": REGRESSION_MODEL_COORDINATOR_URL, "endpoint": "/health"},
+        "Regression Predictor Service": {"url": REGRESSION_PREDICTOR_SERVICE_URL, "endpoint": "/health"}
+    }
+    
+    for name, service_info in regression_services.items():
+        url = service_info["url"]
+        endpoint = service_info["endpoint"]
+        try:
+            logger.info(f"Checking health of {name} at {url}{endpoint}")
+            response = requests.get(f"{url}{endpoint}", timeout=5)  # Increased timeout
+            if response.status_code == 200:
+                status[name] = "healthy"
+                # Log more details from the response if available
+                try:
+                    response_data = response.json()
+                    logger.info(f"{name} health check response: {response_data}")
+                except:
+                    pass
+            else:
+                status[name] = f"unhealthy - {response.status_code}"
+                logger.error(f"{name} returned status code {response.status_code}")
+                try:
+                    logger.error(f"Response content: {response.text[:200]}")  # Log first 200 chars
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"Error checking {name} health: {str(e)}")
+            status[name] = f"unreachable - {str(e)[:100]}"  # Include more error details
+    
+    # Log the final status of all services
+    logger.info(f"Regression services status: {status}")
+    return status
 
 @app.route('/train_regression', methods=['GET', 'POST'])
 @login_required
@@ -47,13 +105,8 @@ def train_regression():
     
     if not filepath:
         # If accessed directly without upload, show the upload interface
-        # Check services health for status display
-        services_status = check_services()
-        
-        # Add regression-specific services to services status
-        services_status['regression_data_cleaner'] = is_service_available(REGRESSION_DATA_CLEANER_URL)
-        services_status['regression_feature_selector'] = is_service_available(REGRESSION_FEATURE_SELECTOR_URL)
-        services_status['regression_model_coordinator'] = is_service_available(REGRESSION_MODEL_COORDINATOR_URL)
+        # Check regression services health for status display
+        services_status = check_regression_services()
         
         return render_template('train_regression.html', services_status=services_status)
     
@@ -68,26 +121,22 @@ def train_regression():
         session['test_size'] = 0.2
         
         try:
-            # Check if required services are available
-            required_services = {
-                "Regression Data Cleaner": REGRESSION_DATA_CLEANER_URL,
-                "Regression Feature Selector": REGRESSION_FEATURE_SELECTOR_URL,
-                "Regression Model Coordinator": REGRESSION_MODEL_COORDINATOR_URL
-            }
-            
+            # Check if required services are available directly
             logger.info("Checking required regression services before training:")
             unavailable_services = []
             
-            for service_name, service_url in required_services.items():
-                logger.info(f"Checking service: {service_name} at {service_url}")
-                if not is_service_available(service_url):
-                    logger.error(f"Service {service_name} at {service_url} is not available")
+            # Check required services directly using custom health check
+            regression_service_status = check_regression_services()
+            
+            for service_name, status in regression_service_status.items():
+                if status != "healthy":
+                    logger.error(f"Service {service_name} is not available: {status}")
                     unavailable_services.append(service_name)
                 else:
                     logger.info(f"Service {service_name} is available")
             
             if unavailable_services:
-                error_message = f"The following services are not available: {', '.join(unavailable_services)}. Cannot proceed with regression training."
+                error_message = f"The following regression services are not available: {', '.join(unavailable_services)}. Cannot proceed with training."
                 logger.error(error_message)
                 flash(error_message, 'error')
                 return redirect(url_for('train_regression'))
@@ -360,8 +409,16 @@ def train_regression():
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
     ai_recommendations = None
-    if 'ai_recommendations' not in session and 'ai_recommendations_file' not in session and is_service_available(MEDICAL_ASSISTANT_URL):
+    try:
+        # Check if Medical Assistant API is available
+        medical_assistant_available = False
         try:
+            response = requests.get(f"{MEDICAL_ASSISTANT_URL}/health", timeout=2)
+            medical_assistant_available = response.status_code == 200
+        except:
+            medical_assistant_available = False
+            
+        if medical_assistant_available and 'ai_recommendations' not in session and 'ai_recommendations_file' not in session:
             logger.info(f"Sending data to Medical Assistant API for regression analysis")
             
             # Convert to simple Python structure
@@ -386,13 +443,13 @@ def train_regression():
                 logger.info(f"Saved AI recommendations for regression to {recommendations_file}")
             else:
                 logger.warning(f"Medical Assistant API returned an error: {response.text}")
-        except Exception as e:
-            logger.error(f"Error getting AI recommendations for regression: {str(e)}", exc_info=True)
-            # Don't flash this error to avoid confusing the user
-            logger.info("Continuing without AI recommendations for regression")
-    elif 'ai_recommendations_regression_file' in session:
-        # Load from file
-        ai_recommendations = load_from_temp_file(session['ai_recommendations_regression_file'])
+        elif 'ai_recommendations_regression_file' in session:
+            # Load from file
+            ai_recommendations = load_from_temp_file(session['ai_recommendations_regression_file'])
+    except Exception as e:
+        logger.error(f"Error getting AI recommendations for regression: {str(e)}", exc_info=True)
+        # Don't flash this error to avoid confusing the user
+        logger.info("Continuing without AI recommendations for regression")
     
     # Make sure session size is under control
     check_session_size()
@@ -474,11 +531,8 @@ def regression_prediction():
     if 'logout_token' not in session:
         session['logout_token'] = secrets.token_hex(16)
     
-    # Check services health for status display
-    services_status = check_services()
-    
-    # Add regression predictor service to services status
-    services_status['regression_predictor_service'] = is_service_available(REGRESSION_PREDICTOR_SERVICE_URL)
+    # Check regression services health for status display
+    services_status = check_regression_services()
     
     return render_template('regression_prediction.html', services_status=services_status, logout_token=session['logout_token'])
 
