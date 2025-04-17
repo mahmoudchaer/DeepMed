@@ -25,3 +25,7 @@ EXPOSE 5044
 
 # Command to run the service
 CMD ["python", "app.py"] 
+
+
+
+ 
