@@ -26,24 +26,24 @@ from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 # Check the environment variables first
 REGRESSION_DATA_CLEANER_URL = os.environ.get('REGRESSION_DATA_CLEANER_URL') 
 if not REGRESSION_DATA_CLEANER_URL:
-    # Use Docker service names as fallback
-    REGRESSION_DATA_CLEANER_URL = 'http://regression-data-cleaner:5031'
+    # Use localhost with ports - MODIFIED for direct access
+    REGRESSION_DATA_CLEANER_URL = 'http://localhost:5031'
     logger.warning(f"REGRESSION_DATA_CLEANER_URL not found in environment, using default: {REGRESSION_DATA_CLEANER_URL}")
 
 REGRESSION_FEATURE_SELECTOR_URL = os.environ.get('REGRESSION_FEATURE_SELECTOR_URL')
 if not REGRESSION_FEATURE_SELECTOR_URL:
-    REGRESSION_FEATURE_SELECTOR_URL = 'http://regression-feature-selector:5032'
+    REGRESSION_FEATURE_SELECTOR_URL = 'http://localhost:5032'
     logger.warning(f"REGRESSION_FEATURE_SELECTOR_URL not found in environment, using default: {REGRESSION_FEATURE_SELECTOR_URL}")
 
 REGRESSION_MODEL_COORDINATOR_URL = os.environ.get('REGRESSION_MODEL_COORDINATOR_URL')
 if not REGRESSION_MODEL_COORDINATOR_URL:
-    REGRESSION_MODEL_COORDINATOR_URL = 'http://regression-model-coordinator:5040'
+    REGRESSION_MODEL_COORDINATOR_URL = 'http://localhost:5040'
     logger.warning(f"REGRESSION_MODEL_COORDINATOR_URL not found in environment, using default: {REGRESSION_MODEL_COORDINATOR_URL}")
 
 # Fix: Use the correct predictor service name from docker-compose.yml
 REGRESSION_PREDICTOR_SERVICE_URL = os.environ.get('REGRESSION_PREDICTOR_SERVICE_URL')
 if not REGRESSION_PREDICTOR_SERVICE_URL:
-    REGRESSION_PREDICTOR_SERVICE_URL = 'http://regression-predictor-service:5050'
+    REGRESSION_PREDICTOR_SERVICE_URL = 'http://localhost:5050'
     logger.warning(f"REGRESSION_PREDICTOR_SERVICE_URL not found in environment, using default: {REGRESSION_PREDICTOR_SERVICE_URL}")
 
 # Log the actual URLs being used
