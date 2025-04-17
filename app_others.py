@@ -1867,6 +1867,7 @@ def create_requirements_file(temp_dir):
         f.write("alembic==1.13.1\n")
         f.write("prometheus-flask-exporter==0.23.0\n")
         f.write("waitress==2.1.2 \n")
+        f.write("openpyxl \n")
     
     logger.info(f"Created requirements.txt file at {requirements_path}")
     return requirements_path
