@@ -4,8 +4,8 @@ services:
   # Data Cleaner service
   data-cleaner:
     build:
-      context: .
-      dockerfile: Dockerfile.data_cleaner
+      context: ./data_cleaner
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
     environment:
@@ -19,8 +19,8 @@ services:
   # Feature Selector service
   feature-selector:
     build:
-      context: .
-      dockerfile: Dockerfile.feature_selector
+      context: ./feature_selector
+      dockerfile: Dockerfile
     ports:
       - "5002:5002"
     environment:
@@ -45,8 +45,8 @@ services:
   # Model Trainer service (main service for training models)
   model-trainer:
     build:
-      context: .
-      dockerfile: Dockerfile.model_trainer
+      context: ./model_trainer
+      dockerfile: Dockerfile
     ports:
       - "5004:5004"
     volumes:
@@ -59,8 +59,8 @@ services:
   # Medical Assistant service (chatbot and analysis)
   medical-assistant:
     build:
-      context: .
-      dockerfile: Dockerfile.medical_assistant
+      context: ./medical_assistant
+      dockerfile: Dockerfile
     ports:
       - "5005:5005"
     environment:
@@ -73,8 +73,8 @@ services:
   # Model Coordinator (orchestrates model services)
   model_coordinator:
     build:
-      context: ..
-      dockerfile: docker_versions/Dockerfile.model_coordinator
+      context: ./model_coordinator
+      dockerfile: docker_versions/model_coordinator/Dockerfile
     container_name: model_coordinator
     ports:
       - "5020:5020"
@@ -168,8 +168,8 @@ services:
       
   knn:
     build:
-      context: .
-      dockerfile: Dockerfile.knn
+      context: ./knn
+      dockerfile: Dockerfile
     ports:
       - "5014:5014"
     environment:

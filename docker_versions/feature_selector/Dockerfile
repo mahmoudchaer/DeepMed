@@ -3,14 +3,14 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.feature_selector.txt .
-RUN pip install --no-cache-dir -r requirements.feature_selector.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create logs directory
 RUN mkdir -p logs
 
 # Copy application code
-COPY feature_selector_api.py .
+COPY app.py .
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
@@ -20,4 +20,4 @@ ENV PORT=5002
 EXPOSE ${PORT}
 
 # Run the application
-CMD ["python", "feature_selector_api.py"] 
+CMD ["python", "app.py"] 

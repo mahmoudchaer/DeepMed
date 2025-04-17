@@ -3,11 +3,11 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.anomaly_detector.txt .
-RUN pip install --no-cache-dir -r requirements.anomaly_detector.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY anomaly_detector_api.py .
+COPY app.py .
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
@@ -17,4 +17,4 @@ ENV PORT=5003
 EXPOSE ${PORT}
 
 # Run the application
-CMD ["python", "anomaly_detector_api.py"] 
+CMD ["python", "app.py"] 
