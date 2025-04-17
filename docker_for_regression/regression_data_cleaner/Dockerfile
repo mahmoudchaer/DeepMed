@@ -16,6 +16,8 @@ RUN mkdir -p /app/logs
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5031
 
+# Modified to fix JSON serialization issues with NumPy types - rebuild required
+
 # Expose the port
 EXPOSE 5031
 
