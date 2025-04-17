@@ -15,7 +15,6 @@ RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 # Copy application code and required files
 COPY app.py .
 COPY storage.py .
-COPY db/ ./db/
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
