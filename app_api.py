@@ -528,14 +528,11 @@ def check_session_size(max_size=3000000):  # ~3MB limit
         logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
 
 def is_service_available(service_url):
-    """Check if a service is available by making a request to its health endpoint"""
+    """Check if a service is available"""
     try:
-        health_url = f"{service_url}/health"
-        logger.info(f"Checking service availability: {health_url}")
-        response = requests.get(health_url, timeout=5)  # Increased timeout
+        response = requests.get(f"{service_url}/health", timeout=2)
         return response.status_code == 200
-    except Exception as e:
-        logger.error(f"Service {service_url} is not available: {str(e)}")
+    except:
         return False
 
 # Create upload directory if it doesn't exist
@@ -547,13 +544,12 @@ DOWNLOADS_FOLDER = os.path.join('static', 'downloads')
 if not os.path.exists(DOWNLOADS_FOLDER):
     os.makedirs(DOWNLOADS_FOLDER)
 
-# Import modularized application components - MOVED TO THE END to avoid circular imports
-        
-if __name__ == "__main__":
-    # Import application components
+if __name__ == '__main__':
+    # Import application modules
     from app_tabular import *
     from app_images import *
     from app_others import *
+    from app_regression import *
     
     # Ensure the database exists
     with app.app_context():
@@ -566,4 +562,4 @@ if __name__ == "__main__":
     
     # Start the Flask app
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
