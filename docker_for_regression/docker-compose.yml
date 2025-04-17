@@ -176,4 +176,4 @@ networks:
   regression-network:
     driver: bridge
   deepmed-network:
-    external: true 
+    driver: bridge 
