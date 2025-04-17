@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, text
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 from waitress import serve
+import urllib.parse
 
 # Configure logging
 logging.basicConfig(
@@ -37,22 +38,70 @@ XGBOOST_REGRESSION_URL = os.environ.get('XGBOOST_REGRESSION_URL', 'http://localh
 # Database connection settings
 if IS_DOCKER:
     # If running in Docker, use the container names for networking
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
+    MYSQL_HOST = os.environ.get('MYSQL_HOST')
 else:
     # Fallback for local development
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+    MYSQL_HOST = os.environ.get('MYSQL_HOST')
 
 # Other database settings
-MYSQL_USER = os.environ.get('MYSQL_USER', 'deepmed')
-MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'deepmed')
-MYSQL_PORT = os.environ.get('MYSQL_PORT', '3306')
-MYSQL_DB = os.environ.get('MYSQL_DB', 'deepmed')
+MYSQL_USER = os.environ.get('MYSQL_USER')
+MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
+MYSQL_PORT = os.environ.get('MYSQL_PORT')
+MYSQL_DB = os.environ.get('MYSQL_DB')
+
+# Log database configuration (without password)
+if all([MYSQL_USER, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
+    logger.info(f"Database configuration: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
+else:
+    logger.warning("Database environment variables not fully configured. Database operations may not work.")
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 app = Flask(__name__)
+
+# Add a function to configure the database connection
+def configure_db_connection():
+    """Configure the database connection with proper error handling"""
+    # Check if all required environment variables are set
+    if not all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
+        logger.warning("Missing database environment variables. Database operations will not work.")
+        return None
+    
+    try:
+        # URL encode the password to handle special characters
+        encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+        
+        # Create connection string
+        connection_string = f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+        
+        # Create the engine
+        db_engine = create_engine(connection_string)
+        
+        # Test the connection with retries
+        max_retries = 5
+        retry_delay = 5  # seconds
+        
+        for retry in range(max_retries):
+            try:
+                # Test connection with a simple query
+                with db_engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                    
+                logger.info("Database connection established successfully")
+                return db_engine
+            except Exception as e:
+                logger.error(f"Database connection attempt {retry+1}/{max_retries} failed: {str(e)}")
+                if retry < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+        
+        logger.error("Failed to connect to database after maximum retries")
+        return None
+    except Exception as e:
+        logger.error(f"Error configuring database: {str(e)}")
+        return None
 
 class RegressionModelCoordinator:
     def __init__(self):
@@ -66,32 +115,8 @@ class RegressionModelCoordinator:
             'xgboost_regression': XGBOOST_REGRESSION_URL
         }
         
-        # Set up database connection if credentials available
-        self.db_connection = None
-        if all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
-            # Try to connect to the database with retries
-            max_retries = 5
-            retry_delay = 5  # seconds
-            
-            for retry in range(max_retries):
-                try:
-                    connection_string = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-                    logger.info(f"Connecting to database at {MYSQL_HOST}:{MYSQL_PORT} (attempt {retry+1}/{max_retries})")
-                    self.db_connection = create_engine(connection_string)
-                    
-                    # Test the connection
-                    with self.db_connection.connect() as conn:
-                        conn.execute(text("SELECT 1"))
-                    
-                    logger.info("Database connection established")
-                    break
-                except Exception as e:
-                    logger.error(f"Error connecting to database: {str(e)}")
-                    if retry < max_retries - 1:
-                        logger.info(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                    else:
-                        logger.error("Failed to connect to database after maximum retries")
+        # Set up database connection
+        self.db_connection = configure_db_connection()
     
     def _is_service_available(self, url):
         """Check if a service is available"""
@@ -241,19 +266,59 @@ class RegressionModelCoordinator:
         run_uuid = str(uuid.uuid4())
         experiment_name = f"regression_{run_name}" if run_name else f"regression_{run_uuid[:8]}"
         
-        mlflow.set_experiment(experiment_name)
-        
-        with mlflow.start_run(run_name=run_name or f"regression_run_{run_uuid[:8]}") as run:
-            mlflow_run_id = run.info.run_id
-            logger.info(f"Started MLflow run with ID: {mlflow_run_id}")
-            
-            # Log dataset info
-            mlflow.log_param("num_samples", len(X))
-            mlflow.log_param("num_features", len(X.columns))
-            mlflow.log_param("test_size", test_size)
-            
-            # Train models in "parallel" (sequentially for now, but could be parallelized)
+        # Set up MLflow tracking - catch exceptions
+        try:
+            mlflow.set_experiment(experiment_name)
+            with mlflow.start_run(run_name=run_name or f"regression_run_{run_uuid[:8]}") as run:
+                mlflow_run_id = run.info.run_id
+                logger.info(f"Started MLflow run with ID: {mlflow_run_id}")
+                
+                # Log dataset info
+                try:
+                    mlflow.log_param("num_samples", len(X))
+                    mlflow.log_param("num_features", len(X.columns))
+                    mlflow.log_param("test_size", test_size)
+                except Exception as e:
+                    logger.error(f"Error logging parameters to MLflow: {str(e)}")
+                
+                # Train models in "parallel" (sequentially for now, but could be parallelized)
+                results = []
+                for model_name, available in available_services.items():
+                    if available:
+                        start_time = time.time()
+                        model_result = self._train_model(model_name, X_train, y_train, X_test, y_test)
+                        end_time = time.time()
+                        
+                        if model_result:
+                            model_result['training_time'] = end_time - start_time
+                            results.append(model_result)
+                            
+                            # Try to log metrics to MLflow
+                            if 'metrics' in model_result:
+                                try:
+                                    for metric_name, metric_value in model_result['metrics'].items():
+                                        mlflow.log_metric(f"{model_name}_{metric_name}", metric_value)
+                                except Exception as e:
+                                    logger.error(f"Error logging metrics to MLflow: {str(e)}")
+                
+                # Find the best model based on R-squared
+                best_model = None
+                if results:
+                    best_model = max(results, key=lambda x: x.get('r2', 0))
+                    
+                    # Log best model to MLflow
+                    try:
+                        mlflow.log_param("best_model", best_model.get('name'))
+                        mlflow.log_metric("best_r2", best_model.get('r2', 0))
+                        mlflow.log_metric("best_rmse", best_model.get('rmse', 0))
+                    except Exception as e:
+                        logger.error(f"Error logging best model to MLflow: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error with MLflow tracking: {str(e)}")
+            mlflow_run_id = str(uuid.uuid4())  # Use a generated ID as fallback
             results = []
+            
+            # Still train models even if MLflow failed
             for model_name, available in available_services.items():
                 if available:
                     start_time = time.time()
@@ -263,29 +328,22 @@ class RegressionModelCoordinator:
                     if model_result:
                         model_result['training_time'] = end_time - start_time
                         results.append(model_result)
-                        
-                        # Log metrics to MLflow
-                        if 'metrics' in model_result:
-                            for metric_name, metric_value in model_result['metrics'].items():
-                                mlflow.log_metric(f"{model_name}_{metric_name}", metric_value)
             
             # Find the best model based on R-squared
             best_model = None
             if results:
                 best_model = max(results, key=lambda x: x.get('r2', 0))
-                
-                # Log best model to MLflow
-                mlflow.log_param("best_model", best_model.get('name'))
-                mlflow.log_metric("best_r2", best_model.get('r2', 0))
-                mlflow.log_metric("best_rmse", best_model.get('rmse', 0))
-            
-            logger.info(f"Trained {len(results)} regression models")
-            
-            # Save training run info to database
-            saved_best_models = None
-            if self.db_connection and user_id:
+        
+        logger.info(f"Trained {len(results)} regression models")
+        
+        # Save training run info to database if database is available
+        saved_best_models = None
+        db_run_id = run_id
+        
+        if self.db_connection and user_id:
+            try:
                 # If we need to create a new run in the database
-                if not run_id:
+                if not db_run_id:
                     try:
                         # Create the training run
                         query = text("""
@@ -308,67 +366,76 @@ class RegressionModelCoordinator:
                             # Get the last inserted ID
                             last_id_query = text("SELECT LAST_INSERT_ID()")
                             result = conn.execute(last_id_query)
-                            run_id = result.scalar()
+                            db_run_id = result.scalar()
+                            logger.info(f"Created training run with ID {db_run_id}")
                     except Exception as e:
                         logger.error(f"Error creating training run: {str(e)}")
                         logger.error(traceback.format_exc())
                 
-                # Save models to database
-                if run_id:
-                    saved_best_models = self._save_models_to_db(user_id, run_id, {'results': results})
-                    logger.info(f"Saved models to database for run {run_id}: {saved_best_models}")
-            
-            # Generate some sample predictions for visualization
-            predictions = []
-            if best_model and X_test is not None and y_test is not None:
-                try:
-                    # Use a small subset of test data for visualization
-                    vis_size = min(50, len(X_test))
-                    X_vis = X_test.head(vis_size) if hasattr(X_test, 'head') else X_test[:vis_size]
-                    y_vis = y_test.head(vis_size) if hasattr(y_test, 'head') else y_test[:vis_size]
+                # Save models to database if we have a run_id
+                if db_run_id:
+                    saved_best_models = self._save_models_to_db(user_id, db_run_id, {'results': results})
+                    logger.info(f"Saved models to database for run {db_run_id}: {saved_best_models}")
+            except Exception as e:
+                logger.error(f"Database operations failed: {str(e)}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning("Database connection not available or user_id not provided, skipping database operations")
+            # Use a fake run ID for the response
+            if not db_run_id:
+                db_run_id = int(time.time())
+        
+        # Generate some sample predictions for visualization
+        predictions = []
+        if best_model and X_test is not None and y_test is not None:
+            try:
+                # Use a small subset of test data for visualization
+                vis_size = min(50, len(X_test))
+                X_vis = X_test.head(vis_size) if hasattr(X_test, 'head') else X_test[:vis_size]
+                y_vis = y_test.head(vis_size) if hasattr(y_test, 'head') else y_test[:vis_size]
+                
+                # Get predictions from the best model
+                best_model_url = best_model.get('model_url')
+                if best_model_url:
+                    pred_response = requests.post(
+                        f"{best_model_url.split('/saved_models')[0]}/predict",
+                        json={
+                            'X': X_vis.to_dict(orient='list') if isinstance(X_vis, pd.DataFrame) else X_vis
+                        },
+                        timeout=30
+                    )
                     
-                    # Get predictions from the best model
-                    best_model_url = best_model.get('model_url')
-                    if best_model_url:
-                        pred_response = requests.post(
-                            f"{best_model_url.split('/saved_models')[0]}/predict",
-                            json={
-                                'X': X_vis.to_dict(orient='list') if isinstance(X_vis, pd.DataFrame) else X_vis
-                            },
-                            timeout=30
-                        )
+                    if pred_response.status_code == 200:
+                        pred_data = pred_response.json()
+                        y_pred = pred_data.get('predictions', [])
                         
-                        if pred_response.status_code == 200:
-                            pred_data = pred_response.json()
-                            y_pred = pred_data.get('predictions', [])
+                        # Format predictions for visualization
+                        for i in range(len(y_vis)):
+                            actual = y_vis.iloc[i] if hasattr(y_vis, 'iloc') else y_vis[i]
+                            predicted = y_pred[i] if i < len(y_pred) else None
                             
-                            # Format predictions for visualization
-                            for i in range(len(y_vis)):
-                                actual = y_vis.iloc[i] if hasattr(y_vis, 'iloc') else y_vis[i]
-                                predicted = y_pred[i] if i < len(y_pred) else None
-                                
-                                if predicted is not None:
-                                    predictions.append({
-                                        'actual': float(actual),
-                                        'predicted': float(predicted),
-                                        'error': float(actual) - float(predicted)
-                                    })
-                except Exception as e:
-                    logger.error(f"Error generating sample predictions: {str(e)}")
-                    logger.error(traceback.format_exc())
-            
-            # Prepare the final response
-            response = {
-                'run_id': run_id,
-                'mlflow_run_id': mlflow_run_id,
-                'results': results,
-                'best_model': best_model,
-                'available_services': available_services,
-                'predictions': predictions,
-                'saved_best_models': saved_best_models
-            }
-            
-            return response
+                            if predicted is not None:
+                                predictions.append({
+                                    'actual': float(actual),
+                                    'predicted': float(predicted),
+                                    'error': float(actual) - float(predicted)
+                                })
+            except Exception as e:
+                logger.error(f"Error generating sample predictions: {str(e)}")
+                logger.error(traceback.format_exc())
+        
+        # Prepare the final response
+        response = {
+            'run_id': db_run_id,
+            'mlflow_run_id': mlflow_run_id,
+            'results': results,
+            'best_model': best_model,
+            'available_services': available_services,
+            'predictions': predictions,
+            'saved_best_models': saved_best_models
+        }
+        
+        return response
 
 
 # Create a coordinator instance
@@ -377,14 +444,17 @@ model_coordinator = RegressionModelCoordinator()
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint with service availability information"""
-    coordinator = RegressionModelCoordinator()
-    available_services = coordinator._get_available_services()
+    # Get available model services directly without creating a new coordinator
+    available_services = model_coordinator._get_available_services()
+    
+    # Don't attempt database connection during health check to avoid timeouts
+    db_status = "connected" if model_coordinator.db_connection is not None else "disconnected"
     
     return jsonify({
         "status": "healthy",
         "service": "regression_model_coordinator",
         "model_services": available_services,
-        "database_connected": coordinator.db_connection is not None
+        "database_status": db_status
     })
 
 @app.route('/train', methods=['POST'])
@@ -413,11 +483,30 @@ def train():
         logger.info(f"Received training request from user {user_id}")
         logger.info(f"Data contains {len(X)} records with {len(X.columns)} features")
         
+        # Check if MySQL is available before proceeding
+        db_available = False
+        if model_coordinator.db_connection:
+            try:
+                # Test the connection
+                with model_coordinator.db_connection.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                db_available = True
+                logger.info("Database is available for model training")
+            except Exception as e:
+                logger.error(f"Database connection test failed: {str(e)}")
+                logger.warning("Will proceed with training but models won't be saved to database")
+        else:
+            logger.warning("No database connection available, models won't be saved to database")
+        
         # Train models
-        results = model_coordinator.train_models(X, y, test_size, run_id, user_id, run_name)
-        
-        return jsonify(results)
-        
+        try:
+            results = model_coordinator.train_models(X, y, test_size, run_id if db_available else None, user_id if db_available else None, run_name)
+            return jsonify(results)
+        except Exception as e:
+            logger.error(f"Error in model training: {str(e)}")
+            logger.error(traceback.format_exc())
+            return jsonify({"error": f"Training error: {str(e)}"}), 500
+    
     except Exception as e:
         logger.error(f"Error training models: {str(e)}")
         logger.error(traceback.format_exc())

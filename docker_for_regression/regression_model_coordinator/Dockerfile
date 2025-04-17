@@ -19,7 +19,7 @@ ENV PORT=5040
 ENV MLFLOW_TRACKING_URI=file:///app/mlruns
 ENV IS_DOCKER=true
 
-# Modified to fix database connection issues with proper MySQL host and retry logic - rebuild required
+# Modified to use environment variables from docker-compose instead of hardcoding credentials - rebuild required
 
 # Expose the port
 EXPOSE 5040
