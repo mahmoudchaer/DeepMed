@@ -92,6 +92,57 @@ def check_regression_services():
     logger.info(f"Regression services status: {status}")
     return status
 
+@app.route('/upload_regression', methods=['POST'])
+@login_required
+def upload_regression():
+    # Double check authentication - ensure user is logged in
+    if not current_user.is_authenticated:
+        logger.warning("Regression upload attempted without authentication")
+        flash('Please log in to upload files.', 'warning')
+        return redirect(url_for('login'))
+        
+    if 'file' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('train_regression'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('train_regression'))
+    
+    if file and allowed_file(file.filename):
+        # Clean up previous upload if exists
+        if 'uploaded_file_regression' in session and os.path.exists(session['uploaded_file_regression']):
+            try:
+                os.remove(session['uploaded_file_regression'])
+            except:
+                pass
+        
+        # Generate unique filename for temporary storage
+        filepath = get_temp_filepath(file.filename)
+        file.save(filepath)
+        
+        # Load the data to validate it
+        data, result = load_data(filepath)
+        if data is None:
+            # Clean up invalid file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            flash(result, 'error')
+            return redirect(url_for('train_regression'))
+        
+        session['uploaded_file_regression'] = filepath
+        session['file_stats_regression'] = result
+        
+        # Store data columns for later use
+        session['data_columns_regression'] = data.columns.tolist()
+        
+        # Redirect to regression training page
+        return redirect(url_for('train_regression'))
+    
+    flash('Invalid file type. Please upload a CSV or Excel file.', 'error')
+    return redirect(url_for('train_regression'))
+
 @app.route('/train_regression', methods=['GET', 'POST'])
 @login_required
 def train_regression():
@@ -101,7 +152,7 @@ def train_regression():
         flash('Please log in to access the regression training page.', 'info')
         return redirect('/login', code=302)
     
-    filepath = session.get('uploaded_file')
+    filepath = session.get('uploaded_file_regression')
     
     if not filepath:
         # If accessed directly without upload, show the upload interface
@@ -245,7 +296,7 @@ def train_regression():
             
             # Extract original dataset filename from the temporary filepath
             import re
-            temp_filepath = session.get('uploaded_file', '')
+            temp_filepath = session.get('uploaded_file_regression', '')
             # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
             # Extract the original filename portion
             original_filename = ""
@@ -457,7 +508,7 @@ def train_regression():
     return render_template('train_regression.html', 
                           data=data.head().to_html(classes='table table-striped'),
                           columns=data.columns.tolist(),
-                          file_stats=session.get('file_stats'),
+                          file_stats=session.get('file_stats_regression'),
                           ai_recommendations=ai_recommendations)
 
 @app.route('/models_regression')
