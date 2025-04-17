@@ -6,11 +6,11 @@ WORKDIR /app
 RUN mkdir -p /app/logs
 
 # Install dependencies
-COPY requirements.data_cleaner.txt .
-RUN pip install --no-cache-dir -r requirements.data_cleaner.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY data_cleaner_api.py .
+COPY app.py .
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
@@ -21,4 +21,4 @@ ENV PORT=5001
 EXPOSE ${PORT}
 
 # Run the application
-CMD ["python", "data_cleaner_api.py"] 
+CMD ["python", "app.py"] 

@@ -3,11 +3,11 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.model_trainer.txt .
-RUN pip install --no-cache-dir -r requirements.model_trainer.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY model_trainer_api.py .
+COPY app.py .
 
 # Create directory for saved models
 RUN mkdir -p saved_models
@@ -23,4 +23,4 @@ EXPOSE ${PORT}
 VOLUME ["/app/saved_models"]
 
 # Run the application
-CMD ["python", "model_trainer_api.py"] 
+CMD ["python", "app.py"] 
