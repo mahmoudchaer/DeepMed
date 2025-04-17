@@ -30,7 +30,23 @@ if OPENAI_API_KEY:
 else:
     logger.warning("OpenAI API key not found in environment variables")
 
+# Custom JSON Encoder to handle NumPy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        return super(NumpyEncoder, self).default(obj)
+
 app = Flask(__name__)
+
+# Configure Flask app to use the custom encoder
+app.json_encoder = NumpyEncoder
 
 class RegressionDataCleaner:
     def __init__(self):
@@ -181,19 +197,44 @@ class RegressionDataCleaner:
             # Convert sample to string representation
             df_str = df_sample.to_string()
             
-            # Get column information
+            # Get column information with explicit type conversion for NumPy types
             column_info = {}
             for col in df.columns:
-                column_info[col] = {
+                # Convert NumPy types to Python native types
+                missing_count = df[col].isnull().sum()
+                missing_count = int(missing_count) if isinstance(missing_count, np.integer) else missing_count
+                
+                unique_values = df[col].nunique()
+                unique_values = int(unique_values) if isinstance(unique_values, np.integer) else unique_values
+                
+                column_dict = {
                     'dtype': str(df[col].dtype),
-                    'missing': df[col].isnull().sum(),
-                    'unique_values': df[col].nunique(),
-                    'min': df[col].min() if np.issubdtype(df[col].dtype, np.number) else None,
-                    'max': df[col].max() if np.issubdtype(df[col].dtype, np.number) else None,
-                    'mean': df[col].mean() if np.issubdtype(df[col].dtype, np.number) else None,
-                    'median': df[col].median() if np.issubdtype(df[col].dtype, np.number) else None,
-                    'skewness': df[col].skew() if np.issubdtype(df[col].dtype, np.number) else None
+                    'missing': missing_count,
+                    'unique_values': unique_values
                 }
+                
+                # Handle numeric columns
+                if np.issubdtype(df[col].dtype, np.number):
+                    min_val = df[col].min()
+                    max_val = df[col].max()
+                    mean_val = df[col].mean()
+                    median_val = df[col].median()
+                    skew_val = df[col].skew()
+                    
+                    # Convert NumPy types to native Python types
+                    column_dict['min'] = float(min_val) if isinstance(min_val, np.floating) else int(min_val) if isinstance(min_val, np.integer) else min_val
+                    column_dict['max'] = float(max_val) if isinstance(max_val, np.floating) else int(max_val) if isinstance(max_val, np.integer) else max_val
+                    column_dict['mean'] = float(mean_val) if isinstance(mean_val, np.floating) else mean_val
+                    column_dict['median'] = float(median_val) if isinstance(median_val, np.floating) else median_val
+                    column_dict['skewness'] = float(skew_val) if isinstance(skew_val, np.floating) else skew_val
+                else:
+                    column_dict['min'] = None
+                    column_dict['max'] = None
+                    column_dict['mean'] = None
+                    column_dict['median'] = None
+                    column_dict['skewness'] = None
+                
+                column_info[col] = column_dict
             
             # Create prompt for the LLM
             prompt = f"""
@@ -340,9 +381,26 @@ def clean_data():
         # Clean data
         df, encoding_maps, report, llm_suggestions = data_cleaner.clean(data, target_column, options)
         
-        # Prepare response
+        # Convert DataFrame to records with explicit conversion to native Python types
+        df_records = []
+        for record in df.to_dict(orient='records'):
+            clean_record = {}
+            for key, value in record.items():
+                if isinstance(value, np.integer):
+                    clean_record[key] = int(value)
+                elif isinstance(value, np.floating):
+                    clean_record[key] = float(value)
+                elif isinstance(value, np.ndarray):
+                    clean_record[key] = value.tolist()
+                elif isinstance(value, np.bool_):
+                    clean_record[key] = bool(value)
+                else:
+                    clean_record[key] = value
+            df_records.append(clean_record)
+        
+        # Prepare response with explicitly converted data
         response = {
-            "data": json.loads(df.to_json(orient='records')),
+            "data": df_records,
             "encoding_mappings": encoding_maps,
             "report": report,
         }
@@ -355,7 +413,12 @@ def clean_data():
             response["prompt"] = llm_suggestions
             logger.info("Adding new LLM suggestions")
         
-        return jsonify(response)
+        # Convert response to JSON with custom encoder and return
+        return app.response_class(
+            response=json.dumps(response, cls=NumpyEncoder),
+            status=200,
+            mimetype='application/json'
+        )
         
     except Exception as e:
         logger.error(f"Error cleaning data: {str(e)}")
