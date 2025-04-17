@@ -8,12 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-COPY docker_versions/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 
 # Copy application code and required files
-COPY docker_versions/app.py .
+COPY app.py .
 COPY storage.py .
 COPY db/ ./db/
 
