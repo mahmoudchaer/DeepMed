@@ -33,10 +33,6 @@ class SafeJSONEncoder(json.JSONEncoder):
                 return None
         return super().default(obj)
 
-# Safe JSON dump function
-def safe_json_dumps(obj):
-    return json.dumps(obj, cls=SafeJSONEncoder)
-
 # Modified requests post function that handles problematic float values
 def safe_requests_post(url, json_data, **kwargs):
     safe_json = clean_data_for_json(json_data)
