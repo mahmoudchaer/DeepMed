@@ -35,25 +35,18 @@ RANDOM_FOREST_REGRESSION_URL = os.environ.get('RANDOM_FOREST_REGRESSION_URL', 'h
 KNN_REGRESSION_URL = os.environ.get('KNN_REGRESSION_URL', 'http://localhost:5045')
 XGBOOST_REGRESSION_URL = os.environ.get('XGBOOST_REGRESSION_URL', 'http://localhost:5046')
 
-# Database connection settings
-if IS_DOCKER:
-    # If running in Docker, use the container names for networking
-    MYSQL_HOST = os.environ.get('MYSQL_HOST')
-else:
-    # Fallback for local development
-    MYSQL_HOST = os.environ.get('MYSQL_HOST')
-
-# Other database settings
+# Database connection settings - with better defaults for Docker environment
+MYSQL_HOST = os.environ.get('MYSQL_HOST')
 MYSQL_USER = os.environ.get('MYSQL_USER')
 MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
 MYSQL_PORT = os.environ.get('MYSQL_PORT')
 MYSQL_DB = os.environ.get('MYSQL_DB')
 
-# Log database configuration (without password)
+# Debug logging of database configuration (without password)
 if all([MYSQL_USER, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
-    logger.info(f"Database configuration: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
+    logger.info(f"Database configuration from environment: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
 else:
-    logger.warning("Database environment variables not fully configured. Database operations may not work.")
+    logger.warning("Database environment variables not fully configured")
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
@@ -64,44 +57,72 @@ app = Flask(__name__)
 # Add a function to configure the database connection
 def configure_db_connection():
     """Configure the database connection with proper error handling"""
-    # Check if all required environment variables are set
-    if not all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
-        logger.warning("Missing database environment variables. Database operations will not work.")
-        return None
-    
     try:
-        # URL encode the password to handle special characters
-        encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+        # First, attempt to use the URI from environment variables
+        if all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
+            # URL encode the password to handle special characters
+            encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+            
+            # Create connection string
+            connection_string = f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+            logger.info(f"Attempting to connect to database at {MYSQL_HOST}:{MYSQL_PORT}")
+            
+            # Try this connection with retries
+            return try_connection(connection_string)
+            
+        # Second, if Docker, try the common Docker container network names
+        if os.environ.get('IS_DOCKER', 'false').lower() == 'true':
+            docker_hosts = ['mysql', 'db', 'database', 'mariadb']
+            for host in docker_hosts:
+                if MYSQL_USER and MYSQL_PASSWORD and MYSQL_DB and MYSQL_PORT:
+                    try:
+                        # URL encode the password to handle special characters
+                        import urllib.parse
+                        encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+                        
+                        # Create connection string with Docker host
+                        connection_string = f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{host}:{MYSQL_PORT}/{MYSQL_DB}"
+                        logger.info(f"Trying Docker hostname: {host}")
+                        
+                        # Try this connection with quick timeout
+                        engine = create_engine(connection_string, connect_args={'connect_timeout': 3})
+                        with engine.connect() as conn:
+                            conn.execute(text("SELECT 1"))
+                            logger.info(f"Connected to database using Docker hostname: {host}")
+                            return engine
+                    except Exception as e:
+                        logger.warning(f"Could not connect using Docker hostname '{host}': {str(e)}")
         
-        # Create connection string
-        connection_string = f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-        
-        # Create the engine
-        db_engine = create_engine(connection_string)
-        
-        # Test the connection with retries
-        max_retries = 5
-        retry_delay = 5  # seconds
-        
-        for retry in range(max_retries):
-            try:
-                # Test connection with a simple query
-                with db_engine.connect() as conn:
-                    conn.execute(text("SELECT 1"))
-                    
-                logger.info("Database connection established successfully")
-                return db_engine
-            except Exception as e:
-                logger.error(f"Database connection attempt {retry+1}/{max_retries} failed: {str(e)}")
-                if retry < max_retries - 1:
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-        
-        logger.error("Failed to connect to database after maximum retries")
+        # Could not connect with any method
+        logger.error("Could not establish database connection")
         return None
+        
     except Exception as e:
         logger.error(f"Error configuring database: {str(e)}")
         return None
+
+def try_connection(connection_string, max_retries=5, retry_delay=5):
+    """Try to connect to database with retries"""
+    # Create the engine
+    db_engine = create_engine(connection_string)
+    
+    # Test the connection with retries
+    for retry in range(max_retries):
+        try:
+            # Test connection with a simple query
+            with db_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                
+            logger.info("Database connection established successfully")
+            return db_engine
+        except Exception as e:
+            logger.error(f"Database connection attempt {retry+1}/{max_retries} failed: {str(e)}")
+            if retry < max_retries - 1:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+    
+    logger.error("Failed to connect to database after maximum retries")
+    return None
 
 class RegressionModelCoordinator:
     def __init__(self):
