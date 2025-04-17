@@ -21,27 +21,32 @@
     }
     
     #predictionOutput {
-        background-color: #1e1e1e;
+        background-color: #f8f9fa;
+        color: #212529;
         border-radius: 6px;
         padding: 15px;
-        line-height: 1.5;
-        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        line-height: 1.6;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         border-left: 4px solid #007bff;
+        white-space: pre-wrap;
+        word-break: normal;
+        overflow-wrap: break-word;
     }
     
     .output-card {
-        background-color: #252525;
+        background-color: #ffffff;
         border-radius: 8px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 1.5rem;
     }
     
     .output-header {
-        padding: 10px 15px;
-        border-bottom: 1px solid #333;
+        padding: 12px 15px;
+        border-bottom: 1px solid #e9ecef;
         display: flex;
         align-items: center;
+        background-color: #f8f9fa;
     }
     
     .output-header i {
@@ -133,21 +138,21 @@
                             
                             <div class="mb-3 output-card">
                                 <div class="output-header">
-                                    <i class="fas fa-code"></i>
+                                    <i class="fas fa-file-alt"></i>
                                     <h5 class="mb-0">Model Output</h5>
                                 </div>
                                 <div class="output-body">
                                     <ul class="nav nav-tabs result-tabs" id="outputTabs" role="tablist">
                                         <li class="nav-item" role="presentation">
-                                            <button class="nav-link active" id="formatted-tab" data-bs-toggle="tab" data-bs-target="#formatted" type="button" role="tab">Formatted</button>
+                                            <button class="nav-link active" id="plaintext-tab" data-bs-toggle="tab" data-bs-target="#plaintext" type="button" role="tab">Plain Text</button>
                                         </li>
                                         <li class="nav-item" role="presentation">
                                             <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab">Raw</button>
                                         </li>
                                     </ul>
                                     <div class="tab-content" id="outputTabContent">
-                                        <div class="tab-pane fade show active" id="formatted" role="tabpanel">
-                                            <pre id="predictionOutput" class="text-light" style="max-height: 300px; overflow-y: auto;"></pre>
+                                        <div class="tab-pane fade show active" id="plaintext" role="tabpanel">
+                                            <pre id="predictionOutput" class="text-dark" style="max-height: 300px; overflow-y: auto;"></pre>
                                         </div>
                                         <div class="tab-pane fade" id="raw" role="tabpanel">
                                             <pre id="rawOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
@@ -254,31 +259,39 @@
                         json = JSON.parse(json);
                     }
                     
-                    // Format the JSON with highlighting
-                    let formattedOutput = JSON.stringify(json, null, 2)
+                    // Extract text content from the JSON
+                    let textContent = '';
+                    
+                    // If the output key exists, use its value
+                    if (json.output) {
+                        textContent = json.output;
+                    } 
+                    // If there's a message key, use that
+                    else if (json.message) {
+                        textContent = json.message;
+                    }
+                    // Otherwise, try to display the most relevant parts
+                    else {
+                        // Convert the JSON to text, keeping line breaks
+                        for (const [key, value] of Object.entries(json)) {
+                            if (typeof value === 'string') {
+                                textContent += value + '\n';
+                            } else {
+                                textContent += `${value}\n`;
+                            }
+                        }
+                    }
+                    
+                    // Escape HTML to prevent XSS
+                    textContent = textContent
                         .replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
-                            let cls = 'json-number';
-                            if (/^"/.test(match)) {
-                                if (/:$/.test(match)) {
-                                    cls = 'json-key';
-                                } else {
-                                    cls = 'json-string';
-                                }
-                            } else if (/true|false/.test(match)) {
-                                cls = 'json-boolean';
-                            } else if (/null/.test(match)) {
-                                cls = 'json-null';
-                            }
-                            return '<span class="' + cls + '">' + match + '</span>';
-                        });
+                        .replace(/>/g, '&gt;');
                     
-                    return formattedOutput;
+                    return textContent;
                 };
                 
-                // Display both formatted and raw outputs
+                // Display text output instead of formatted JSON
                 predictionOutput.innerHTML = formatJson(data);
                 document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2);
                 
