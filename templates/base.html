@@ -13,6 +13,12 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     {% block head %}{% endblock %}
     <style>
+        /* Force navbar to top of stacking order */
+        .navbar {
+            position: relative;
+            z-index: 9999999 !important;
+        }
+        
         /* Custom Dropdown Styles - Complete Override */
         .nav-item.has-dropdown {
             position: relative;
@@ -31,7 +37,7 @@
             background-color: #212529;
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 5px;
-            z-index: 9999;
+            z-index: 99999999 !important;
             min-width: 220px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             padding: 8px 0;
@@ -41,10 +47,13 @@
             backdrop-filter: blur(5px);
             background-color: rgba(33, 37, 41, 0.98);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            transform: translateZ(9999px);
+            will-change: transform;
+            pointer-events: auto !important;
         }
         
         .nav-item.has-dropdown:hover .custom-dropdown {
-            display: block;
+            display: block !important;
         }
         
         .custom-dropdown a {
@@ -58,6 +67,16 @@
         .custom-dropdown a:hover, 
         .custom-dropdown a.active {
             background-color: #343a40;
+        }
+        
+        /* Ensure dropdowns are above all other content */
+        .nav-item.has-dropdown {
+            position: relative;
+            z-index: 9999999 !important;
+        }
+        
+        .nav-item.has-dropdown:hover {
+            z-index: 9999999 !important;
         }
         
         /* Mobile adjustments */
