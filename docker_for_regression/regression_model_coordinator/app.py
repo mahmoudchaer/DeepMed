@@ -35,9 +35,16 @@ KNN_REGRESSION_URL = os.environ.get('KNN_REGRESSION_URL', 'http://localhost:5045
 XGBOOST_REGRESSION_URL = os.environ.get('XGBOOST_REGRESSION_URL', 'http://localhost:5046')
 
 # Database connection settings
-MYSQL_USER = os.environ.get('MYSQL_USER')
-MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
-MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+if IS_DOCKER:
+    # If running in Docker, use the container names for networking
+    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'mysql')
+else:
+    # Fallback for local development
+    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+
+# Other database settings
+MYSQL_USER = os.environ.get('MYSQL_USER', 'deepmed')
+MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'deepmed')
 MYSQL_PORT = os.environ.get('MYSQL_PORT', '3306')
 MYSQL_DB = os.environ.get('MYSQL_DB', 'deepmed')
 
@@ -62,12 +69,29 @@ class RegressionModelCoordinator:
         # Set up database connection if credentials available
         self.db_connection = None
         if all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
-            try:
-                connection_string = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-                self.db_connection = create_engine(connection_string)
-                logger.info("Database connection established")
-            except Exception as e:
-                logger.error(f"Error connecting to database: {str(e)}")
+            # Try to connect to the database with retries
+            max_retries = 5
+            retry_delay = 5  # seconds
+            
+            for retry in range(max_retries):
+                try:
+                    connection_string = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+                    logger.info(f"Connecting to database at {MYSQL_HOST}:{MYSQL_PORT} (attempt {retry+1}/{max_retries})")
+                    self.db_connection = create_engine(connection_string)
+                    
+                    # Test the connection
+                    with self.db_connection.connect() as conn:
+                        conn.execute(text("SELECT 1"))
+                    
+                    logger.info("Database connection established")
+                    break
+                except Exception as e:
+                    logger.error(f"Error connecting to database: {str(e)}")
+                    if retry < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error("Failed to connect to database after maximum retries")
     
     def _is_service_available(self, url):
         """Check if a service is available"""
