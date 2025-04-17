@@ -16,6 +16,9 @@ RUN mkdir -p /app/logs
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5032
 
+# Modified to fix JSON serialization issues with NumPy types 
+# and removed data scaling (should only be done by the data cleaner) - rebuild required
+
 # Expose the port
 EXPOSE 5032
 
