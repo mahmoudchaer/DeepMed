@@ -30,7 +30,23 @@ if OPENAI_API_KEY:
 else:
     logger.warning("OpenAI API key not found in environment variables")
 
+# Custom JSON Encoder to handle NumPy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        return super(NumpyEncoder, self).default(obj)
+
 app = Flask(__name__)
+
+# Configure Flask app to use the custom encoder
+app.json_encoder = NumpyEncoder
 
 class RegressionFeatureSelector:
     def __init__(self):
@@ -68,13 +84,9 @@ class RegressionFeatureSelector:
         # Make sure y is numeric
         y = pd.to_numeric(y, errors='coerce')
         
-        # Scale features for better performance
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
-        
+        # Apply feature selection without scaling (scaling should be done by the data cleaner)
         selector = SelectKBest(f_regression, k=k)
-        selector.fit(X_scaled, y)
+        selector.fit(X, y)
         
         # Get selected feature indices
         feature_idx = selector.get_support(indices=True)
@@ -93,14 +105,9 @@ class RegressionFeatureSelector:
         # Make sure y is numeric
         y = pd.to_numeric(y, errors='coerce')
         
-        # Scale features for better performance
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-        X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
-        
-        # Fit Lasso model
+        # Apply Lasso without scaling (scaling should be done by the data cleaner)
         lasso = Lasso(alpha=alpha, random_state=42)
-        lasso.fit(X_scaled, y)
+        lasso.fit(X, y)
         
         # Get feature coefficients
         coefficients = lasso.coef_
@@ -257,31 +264,86 @@ class RegressionFeatureSelector:
             logger.error(f"Error getting LLM feature analysis: {str(e)}")
             return f"Error getting LLM feature analysis: {str(e)}"
     
-    def select_features(self, X, y, target_name=None, options=None):
-        """Main method to select features for regression"""
-        logger.info(f"Starting regression feature selection process for {X.shape[1]} features")
+    def select_features(self, data, target, target_name=None, options=None):
+        """
+        Select features for regression.
+
+        Args:
+            data: Input data as DataFrame or convertible to DataFrame
+            target: Target variable as Series or array-like
+            target_name: Name of the target variable
+            options: Dictionary of options for feature selection
+
+        Returns:
+            X_transformed: DataFrame of selected features
+            selected_features: List of selected feature names
+            report: Dictionary with summary of feature selection process
+            feature_importances: Dictionary of feature importances by method
+            llm_analysis: Analysis from LLM if available
+        """
+        # Set default options
+        default_options = {
+            'select_features': True,
+            'methods': ['statistical', 'tree_based', 'lasso'],
+            'num_features': 10,
+            'use_llm': False,
+            'threshold': 0.1,
+            'vif_threshold': 5.0,
+            'remove_multicollinearity': True,
+            'auto_select': True
+        }
         
-        # Convert to DataFrame if it's a list/dict
-        if isinstance(X, list):
-            X = pd.DataFrame(X)
-        elif isinstance(X, dict):
-            X = pd.DataFrame.from_dict(X)
-            
-        # Convert target to Series if it's a list
-        if isinstance(y, list):
-            y = pd.Series(y, name=target_name if target_name else "target")
-            
-        # Set default options if not provided
-        if options is None:
-            options = {
-                'methods': self.methods,
-                'aggressive': True,  # More aggressive feature reduction for regression
-                'threshold': 0.02,   # Higher threshold to be more selective
-                'use_llm': True
-            }
+        # Merge with user options
+        if options:
+            for key, value in options.items():
+                default_options[key] = value
+        
+        options = default_options
+                
+        # Ensure data is DataFrame
+        if not isinstance(data, pd.DataFrame):
+            try:
+                data = pd.DataFrame(data)
+                logger.info(f"Converted data to DataFrame with shape {data.shape}")
+            except Exception as e:
+                logger.error(f"Could not convert data to DataFrame: {str(e)}")
+                raise ValueError("Input data must be a DataFrame or convertible to DataFrame")
+        
+        # Ensure target is Series
+        if not isinstance(target, pd.Series):
+            try:
+                target = pd.Series(target, name=target_name if target_name else "target")
+                logger.info(f"Converted target to Series with length {len(target)}")
+            except Exception as e:
+                logger.error(f"Could not convert target to Series: {str(e)}")
+                raise ValueError("Target must be a Series or convertible to Series")
+        
+        logger.info(f"Starting feature selection process with {data.shape[1]} features")
+        
+        # Capture column names
+        feature_names = data.columns.tolist()
+        target_name = target.name if target.name else target_name if target_name else "target"
+        
+        # Initialize report
+        report = {
+            "initial_features": feature_names,
+            "steps": [],
+            "selected_features": [],
+            "method_scores": {}
+        }
+        
+        # Skip feature selection if requested or if there's only one feature
+        if not options['select_features'] or len(feature_names) <= 1:
+            logger.info(f"Skipping feature selection, returning all {len(feature_names)} features")
+            report["steps"].append({
+                "step": "skip_feature_selection",
+                "message": "Skipping feature selection as requested or only one feature available"
+            })
+            report["selected_features"] = feature_names
+            return data, feature_names, report, {}, None
         
         # Store original feature count
-        original_feature_count = X.shape[1]
+        original_feature_count = data.shape[1]
         
         # Run feature selection methods
         selected_features_dict = {}
@@ -293,15 +355,15 @@ class RegressionFeatureSelector:
         for method in methods:
             try:
                 if method == 'mutual_info':
-                    selected_X, importance = self._mutual_info_selection(X, y)
+                    selected_X, importance = self._mutual_info_selection(data, target)
                 elif method == 'f_regression':
-                    selected_X, importance = self._f_regression_selection(X, y)
+                    selected_X, importance = self._f_regression_selection(data, target)
                 elif method == 'lasso':
-                    selected_X, importance = self._lasso_selection(X, y)
+                    selected_X, importance = self._lasso_selection(data, target)
                 elif method == 'random_forest':
-                    selected_X, importance = self._random_forest_selection(X, y)
+                    selected_X, importance = self._random_forest_selection(data, target)
                 elif method == 'rfe':
-                    selected_X, importance = self._rfe_selection(X, y)
+                    selected_X, importance = self._rfe_selection(data, target)
                 else:
                     logger.warning(f"Unknown method: {method}, skipping")
                     continue
@@ -357,10 +419,10 @@ class RegressionFeatureSelector:
             aggregate_importance = self._aggregate_feature_importances(importances_dict.values())
             
             # Keep only final selected features in X
-            X_selected = X[final_selected_features]
+            X_selected = data[final_selected_features]
             
             llm_analysis = self._llm_feature_analysis(
-                X_selected, y, target_name, aggregate_importance, final_selected_features
+                X_selected, target, target_name, aggregate_importance, final_selected_features
             )
         
         # Create selection report
@@ -372,7 +434,7 @@ class RegressionFeatureSelector:
         }
         
         # Filter data to only include selected features
-        X_transformed = X[final_selected_features]
+        X_transformed = data[final_selected_features]
         
         # Return the selected feature data and metadata
         return X_transformed, final_selected_features, selection_report, importances_dict, llm_analysis
@@ -391,46 +453,93 @@ def health():
 
 @app.route('/select_features', methods=['POST'])
 def select_features():
-    """Feature selection endpoint"""
+    """
+    API endpoint to select features for regression model
+    
+    Required JSON format:
+    {
+        "data": [...], # list of records or dict
+        "target": [...], # list of target values
+        "target_name": "target_column_name", # optional
+        "options": {...} # optional configuration
+    }
+    """
     try:
-        # Get request data
-        request_data = request.json
+        # Get JSON data
+        request_data = request.get_json(force=True)
         
-        if not request_data or 'data' not in request_data or 'target' not in request_data:
-            return jsonify({"error": "Missing required data fields"}), 400
+        # Log request info
+        logger.info(f"Received feature selection request with options: {request_data.get('options', {})}")
         
-        # Extract data, target, and options
+        # Check if required fields are present
+        if 'data' not in request_data or 'target' not in request_data:
+            return jsonify({"error": "Missing required fields: data and target"}), 400
+            
+        # Extract fields
         data = request_data['data']
         target = request_data['target']
         target_name = request_data.get('target_name')
-        options = request_data.get('options')
+        options = request_data.get('options', {})
         
-        # Log basic info
-        logger.info(f"Received feature selection request")
-        logger.info(f"Data contains {len(data)} records with {len(data[0]) if data else 0} features")
+        # Check data format and size
+        logger.info(f"Data type: {type(data).__name__}")
+        if isinstance(data, list):
+            logger.info(f"Data contains {len(data)} records with {len(data[0]) if data and data[0] else 0} features")
+        elif isinstance(data, dict):
+            logger.info(f"Data contains {len(next(iter(data.values()))) if data else 0} records")
+        
+        # Convert data to DataFrame if not already
+        try:
+            if not isinstance(data, pd.DataFrame):
+                data_df = pd.DataFrame(data)
+                logger.info(f"Converted data to DataFrame with shape {data_df.shape}")
+            else:
+                data_df = data
+        except Exception as e:
+            logger.error(f"Error converting data to DataFrame: {str(e)}")
+            return jsonify({"error": f"Could not process data: {str(e)}"}), 400
+        
+        # Convert target to Series if not already
+        try:
+            if not isinstance(target, pd.Series):
+                target_series = pd.Series(target, name=target_name if target_name else "target")
+                logger.info(f"Converted target to Series with length {len(target_series)}")
+            else:
+                target_series = target
+        except Exception as e:
+            logger.error(f"Error converting target to Series: {str(e)}")
+            return jsonify({"error": f"Could not process target: {str(e)}"}), 400
         
         # Run feature selection
         X_transformed, selected_features, report, feature_importances, llm_analysis = feature_selector.select_features(
-            data, target, target_name, options
+            data_df, target_series, target_name, options
         )
         
+        # Convert DataFrame to dict for JSON serialization
+        transformed_data = X_transformed.to_dict(orient='records')
+        
+        # Ensure feature importances are JSON serializable
+        for method, importances in feature_importances.items():
+            if isinstance(importances, pd.Series):
+                feature_importances[method] = importances.to_dict()
+            elif isinstance(importances, np.ndarray):
+                feature_importances[method] = importances.tolist()
+            
         # Prepare response
         response = {
-            "transformed_data": json.loads(X_transformed.to_json(orient='records')),
+            "transformed_data": transformed_data,
             "selected_features": selected_features,
             "report": report,
-            "feature_importances": {k: v for k, v in feature_importances.items() if k in selected_features} 
-                                  if isinstance(feature_importances, dict) else feature_importances
+            "feature_importances": feature_importances
         }
         
-        # Add LLM analysis if available
         if llm_analysis:
             response["llm_analysis"] = llm_analysis
             
-        return jsonify(response)
+        return json.dumps(response, cls=NumpyEncoder), 200, {'Content-Type': 'application/json'}
         
     except Exception as e:
-        logger.error(f"Error selecting features: {str(e)}")
+        logger.error(f"Error in feature selection: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
