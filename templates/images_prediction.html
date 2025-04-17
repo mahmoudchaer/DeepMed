@@ -142,22 +142,7 @@
                                     <h5 class="mb-0">Model Output</h5>
                                 </div>
                                 <div class="output-body">
-                                    <ul class="nav nav-tabs result-tabs" id="outputTabs" role="tablist">
-                                        <li class="nav-item" role="presentation">
-                                            <button class="nav-link active" id="plaintext-tab" data-bs-toggle="tab" data-bs-target="#plaintext" type="button" role="tab">Plain Text</button>
-                                        </li>
-                                        <li class="nav-item" role="presentation">
-                                            <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab">Raw</button>
-                                        </li>
-                                    </ul>
-                                    <div class="tab-content" id="outputTabContent">
-                                        <div class="tab-pane fade show active" id="plaintext" role="tabpanel">
-                                            <pre id="predictionOutput" class="text-dark" style="max-height: 300px; overflow-y: auto;"></pre>
-                                        </div>
-                                        <div class="tab-pane fade" id="raw" role="tabpanel">
-                                            <pre id="rawOutput" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"></pre>
-                                        </div>
-                                    </div>
+                                    <pre id="predictionOutput" class="text-dark" style="max-height: 300px; overflow-y: auto;"></pre>
                                 </div>
                             </div>
                             
@@ -282,6 +267,13 @@
                         }
                     }
                     
+                    // Filter out specific lines we don't want to show
+                    let filteredLines = textContent.split('\n').filter(line => 
+                        !line.includes('Loaded 5 class names from class_names.txt')
+                    );
+                    
+                    textContent = filteredLines.join('\n');
+                    
                     // Escape HTML to prevent XSS
                     textContent = textContent
                         .replace(/&/g, '&amp;')
@@ -291,9 +283,8 @@
                     return textContent;
                 };
                 
-                // Display text output instead of formatted JSON
+                // Display text output
                 predictionOutput.innerHTML = formatJson(data);
-                document.getElementById('rawOutput').textContent = JSON.stringify(data, null, 2);
                 
                 // Display input image
                 const inputFile = document.getElementById('inputFile').files[0];
