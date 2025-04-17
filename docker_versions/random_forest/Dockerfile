@@ -2,10 +2,10 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY requirements.model_trainer.txt .
-RUN pip install --no-cache-dir -r requirements.model_trainer.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY random_forest_api.py .
+COPY app.py .
 
 # Create directories for models and MLflow
 RUN mkdir -p saved_models/random_forest mlruns
@@ -18,4 +18,4 @@ ENV PORT=5012
 
 EXPOSE 5012
 
-CMD ["python", "random_forest_api.py"] 
+CMD ["python", "app.py"] 

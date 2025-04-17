@@ -108,8 +108,8 @@ services:
   # Individual model services
   logistic_regression:
     build:
-      context: .
-      dockerfile: Dockerfile.logistic_regression
+      context: ./logistic_regression
+      dockerfile: Dockerfile
     ports:
       - "5010:5010"
     environment:
@@ -123,8 +123,8 @@ services:
 
   decision_tree:
     build:
-      context: .
-      dockerfile: Dockerfile.decision_tree
+      context: ./decision_tree
+      dockerfile: Dockerfile
     ports:
       - "5011:5011"
     environment:
@@ -138,8 +138,8 @@ services:
 
   random_forest:
     build:
-      context: .
-      dockerfile: Dockerfile.random_forest
+      context: ./random_forest
+      dockerfile: Dockerfile
     ports:
       - "5012:5012"
     environment:
@@ -183,8 +183,8 @@ services:
       
   naive_bayes:
     build:
-      context: .
-      dockerfile: Dockerfile.naive_bayes
+      context: ./naive_bayes
+      dockerfile: Dockerfile
     ports:
       - "5015:5015"
     environment:
