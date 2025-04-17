@@ -209,6 +209,19 @@ def train_regression():
             logger.info(f"Sending data to Regression Data Cleaner API")
             # Convert data to records - just a plain dictionary
             data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
+
+            # Additional step to convert NumPy data types to Python native types
+            for record in data_records:
+                for key, value in record.items():
+                    if isinstance(value, np.integer):
+                        record[key] = int(value)
+                    elif isinstance(value, np.floating):
+                        record[key] = float(value)
+                    elif isinstance(value, np.ndarray):
+                        record[key] = value.tolist()
+                    elif isinstance(value, np.bool_):
+                        record[key] = bool(value)
+
             # Use our safe request method
             response = safe_requests_post(
                 f"{REGRESSION_DATA_CLEANER_URL}/clean",
@@ -248,6 +261,24 @@ def train_regression():
             X_records = X.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X), None).to_dict(orient='records')
             y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
             
+            # Additional step to convert NumPy data types to Python native types for X_records
+            for record in X_records:
+                for key, value in record.items():
+                    if isinstance(value, np.integer):
+                        record[key] = int(value)
+                    elif isinstance(value, np.floating):
+                        record[key] = float(value)
+                    elif isinstance(value, np.ndarray):
+                        record[key] = value.tolist()
+                    elif isinstance(value, np.bool_):
+                        record[key] = bool(value)
+
+            # Convert NumPy data types in y_list
+            y_list = [int(y) if isinstance(y, np.integer) else 
+                      float(y) if isinstance(y, np.floating) else 
+                      bool(y) if isinstance(y, np.bool_) else y 
+                      for y in y_list]
+
             # Use our safe request method
             response = safe_requests_post(
                 f"{REGRESSION_FEATURE_SELECTOR_URL}/select_features",
@@ -406,6 +437,19 @@ def train_regression():
             # Prepare data for model coordinator
             X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
             y_data = y.tolist()
+
+            # Convert NumPy types in X_data
+            for feature, values in X_data.items():
+                X_data[feature] = [int(v) if isinstance(v, np.integer) else 
+                                  float(v) if isinstance(v, np.floating) else 
+                                  bool(v) if isinstance(v, np.bool_) else v 
+                                  for v in values]
+
+            # Convert NumPy types in y_data
+            y_data = [int(y) if isinstance(y, np.integer) else 
+                      float(y) if isinstance(y, np.floating) else 
+                      bool(y) if isinstance(y, np.bool_) else y 
+                      for y in y_data]
 
             # Use our safe request method
             response = safe_requests_post(
