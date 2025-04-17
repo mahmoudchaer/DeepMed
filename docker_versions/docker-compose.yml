@@ -153,8 +153,8 @@ services:
 
   svm:
     build:
-      context: .
-      dockerfile: Dockerfile.svm
+      context: ./svm
+      dockerfile: Dockerfile
     ports:
       - "5013:5013"
     environment:
