@@ -1855,10 +1855,18 @@ def create_requirements_file(temp_dir):
     """Create a requirements.txt file with necessary dependencies for the model package."""
     requirements_path = os.path.join(temp_dir, 'requirements.txt')
     with open(requirements_path, 'w') as f:
-        f.write("pandas>=1.3.0\n")
-        f.write("numpy>=1.20.0\n")
-        f.write("scikit-learn>=1.0.0\n")
-        f.write("joblib>=1.0.0\n")
+        f.write("numpy==1.24.3\n")
+        f.write("scikit-learn==1.3.0\n")
+        f.write("imbalanced-learn==0.11.0\n")
+        f.write("joblib==1.3.2\n")
+        f.write("python-dotenv==1.0.0\n")
+        f.write("mlflow==2.9.2\n")
+        f.write("psutil==5.9.8\n")
+        f.write("cloudpickle==3.0.0\n")
+        f.write("sqlalchemy==2.0.25\n")
+        f.write("alembic==1.13.1\n")
+        f.write("prometheus-flask-exporter==0.23.0\n")
+        f.write("waitress==2.1.2 \n")
     
     logger.info(f"Created requirements.txt file at {requirements_path}")
     return requirements_path

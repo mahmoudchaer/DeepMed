@@ -282,41 +282,14 @@ def predict():
         req_file = os.path.join(temp_dir, "requirements.txt")
         if os.path.exists(req_file):
             print(f"Installing requirements from {req_file}")
-            
-            # IMPORTANT: Make sure we're using consistent versions
-            # Read the model's requirements file
-            with open(req_file, 'r') as f:
-                model_reqs = f.read()
-            
-            # Create a merged requirements file with exact versions from Docker image
-            docker_req_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
-            merged_req_file = os.path.join(temp_dir, "merged_requirements.txt")
-            
-            if os.path.exists(docker_req_file):
-                # Copy Docker requirements file to ensure consistent versions
-                shutil.copy(docker_req_file, merged_req_file)
-                print(f"Using Docker image requirements to ensure version consistency")
-                req_file_to_use = merged_req_file
-            else:
-                # Fallback to model requirements file
-                print(f"Docker requirements file not found, using model requirements")
-                req_file_to_use = req_file
-            
-            # Install requirements
-            pip_install = subprocess.run([pip_path, "install", "-r", req_file_to_use],
+            pip_install = subprocess.run([pip_path, "install", "-r", req_file],
                                         capture_output=True, text=True)
             if pip_install.returncode != 0:
                 print(f"pip install failed: {pip_install.stderr}")
                 return jsonify({"error": f"pip install failed: {pip_install.stderr}"}), 500
-            
-            # Ensure core scikit-learn version matches to prevent errors
-            sklearn_version = "1.3.0"  # Specify the exact version used in training
-            print(f"Ensuring scikit-learn=={sklearn_version} is installed")
-            sklearn_install = subprocess.run([pip_path, "install", f"scikit-learn=={sklearn_version}"],
-                                          capture_output=True, text=True)
         else:
             print("No requirements.txt file found, installing default packages")
-            subprocess.run([pip_path, "install", "pandas", "numpy", "scikit-learn==1.3.0", "joblib"], 
+            subprocess.run([pip_path, "install", "pandas", "numpy", "scikit-learn", "joblib"], 
                           capture_output=True, text=True)
 
         # Run the predict.py script from the package
