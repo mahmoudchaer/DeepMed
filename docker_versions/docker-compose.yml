@@ -74,7 +74,7 @@ services:
   model_coordinator:
     build:
       context: ./model_coordinator
-      dockerfile: docker_versions/model_coordinator/Dockerfile
+      dockerfile: model_coordinator/Dockerfile
     container_name: model_coordinator
     ports:
       - "5020:5020"
