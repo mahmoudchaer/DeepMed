@@ -23,9 +23,16 @@ from app_api import save_to_temp_file, load_from_temp_file, check_session_size
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 
 # Define regression-specific service URLs
-REGRESSION_DATA_CLEANER_URL = os.getenv('REGRESSION_DATA_CLEANER_URL', 'http://localhost:5031')
-REGRESSION_FEATURE_SELECTOR_URL = os.getenv('REGRESSION_FEATURE_SELECTOR_URL', 'http://localhost:5032')
-REGRESSION_MODEL_COORDINATOR_URL = os.getenv('REGRESSION_MODEL_COORDINATOR_URL', 'http://localhost:5040')
+REGRESSION_DATA_CLEANER_URL = os.getenv('REGRESSION_DATA_CLEANER_URL', 'http://regression-data-cleaner:5031')
+REGRESSION_FEATURE_SELECTOR_URL = os.getenv('REGRESSION_FEATURE_SELECTOR_URL', 'http://regression-feature-selector:5032')
+REGRESSION_MODEL_COORDINATOR_URL = os.getenv('REGRESSION_MODEL_COORDINATOR_URL', 'http://regression-model-coordinator:5040')
+REGRESSION_PREDICTOR_SERVICE_URL = os.getenv('REGRESSION_PREDICTOR_SERVICE_URL', 'http://regression-predictor:5050')
+
+# Log the actual URLs being used
+logger.info(f"Regression Data Cleaner URL: {REGRESSION_DATA_CLEANER_URL}")
+logger.info(f"Regression Feature Selector URL: {REGRESSION_FEATURE_SELECTOR_URL}")
+logger.info(f"Regression Model Coordinator URL: {REGRESSION_MODEL_COORDINATOR_URL}")
+logger.info(f"Regression Predictor Service URL: {REGRESSION_PREDICTOR_SERVICE_URL}")
 
 @app.route('/train_regression', methods=['GET', 'POST'])
 @login_required
@@ -471,8 +478,7 @@ def regression_prediction():
     services_status = check_services()
     
     # Add regression predictor service to services status
-    regression_predictor_service_url = os.environ.get('REGRESSION_PREDICTOR_SERVICE_URL', 'http://localhost:5050')
-    services_status['regression_predictor_service'] = is_service_available(regression_predictor_service_url)
+    services_status['regression_predictor_service'] = is_service_available(REGRESSION_PREDICTOR_SERVICE_URL)
     
     return render_template('regression_prediction.html', services_status=services_status, logout_token=session['logout_token'])
 
@@ -551,11 +557,9 @@ def api_predict_regression():
         # Convert to records for API
         X_records = clean_data_for_json(X)
         
-        # Call the regression predictor service
-        regression_predictor_service_url = os.environ.get('REGRESSION_PREDICTOR_SERVICE_URL', 'http://localhost:5050')
-        
+        # Call the regression predictor service - Use the URL defined at the top
         prediction_response = safe_requests_post(
-            f"{regression_predictor_service_url}/predict",
+            f"{REGRESSION_PREDICTOR_SERVICE_URL}/predict",
             {
                 "data": X_records,
                 "model_url": model.url
