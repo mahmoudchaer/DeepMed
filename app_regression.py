@@ -574,7 +574,7 @@ def models_regression():
             # Get models for these runs that have regression model types
             regression_models = db.session.query(TrainingModel).filter(
                 TrainingModel.user_id == user_id,
-                TrainingModel.name.in_(regression_model_types)
+                TrainingModel.model_name.in_(regression_model_types)
             ).order_by(TrainingModel.run_id.desc(), TrainingModel.created_at.desc()).all()
             
             # Group models by run
@@ -670,7 +670,7 @@ def api_predict_regression():
             # Check if it's a regression model
             regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
                                       'random_forest_regression', 'knn_regression', 'xgboost_regression']
-            if model.name not in regression_model_types:
+            if model.model_name not in regression_model_types:
                 return jsonify({'error': 'Selected model is not a regression model'}), 400
                 
             # Get preprocessing data for this run to get selected features
@@ -735,7 +735,7 @@ def api_predict_regression():
             'success': True,
             'predictions': predictions,
             'full_results': result_records,
-            'model_name': model.name,
+            'model_name': model.model_name,
             'file_stats': file_stats
         })
         
