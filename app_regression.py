@@ -21,4 +21,16 @@ logger = logging.getLogger(__name__)
 @login_required
 def train_regression():
     """Route for training regression models"""
-    return render_template('train_regression.html') 
+    return render_template('train_regression.html')
+
+@app.route('/models_regression')
+@login_required
+def models_regression():
+    """Route for managing regression models"""
+    return render_template('models_regression.html')
+
+@app.route('/regression_prediction')
+@login_required
+def regression_prediction():
+    """Route for making predictions with regression models"""
+    return render_template('regression_prediction.html') 
