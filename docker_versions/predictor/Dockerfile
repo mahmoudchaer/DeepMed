@@ -1,5 +1,5 @@
 # Use an official slim Python image
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 # Install system dependencies; unzip is needed to extract the ZIP archive.
 RUN apt-get update && apt-get install -y --no-install-recommends unzip && \
