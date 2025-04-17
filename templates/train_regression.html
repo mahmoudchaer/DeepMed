@@ -3,15 +3,118 @@
 {% block title %}Train Regression Model - DeepMed{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="gradient-text mb-4">Train Regression Model</h1>
-        <p class="lead">Create and train machine learning regression models for your medical data.</p>
-        
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i> 
-            This feature is currently under development. More functionality will be added soon.
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="gradient-text mb-4">Train Regression Model</h1>
+            <p class="lead">Create and train machine learning regression models for your medical data.</p>
+            
+            {% if not data %}
+            <div class="card bg-dark border-secondary my-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Upload Your Dataset</h5>
+                    <div class="row">
+                        <div class="col-md-7">
+                            <p>Upload a CSV or Excel file containing your regression data.</p>
+                            
+                            <div class="d-flex justify-content-between align-items-top mb-3">
+                                <div>
+                                    <h6 class="mb-2">Service Status:</h6>
+                                    <div class="d-flex flex-column">
+                                        {% for service, status in services_status.items() %}
+                                            <div class="service-status-card mb-1">
+                                                <span class="service-name">{{ service.replace('_', ' ').title() }}</span>
+                                                <span class="status-indicator {% if status %}status-healthy{% else %}status-unhealthy{% endif %}">
+                                                    {% if status %}Available{% else %}Unavailable{% endif %}
+                                                </span>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-5">
+                            <div class="custom-file-upload text-center">
+                                <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                                        <div class="input-group">
+                                            <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Upload Dataset</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Dataset Preview</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Rows:</strong> {{ file_stats.rows }}</p>
+                            <p><strong>Columns:</strong> {{ file_stats.columns }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Memory usage:</strong> {{ file_stats.memory_usage }}</p>
+                            <p><strong>Upload time:</strong> {{ file_stats.upload_time }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        {{ data|safe }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Target Selection</h5>
+                    <p>Select the target column for your regression model. This is the value you want to predict.</p>
+                    
+                    <form action="{{ url_for('train_regression') }}" method="post">
+                        <div class="mb-3">
+                            <label for="target_column" class="form-label">Target Column:</label>
+                            <select class="form-select" id="target_column" name="target_column" required>
+                                <option value="">-- Select target column --</option>
+                                {% for column in columns %}
+                                <option value="{{ column }}">{{ column }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Start Regression Training</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- AI Recommendations -->
+            {% if ai_recommendations %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">AI Recommendations</h5>
+                    <div class="medical-border p-3">
+                        <p>{{ ai_recommendations }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add any JavaScript needed for the training page
+});
+</script>
 {% endblock %} 

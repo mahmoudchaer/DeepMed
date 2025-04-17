@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Regression Results - DeepMed{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="gradient-text mb-4">Regression Model Results</h1>
+            <p class="lead">Results of your regression model training run.</p>
+            
+            <!-- Run Information -->
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Run Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Run ID:</strong> {{ run_id }}</p>
+                            <p><strong>Training Time:</strong> {{ training_info.training_time }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Target Column:</strong> {{ training_info.target_column }}</p>
+                            <p><strong>Dataset Size:</strong> {{ training_info.dataset_size }} records</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Model Performance -->
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Model Performance</h5>
+                    
+                    <div class="table-responsive mb-4">
+                        <table class="table table-dark table-hover table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>R²</th>
+                                    <th>RMSE</th>
+                                    <th>MAE</th>
+                                    <th>MSE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in model_results %}
+                                <tr {% if model.is_best %}class="table-success"{% endif %}>
+                                    <td>{{ model.name }}</td>
+                                    <td>{{ model.r2|round(4) }}</td>
+                                    <td>{{ model.rmse|round(4) }}</td>
+                                    <td>{{ model.mae|round(4) }}</td>
+                                    <td>{{ model.mse|round(4) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Best Model Details -->
+                    {% if best_model %}
+                    <div class="card bg-dark border-secondary mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Best Model: {{ best_model.name }}</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>R²:</strong> {{ best_model.r2|round(4) }}</p>
+                                    <p><strong>RMSE:</strong> {{ best_model.rmse|round(4) }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>MAE:</strong> {{ best_model.mae|round(4) }}</p>
+                                    <p><strong>MSE:</strong> {{ best_model.mse|round(4) }}</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Model Parameters -->
+                            <h6 class="mt-3 mb-2">Model Parameters:</h6>
+                            <div class="model-params">
+                                <ul>
+                                    {% for param, value in best_model.parameters.items() %}
+                                    <li><strong>{{ param }}:</strong> {{ value }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Feature Importance -->
+            {% if feature_importance %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Feature Importance</h5>
+                    <div class="feature-importance-container">
+                        <div class="chart-container" style="position: relative; height:400px; width:100%">
+                            <canvas id="featureImportanceChart"></canvas>
+                        </div>
+                        
+                        <div class="table-responsive mt-4">
+                            <table class="table table-dark table-hover table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Feature</th>
+                                        <th>Importance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for feature in feature_importance %}
+                                    <tr>
+                                        <td>{{ feature.name }}</td>
+                                        <td>{{ feature.importance|round(4) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Predictions -->
+            {% if predictions %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Sample Predictions</h5>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Actual</th>
+                                    <th>Predicted</th>
+                                    <th>Error</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pred in predictions %}
+                                <tr>
+                                    <td>{{ pred.actual|round(4) }}</td>
+                                    <td>{{ pred.predicted|round(4) }}</td>
+                                    <td>{{ pred.error|round(4) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Residual Plot -->
+            {% if predictions %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">Residual Plot</h5>
+                    <div class="chart-container" style="position: relative; height:400px; width:100%">
+                        <canvas id="residualPlot"></canvas>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- AI Analysis -->
+            {% if ai_analysis %}
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-body">
+                    <h5 class="card-title gradient-text-white">AI Analysis</h5>
+                    <div class="medical-border p-3">
+                        <p>{{ ai_analysis|safe }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('train_regression') }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i> Back to Training</a>
+                <a href="{{ url_for('predict_regression', run_id=run_id) }}" class="btn btn-primary">Make Predictions <i class="fas fa-arrow-right ms-2"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Feature Importance Chart
+    {% if feature_importance %}
+    const featureCtx = document.getElementById('featureImportanceChart').getContext('2d');
+    const featureLabels = [{% for feature in feature_importance %}'{{ feature.name }}',{% endfor %}];
+    const featureValues = [{% for feature in feature_importance %}{{ feature.importance }},{% endfor %}];
+    
+    new Chart(featureCtx, {
+        type: 'bar',
+        data: {
+            labels: featureLabels,
+            datasets: [{
+                label: 'Feature Importance',
+                data: featureValues,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+    
+    // Residual Plot
+    {% if predictions %}
+    const residualCtx = document.getElementById('residualPlot').getContext('2d');
+    const actualValues = [{% for pred in predictions %}{{ pred.actual }},{% endfor %}];
+    const predictedValues = [{% for pred in predictions %}{{ pred.predicted }},{% endfor %}];
+    const residuals = [{% for pred in predictions %}{{ pred.error }},{% endfor %}];
+    
+    new Chart(residualCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Residuals',
+                data: actualValues.map(function(actual, i) {
+                    return {
+                        x: predictedValues[i],
+                        y: residuals[i]
+                    };
+                }),
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Predicted Values',
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Residuals',
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'rgba(255, 255, 255, 0.8)'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %} 
