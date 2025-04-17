@@ -35,69 +35,47 @@ RANDOM_FOREST_REGRESSION_URL = os.environ.get('RANDOM_FOREST_REGRESSION_URL', 'h
 KNN_REGRESSION_URL = os.environ.get('KNN_REGRESSION_URL', 'http://localhost:5045')
 XGBOOST_REGRESSION_URL = os.environ.get('XGBOOST_REGRESSION_URL', 'http://localhost:5046')
 
-# Database connection settings - with better defaults for Docker environment
+# Database connection settings
 MYSQL_USER = os.environ.get('MYSQL_USER')
 MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
-MYSQL_HOST = os.environ.get('MYSQL_HOST')
 MYSQL_PORT = os.environ.get('MYSQL_PORT')
 MYSQL_DB = os.environ.get('MYSQL_DB')
 
-def create_db_connection_string():
-    """Create the database connection string similar to the main app"""
-    if not all([MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB]):
-        logger.warning("Database environment variables not fully configured")
-        return None
-    
-    try:
-        # URL encode the password to handle special characters
-        import urllib.parse
-        encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
-        
-        # Follow the exact same connection string format as the main app
-        connection_string = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
-        logger.info(f"Database configuration: mysql+pymysql://{MYSQL_USER}:***@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}")
-        
-        return connection_string
-    except Exception as e:
-        logger.error(f"Error creating database connection string: {str(e)}")
-        return None
+# Configure MLflow
+MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
-# Use the new function to get the connection string
-DB_CONNECTION_STRING = create_db_connection_string()
+app = Flask(__name__)
 
 def configure_db_connection():
     """Configure the database connection with proper error handling"""
-    if not DB_CONNECTION_STRING:
-        logger.warning("No valid database connection string available")
-        return None
+    # Try multiple common database hostnames used in Docker environments
+    possible_hosts = ["db", "mysql", "mariadb", "database", "127.0.0.1", "localhost"]
     
-    try:
-        # Create the engine with the connection string
-        db_engine = create_engine(DB_CONNECTION_STRING)
-        
-        # Test the connection with retries
-        max_retries = 5
-        retry_delay = 5  # seconds
-        
-        for retry in range(max_retries):
-            try:
-                # Test connection with a simple query
-                with db_engine.connect() as conn:
-                    conn.execute(text("SELECT 1"))
-                    
-                logger.info("Database connection established successfully")
-                return db_engine
-            except Exception as e:
-                logger.error(f"Database connection attempt {retry+1}/{max_retries} failed: {str(e)}")
-                if retry < max_retries - 1:
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-        
-        logger.error("Failed to connect to database after maximum retries")
-        return None
-    except Exception as e:
-        logger.error(f"Error configuring database: {str(e)}")
-        return None
+    for host in possible_hosts:
+        try:
+            # URL encode the password to handle special characters
+            import urllib.parse
+            encoded_password = urllib.parse.quote_plus(str(MYSQL_PASSWORD))
+            
+            # Create connection string with the current host
+            connection_string = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{host}:{MYSQL_PORT}/{MYSQL_DB}'
+            logger.info(f"Trying database connection with host: {host}")
+            
+            # Create the engine with the connection string
+            db_engine = create_engine(connection_string, connect_args={'connect_timeout': 3})
+            
+            # Test the connection
+            with db_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                
+            logger.info(f"Database connection established successfully with host: {host}")
+            return db_engine
+        except Exception as e:
+            logger.error(f"Failed to connect with host {host}: {str(e)}")
+    
+    logger.error("Failed to connect to database after trying all possible hosts")
+    return None
 
 class RegressionModelCoordinator:
     def __init__(self):
@@ -436,12 +414,6 @@ class RegressionModelCoordinator:
 
 # Create a coordinator instance
 model_coordinator = RegressionModelCoordinator()
-
-# Configure MLflow
-MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-
-app = Flask(__name__)
 
 @app.route('/health', methods=['GET'])
 def health():
