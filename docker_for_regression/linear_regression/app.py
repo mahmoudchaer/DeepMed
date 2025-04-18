@@ -26,6 +26,14 @@ logger = logging.getLogger(__name__)
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
+# Explicitly create the default experiment
+try:
+    # Create experiment if it doesn't exist
+    mlflow.create_experiment("regression_experiment")
+except Exception as e:
+    # If experiment already exists, it will throw an exception
+    logger.info(f"Experiment creation: {str(e)}")
+
 # Define directories
 SAVED_MODELS_DIR = os.environ.get('SAVED_MODELS_DIR', '/app/saved_models/linear_regression')
 os.makedirs(SAVED_MODELS_DIR, exist_ok=True)
@@ -76,33 +84,41 @@ class LinearRegressionModel:
             'intercept': float(self.model.intercept_)
         }
         
-        # Log metrics and parameters with MLflow
-        with mlflow.start_run(run_name="linear_regression") as run:
-            # Log parameters
-            mlflow.log_params({
-                "model_type": "linear_regression",
-                "num_features": X_train.shape[1]
-            })
+        # Save model to disk first (in case MLflow fails)
+        model_filename = f"{SAVED_MODELS_DIR}/linear_regression_{int(time.time())}.joblib"
+        joblib.dump(self.model, model_filename)
+        logger.info(f"Model saved to {model_filename}")
+        
+        # Get the model URL (for retrieval)
+        model_url = f"/saved_models/linear_regression/linear_regression_{int(time.time())}.joblib"
+        
+        # Try logging with MLflow, but continue even if it fails
+        try:
+            # Set experiment and start run
+            mlflow.set_experiment("regression_experiment")
             
-            # Log metrics
-            mlflow.log_metrics({
-                "train_r2": train_r2,
-                "test_r2": test_r2,
-                "test_rmse": test_rmse,
-                "test_mae": test_mae,
-                "test_mse": test_mse
-            })
-            
-            # Log model
-            mlflow.sklearn.log_model(self.model, "model")
-            
-            # Save model to disk
-            model_filename = f"{SAVED_MODELS_DIR}/linear_regression_{int(time.time())}.joblib"
-            joblib.dump(self.model, model_filename)
-            logger.info(f"Model saved to {model_filename}")
-            
-            # Get the model URL (for retrieval)
-            model_url = f"/saved_models/linear_regression/linear_regression_{int(time.time())}.joblib"
+            with mlflow.start_run(run_name="linear_regression") as run:
+                # Log parameters
+                mlflow.log_params({
+                    "model_type": "linear_regression",
+                    "num_features": X_train.shape[1]
+                })
+                
+                # Log metrics
+                mlflow.log_metrics({
+                    "train_r2": train_r2,
+                    "test_r2": test_r2,
+                    "test_rmse": test_rmse,
+                    "test_mae": test_mae,
+                    "test_mse": test_mse
+                })
+                
+                # Log model
+                mlflow.sklearn.log_model(self.model, "model")
+                logger.info("Model logged to MLflow successfully")
+        except Exception as e:
+            logger.error(f"Failed to log to MLflow: {str(e)}")
+            logger.error("Continuing without MLflow tracking")
         
         # Return training results
         return {

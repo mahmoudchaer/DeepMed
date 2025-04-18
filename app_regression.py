@@ -572,20 +572,29 @@ def train_regression():
             # Check if we need to ensure models are saved for the coordinator's run_id
             # Use either the coordinator's run_id or our local one
             run_id_to_use = model_result.get('run_id', local_run_id)
-            if run_id_to_use:
-                # Ensure all models are properly saved to the database
-                with app.app_context():
-                    ensure_regression_models_saved(user_id, run_id_to_use, model_result)
+            
+            # Check if models were successfully trained
+            if 'results' in model_result and model_result['results']:
+                logger.info(f"Received {len(model_result['results'])} trained regression models")
                 
-                # Save the run ID to session for models_regression page
-                session['last_regression_training_run_id'] = run_id_to_use
-                
-                # If we have our local run_id, also ensure models are saved for it
-                if local_run_id and local_run_id != run_id_to_use:
+                if run_id_to_use:
+                    # Ensure all models are properly saved to the database
                     with app.app_context():
-                        ensure_regression_models_saved(user_id, local_run_id, model_result)
+                        ensure_regression_models_saved(user_id, run_id_to_use, model_result)
+                    
+                    # Save the run ID to session for models_regression page
+                    session['last_regression_training_run_id'] = run_id_to_use
+                    
+                    # If we have our local run_id, also ensure models are saved for it
+                    if local_run_id and local_run_id != run_id_to_use:
+                        with app.app_context():
+                            ensure_regression_models_saved(user_id, local_run_id, model_result)
+                else:
+                    logger.warning("No run_id available to save regression models")
             else:
-                logger.warning("No run_id available to save regression models")
+                logger.error("No models were successfully trained by the model coordinator")
+                flash("No models were successfully trained. Please check the logs for more information.", "error")
+                return redirect(url_for('train_regression'))
             
             # Save processed results to session
             session['regression_model_results'] = model_result
