@@ -257,15 +257,21 @@ class RegressionModelCoordinator:
         # Find the best model based on R-squared
         best_model = None
         if results:
-            # Sort results by R² score (descending)
-            sorted_results = sorted(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else 0, reverse=True)
-            best_model = sorted_results[0] if sorted_results else None
+            # Find best models for each metric
+            best_r2_model = max(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else 0)
+            best_rmse_model = min(results, key=lambda x: x.get('metrics', {}).get('rmse', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'))
+            best_mae_model = min(results, key=lambda x: x.get('metrics', {}).get('mae', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'))
+            best_mse_model = min(results, key=lambda x: x.get('metrics', {}).get('mse', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'))
+            
+            # Keep the best R² model as the primary best model for compatibility
+            best_model = best_r2_model
             
             # Print top models summary
-            logger.info("Top regression models:")
-            for i, model in enumerate(sorted_results[:4]):
-                r2 = model.get('metrics', {}).get('r2', 0) if isinstance(model.get('metrics'), dict) else model.get('r2', 0)
-                logger.info(f"{i+1}. {model.get('name', 'unknown')}: R² = {r2:.4f}")
+            logger.info("Top regression models by metric:")
+            logger.info(f"Best R² model: {best_r2_model.get('name', 'unknown')}: R² = {best_r2_model.get('metrics', {}).get('r2', 0):.4f}")
+            logger.info(f"Best RMSE model: {best_rmse_model.get('name', 'unknown')}: RMSE = {best_rmse_model.get('metrics', {}).get('rmse', 0):.4f}")
+            logger.info(f"Best MAE model: {best_mae_model.get('name', 'unknown')}: MAE = {best_mae_model.get('metrics', {}).get('mae', 0):.4f}")
+            logger.info(f"Best MSE model: {best_mse_model.get('name', 'unknown')}: MSE = {best_mse_model.get('metrics', {}).get('mse', 0):.4f}")
         else:
             logger.warning("No regression models were successfully trained")
         
@@ -326,6 +332,12 @@ class RegressionModelCoordinator:
             'mlflow_run_id': mlflow_run_id,
             'results': results,
             'best_model': best_model,
+            'best_models': {
+                'r2': best_r2_model,
+                'rmse': best_rmse_model,
+                'mae': best_mae_model,
+                'mse': best_mse_model
+            } if results else {},
             'available_services': available_services,
             'predictions': predictions,
             'dataset_size': len(X),

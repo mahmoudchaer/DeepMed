@@ -12,6 +12,10 @@ import tempfile
 import secrets
 import uuid
 from werkzeug.utils import secure_filename
+import threading
+import queue
+import multiprocessing
+from flask import abort
 
 # Import common components from app_api.py
 from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
@@ -51,6 +55,24 @@ logger.info(f"Regression Data Cleaner URL: {REGRESSION_DATA_CLEANER_URL}")
 logger.info(f"Regression Feature Selector URL: {REGRESSION_FEATURE_SELECTOR_URL}")
 logger.info(f"Regression Model Coordinator URL: {REGRESSION_MODEL_COORDINATOR_URL}")
 logger.info(f"Regression Predictor Service URL: {REGRESSION_PREDICTOR_SERVICE_URL}")
+
+# Global variables to track regression training status
+regression_training_status = {
+    'status': 'idle',  # 'idle', 'in_progress', 'complete', 'failed'
+    'progress': 0,
+    'message': '',
+    'model_statuses': {
+        'Linear Regression': 'waiting',
+        'Lasso Regression': 'waiting',
+        'Ridge Regression': 'waiting',
+        'Random Forest Regression': 'waiting',
+        'K-Nearest Neighbors': 'waiting',
+        'XGBoost Regression': 'waiting'
+    },
+    'error': None,
+    'stop_requested': False,
+    'training_thread': None
+}
 
 def ensure_regression_models_saved(user_id, run_id, model_result):
     """Ensure that regression models are saved to the TrainingModel table.
@@ -285,321 +307,41 @@ def train_regression():
                 logger.error(error_message)
                 flash(error_message, 'error')
                 return redirect(url_for('train_regression'))
-            
-            # DEBUG: Check which model services are available through the coordinator
-            try:
-                coordinator_health_response = requests.get(f"{REGRESSION_MODEL_COORDINATOR_URL}/health", timeout=5)
-                if coordinator_health_response.status_code == 200:
-                    coordinator_health = coordinator_health_response.json()
-                    if "model_services" in coordinator_health:
-                        for model, status in coordinator_health["model_services"].items():
-                            logger.info(f"Regression model service {model}: {status}")
-                    else:
-                        logger.warning("Regression model services not found in coordinator health response")
-            except Exception as e:
-                logger.error(f"Error checking regression model services: {str(e)}")
-            
-            # 1. CLEAN DATA (via Regression Data Cleaner API)
-            logger.info(f"Sending data to Regression Data Cleaner API")
-            # Convert data to records - just a plain dictionary
-            data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
-
-            # Additional step to convert NumPy data types to Python native types
-            for record in data_records:
-                for key, value in record.items():
-                    if isinstance(value, np.integer):
-                        record[key] = int(value)
-                    elif isinstance(value, np.floating):
-                        record[key] = float(value)
-                    elif isinstance(value, np.ndarray):
-                        record[key] = value.tolist()
-                    elif isinstance(value, np.bool_):
-                        record[key] = bool(value)
-
-            # Use our safe request method
-            response = safe_requests_post(
-                f"{REGRESSION_DATA_CLEANER_URL}/clean",
-                {
-                    "data": data_records,
-                    "target_column": target_column
-                },
-                timeout=60
-            )
-            
-            if response.status_code != 200:
-                raise Exception(f"Regression Data Cleaner API error: {response.json().get('error', 'Unknown error')}")
-            
-            cleaning_result = response.json()
-            cleaned_data = pd.DataFrame.from_dict(cleaning_result["data"])
-            
-            # Clean up previous cleaned file if exists
-            if 'cleaned_file' in session and os.path.exists(session['cleaned_file']):
-                try:
-                    os.remove(session['cleaned_file'])
-                except:
-                    pass
-                    
-            cleaned_filepath = get_temp_filepath(extension='.csv')
-            cleaned_data.to_csv(cleaned_filepath, index=False)
-            session['cleaned_file'] = cleaned_filepath
-            
-            # Add logging to verify data being sent to APIs
-            logger.info(f"Data being sent to Regression Data Cleaner API: {data_records[:5]}")
-            
-            # 2. FEATURE SELECTION (via Regression Feature Selector API)
-            logger.info(f"Sending data to Regression Feature Selector API")
-            X = cleaned_data.drop(columns=[target_column])
-            y = cleaned_data[target_column]
-            
-            # Convert X and y to simple Python structures
-            X_records = X.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X), None).to_dict(orient='records')
-            y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
-            
-            # Additional step to convert NumPy data types to Python native types for X_records
-            for record in X_records:
-                for key, value in record.items():
-                    if isinstance(value, np.integer):
-                        record[key] = int(value)
-                    elif isinstance(value, np.floating):
-                        record[key] = float(value)
-                    elif isinstance(value, np.ndarray):
-                        record[key] = value.tolist()
-                    elif isinstance(value, np.bool_):
-                        record[key] = bool(value)
-
-            # Convert NumPy data types in y_list
-            y_list = [int(y) if isinstance(y, np.integer) else 
-                      float(y) if isinstance(y, np.floating) else 
-                      bool(y) if isinstance(y, np.bool_) else y 
-                      for y in y_list]
-
-            # Use our safe request method
-            response = safe_requests_post(
-                f"{REGRESSION_FEATURE_SELECTOR_URL}/select_features",
-                {
-                    "data": X_records,
-                    "target": y_list,
-                    "target_name": target_column
-                },
-                timeout=120
-            )
-            
-            if response.status_code != 200:
-                raise Exception(f"Regression Feature Selector API error: {response.json().get('error', 'Unknown error')}")
-            
-            feature_result = response.json()
-            X_selected = pd.DataFrame.from_dict(feature_result["transformed_data"])
-            
-            # Store selected features in session
-            selected_features = X_selected.columns.tolist()
-            
-            # Save selected features to file to prevent session bloat
-            selected_features_file_json = save_to_temp_file(selected_features, 'selected_features_regression')
-            session['selected_features_regression_file_json'] = selected_features_file_json
-            # Use a reference in session to avoid storing large data
-            session['selected_features_regression'] = f"[{len(selected_features)} features]"
-            
-            # Store feature importances for visualization
-            feature_importance = []
-            for feature, importance in feature_result["feature_importances"].items():
-                feature_importance.append({'Feature': feature, 'Importance': importance})
-            
-            # Save feature importance to file
-            feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance_regression')
-            session['feature_importance_regression_file'] = feature_importance_file
-            
-            # Clean up previous selected features file if exists
-            if 'selected_features_regression_file' in session and os.path.exists(session['selected_features_regression_file']):
-                try:
-                    os.remove(session['selected_features_regression_file'])
-                except:
-                    pass
-                    
-            selected_features_filepath = get_temp_filepath(extension='.csv')
-            X_selected.to_csv(selected_features_filepath, index=False)
-            session['selected_features_regression_file'] = selected_features_filepath
-            
-            # Extract original dataset filename from the temporary filepath
-            import re
-            temp_filepath = session.get('uploaded_file_regression', '')
-            # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
-            # Extract the original filename portion
-            original_filename = ""
-            if temp_filepath:
-                # Match the pattern uuid_originalfilename
-                match = re.search(r'[a-f0-9-]+_(.+)$', os.path.basename(temp_filepath))
-                if match:
-                    original_filename = match.group(1)
-                else:
-                    # Fallback to just basename if pattern doesn't match
-                    original_filename = os.path.basename(temp_filepath)
-
-            # Add direct SQL insert to ensure training_run is populated
-            run_name = original_filename if original_filename else f"Regression Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            user_id = current_user.id
-            
-            # Direct database connection to ensure the training run is saved
-            try:
-                # Create a temporary app context for database operations
-                with app.app_context():
-                    # Create training run entry
-                    training_run = TrainingRun(
-                        user_id=user_id,
-                        run_name=run_name,
-                        prompt=None
-                    )
-                    db.session.add(training_run)
-                    db.session.commit()
-                    
-                    # Store the run_id for model saving
-                    local_run_id = training_run.id
-                    logger.info(f"Directly added regression training run to database with ID {local_run_id}")
-                    
-                    # Store preprocessing data for this run
-                    try:
-                        # Prepare data for storage
-                        original_columns = list(data.columns)
-                        
-                        # Save encoding mappings
-                        encoding_mappings = cleaning_result.get("encoding_mappings", {})
-
-                        # If there are too many mappings, limit or compress them
-                        if len(json.dumps(encoding_mappings)) > 10000:  # Set a reasonable size limit
-                            # Option 1: Only keep mappings for columns with fewer than 50 unique values
-                            reduced_mappings = {}
-                            for col, mapping in encoding_mappings.items():
-                                if len(mapping) < 50:
-                                    reduced_mappings[col] = mapping
-                            encoding_mappings = reduced_mappings
-
-                        # Create cleaner_config without encoding_mappings
-                        cleaner_config = {
-                            "llm_instructions": cleaning_result.get("prompt", ""),
-                            "options": cleaning_result.get("options", {}),
-                            "handle_missing": True,
-                            "handle_outliers": True,
-                            "encoding_mappings_summary": {col: len(mapping) for col, mapping in encoding_mappings.items()}  # Just store summary
-                        }
-
-                        # Save encoding_mappings to a separate file
-                        if encoding_mappings:
-                            try:
-                                # Create a file path for this run's encoding mappings
-                                mappings_dir = os.path.join('static', 'temp', 'mappings')
-                                os.makedirs(mappings_dir, exist_ok=True)
-                                mappings_file = os.path.join(mappings_dir, f'encoding_mappings_regression_{local_run_id}.json')
-                                
-                                with open(mappings_file, 'w') as f:
-                                    json.dump(encoding_mappings, f)
-                                
-                                # Add file reference to cleaner_config
-                                cleaner_config["encoding_mappings_file"] = mappings_file
-                                logger.info(f"Saved regression encoding mappings to {mappings_file}")
-                            except Exception as e:
-                                logger.error(f"Error saving regression encoding mappings to file: {str(e)}")
-                                # Continue anyway, we'll just have a less detailed cleaner_config
-
-                        # Create preprocessing data record
-                        preprocessing_data = PreprocessingData(
-                            run_id=local_run_id,
-                            user_id=user_id,
-                            original_columns=json.dumps(original_columns),
-                            cleaner_config=json.dumps(cleaner_config),
-                            feature_selector_config=json.dumps(feature_result.get("options", {})),
-                            selected_columns=json.dumps(selected_features),
-                            cleaning_report=json.dumps(cleaning_result.get("report", {}))
-                        )
-                        db.session.add(preprocessing_data)
-                        db.session.commit()
-                        logger.info(f"Stored regression preprocessing data for run ID {local_run_id}")
-                    except Exception as pp_error:
-                        logger.error(f"Error saving regression preprocessing data: {str(pp_error)}")
-                    
-                    # Verify entry was created by checking the database
-                    verification = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
-                    if verification:
-                        logger.info(f"Verified regression training run in database: {verification.id}, {verification.run_name}")
-                    else:
-                        logger.warning(f"Could not verify regression training run in database after commit")
-            except Exception as e:
-                logger.error(f"Error adding regression training run directly to database: {str(e)}")
-                local_run_id = None
-
-            # 3. MODEL TRAINING (via Regression Model Coordinator API)
-            logger.info(f"Sending data to Regression Model Coordinator API")
-            
-            # Prepare data for model coordinator
-            X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
-            y_data = y.tolist()
-
-            # Convert NumPy types in X_data
-            for feature, values in X_data.items():
-                X_data[feature] = [int(v) if isinstance(v, np.integer) else 
-                                  float(v) if isinstance(v, np.floating) else 
-                                  bool(v) if isinstance(v, np.bool_) else v 
-                                  for v in values]
-
-            # Convert NumPy types in y_data
-            y_data = [int(y) if isinstance(y, np.integer) else 
-                      float(y) if isinstance(y, np.floating) else 
-                      bool(y) if isinstance(y, np.bool_) else y 
-                      for y in y_data]
-
-            # Use our safe request method
-            response = safe_requests_post(
-                f"{REGRESSION_MODEL_COORDINATOR_URL}/train",
-                {
-                    "data": X_data,
-                    "target": y_data,
-                    "test_size": session['test_size'],
-                    "user_id": current_user.id,
-                    "run_name": run_name
-                },
-                timeout=1800  # Model training can take time
-            )
-            
-            if response.status_code != 200:
-                raise Exception(f"Regression Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
-            
-            # Store the complete model results in session
-            model_result = response.json()
-            
-            # Ensure models are saved for this run properly
-            # Check if we need to ensure models are saved for the coordinator's run_id
-            # Use either the coordinator's run_id or our local one
-            run_id_to_use = model_result.get('run_id', local_run_id)
-            
-            # Check if models were successfully trained
-            if 'results' in model_result and model_result['results']:
-                logger.info(f"Received {len(model_result['results'])} trained regression models")
                 
-                if run_id_to_use:
-                    # Ensure all models are properly saved to the database
-                    with app.app_context():
-                        ensure_regression_models_saved(user_id, run_id_to_use, model_result)
-                    
-                    # Save the run ID to session for models_regression page
-                    session['last_regression_training_run_id'] = run_id_to_use
-                    
-                    # If we have our local run_id, also ensure models are saved for it
-                    if local_run_id and local_run_id != run_id_to_use:
-                        with app.app_context():
-                            ensure_regression_models_saved(user_id, local_run_id, model_result)
-                else:
-                    logger.warning("No run_id available to save regression models")
-            else:
-                logger.error("No models were successfully trained by the model coordinator")
-                flash("No models were successfully trained. Please check the logs for more information.", "error")
-                return redirect(url_for('train_regression'))
+            # Reset training status
+            global regression_training_status
+            regression_training_status = {
+                'status': 'in_progress',
+                'progress': 5,
+                'message': 'Initializing regression model training...',
+                'model_statuses': {
+                    'Linear Regression': 'waiting',
+                    'Lasso Regression': 'waiting',
+                    'Ridge Regression': 'waiting',
+                    'Random Forest Regression': 'waiting',
+                    'K-Nearest Neighbors': 'waiting',
+                    'XGBoost Regression': 'waiting'
+                },
+                'error': None,
+                'stop_requested': False,
+                'training_thread': None
+            }
             
-            # Save processed results to session
-            session['regression_model_results'] = model_result
+            # Start training in background thread
+            training_thread = threading.Thread(
+                target=train_regression_models_background,
+                args=(filepath, target_column, current_user.id)
+            )
+            training_thread.daemon = True
+            regression_training_status['training_thread'] = training_thread
+            training_thread.start()
             
-            return redirect(url_for('regression_results'))
+            # Redirect to loading page while training happens in background
+            return render_template('loading_regression.html')
             
         except Exception as e:
-            logger.error(f"Error processing regression data: {str(e)}", exc_info=True)
-            flash(f"Error processing regression data: {str(e)}", 'error')
+            logger.error(f"Error starting regression training: {str(e)}", exc_info=True)
+            flash(f"Error starting regression training: {str(e)}", 'error')
             return redirect(url_for('train_regression'))
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
@@ -828,22 +570,22 @@ def regression_results():
         # Process model results
         results = model_result.get('results', [])
         
-        # Sort models by R² score (descending)
-        sorted_models = sorted(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else x.get('r2', 0), reverse=True)
+        # Find best model for each metric
+        best_r2_model = max(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else x.get('r2', 0), default=None)
+        best_rmse_model = min(results, key=lambda x: x.get('metrics', {}).get('rmse', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'), default=None)
+        best_mae_model = min(results, key=lambda x: x.get('metrics', {}).get('mae', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'), default=None)
+        best_mse_model = min(results, key=lambda x: x.get('metrics', {}).get('mse', float('inf')) if isinstance(x.get('metrics'), dict) else float('inf'), default=None)
         
-        # Get top models (up to 4)
-        top_models = sorted_models[:min(4, len(sorted_models))]
+        # Get best models dict if it exists in the results
+        best_models = model_result.get('best_models', {
+            'r2': best_r2_model,
+            'rmse': best_rmse_model,
+            'mae': best_mae_model,
+            'mse': best_mse_model
+        })
         
-        # Ensure each model has necessary data structure
-        for model in top_models:
-            # Add parameters if missing
-            if 'parameters' not in model:
-                model['parameters'] = {}
-            
-            # Check if model has the best score (for highlighting)
-            model['is_best'] = model == top_models[0] if top_models else False
-            
-            # Ensure metrics is defined
+        # Ensure each model has the metrics values properly set
+        for model in results:
             if 'metrics' not in model and 'r2' in model:
                 model['metrics'] = {
                     'r2': model.get('r2', 0),
@@ -851,6 +593,33 @@ def regression_results():
                     'mae': model.get('mae', 0),
                     'mse': model.get('mse', 0)
                 }
+            elif 'metrics' in model:
+                # Ensure all metrics are present
+                if 'r2' not in model['metrics']:
+                    model['metrics']['r2'] = model.get('r2', 0)
+                if 'rmse' not in model['metrics']:
+                    model['metrics']['rmse'] = model.get('rmse', 0)
+                if 'mae' not in model['metrics']:
+                    model['metrics']['mae'] = model.get('mae', 0)
+                if 'mse' not in model['metrics']:
+                    model['metrics']['mse'] = model.get('mse', 0)
+            
+            # Add parameters if missing
+            if 'parameters' not in model:
+                model['parameters'] = {}
+            
+            # Check if model is the best in any metric
+            model['is_best_r2'] = model == best_models.get('r2', best_r2_model)
+            model['is_best_rmse'] = model == best_models.get('rmse', best_rmse_model)
+            model['is_best_mae'] = model == best_models.get('mae', best_mae_model)
+            model['is_best_mse'] = model == best_models.get('mse', best_mse_model)
+            model['is_best'] = model['is_best_r2']  # For backwards compatibility
+        
+        # Sort models by R² score (descending)
+        sorted_models = sorted(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else x.get('r2', 0), reverse=True)
+        
+        # Get top models (up to 4)
+        top_models = sorted_models[:min(4, len(sorted_models))]
         
         # Extract the best model
         best_model = top_models[0] if top_models else None
@@ -896,8 +665,9 @@ def regression_results():
         logger.info(f"Rendering regression_results.html with {len(top_models)} models")
         return render_template('regression_results.html', 
                               run_id=run_id,
-                              model_results=top_models,
-                              best_model=best_model,
+                              model_results=results,  # Using all results now, not just top_models
+                              best_model=best_r2_model,  # For backward compatibility
+                              best_models=best_models,
                               training_info=training_info,
                               feature_importance=feature_importance,
                               metrics_info=metrics_info)
@@ -1017,3 +787,408 @@ def api_predict_regression():
     except Exception as e:
         logger.error(f"Error in regression prediction: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500 
+
+# Add this new function for background training
+def train_regression_models_background(filepath, target_column, user_id):
+    """Train regression models in the background"""
+    global regression_training_status
+    
+    try:
+        logger.info(f"Starting background regression model training for target: {target_column}")
+        data, _ = load_data(filepath)
+        test_size = 0.2  # Fixed test size
+        
+        # 1. CLEAN DATA (via Regression Data Cleaner API)
+        regression_training_status['message'] = 'Cleaning and preprocessing data...'
+        regression_training_status['progress'] = 10
+        logger.info(f"Sending data to Regression Data Cleaner API")
+        
+        if regression_training_status['stop_requested']:
+            regression_training_status['status'] = 'failed'
+            regression_training_status['message'] = 'Training was stopped by user'
+            return
+            
+        # Convert data to records - just a plain dictionary
+        data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
+
+        # Additional step to convert NumPy data types to Python native types
+        for record in data_records:
+            for key, value in record.items():
+                if isinstance(value, np.integer):
+                    record[key] = int(value)
+                elif isinstance(value, np.floating):
+                    record[key] = float(value)
+                elif isinstance(value, np.ndarray):
+                    record[key] = value.tolist()
+                elif isinstance(value, np.bool_):
+                    record[key] = bool(value)
+
+        # Use our safe request method
+        response = safe_requests_post(
+            f"{REGRESSION_DATA_CLEANER_URL}/clean",
+            {
+                "data": data_records,
+                "target_column": target_column
+            },
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Regression Data Cleaner API error: {response.json().get('error', 'Unknown error')}")
+        
+        cleaning_result = response.json()
+        cleaned_data = pd.DataFrame.from_dict(cleaning_result["data"])
+        
+        # Clean up previous cleaned file if exists
+        if 'cleaned_file' in session and os.path.exists(session['cleaned_file']):
+            try:
+                os.remove(session['cleaned_file'])
+            except:
+                pass
+                
+        cleaned_filepath = get_temp_filepath(extension='.csv')
+        cleaned_data.to_csv(cleaned_filepath, index=False)
+        session['cleaned_file'] = cleaned_filepath
+        
+        if regression_training_status['stop_requested']:
+            regression_training_status['status'] = 'failed'
+            regression_training_status['message'] = 'Training was stopped by user'
+            return
+            
+        # 2. FEATURE SELECTION (via Regression Feature Selector API)
+        regression_training_status['message'] = 'Selecting important features...'
+        regression_training_status['progress'] = 25
+        logger.info(f"Sending data to Regression Feature Selector API")
+        X = cleaned_data.drop(columns=[target_column])
+        y = cleaned_data[target_column]
+        
+        # Convert X and y to simple Python structures
+        X_records = X.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X), None).to_dict(orient='records')
+        y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
+        
+        # Additional step to convert NumPy data types to Python native types for X_records
+        for record in X_records:
+            for key, value in record.items():
+                if isinstance(value, np.integer):
+                    record[key] = int(value)
+                elif isinstance(value, np.floating):
+                    record[key] = float(value)
+                elif isinstance(value, np.ndarray):
+                    record[key] = value.tolist()
+                elif isinstance(value, np.bool_):
+                    record[key] = bool(value)
+
+        # Convert NumPy data types in y_list
+        y_list = [int(y) if isinstance(y, np.integer) else 
+                  float(y) if isinstance(y, np.floating) else 
+                  bool(y) if isinstance(y, np.bool_) else y 
+                  for y in y_list]
+
+        # Use our safe request method
+        response = safe_requests_post(
+            f"{REGRESSION_FEATURE_SELECTOR_URL}/select_features",
+            {
+                "data": X_records,
+                "target": y_list,
+                "target_name": target_column
+            },
+            timeout=120
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Regression Feature Selector API error: {response.json().get('error', 'Unknown error')}")
+        
+        feature_result = response.json()
+        X_selected = pd.DataFrame.from_dict(feature_result["transformed_data"])
+        
+        # Store selected features in session
+        selected_features = X_selected.columns.tolist()
+        
+        # Save selected features to file to prevent session bloat
+        selected_features_file_json = save_to_temp_file(selected_features, 'selected_features_regression')
+        session['selected_features_regression_file_json'] = selected_features_file_json
+        # Use a reference in session to avoid storing large data
+        session['selected_features_regression'] = f"[{len(selected_features)} features]"
+        
+        # Store feature importances for visualization
+        feature_importance = []
+        for feature, importance in feature_result["feature_importances"].items():
+            feature_importance.append({'name': feature, 'importance': importance})
+        
+        # Save feature importance to file
+        feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance_regression')
+        session['feature_importance_regression_file'] = feature_importance_file
+        
+        # Clean up previous selected features file if exists
+        if 'selected_features_regression_file' in session and os.path.exists(session['selected_features_regression_file']):
+            try:
+                os.remove(session['selected_features_regression_file'])
+            except:
+                pass
+                
+        selected_features_filepath = get_temp_filepath(extension='.csv')
+        X_selected.to_csv(selected_features_filepath, index=False)
+        session['selected_features_regression_file'] = selected_features_filepath
+        
+        if regression_training_status['stop_requested']:
+            regression_training_status['status'] = 'failed'
+            regression_training_status['message'] = 'Training was stopped by user'
+            return
+            
+        # Extract original dataset filename from the temporary filepath
+        import re
+        temp_filepath = session.get('uploaded_file_regression', '')
+        # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
+        # Extract the original filename portion
+        original_filename = ""
+        if temp_filepath:
+            # Match the pattern uuid_originalfilename
+            match = re.search(r'[a-f0-9-]+_(.+)$', os.path.basename(temp_filepath))
+            if match:
+                original_filename = match.group(1)
+            else:
+                # Fallback to just basename if pattern doesn't match
+                original_filename = os.path.basename(temp_filepath)
+
+        # Add direct SQL insert to ensure training_run is populated
+        run_name = original_filename if original_filename else f"Regression Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # Direct database connection to ensure the training run is saved
+        try:
+            # Create a temporary app context for database operations
+            with app.app_context():
+                # Create training run entry
+                training_run = TrainingRun(
+                    user_id=user_id,
+                    run_name=run_name,
+                    prompt=None
+                )
+                db.session.add(training_run)
+                db.session.commit()
+                
+                # Store the run_id for model saving
+                local_run_id = training_run.id
+                logger.info(f"Directly added regression training run to database with ID {local_run_id}")
+                
+                # Store preprocessing data for this run
+                try:
+                    # Prepare data for storage
+                    original_columns = list(data.columns)
+                    
+                    # Save encoding mappings
+                    encoding_mappings = cleaning_result.get("encoding_mappings", {})
+
+                    # If there are too many mappings, limit or compress them
+                    if len(json.dumps(encoding_mappings)) > 10000:  # Set a reasonable size limit
+                        # Option 1: Only keep mappings for columns with fewer than 50 unique values
+                        reduced_mappings = {}
+                        for col, mapping in encoding_mappings.items():
+                            if len(mapping) < 50:
+                                reduced_mappings[col] = mapping
+                        encoding_mappings = reduced_mappings
+
+                    # Create cleaner_config without encoding_mappings
+                    cleaner_config = {
+                        "llm_instructions": cleaning_result.get("prompt", ""),
+                        "options": cleaning_result.get("options", {}),
+                        "handle_missing": True,
+                        "handle_outliers": True,
+                        "encoding_mappings_summary": {col: len(mapping) for col, mapping in encoding_mappings.items()}  # Just store summary
+                    }
+
+                    # Save encoding_mappings to a separate file
+                    if encoding_mappings:
+                        try:
+                            # Create a file path for this run's encoding mappings
+                            mappings_dir = os.path.join('static', 'temp', 'mappings')
+                            os.makedirs(mappings_dir, exist_ok=True)
+                            mappings_file = os.path.join(mappings_dir, f'encoding_mappings_regression_{local_run_id}.json')
+                            
+                            with open(mappings_file, 'w') as f:
+                                json.dump(encoding_mappings, f)
+                            
+                            # Add file reference to cleaner_config
+                            cleaner_config["encoding_mappings_file"] = mappings_file
+                            logger.info(f"Saved regression encoding mappings to {mappings_file}")
+                        except Exception as e:
+                            logger.error(f"Error saving regression encoding mappings to file: {str(e)}")
+                            # Continue anyway, we'll just have a less detailed cleaner_config
+
+                    # Create preprocessing data record
+                    preprocessing_data = PreprocessingData(
+                        run_id=local_run_id,
+                        user_id=user_id,
+                        original_columns=json.dumps(original_columns),
+                        cleaner_config=json.dumps(cleaner_config),
+                        feature_selector_config=json.dumps(feature_result.get("options", {})),
+                        selected_columns=json.dumps(selected_features),
+                        cleaning_report=json.dumps(cleaning_result.get("report", {}))
+                    )
+                    db.session.add(preprocessing_data)
+                    db.session.commit()
+                    logger.info(f"Stored regression preprocessing data for run ID {local_run_id}")
+                except Exception as pp_error:
+                    logger.error(f"Error saving regression preprocessing data: {str(pp_error)}")
+                
+                # Verify entry was created by checking the database
+                verification = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
+                if verification:
+                    logger.info(f"Verified regression training run in database: {verification.id}, {verification.run_name}")
+                else:
+                    logger.warning(f"Could not verify regression training run in database after commit")
+        except Exception as e:
+            logger.error(f"Error adding regression training run directly to database: {str(e)}")
+            local_run_id = None
+
+        # 3. MODEL TRAINING (via Regression Model Coordinator API)
+        regression_training_status['message'] = 'Training multiple regression models...'
+        regression_training_status['progress'] = 40
+        logger.info(f"Sending data to Regression Model Coordinator API")
+        
+        # Update statuses to training
+        regression_training_status['model_statuses']['Linear Regression'] = 'training'
+        regression_training_status['model_statuses']['Lasso Regression'] = 'training'
+        regression_training_status['model_statuses']['Ridge Regression'] = 'training'
+        regression_training_status['model_statuses']['Random Forest Regression'] = 'training'
+        regression_training_status['model_statuses']['K-Nearest Neighbors'] = 'training'
+        regression_training_status['model_statuses']['XGBoost Regression'] = 'training'
+        
+        if regression_training_status['stop_requested']:
+            regression_training_status['status'] = 'failed'
+            regression_training_status['message'] = 'Training was stopped by user'
+            return
+        
+        # Prepare data for model coordinator
+        X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
+        y_data = y.tolist()
+
+        # Convert NumPy types in X_data
+        for feature, values in X_data.items():
+            X_data[feature] = [int(v) if isinstance(v, np.integer) else 
+                              float(v) if isinstance(v, np.floating) else 
+                              bool(v) if isinstance(v, np.bool_) else v 
+                              for v in values]
+
+        # Convert NumPy types in y_data
+        y_data = [int(y) if isinstance(y, np.integer) else 
+                  float(y) if isinstance(y, np.floating) else 
+                  bool(y) if isinstance(y, np.bool_) else y 
+                  for y in y_data]
+
+        # Use our safe request method
+        response = safe_requests_post(
+            f"{REGRESSION_MODEL_COORDINATOR_URL}/train",
+            {
+                "data": X_data,
+                "target": y_data,
+                "test_size": test_size,
+                "user_id": user_id,
+                "run_name": run_name
+            },
+            timeout=1800  # Model training can take time
+        )
+        
+        if response.status_code != 200:
+            # Update model statuses to failed
+            for model_name in regression_training_status['model_statuses']:
+                regression_training_status['model_statuses'][model_name] = 'failed'
+                
+            raise Exception(f"Regression Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
+        
+        # Store the complete model results in session
+        model_result = response.json()
+        
+        # Update model statuses based on results
+        available_models = {
+            'linear_regression': 'Linear Regression',
+            'lasso_regression': 'Lasso Regression',
+            'ridge_regression': 'Ridge Regression',
+            'random_forest_regression': 'Random Forest Regression',
+            'knn_regression': 'K-Nearest Neighbors',
+            'xgboost_regression': 'XGBoost Regression'
+        }
+        
+        if 'results' in model_result:
+            for result in model_result['results']:
+                model_name = result.get('name', '')
+                if model_name in available_models:
+                    display_name = available_models[model_name]
+                    regression_training_status['model_statuses'][display_name] = 'complete'
+                    
+            # Mark missing models as failed
+            trained_models = set(result.get('name', '') for result in model_result['results'])
+            for model_code, display_name in available_models.items():
+                if model_code not in trained_models:
+                    regression_training_status['model_statuses'][display_name] = 'failed'
+        
+        # Ensure models are saved for this run properly
+        # Check if we need to ensure models are saved for the coordinator's run_id
+        # Use either the coordinator's run_id or our local one
+        run_id_to_use = model_result.get('run_id', local_run_id)
+        
+        # Check if models were successfully trained
+        if 'results' in model_result and model_result['results']:
+            logger.info(f"Received {len(model_result['results'])} trained regression models")
+            
+            if run_id_to_use:
+                # Ensure all models are properly saved to the database
+                with app.app_context():
+                    ensure_regression_models_saved(user_id, run_id_to_use, model_result)
+                
+                # Save the run ID to session for models_regression page
+                session['last_regression_training_run_id'] = run_id_to_use
+                
+                # If we have our local run_id, also ensure models are saved for it
+                if local_run_id and local_run_id != run_id_to_use:
+                    with app.app_context():
+                        ensure_regression_models_saved(user_id, local_run_id, model_result)
+        else:
+            logger.error("No models were successfully trained by the model coordinator")
+            regression_training_status['status'] = 'failed'
+            regression_training_status['message'] = 'No models were successfully trained by the model coordinator'
+            return
+        
+        # Save processed results to session
+        session['regression_model_results'] = model_result
+        
+        # Mark training as complete
+        regression_training_status['status'] = 'complete'
+        regression_training_status['progress'] = 100
+        regression_training_status['message'] = 'Training complete!'
+        logger.info("Regression model training completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in background regression training: {str(e)}", exc_info=True)
+        regression_training_status['status'] = 'failed'
+        regression_training_status['message'] = str(e)
+        regression_training_status['error'] = str(e)
+
+# Add these new routes for the training status tracking and control
+@app.route('/api/regression_training_status')
+@login_required
+def get_regression_training_status():
+    """API endpoint to get the current status of regression model training"""
+    global regression_training_status
+    
+    # Return the current status without the thread object (not JSON serializable)
+    status_copy = regression_training_status.copy()
+    if 'training_thread' in status_copy:
+        del status_copy['training_thread']
+    
+    return jsonify(status_copy)
+
+@app.route('/stop_regression_training', methods=['POST'])
+@login_required
+def stop_regression_training():
+    """Stop the current regression training process"""
+    global regression_training_status
+    
+    if regression_training_status['status'] == 'in_progress':
+        regression_training_status['stop_requested'] = True
+        logger.info("Regression training stop requested by user")
+        flash("Training process has been stopped.", "info")
+    else:
+        logger.info("No active regression training to stop")
+        flash("No active training process found.", "warning")
+    
+    return redirect(url_for('train_regression')) 
