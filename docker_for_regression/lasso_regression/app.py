@@ -12,6 +12,9 @@ import mlflow.sklearn
 from sklearn.linear_model import Lasso
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from waitress import serve
+import uuid
+from datetime import datetime
+import traceback
 
 # Configure logging
 logging.basicConfig(
@@ -339,13 +342,31 @@ def load_model():
 @app.route('/download_model', methods=['GET'])
 def download_model():
     """Download the trained model file"""
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{request_id}] Download model request received")
+    
     try:
         if not regression_model.is_trained:
+            logger.warning(f"[{request_id}] Model is not trained, cannot download")
             return jsonify({"error": "Model is not trained"}), 400
             
         # Find the most recent model file
         model_path = None
         latest_time = 0
+        
+        # Log available models
+        if os.path.exists(SAVED_MODELS_DIR):
+            model_files = [f for f in os.listdir(SAVED_MODELS_DIR) if f.endswith('.joblib')]
+            logger.info(f"[{request_id}] Found {len(model_files)} model files in {SAVED_MODELS_DIR}")
+            for file in model_files:
+                file_path = os.path.join(SAVED_MODELS_DIR, file)
+                file_size = os.path.getsize(file_path)
+                file_time = os.path.getmtime(file_path)
+                logger.debug(f"[{request_id}] Model file: {file}, Size: {file_size} bytes, Modified: {datetime.fromtimestamp(file_time).isoformat()}")
+        else:
+            logger.warning(f"[{request_id}] Models directory {SAVED_MODELS_DIR} does not exist")
+            os.makedirs(SAVED_MODELS_DIR, exist_ok=True)
+            logger.info(f"[{request_id}] Created models directory {SAVED_MODELS_DIR}")
         
         for file in os.listdir(SAVED_MODELS_DIR):
             if file.startswith('lasso_regression_') and file.endswith('.joblib'):
@@ -357,13 +378,52 @@ def download_model():
                     model_path = file_path
         
         if not model_path:
+            logger.error(f"[{request_id}] No model file found in {SAVED_MODELS_DIR}")
             return jsonify({"error": "No model file found"}), 404
             
+        # Log model details
+        model_size = os.path.getsize(model_path)
+        logger.info(f"[{request_id}] Sending model file: {model_path}, Size: {model_size} bytes")
+        
+        # Verify file is readable
+        try:
+            with open(model_path, 'rb') as f:
+                # Read first few bytes to verify file is accessible
+                header = f.read(10)
+                logger.debug(f"[{request_id}] File header (hex): {header.hex()}")
+        except Exception as read_err:
+            logger.error(f"[{request_id}] Error reading model file: {str(read_err)}")
+            return jsonify({"error": f"Cannot read model file: {str(read_err)}"}), 500
+        
+        # Verify it's a valid joblib file
+        try:
+            import joblib
+            # Just check if it can be loaded, we don't need the actual model
+            joblib.load(model_path)
+            logger.info(f"[{request_id}] Model file validated as a valid joblib file")
+        except Exception as joblib_err:
+            logger.warning(f"[{request_id}] Model file may not be valid joblib: {str(joblib_err)}")
+            # Continue anyway, as it could be an issue with joblib version
+        
         # Return the model file
-        return send_file(model_path, as_attachment=True, download_name='lasso_regression_model.joblib')
+        logger.info(f"[{request_id}] Sending model file as attachment")
+        response = send_file(
+            model_path, 
+            as_attachment=True, 
+            download_name='lasso_regression_model.joblib',
+            mimetype='application/octet-stream'
+        )
+        
+        # Add additional headers to ensure proper download
+        response.headers['Content-Length'] = str(model_size)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        logger.info(f"[{request_id}] Model file sent successfully with headers: {dict(response.headers)}")
+        
+        return response
         
     except Exception as e:
-        logger.error(f"Error in download_model endpoint: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] Error in download_model endpoint: {str(e)}")
+        logger.error(f"[{request_id}] Traceback: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
