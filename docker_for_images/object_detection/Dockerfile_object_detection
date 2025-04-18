@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install git, OpenCV dependencies, and other required packages
+# Install dependencies for OpenCV and other required packages
 RUN apt-get update && apt-get install -y \
     git \
     libgl1-mesa-glx \
@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOv5 repository
-RUN git clone https://github.com/ultralytics/yolov5.git /app/yolov5
+# Copy requirements file
+COPY requirements.txt .
 
-# Install YOLOv5 dependencies and our Flask service dependencies
-RUN pip install --no-cache-dir -r /app/yolov5/requirements.txt \
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt \
     flask==2.0.1 Werkzeug==2.0.1 python-dotenv==0.19.0 pyyaml
 
 # Copy our service code

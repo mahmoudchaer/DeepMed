@@ -1,12 +1,12 @@
-# Object Detection Service with YOLOv5
+# Object Detection Service with YOLOv8
 
 ## Overview
 
-The Object Detection Service provides an API for fine-tuning YOLOv5 models with your custom dataset. This service allows you to train object detection models that can identify specific objects in images, with the resulting model being immediately available for download and deployment.
+The Object Detection Service provides an API for fine-tuning YOLOv8 models with your custom dataset. This service allows you to train object detection models that can identify specific objects in images, with the resulting model being immediately available for download and deployment.
 
 ## Features
 
-- Fine-tune pre-trained YOLOv5 models on custom datasets
+- Fine-tune pre-trained YOLOv8 models on custom datasets
 - Simplified training process with 5 preset levels
 - Returns the trained model as a ZIP file with performance metrics
 - No persistent storage of your models or data (privacy-focused)
@@ -28,18 +28,18 @@ Returns the health status of the object detection service.
 }
 ```
 
-### Fine-tune YOLOv5 Model
+### Fine-tune YOLOv8 Model
 
 `POST /finetune`
 
-Fine-tunes a YOLOv5 model on your dataset.
+Fine-tunes a YOLOv8 model on your dataset.
 
 **Form Parameters:**
-- `zipFile`: ZIP file containing dataset in YOLOv5 format
+- `zipFile`: ZIP file containing dataset in YOLO format
 - `level`: Training level (1-5) with predefined configurations:
-  - Level 1: Nano model, 20 epochs, 320px resolution
-  - Level 2: Small model, 30 epochs, 416px resolution
-  - Level 3: Small model, 50 epochs, 640px resolution
+  - Level 1: Nano model, 5 epochs, 160px resolution
+  - Level 2: Nano model, 10 epochs, 320px resolution
+  - Level 3: Small model, 30 epochs, 640px resolution
   - Level 4: Medium model, 80 epochs, 640px resolution
   - Level 5: Large model, 100 epochs, 640px resolution
 
@@ -67,7 +67,7 @@ your_dataset.zip
 - No data.yaml file is required - it will be generated automatically
 - The service automatically detects class IDs from your label files
 
-Labels should follow the YOLOv5 format (normalized coordinates):
+Labels should follow the YOLO format (normalized coordinates):
 ```
 <class_id> <x_center> <y_center> <width> <height>
 ```
@@ -76,7 +76,7 @@ Example: `0 0.5 0.5 0.25 0.25` (class 0, center at (0.5, 0.5), width 0.25, heigh
 
 ## Docker Setup
 
-The service is containerized using Docker and based on a Python image with YOLOv5 dependencies.
+The service is containerized using Docker and based on a Python image with YOLOv8 dependencies.
 
 ### Environment Variables
 
@@ -105,7 +105,7 @@ response = requests.post(url, files=files, data=data)
 # Check if successful
 if response.status_code == 200:
     # Save the model zip file
-    with open('yolov5_model.zip', 'wb') as f:
+    with open('yolov8_model.zip', 'wb') as f:
         f.write(response.content)
     print("Model downloaded successfully")
 else:
