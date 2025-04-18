@@ -13,6 +13,7 @@ A comprehensive monitoring system for tracking the health and performance of all
 - **Grafana Dashboards**: Visualize metrics with Grafana
 - **Status Reports**: Export JSON status reports for documentation
 - **Endpoint Testing**: Test specific service endpoints with custom requests
+- **Service Logs**: View container logs for each service directly from the dashboard
 
 ## Services Monitored
 
@@ -79,7 +80,7 @@ The monitoring service exposes the following API endpoints:
 - `/api/services` - Get the status of all services
 - `/api/service_history/<service_name>` - Get history data for a specific service
 - `/api/test_endpoint/<service_name>` - Test a specific endpoint on a service
-- `/api/run_test` - Run a Python test file
+- `/api/logs/<service_name>` - Get container logs for a specific service
 - `/api/refresh` - Manually trigger a refresh of all service statuses
 - `/api/metrics` - Prometheus metrics endpoint
 - `/api/prometheus` - Get Prometheus and Grafana URLs
@@ -130,7 +131,7 @@ This monitoring system is part of the DeepMed QA approach and provides:
 
 1. **Service Availability Monitoring**: Ensures all services are operational
 2. **Response Time Tracking**: Identifies performance issues
-3. **Test Execution**: Runs automated tests against services
+3. **Logs Viewing**: Access service logs directly from the dashboard
 4. **Metrics Collection**: Gathers data for long-term analysis via Prometheus
 5. **Dashboard Visualization**: Provides insights through Grafana dashboards
 6. **Endpoint Testing**: Verifies specific API functionality 

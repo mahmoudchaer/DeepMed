@@ -184,6 +184,7 @@
                                                 <!-- Service info will be populated here -->
                                             </tbody>
                                         </table>
+                                        <button id="view-logs-btn" class="btn btn-secondary">View Service Logs</button>
                                     </div>
                                 </div>
                                 <div class="card">
@@ -224,30 +225,6 @@
             </div>
             
             <div class="col-md-4">
-                <!-- Test Runner Panel -->
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">Test Runner</h5>
-                    </div>
-                    <div class="card-body">
-                        <form id="test-runner-form">
-                            <div class="mb-3">
-                                <label for="test-file-input" class="form-label">Test File Path</label>
-                                <input type="text" class="form-control" id="test-file-input" placeholder="../tests/test_example.py">
-                            </div>
-                            <button type="submit" class="btn btn-info text-white">Run Test</button>
-                        </form>
-                        <div class="mt-3" id="test-results" style="display: none;">
-                            <div class="card">
-                                <div class="card-header" id="test-result-header">Test Results</div>
-                                <div class="card-body" id="test-result-content">
-                                    <!-- Test results will be shown here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Overall Status Chart -->
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
@@ -266,8 +243,8 @@
                     <div class="card-body">
                         <div class="d-grid gap-2">
                             <a href="/api/metrics" target="_blank" class="btn btn-outline-dark">View Prometheus Metrics</a>
-                            <a href="http://localhost:9090" target="_blank" class="btn btn-outline-primary">Open Prometheus Dashboard</a>
-                            <a href="http://localhost:3000" target="_blank" class="btn btn-outline-success">Open Grafana Dashboard</a>
+                            <a id="prometheus-link" target="_blank" class="btn btn-outline-primary">Open Prometheus Dashboard</a>
+                            <a id="grafana-link" target="_blank" class="btn btn-outline-success">Open Grafana Dashboard</a>
                             <button class="btn btn-outline-secondary" id="export-status-btn">Export Status Report</button>
                         </div>
                     </div>
@@ -286,7 +263,6 @@
         // Initialize variables and DOM elements
         const serviceCards = document.querySelectorAll('.service-card');
         const refreshBtn = document.getElementById('refresh-btn');
-        const testRunnerForm = document.getElementById('test-runner-form');
         const testEndpointForm = document.getElementById('test-endpoint-form');
         const methodSelect = document.getElementById('method-select');
         const payloadContainer = document.getElementById('payload-container');
@@ -326,6 +302,21 @@
                 }
             });
             
+            // Set up monitoring links with API
+            fetch('/api/prometheus')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('prometheus-link').href = data.prometheus_url;
+                    document.getElementById('grafana-link').href = data.grafana_url;
+                })
+                .catch(error => {
+                    console.error('Error getting monitoring URLs:', error);
+                    // Fallback to using hostname directly
+                    const hostname = window.location.hostname;
+                    document.getElementById('prometheus-link').href = `http://${hostname}:9090`;
+                    document.getElementById('grafana-link').href = `http://${hostname}:3000`;
+                });
+            
             // Update dashboard with initial data
             updateDashboard();
             
@@ -358,10 +349,11 @@
                 testEndpoint();
             });
             
-            // Test runner form submit handler
-            testRunnerForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                runTest();
+            // View logs button handler
+            document.getElementById('view-logs-btn').addEventListener('click', function() {
+                if (currentServiceName) {
+                    viewServiceLogs(currentServiceName);
+                }
             });
             
             // Export status button click handler
@@ -623,49 +615,54 @@
             });
         }
         
-        function runTest() {
-            const testFile = document.getElementById('test-file-input').value;
+        function viewServiceLogs(serviceName) {
+            // Show loading toast
+            showToast(`Fetching logs for ${serviceName}...`, 'info');
             
-            if (!testFile) {
-                showToast('Please enter a test file path', 'warning');
-                return;
-            }
-            
-            fetch('/api/run_test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    test_file: testFile
+            fetch(`/api/logs/${serviceName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(`Error: ${data.error}`, 'danger');
+                    } else {
+                        // Create and show logs modal
+                        const logsModal = document.createElement('div');
+                        logsModal.className = 'modal fade';
+                        logsModal.id = 'logsModal';
+                        logsModal.setAttribute('tabindex', '-1');
+                        logsModal.setAttribute('aria-hidden', 'true');
+                        
+                        logsModal.innerHTML = `
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">${serviceName} Logs</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <pre class="bg-dark text-light p-3" style="max-height: 500px; overflow-y: auto;">${data.logs}</pre>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.body.appendChild(logsModal);
+                        const bsModal = new bootstrap.Modal(logsModal);
+                        bsModal.show();
+                        
+                        // Remove modal from DOM after it's hidden
+                        logsModal.addEventListener('hidden.bs.modal', function() {
+                            document.body.removeChild(logsModal);
+                        });
+                    }
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const resultDiv = document.getElementById('test-results');
-                const header = document.getElementById('test-result-header');
-                const content = document.getElementById('test-result-content');
-                
-                resultDiv.style.display = 'block';
-                
-                if (data.status === 'pass') {
-                    header.className = 'card-header bg-success text-white';
-                    header.textContent = 'Test Passed';
-                    content.innerHTML = `<div class="alert alert-success mb-0">Test "${data.test}" passed successfully!</div>`;
-                } else if (data.status === 'fail') {
-                    header.className = 'card-header bg-danger text-white';
-                    header.textContent = 'Test Failed';
-                    content.innerHTML = `<div class="alert alert-danger mb-0">Test "${data.test}" failed.</div>`;
-                } else {
-                    header.className = 'card-header bg-warning text-white';
-                    header.textContent = 'Test Error';
-                    content.innerHTML = `<div class="alert alert-warning mb-0">Error running test "${data.test}": ${data.error}</div>`;
-                }
-            })
-            .catch(error => {
-                console.error('Error running test:', error);
-                showToast('Error running test', 'danger');
-            });
+                .catch(error => {
+                    console.error('Error fetching logs:', error);
+                    showToast('Error fetching service logs', 'danger');
+                });
         }
         
         function exportStatusReport() {

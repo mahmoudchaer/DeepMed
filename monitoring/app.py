@@ -333,10 +333,74 @@ def api_refresh():
 @app.route('/api/prometheus')
 def prometheus_info():
     """API endpoint to get Prometheus info"""
+    # Use request.host to get the current host
+    host = request.host.split(':')[0]  # Extract hostname without port
     return jsonify({
-        "prometheus_url": "http://localhost:9090",
-        "grafana_url": "http://localhost:3000"
+        "prometheus_url": f"http://{host}:9090",
+        "grafana_url": f"http://{host}:3000"
     })
+
+@app.route('/api/logs/<service_name>')
+def get_service_logs(service_name):
+    """API endpoint to get logs for a specific service using Docker"""
+    try:
+        # Find service in the registered services
+        service_found = False
+        for category, services in SERVICES.items():
+            if service_name in services:
+                service_found = True
+                break
+        
+        if not service_found:
+            return jsonify({"error": f"Service '{service_name}' not found"}), 404
+        
+        # Use Docker API to fetch logs
+        import subprocess
+        
+        # Execute docker logs command
+        try:
+            # Convert service name to container name format (lowercase with underscores)
+            container_name = service_name.lower().replace(' ', '_')
+            
+            # Get the last 100 lines of logs
+            result = subprocess.run(
+                ['docker', 'logs', '--tail', '100', container_name], 
+                capture_output=True, 
+                text=True, 
+                check=False
+            )
+            
+            if result.returncode != 0:
+                # Try with deepmed prefix
+                result = subprocess.run(
+                    ['docker', 'logs', '--tail', '100', f"deepmed_{container_name}"], 
+                    capture_output=True, 
+                    text=True, 
+                    check=False
+                )
+                
+                if result.returncode != 0:
+                    return jsonify({
+                        "error": f"Could not fetch logs for {service_name}. Container may not be running."
+                    }), 404
+            
+            logs = result.stdout
+            
+            # If logs are empty, include stderr which might have error information
+            if not logs and result.stderr:
+                logs = f"No logs found. Error: {result.stderr}"
+            elif not logs:
+                logs = "No logs available for this service."
+                
+            return jsonify({"logs": logs})
+            
+        except Exception as e:
+            logger.error(f"Error fetching logs for {service_name}: {str(e)}")
+            return jsonify({"error": f"Error fetching logs: {str(e)}"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in logs endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Create logs directory
