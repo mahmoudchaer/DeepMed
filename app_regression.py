@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, copy_current_request_context
 from flask_login import login_required, current_user
 import os
 import pandas as pd
@@ -327,10 +327,23 @@ def train_regression():
                 'training_thread': None
             }
             
+            # Create a copy of necessary session data
+            session_data = {
+                'filepath': filepath,
+                'target_column': target_column,
+                'user_id': current_user.id,
+                'cleaned_file': session.get('cleaned_file'),
+                'selected_features_regression_file': session.get('selected_features_regression_file')
+            }
+            
+            # Wrap the training function with the current request context
+            @copy_current_request_context
+            def run_training():
+                train_regression_models_background(session_data)
+            
             # Start training in background thread
             training_thread = threading.Thread(
-                target=train_regression_models_background,
-                args=(filepath, target_column, current_user.id)
+                target=run_training
             )
             training_thread.daemon = True
             regression_training_status['training_thread'] = training_thread
@@ -483,13 +496,14 @@ def regression_results():
             flash('Please log in to access the regression results page.', 'info')
             return redirect('/login', code=302)
         
-        # Get model results from session
-        model_result = session.get('regression_model_results')
-        run_id = session.get('last_regression_training_run_id')
+        # Get model results
+        global regression_training_status
+        model_result = regression_training_status.get('model_result')
+        run_id = regression_training_status.get('last_regression_training_run_id')
         
-        # If no model result in session, try to get the most recent run from database
+        # If still no model_result, try to get from database
         if not model_result or not run_id:
-            logger.info("No model results in session, attempting to fetch from database")
+            logger.info("No model results found, attempting to fetch from database")
             with app.app_context():
                 # Get the user's most recent regression training run
                 regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
@@ -554,6 +568,11 @@ def regression_results():
                         logger.info(f"Built model result from database with {len(results)} models")
                 else:
                     logger.warning("No regression training runs found in database")
+        
+        # If no model result from training status, try from session as fallback
+        if not model_result:
+            model_result = session.get('regression_model_results')
+            run_id = session.get('last_regression_training_run_id')
         
         # If still no model_result, redirect to training page
         if not model_result:
@@ -624,53 +643,28 @@ def regression_results():
         # Extract the best model
         best_model = top_models[0] if top_models else None
         
+        # Save the session
+        session['regression_model_results'] = model_result
+        session['last_regression_training_run_id'] = run_id
+        
         # Get training info
         training_info = {
-            'target_column': session.get('target_column', 'Unknown'),
-            'dataset_size': model_result.get('dataset_size', 'Unknown'),
-            'training_time': model_result.get('training_time', 'Unknown')
+            'dataset_size': model_result.get('dataset_size', 0),
+            'training_time': model_result.get('training_time', 0),
+            'run_id': run_id
         }
         
-        # Get feature importance if available
-        feature_importance = []
-        if 'selected_features_regression_file_json' in session:
-            try:
-                # Load selected features
-                selected_features = load_from_temp_file(session['selected_features_regression_file_json'])
-                
-                # Create dummy feature importance if actual importance not available
-                for feature in selected_features:
-                    feature_importance.append({
-                        'name': feature,
-                        'importance': 1.0 / len(selected_features)  # Equal importance as fallback
-                    })
-            except Exception as e:
-                logger.error(f"Error loading selected features for regression: {str(e)}", exc_info=True)
-        
-        if 'feature_importance_regression_file' in session:
-            try:
-                # Load actual feature importance
-                feature_importance = load_from_temp_file(session['feature_importance_regression_file'])
-            except Exception as e:
-                logger.error(f"Error loading feature importance for regression: {str(e)}", exc_info=True)
-        
-        # Metrics information for explanation
-        metrics_info = {
-            'r2': 'R² (Coefficient of Determination): Represents the proportion of variance in the dependent variable that is predictable from the independent variables. Values range from 0 to 1, with 1 indicating perfect prediction.',
-            'rmse': "RMSE (Root Mean Square Error): Measures the average magnitude of the error. It's the square root of the average of squared differences between predicted and actual values.",
-            'mae': 'MAE (Mean Absolute Error): Measures the average magnitude of the errors in a set of predictions, without considering their direction.',
-            'mse': 'MSE (Mean Squared Error): The average of the squares of the errors—the average squared difference between the estimated values and the actual value.'
-        }
-        
-        logger.info(f"Rendering regression_results.html with {len(top_models)} models")
-        return render_template('regression_results.html', 
-                              run_id=run_id,
-                              model_results=results,  # Using all results now, not just top_models
-                              best_model=best_r2_model,  # For backward compatibility
-                              best_models=best_models,
-                              training_info=training_info,
-                              feature_importance=feature_importance,
-                              metrics_info=metrics_info)
+        # Pass all models to template, highlighting the best ones
+        logger.info(f"Rendering regression_results.html with {len(sorted_models)} models")
+        return render_template(
+            'regression_results.html',
+            models=sorted_models,
+            top_models=top_models,
+            best_model=best_model,
+            best_models=best_models,
+            training_info=training_info,
+            run_id=run_id
+        )
     except Exception as e:
         logger.error(f"Error rendering regression results: {str(e)}", exc_info=True)
         flash(f"Error displaying regression results: {str(e)}", 'error')
@@ -789,9 +783,14 @@ def api_predict_regression():
         return jsonify({'error': str(e)}), 500 
 
 # Add this new function for background training
-def train_regression_models_background(filepath, target_column, user_id):
+def train_regression_models_background(session_data):
     """Train regression models in the background"""
     global regression_training_status
+    
+    # Extract the session data
+    filepath = session_data['filepath']
+    target_column = session_data['target_column']
+    user_id = session_data['user_id']
     
     try:
         logger.info(f"Starting background regression model training for target: {target_column}")
@@ -839,16 +838,18 @@ def train_regression_models_background(filepath, target_column, user_id):
         cleaning_result = response.json()
         cleaned_data = pd.DataFrame.from_dict(cleaning_result["data"])
         
-        # Clean up previous cleaned file if exists
-        if 'cleaned_file' in session and os.path.exists(session['cleaned_file']):
+        # Instead of using session, store directly to temporary file
+        old_cleaned_file = session_data.get('cleaned_file')
+        if old_cleaned_file and os.path.exists(old_cleaned_file):
             try:
-                os.remove(session['cleaned_file'])
+                os.remove(old_cleaned_file)
             except:
                 pass
                 
         cleaned_filepath = get_temp_filepath(extension='.csv')
         cleaned_data.to_csv(cleaned_filepath, index=False)
-        session['cleaned_file'] = cleaned_filepath
+        # Store file path in app variable instead of session
+        regression_training_status['cleaned_file'] = cleaned_filepath
         
         if regression_training_status['stop_requested']:
             regression_training_status['status'] = 'failed'
@@ -901,34 +902,33 @@ def train_regression_models_background(filepath, target_column, user_id):
         feature_result = response.json()
         X_selected = pd.DataFrame.from_dict(feature_result["transformed_data"])
         
-        # Store selected features in session
+        # Store selected features
         selected_features = X_selected.columns.tolist()
         
-        # Save selected features to file to prevent session bloat
+        # Save selected features and feature importance to files without using session
         selected_features_file_json = save_to_temp_file(selected_features, 'selected_features_regression')
-        session['selected_features_regression_file_json'] = selected_features_file_json
-        # Use a reference in session to avoid storing large data
-        session['selected_features_regression'] = f"[{len(selected_features)} features]"
+        regression_training_status['selected_features_file_json'] = selected_features_file_json
         
         # Store feature importances for visualization
         feature_importance = []
         for feature, importance in feature_result["feature_importances"].items():
             feature_importance.append({'name': feature, 'importance': importance})
         
-        # Save feature importance to file
+        # Save feature importance to file without using session
         feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance_regression')
-        session['feature_importance_regression_file'] = feature_importance_file
+        regression_training_status['feature_importance_file'] = feature_importance_file
         
         # Clean up previous selected features file if exists
-        if 'selected_features_regression_file' in session and os.path.exists(session['selected_features_regression_file']):
+        old_features_file = session_data.get('selected_features_regression_file')
+        if old_features_file and os.path.exists(old_features_file):
             try:
-                os.remove(session['selected_features_regression_file'])
+                os.remove(old_features_file)
             except:
                 pass
                 
         selected_features_filepath = get_temp_filepath(extension='.csv')
         X_selected.to_csv(selected_features_filepath, index=False)
-        session['selected_features_regression_file'] = selected_features_filepath
+        regression_training_status['selected_features_file'] = selected_features_filepath
         
         if regression_training_status['stop_requested']:
             regression_training_status['status'] = 'failed'
@@ -937,7 +937,7 @@ def train_regression_models_background(filepath, target_column, user_id):
             
         # Extract original dataset filename from the temporary filepath
         import re
-        temp_filepath = session.get('uploaded_file_regression', '')
+        temp_filepath = filepath
         # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
         # Extract the original filename portion
         original_filename = ""
@@ -1095,8 +1095,9 @@ def train_regression_models_background(filepath, target_column, user_id):
                 
             raise Exception(f"Regression Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
         
-        # Store the complete model results in session
+        # Store the complete model results
         model_result = response.json()
+        regression_training_status['model_result'] = model_result
         
         # Update model statuses based on results
         available_models = {
@@ -1135,8 +1136,8 @@ def train_regression_models_background(filepath, target_column, user_id):
                 with app.app_context():
                     ensure_regression_models_saved(user_id, run_id_to_use, model_result)
                 
-                # Save the run ID to session for models_regression page
-                session['last_regression_training_run_id'] = run_id_to_use
+                # Save the run ID for later use
+                regression_training_status['last_regression_training_run_id'] = run_id_to_use
                 
                 # If we have our local run_id, also ensure models are saved for it
                 if local_run_id and local_run_id != run_id_to_use:
@@ -1147,9 +1148,6 @@ def train_regression_models_background(filepath, target_column, user_id):
             regression_training_status['status'] = 'failed'
             regression_training_status['message'] = 'No models were successfully trained by the model coordinator'
             return
-        
-        # Save processed results to session
-        session['regression_model_results'] = model_result
         
         # Mark training as complete
         regression_training_status['status'] = 'complete'
