@@ -6,6 +6,7 @@ import logging
 import sys
 import os
 import time
+import io
 import joblib
 import mlflow
 import mlflow.sklearn
@@ -16,12 +17,26 @@ import uuid
 from datetime import datetime
 import traceback
 
+# Try to import storage module for Azure Blob Storage
+try:
+    from storage import upload_to_blob, get_blob_url, download_blob
+    BLOB_STORAGE_AVAILABLE = True
+    logging.info("Azure Blob Storage integration available")
+except ImportError:
+    BLOB_STORAGE_AVAILABLE = False
+    logging.warning("Azure Blob Storage integration not available")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
+
+# Enable verbose logging if environment variable is set
+if os.environ.get('VERBOSE_LOGGING', 'false').lower() in ('true', '1', 't', 'yes'):
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.debug("Verbose logging enabled")
 
 logger = logging.getLogger(__name__)
 
@@ -143,13 +158,46 @@ class LassoRegressionModel:
             logger.info(f"Hyperparameter tuning completed in {train_time:.2f} seconds")
             logger.info(f"Best alpha={best_alpha} with test R²={best_score:.4f}")
             
-            # Save best model to disk
-            model_filename = f"{SAVED_MODELS_DIR}/lasso_regression_{int(time.time())}.joblib"
-            joblib.dump(self.model, model_filename)
-            logger.info(f"Best model saved to {model_filename}")
+            # Generate timestamp and unique ID for filenames
+            timestamp = int(time.time())
+            unique_id = str(uuid.uuid4())[:8]
+            model_basename = f"lasso_regression_{timestamp}_{unique_id}"
             
-            # Get the model URL (for retrieval)
-            model_url = f"/saved_models/lasso_regression/lasso_regression_{int(time.time())}.joblib"
+            # Save best model to disk
+            local_model_path = f"{SAVED_MODELS_DIR}/{model_basename}.joblib"
+            joblib.dump(self.model, local_model_path)
+            logger.info(f"Best model saved to {local_model_path}")
+            
+            # Save model to Blob Storage if available
+            model_url = None
+            if BLOB_STORAGE_AVAILABLE:
+                try:
+                    logger.info("Attempting to save model to Azure Blob Storage...")
+                    # Serialize model to memory
+                    model_bytes = io.BytesIO()
+                    joblib.dump(self.model, model_bytes)
+                    model_bytes.seek(0)
+                    
+                    # Upload to blob storage
+                    blob_filename = f"{model_basename}.joblib"
+                    logger.debug(f"Uploading model as {blob_filename}")
+                    blob_url = upload_to_blob(model_bytes, blob_filename)
+                    
+                    if blob_url:
+                        logger.info(f"Model successfully uploaded to blob storage: {blob_url}")
+                        model_url = blob_url
+                    else:
+                        logger.error("Failed to upload model to blob storage - null response from upload_to_blob")
+                except Exception as e:
+                    logger.error(f"Error uploading model to blob storage: {str(e)}")
+                    logger.error(traceback.format_exc())
+            else:
+                logger.warning("Azure Blob Storage not available, skipping cloud upload")
+            
+            # If blob storage upload failed or isn't available, use local path
+            if not model_url:
+                model_url = f"/saved_models/lasso_regression/{model_basename}.joblib"
+                logger.info(f"Using local file path as model URL: {model_url}")
             
             # Log the best model in the parent run
             mlflow.sklearn.log_model(self.model, "best_model")
@@ -196,16 +244,40 @@ class LassoRegressionModel:
     def load_model(self, model_path):
         """Load a saved model"""
         try:
-            full_path = model_path
-            if not model_path.startswith('/'):
-                full_path = os.path.join(SAVED_MODELS_DIR, os.path.basename(model_path))
+            # Check if model path is a URL (starts with http or https)
+            if model_path.startswith(('http://', 'https://')):
+                if BLOB_STORAGE_AVAILABLE:
+                    logger.info(f"Downloading model from blob storage: {model_path}")
+                    
+                    # Create a temporary file path
+                    temp_path = os.path.join(SAVED_MODELS_DIR, f"temp_model_{int(time.time())}.joblib")
+                    
+                    # Download the model
+                    download_success = download_blob(model_path, temp_path)
+                    
+                    if download_success:
+                        logger.info(f"Model downloaded successfully to {temp_path}")
+                        full_path = temp_path
+                    else:
+                        logger.error(f"Failed to download model from {model_path}")
+                        return False
+                else:
+                    logger.error("Cannot download model from URL - Azure Blob Storage not available")
+                    return False
+            else:
+                # Local file
+                full_path = model_path
+                if not model_path.startswith('/'):
+                    full_path = os.path.join(SAVED_MODELS_DIR, os.path.basename(model_path))
             
+            logger.info(f"Loading model from {full_path}")
             self.model = joblib.load(full_path)
             self.is_trained = True
-            logger.info(f"Model loaded from {full_path}")
+            logger.info(f"Model loaded successfully from {full_path}")
             return True
         except Exception as e:
             logger.error(f"Error loading model: {str(e)}")
+            logger.error(traceback.format_exc())
             return False
 
 # Create model instance
@@ -217,7 +289,8 @@ def health():
     return jsonify({
         "status": "healthy", 
         "service": "lasso_regression",
-        "is_trained": regression_model.is_trained
+        "is_trained": regression_model.is_trained,
+        "blob_storage_available": BLOB_STORAGE_AVAILABLE
     })
 
 @app.route('/train', methods=['POST'])
