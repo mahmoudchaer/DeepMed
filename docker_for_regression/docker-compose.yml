@@ -58,6 +58,7 @@ services:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
       - ./saved_models:/app/saved_models
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
       - deepmed-network
@@ -171,7 +172,6 @@ services:
       - "5050:5050"
     restart: unless-stopped
     volumes:
-      - ./regression_predictor/predictor.py:/app/predictor.py
       - ./saved_models:/app/saved_models
     environment:
       - PORT=5050

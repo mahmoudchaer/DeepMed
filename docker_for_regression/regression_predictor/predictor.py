@@ -13,15 +13,7 @@ import logging
 from flask import Flask, request, jsonify
 import uuid
 import datetime
-
-# Import storage module for blob operations
-try:
-    from storage import download_blob
-    BLOB_STORAGE_AVAILABLE = True
-    print("Azure Blob Storage integration available")
-except ImportError:
-    BLOB_STORAGE_AVAILABLE = False
-    print("WARNING: Azure Blob Storage integration not available")
+import requests
 
 # Configure logging to ensure all output appears
 logging.basicConfig(
@@ -37,22 +29,21 @@ for handler in logging.getLogger().handlers:
     app.logger.addHandler(handler)
 app.logger.setLevel(logging.DEBUG)
 
-def download_model_from_blob(model_url, target_path):
-    """Download a model file from Azure Blob Storage.
+def check_local_model(model_url, target_path):
+    """Check if a model file exists locally and copy it to the target path.
     
     Args:
         model_url (str): The URL or path to the model file
-        target_path (str): The local path to save the downloaded model
+        target_path (str): The local path to save the model
         
     Returns:
         bool: True if successful, False otherwise
     """
     request_id = str(uuid.uuid4())[:8]
-    print(f"[{request_id}] Attempting to download model from {model_url} to {target_path}")
+    print(f"[{request_id}] Checking for local model file: {model_url}")
     
-    # First check if this is a path we can access directly in the container
+    # Check if this is a path we can access directly in the container
     if model_url.startswith('/'):
-        local_path = model_url
         # If it starts with /saved_models and we have mounted that volume, check there
         if model_url.startswith('/saved_models') and os.path.exists('/app/saved_models'):
             # Transform the path to use our local mount
@@ -65,55 +56,42 @@ def download_model_from_blob(model_url, target_path):
                 try:
                     shutil.copy2(transformed_path, target_path)
                     print(f"[{request_id}] Copied local model to {target_path}")
-                    return True
+                    
+                    # Verify the file exists and is a valid model file
+                    if os.path.exists(target_path):
+                        file_size = os.path.getsize(target_path)
+                        print(f"[{request_id}] Model copied successfully - size: {file_size} bytes")
+                        
+                        # Verify it's not a text file (placeholder)
+                        if file_size < 1000:  # Less than 1KB
+                            try:
+                                with open(target_path, 'r') as f:
+                                    content = f.read(100)  # Read first 100 chars
+                                    if "placeholder" in content.lower() or "could not be downloaded" in content.lower():
+                                        print(f"[{request_id}] WARNING: File appears to be a placeholder: {content}")
+                                        return False
+                            except UnicodeDecodeError:
+                                # If we can't decode as text, it's likely a binary file (good)
+                                pass
+                        
+                        # Try to load with joblib to verify it's a valid model
+                        try:
+                            import joblib
+                            model = joblib.load(target_path)
+                            print(f"[{request_id}] Successfully loaded model with joblib")
+                            return True
+                        except Exception as e:
+                            print(f"[{request_id}] Error loading model with joblib: {str(e)}")
+                            return False
+                    else:
+                        print(f"[{request_id}] Target path {target_path} does not exist after copy")
+                        return False
                 except Exception as e:
                     print(f"[{request_id}] Error copying local model: {str(e)}")
-                    # Continue with blob download as fallback
-    
-    # Early return if blob storage is not available
-    if not BLOB_STORAGE_AVAILABLE:
-        print(f"[{request_id}] Cannot download model - Azure Blob Storage integration not available")
-        return False
-    
-    try:
-        # Use our storage module to download the blob
-        result = download_blob(model_url, target_path)
-        if result:
-            # Verify the file was downloaded and is a valid model file
-            if os.path.exists(target_path):
-                file_size = os.path.getsize(target_path)
-                print(f"[{request_id}] Model downloaded successfully - size: {file_size} bytes")
-                
-                # Verify it's not a text file (placeholder)
-                if file_size < 1000:  # Less than 1KB
-                    try:
-                        with open(target_path, 'r') as f:
-                            content = f.read(100)  # Read first 100 chars
-                            if "placeholder" in content.lower() or "could not be downloaded" in content.lower():
-                                print(f"[{request_id}] WARNING: Downloaded file appears to be a placeholder: {content}")
-                                return False
-                    except UnicodeDecodeError:
-                        # If we can't decode as text, it's likely a binary file (good)
-                        pass
-                
-                # Try to load with joblib to verify it's a valid model
-                try:
-                    import joblib
-                    model = joblib.load(target_path)
-                    print(f"[{request_id}] Successfully loaded model with joblib")
-                    return True
-                except Exception as e:
-                    print(f"[{request_id}] Error loading model with joblib: {str(e)}")
                     return False
-            else:
-                print(f"[{request_id}] Target path {target_path} does not exist after download")
-                return False
-        else:
-            print(f"[{request_id}] Failed to download model from {model_url}")
-            return False
-    except Exception as e:
-        print(f"[{request_id}] Exception in download_model_from_blob: {str(e)}")
-        return False
+    
+    print(f"[{request_id}] Model file not found locally at {model_url}")
+    return False
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -127,8 +105,7 @@ def health():
         "service": "regression_predictor",
         "timestamp": datetime.datetime.now().isoformat(),
         "python_version": sys.version,
-        "platform": sys.platform,
-        "blob_storage_available": BLOB_STORAGE_AVAILABLE
+        "platform": sys.platform
     }
     
     print(f"[{request_id}] Returning health status: {health_info}")
@@ -159,7 +136,7 @@ def extract_encodings():
             target_path = os.path.join(temp_dir, target_filename)
             
             print(f"[{request_id}] Downloading model to {target_path}")
-            download_success = download_model_from_blob(model_url, target_path)
+            download_success = check_local_model(model_url, target_path)
             
             if not download_success:
                 print(f"[{request_id}] Failed to download model from {model_url}")
@@ -527,7 +504,7 @@ def predict():
             target_path = os.path.join(temp_dir, target_filename)
             
             print(f"[{request_id}] Downloading model to {target_path}")
-            download_success = download_model_from_blob(model_url, target_path)
+            download_success = check_local_model(model_url, target_path)
             
             if not download_success:
                 print(f"[{request_id}] Failed to download model from {model_url}")
@@ -1111,7 +1088,7 @@ def test_model_download():
         print(f"[{request_id}] Target path for download: {target_path}")
         
         # Try direct download first
-        direct_success = download_model_from_blob(model_url, target_path)
+        direct_success = check_local_model(model_url, target_path)
         
         if direct_success:
             # Try to load the model to verify it's valid
@@ -1141,18 +1118,6 @@ def test_model_download():
             # Try fallback to requests
             print(f"[{request_id}] Direct download failed, trying fallback method")
             try:
-                import requests
-                
-                if not model_url.startswith('http'):
-                    # Construct full URL from relative path
-                    azure_account = os.environ.get('AZURE_STORAGE_ACCOUNT')
-                    azure_container = os.environ.get('AZURE_CONTAINER')
-                    if azure_account and azure_container:
-                        if model_url.startswith('/'):
-                            model_url = model_url[1:]
-                        model_url = f"https://{azure_account}.blob.core.windows.net/{azure_container}/{model_url}"
-                        print(f"[{request_id}] Constructed full URL: {model_url}")
-                
                 print(f"[{request_id}] Attempting fallback download from: {model_url}")
                 response = requests.get(model_url, stream=True, timeout=60)
                 response.raise_for_status()

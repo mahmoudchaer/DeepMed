@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import pandas as pd
 import numpy as np
 import json
@@ -334,6 +334,36 @@ def load_model():
         logger.error(f"Error loading model: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/download_model', methods=['GET'])
+def download_model():
+    """Download the trained model file"""
+    try:
+        if not regression_model.is_trained:
+            return jsonify({"error": "Model is not trained"}), 400
+            
+        # Find the most recent model file
+        model_path = None
+        latest_time = 0
+        
+        for file in os.listdir(SAVED_MODELS_DIR):
+            if file.startswith('lasso_regression_') and file.endswith('.joblib'):
+                file_path = os.path.join(SAVED_MODELS_DIR, file)
+                # Get file creation time
+                file_time = os.path.getmtime(file_path)
+                if file_time > latest_time:
+                    latest_time = file_time
+                    model_path = file_path
+        
+        if not model_path:
+            return jsonify({"error": "No model file found"}), 404
+            
+        # Return the model file
+        return send_file(model_path, as_attachment=True, download_name='lasso_regression_model.joblib')
+        
+    except Exception as e:
+        logger.error(f"Error in download_model endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
