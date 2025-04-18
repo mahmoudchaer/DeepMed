@@ -48,17 +48,16 @@ services:
       - KNN_REGRESSION_URL=http://knn_regression:5045
       - XGBOOST_REGRESSION_URL=http://xgboost_regression:5046
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      # Disabled database operations
+      - DB_DISABLED=true
+      # Azure Blob Storage for model saving (these will be passed from environment)
       - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
       - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
       - AZURE_CONTAINER=${AZURE_CONTAINER}
-      - MYSQL_HOST=host.docker.internal
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_PORT=${MYSQL_PORT}
-      - MYSQL_DB=${MYSQL_DB}
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
+      - ./saved_models:/app/saved_models
     networks:
       - regression-network
       - deepmed-network
@@ -75,6 +74,7 @@ services:
       - "5041:5041"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
@@ -90,6 +90,7 @@ services:
       - "5042:5042"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
@@ -105,6 +106,7 @@ services:
       - "5043:5043"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
@@ -120,6 +122,7 @@ services:
       - "5044:5044"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
@@ -135,6 +138,7 @@ services:
       - "5045:5045"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
@@ -150,6 +154,7 @@ services:
       - "5046:5046"
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - DB_DISABLED=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
