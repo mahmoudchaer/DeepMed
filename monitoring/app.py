@@ -342,7 +342,7 @@ def prometheus_info():
 
 @app.route('/api/logs/<service_name>')
 def get_service_logs(service_name):
-    """API endpoint to get logs for a specific service using Docker"""
+    """API endpoint to get logs for a specific service using Docker Python client"""
     try:
         # Find service in the registered services
         service_found = False
@@ -354,49 +354,60 @@ def get_service_logs(service_name):
         if not service_found:
             return jsonify({"error": f"Service '{service_name}' not found"}), 404
         
-        # Use Docker API to fetch logs
-        import subprocess
-        
-        # Execute docker logs command
+        # Try to use Docker client
         try:
+            import docker
+            client = docker.from_env()
+            
             # Convert service name to container name format (lowercase with underscores)
             container_name = service_name.lower().replace(' ', '_')
             
-            # Get the last 100 lines of logs
-            result = subprocess.run(
-                ['docker', 'logs', '--tail', '100', container_name], 
-                capture_output=True, 
-                text=True, 
-                check=False
-            )
+            # Try different variations of container names
+            container_variations = [
+                container_name,
+                f"deepmed_{container_name}",
+                f"monitoring_{container_name}",
+                f"{container_name}_1",
+                f"deepmed_{container_name}_1",
+                f"monitoring_{container_name}_1"
+            ]
             
-            if result.returncode != 0:
-                # Try with deepmed prefix
-                result = subprocess.run(
-                    ['docker', 'logs', '--tail', '100', f"deepmed_{container_name}"], 
-                    capture_output=True, 
-                    text=True, 
-                    check=False
-                )
-                
-                if result.returncode != 0:
-                    return jsonify({
-                        "error": f"Could not fetch logs for {service_name}. Container may not be running."
-                    }), 404
+            container = None
+            for name in container_variations:
+                try:
+                    containers = client.containers.list(all=True, filters={"name": name})
+                    if containers:
+                        container = containers[0]
+                        break
+                except docker.errors.NotFound:
+                    continue
             
-            logs = result.stdout
+            if not container:
+                # If specific container not found, try to match partially by name
+                all_containers = client.containers.list(all=True)
+                for c in all_containers:
+                    if container_name in c.name:
+                        container = c
+                        break
             
-            # If logs are empty, include stderr which might have error information
-            if not logs and result.stderr:
-                logs = f"No logs found. Error: {result.stderr}"
-            elif not logs:
+            if not container:
+                return jsonify({
+                    "error": f"Could not find container for {service_name}. Available containers: {', '.join([c.name for c in client.containers.list(all=True)])}"
+                }), 404
+            
+            # Get logs from container
+            logs = container.logs(tail=100).decode('utf-8')
+            
+            if not logs:
                 logs = "No logs available for this service."
                 
             return jsonify({"logs": logs})
             
-        except Exception as e:
-            logger.error(f"Error fetching logs for {service_name}: {str(e)}")
-            return jsonify({"error": f"Error fetching logs: {str(e)}"}), 500
+        except ImportError:
+            return jsonify({"error": "Docker Python client not installed"}), 500
+        except docker.errors.DockerException as e:
+            logger.error(f"Docker error: {str(e)}")
+            return jsonify({"error": f"Docker error: {str(e)}"}), 500
             
     except Exception as e:
         logger.error(f"Error in logs endpoint: {str(e)}")
