@@ -360,39 +360,46 @@ def get_service_logs(service_name):
             client = docker.from_env()
             
             # Convert service name to container name format (lowercase with underscores)
-            container_name = service_name.lower().replace(' ', '_')
+            container_name = service_name.lower().replace(' ', '_').replace('-', '_')
             
             # Try different variations of container names
             container_variations = [
                 container_name,
                 f"deepmed_{container_name}",
                 f"monitoring_{container_name}",
+                f"docker_for_images-{container_name}",
+                f"docker_for_images_{container_name}",
                 f"{container_name}_1",
                 f"deepmed_{container_name}_1",
-                f"monitoring_{container_name}_1"
+                f"monitoring_{container_name}_1",
+                f"docker_for_images-{container_name}_1",
+                f"docker_for_images-{container_name}-1",
+                f"monitoring-{container_name}-1",
+                f"docker_for_images_{container_name}_1"
             ]
             
-            container = None
-            for name in container_variations:
-                try:
-                    containers = client.containers.list(all=True, filters={"name": name})
-                    if containers:
-                        container = containers[0]
-                        break
-                except docker.errors.NotFound:
-                    continue
+            # Get a list of all containers to check against
+            all_containers = client.containers.list(all=True)
+            all_container_names = [c.name for c in all_containers]
             
+            container = None
+            # First try exact matches
+            for name in container_variations:
+                if name in all_container_names:
+                    container = client.containers.get(name)
+                    break
+            
+            # If no exact match, try partial matching
             if not container:
-                # If specific container not found, try to match partially by name
-                all_containers = client.containers.list(all=True)
                 for c in all_containers:
-                    if container_name in c.name:
+                    # Check if the service name is part of the container name
+                    if container_name in c.name or service_name.lower().replace('_', '-') in c.name:
                         container = c
                         break
             
             if not container:
                 return jsonify({
-                    "error": f"Could not find container for {service_name}. Available containers: {', '.join([c.name for c in client.containers.list(all=True)])}"
+                    "error": f"Could not find container for {service_name}. Available containers: {', '.join(all_container_names)}"
                 }), 404
             
             # Get logs from container
