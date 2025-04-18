@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  monitoring:
+    build: .
+    ports:
+      - "5432:5432"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    restart: always
+    environment:
+      - FLASK_ENV=production
+      - DATA_CLEANER_URL=http://host.docker.internal:5001
+      - FEATURE_SELECTOR_URL=http://host.docker.internal:5002
+      - ANOMALY_DETECTOR_URL=http://host.docker.internal:5003
+      - MODEL_COORDINATOR_URL=http://host.docker.internal:5020
+      - MEDICAL_ASSISTANT_URL=http://host.docker.internal:5005
+      - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
+      - MODEL_TRAINING_SERVICE_URL=http://host.docker.internal:5021
+      - PIPELINE_SERVICE_URL=http://host.docker.internal:5025
+      - OBJECT_DETECTION_SERVICE_URL=http://host.docker.internal:5027
+      - ANOMALY_DETECTION_SERVICE_URL=http://host.docker.internal:5029
+      - SEMANTIC_SEGMENTATION_SERVICE_URL=http://host.docker.internal:5031
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
