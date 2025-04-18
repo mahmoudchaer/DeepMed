@@ -11,6 +11,7 @@ import json
 import sys
 import logging
 from flask import Flask, request, jsonify
+from threading import Thread
 
 # Configure logging to ensure all output appears
 logging.basicConfig(
@@ -117,12 +118,12 @@ import glob
 import traceback
 
 def find_file(pattern):
-    """Find files matching a pattern"""
+    \"\"\"Find files matching a pattern\"\"\"
     matches = glob.glob(pattern)
     return matches[0] if matches else None
 
 def load_preprocessing_info():
-    """Load preprocessing information from json files"""
+    \"\"\"Load preprocessing information from json files\"\"\"
     preprocessing_info = {}
     
     # Look for encoding/preprocessing files
@@ -170,7 +171,7 @@ def load_preprocessing_info():
     return preprocessing_info
 
 def preprocess_data(data, preprocessing_info):
-    """Apply preprocessing to the input data"""
+    \"\"\"Apply preprocessing to the input data\"\"\"
     if not preprocessing_info:
         return data
     
@@ -394,7 +395,6 @@ if __name__ == "__main__":
                     shutil.rmtree(temp_dir)
                     print(f"Cleaned up temporary directory: {temp_dir}")
                     
-            from threading import Thread
             Thread(target=delayed_cleanup).start()
         except Exception as e:
             print(f"Warning: Failed to clean up temporary directory: {str(e)}")
