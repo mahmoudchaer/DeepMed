@@ -11,6 +11,7 @@ import mlflow
 import mlflow.sklearn
 import xgboost as xgb
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.model_selection import RandomizedSearchCV
 from waitress import serve
 
 # Configure logging
@@ -43,6 +44,10 @@ class XGBoostRegressionModel:
         self.max_depth = 5
         self.subsample = 0.8
         self.colsample_bytree = 0.8
+        self.min_child_weight = 1
+        self.gamma = 0
+        self.reg_alpha = 0
+        self.reg_lambda = 1
         self.objective = 'reg:squarederror'
         
         self.model = None
@@ -55,35 +60,6 @@ class XGBoostRegressionModel:
         # Start timer
         start_time = time.time()
         
-        # Define the hyperparameter search space
-        param_grid = {
-            'learning_rate': [0.01, 0.05, 0.1, 0.2],
-            'n_estimators': [50, 100, 200],
-            'max_depth': [3, 5, 7, 9],
-            'subsample': [0.6, 0.8, 1.0],
-            'colsample_bytree': [0.6, 0.8, 1.0]
-        }
-        
-        # Create combinations of parameters to try (limit to prevent too many)
-        param_combinations = [
-            {'learning_rate': 0.1, 'n_estimators': 100, 'max_depth': 5, 'subsample': 0.8, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.05, 'n_estimators': 100, 'max_depth': 5, 'subsample': 0.8, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.1, 'n_estimators': 200, 'max_depth': 5, 'subsample': 0.8, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.1, 'n_estimators': 100, 'max_depth': 7, 'subsample': 0.8, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.1, 'n_estimators': 100, 'max_depth': 5, 'subsample': 1.0, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.1, 'n_estimators': 100, 'max_depth': 5, 'subsample': 0.8, 'colsample_bytree': 1.0},
-            {'learning_rate': 0.2, 'n_estimators': 100, 'max_depth': 5, 'subsample': 0.8, 'colsample_bytree': 0.8},
-            {'learning_rate': 0.05, 'n_estimators': 200, 'max_depth': 7, 'subsample': 1.0, 'colsample_bytree': 1.0}
-        ]
-        
-        # Initialize variables to track best model
-        best_model = None
-        best_params = None
-        best_score = -float('inf')  # Initialize with worst possible score
-        
-        # Track all results for MLflow
-        all_results = []
-        
         # Get a unique experiment ID for all the runs
         experiment_id = int(time.time())
         
@@ -93,168 +69,239 @@ class XGBoostRegressionModel:
             mlflow.log_params({
                 "model_type": "xgboost_regression",
                 "tuning": True,
+                "tuning_method": "randomized_search",
                 "num_features": X_train.shape[1],
-                "num_samples": X_train.shape[0],
-                "num_combinations": len(param_combinations)
+                "num_samples": X_train.shape[0]
             })
             
-            # Test each parameter combination
-            for params in param_combinations:
-                # Create a descriptive run name
-                run_name = f"xgboost_lr_{params['learning_rate']}_est_{params['n_estimators']}_depth_{params['max_depth']}"
+            try:
+                # Define the hyperparameter search space
+                param_space = {
+                    'learning_rate': [0.01, 0.03, 0.05, 0.1, 0.2, 0.3],
+                    'n_estimators': [50, 100, 150, 200, 300],
+                    'max_depth': [3, 4, 5, 6, 7, 9],
+                    'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+                    'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
+                    'min_child_weight': [1, 3, 5, 7],
+                    'gamma': [0, 0.1, 0.2, 0.3, 0.4],
+                    'reg_alpha': [0, 0.001, 0.01, 0.1, 1],
+                    'reg_lambda': [0.01, 0.1, 1, 10]
+                }
                 
-                # Create a nested run for this parameter set
-                with mlflow.start_run(run_name=run_name, nested=True) as run:
-                    logger.info(f"Trying parameters: {params}")
+                # Configure base model
+                base_model = xgb.XGBRegressor(
+                    objective=self.objective,
+                    random_state=42,
+                    tree_method='hist'  # 'hist' is faster than 'exact' for large datasets
+                )
+                
+                # Configure RandomizedSearchCV
+                n_iter = min(20, 3 * len(X_train) // 1000 + 5)  # Scale iterations based on dataset size
+                logger.info(f"Running RandomizedSearchCV with {n_iter} iterations")
+                
+                search = RandomizedSearchCV(
+                    estimator=base_model,
+                    param_distributions=param_space,
+                    n_iter=n_iter,
+                    scoring='r2',
+                    cv=3,
+                    verbose=2,
+                    random_state=42,
+                    n_jobs=-1
+                )
+                
+                # Perform the search
+                search.fit(X_train, y_train)
+                
+                # Log all evaluated models to MLflow
+                all_results = []
+                for i, params in enumerate(search.cv_results_['params']):
+                    r2 = search.cv_results_['mean_test_score'][i]
+                    fit_time = search.cv_results_['mean_fit_time'][i]
                     
-                    # Create and train the model with these parameters
-                    model = xgb.XGBRegressor(
-                        learning_rate=params['learning_rate'],
-                        n_estimators=params['n_estimators'],
-                        max_depth=params['max_depth'],
-                        subsample=params['subsample'],
-                        colsample_bytree=params['colsample_bytree'],
-                        objective=self.objective,
-                        random_state=42
-                    )
-                    
-                    # Train the model and measure time
-                    fit_start_time = time.time()
-                    model.fit(X_train, y_train)
-                    fit_time = time.time() - fit_start_time
-                    
-                    # Make predictions
-                    y_pred_train = model.predict(X_train)
-                    y_pred_test = model.predict(X_test)
-                    
-                    # Calculate metrics
-                    train_r2 = r2_score(y_train, y_pred_train)
-                    test_r2 = r2_score(y_test, y_pred_test)
-                    test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
-                    test_mae = mean_absolute_error(y_test, y_pred_test)
-                    test_mse = mean_squared_error(y_test, y_pred_test)
-                    
-                    # Get feature importances
-                    feature_importances = model.feature_importances_.tolist() if hasattr(model, 'feature_importances_') else []
-                    
-                    # Store results
                     result = {
                         **params,
-                        'train_r2': train_r2,
-                        'test_r2': test_r2,
-                        'test_rmse': test_rmse,
-                        'test_mae': test_mae,
-                        'test_mse': test_mse,
+                        'test_r2': r2,
                         'fit_time': fit_time
                     }
                     all_results.append(result)
                     
-                    logger.info(f"Parameters: {params}")
-                    logger.info(f"Training R²: {train_r2:.4f}, Test R²: {test_r2:.4f}, RMSE: {test_rmse:.4f}")
-                    
-                    # Log parameters and metrics to MLflow
-                    mlflow.log_params(params)
-                    mlflow.log_metrics({
-                        "train_r2": train_r2,
-                        "test_r2": test_r2,
-                        "test_rmse": test_rmse,
-                        "test_mae": test_mae,
-                        "test_mse": test_mse,
-                        "fit_time": fit_time
-                    })
-                    
-                    # Log feature importances if available
-                    if feature_importances:
-                        for i, importance in enumerate(feature_importances):
-                            mlflow.log_metric(f"feature_importance_{i}", importance)
-                    
-                    # Track best model
-                    if test_r2 > best_score:
-                        best_score = test_r2
-                        best_model = model
-                        best_params = params.copy()
-            
-            # Log the best model parameters to the parent run
-            mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
-            mlflow.log_metric("best_test_r2", best_score)
-            
-            # Set the best model as our model
-            self.model = best_model
-            self.learning_rate = best_params['learning_rate']
-            self.n_estimators = best_params['n_estimators']
-            self.max_depth = best_params['max_depth']
-            self.subsample = best_params['subsample']
-            self.colsample_bytree = best_params['colsample_bytree']
-            
-            # Get best feature importances
-            feature_importances = self.model.feature_importances_.tolist() if hasattr(self.model, 'feature_importances_') else []
-            
-            # Calculate total training time
-            train_time = time.time() - start_time
-            logger.info(f"Total hyperparameter tuning time: {train_time:.2f} seconds")
-            logger.info(f"Best parameters: {best_params}")
-            logger.info(f"Best test R²: {best_score:.4f}")
-            
-            # Get model parameters
-            model_params = {
-                'learning_rate': self.learning_rate,
-                'n_estimators': self.n_estimators,
-                'max_depth': self.max_depth,
-                'subsample': self.subsample,
-                'colsample_bytree': self.colsample_bytree,
-                'objective': self.objective,
-                'feature_importances': feature_importances
-            }
-            
-            # Save best model to disk
-            model_filename = f"{SAVED_MODELS_DIR}/xgboost_regression_{int(time.time())}.joblib"
-            joblib.dump(self.model, model_filename)
-            logger.info(f"Best model saved to {model_filename}")
-            
-            # Get the model URL (for retrieval)
-            model_url = f"/saved_models/xgboost_regression/xgboost_regression_{int(time.time())}.joblib"
-            
-            # Log the best model in the parent run
-            mlflow.sklearn.log_model(self.model, "best_model")
-            logger.info("Best model logged to MLflow successfully")
-        
-        # Set trained flag
-        self.is_trained = True
-        
-        # Find best metrics
-        best_result = next(r for r in all_results if (
-            r['learning_rate'] == best_params['learning_rate'] and
-            r['n_estimators'] == best_params['n_estimators'] and
-            r['max_depth'] == best_params['max_depth'] and
-            r['subsample'] == best_params['subsample'] and
-            r['colsample_bytree'] == best_params['colsample_bytree']
-        ))
-        
-        # Return training results
-        return {
-            'name': 'xgboost_regression',
-            'parameters': model_params,
-            'metrics': {
-                'train_r2': float(best_result['train_r2']),
-                'r2': float(best_result['test_r2']),
-                'rmse': float(best_result['test_rmse']),
-                'mae': float(best_result['test_mae']),
-                'mse': float(best_result['test_mse'])
-            },
-            'tuning_results': [
-                {
-                    'learning_rate': float(r['learning_rate']),
-                    'n_estimators': int(r['n_estimators']),
-                    'max_depth': int(r['max_depth']),
-                    'subsample': float(r['subsample']),
-                    'colsample_bytree': float(r['colsample_bytree']),
-                    'test_r2': float(r['test_r2']),
-                    'test_rmse': float(r['test_rmse'])
-                } for r in all_results
-            ],
-            'model_url': model_url,
-            'training_time': train_time
-        }
+                    # Log top models to MLflow
+                    if i < 10:  # Only log top models to avoid clutter
+                        with mlflow.start_run(run_name=f"xgboost_model_{i+1}", nested=True) as run:
+                            mlflow.log_params(params)
+                            mlflow.log_metric("cv_r2", r2)
+                            mlflow.log_metric("fit_time", fit_time)
+                
+                # Set best model parameters
+                self.model = search.best_estimator_
+                best_params = search.best_params_
+                
+                # Update instance variables with best parameters
+                self.learning_rate = best_params.get('learning_rate', self.learning_rate)
+                self.n_estimators = best_params.get('n_estimators', self.n_estimators)
+                self.max_depth = best_params.get('max_depth', self.max_depth)
+                self.subsample = best_params.get('subsample', self.subsample)
+                self.colsample_bytree = best_params.get('colsample_bytree', self.colsample_bytree)
+                self.min_child_weight = best_params.get('min_child_weight', self.min_child_weight)
+                self.gamma = best_params.get('gamma', self.gamma)
+                self.reg_alpha = best_params.get('reg_alpha', self.reg_alpha)
+                self.reg_lambda = best_params.get('reg_lambda', self.reg_lambda)
+                
+                # Make predictions on test set
+                y_pred_train = self.model.predict(X_train)
+                y_pred_test = self.model.predict(X_test)
+                
+                # Calculate final metrics
+                train_r2 = r2_score(y_train, y_pred_train)
+                test_r2 = r2_score(y_test, y_pred_test)
+                test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                test_mae = mean_absolute_error(y_test, y_pred_test)
+                test_mse = mean_squared_error(y_test, y_pred_test)
+                
+                # Get feature importances
+                feature_importances = self.model.feature_importances_.tolist() if hasattr(self.model, 'feature_importances_') else []
+                
+                # Log final metrics to parent run
+                mlflow.log_params(best_params)
+                mlflow.log_metrics({
+                    "best_train_r2": train_r2,
+                    "best_test_r2": test_r2,
+                    "best_test_rmse": test_rmse,
+                    "best_test_mae": test_mae,
+                    "best_test_mse": test_mse
+                })
+                
+                # Log feature importances if available
+                if feature_importances:
+                    for i, importance in enumerate(feature_importances):
+                        mlflow.log_metric(f"feature_importance_{i}", importance)
+                
+                # Calculate total training time
+                train_time = time.time() - start_time
+                logger.info(f"Total hyperparameter tuning time: {train_time:.2f} seconds")
+                logger.info(f"Best parameters: {best_params}")
+                logger.info(f"Best test R²: {test_r2:.4f}")
+                
+                # Get model parameters
+                model_params = {
+                    'learning_rate': self.learning_rate,
+                    'n_estimators': self.n_estimators,
+                    'max_depth': self.max_depth,
+                    'subsample': self.subsample,
+                    'colsample_bytree': self.colsample_bytree,
+                    'min_child_weight': self.min_child_weight,
+                    'gamma': self.gamma,
+                    'reg_alpha': self.reg_alpha,
+                    'reg_lambda': self.reg_lambda,
+                    'objective': self.objective,
+                    'feature_importances': feature_importances
+                }
+                
+                # Save best model to disk
+                model_filename = f"{SAVED_MODELS_DIR}/xgboost_regression_{int(time.time())}.joblib"
+                joblib.dump(self.model, model_filename)
+                logger.info(f"Best model saved to {model_filename}")
+                
+                # Get the model URL (for retrieval)
+                model_url = f"/saved_models/xgboost_regression/xgboost_regression_{int(time.time())}.joblib"
+                
+                # Log the best model in the parent run
+                mlflow.sklearn.log_model(self.model, "best_model")
+                logger.info("Best model logged to MLflow successfully")
+                
+                # Set trained flag
+                self.is_trained = True
+                
+                # Return training results
+                return {
+                    'name': 'xgboost_regression',
+                    'parameters': model_params,
+                    'metrics': {
+                        'train_r2': float(train_r2),
+                        'r2': float(test_r2),
+                        'rmse': float(test_rmse),
+                        'mae': float(test_mae),
+                        'mse': float(test_mse)
+                    },
+                    'tuning_results': [
+                        {
+                            'learning_rate': float(r.get('learning_rate', 0)),
+                            'n_estimators': int(r.get('n_estimators', 0)),
+                            'max_depth': int(r.get('max_depth', 0)),
+                            'subsample': float(r.get('subsample', 0)),
+                            'colsample_bytree': float(r.get('colsample_bytree', 0)),
+                            'min_child_weight': int(r.get('min_child_weight', 1)),
+                            'gamma': float(r.get('gamma', 0)),
+                            'reg_alpha': float(r.get('reg_alpha', 0)),
+                            'reg_lambda': float(r.get('reg_lambda', 1)),
+                            'test_r2': float(r.get('test_r2', 0))
+                        } for r in all_results[:10]  # Only include top 10 models
+                    ],
+                    'model_url': model_url,
+                    'training_time': train_time
+                }
+                
+            except Exception as e:
+                logger.error(f"Error during hyperparameter tuning: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                
+                # Fallback to basic model in case tuning fails
+                logger.info("Falling back to default model without tuning")
+                
+                self.model = xgb.XGBRegressor(
+                    learning_rate=self.learning_rate,
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    subsample=self.subsample,
+                    colsample_bytree=self.colsample_bytree,
+                    objective=self.objective,
+                    random_state=42
+                )
+                
+                self.model.fit(X_train, y_train)
+                
+                # Make predictions
+                y_pred_train = self.model.predict(X_train)
+                y_pred_test = self.model.predict(X_test)
+                
+                # Calculate metrics
+                train_r2 = r2_score(y_train, y_pred_train)
+                test_r2 = r2_score(y_test, y_pred_test)
+                test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                test_mae = mean_absolute_error(y_test, y_pred_test)
+                test_mse = mean_squared_error(y_test, y_pred_test)
+                
+                # Save model
+                model_filename = f"{SAVED_MODELS_DIR}/xgboost_regression_{int(time.time())}.joblib"
+                joblib.dump(self.model, model_filename)
+                model_url = f"/saved_models/xgboost_regression/xgboost_regression_{int(time.time())}.joblib"
+                
+                # Set trained flag
+                self.is_trained = True
+                
+                # Return results
+                return {
+                    'name': 'xgboost_regression',
+                    'parameters': {
+                        'learning_rate': self.learning_rate,
+                        'n_estimators': self.n_estimators,
+                        'max_depth': self.max_depth,
+                        'subsample': self.subsample,
+                        'colsample_bytree': self.colsample_bytree,
+                        'objective': self.objective
+                    },
+                    'metrics': {
+                        'train_r2': float(train_r2),
+                        'r2': float(test_r2),
+                        'rmse': float(test_rmse),
+                        'mae': float(test_mae),
+                        'mse': float(test_mse)
+                    },
+                    'model_url': model_url,
+                    'training_time': time.time() - start_time
+                }
     
     def predict(self, X):
         """Make predictions with the trained model"""

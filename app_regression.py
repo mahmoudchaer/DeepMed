@@ -654,6 +654,14 @@ def regression_results():
             'run_id': run_id
         }
         
+        # Add metrics information for the template
+        metrics_info = {
+            'r2': 'Coefficient of determination (R²) measures how well the regression model fits the data. Higher is better, with 1 being perfect prediction.',
+            'rmse': 'Root Mean Square Error measures the square root of the average squared differences between predicted and actual values. Lower is better.',
+            'mae': 'Mean Absolute Error measures the average of absolute differences between predicted and actual values. Lower is better.',
+            'mse': 'Mean Squared Error measures the average of squared differences between predicted and actual values. Lower is better.'
+        }
+        
         # Pass all models to template, highlighting the best ones
         logger.info(f"Rendering regression_results.html with {len(sorted_models)} models")
         return render_template(
@@ -663,6 +671,8 @@ def regression_results():
             best_model=best_model,
             best_models=best_models,
             training_info=training_info,
+            metrics_info=metrics_info,
+            model_results=sorted_models,  # Add alias for models to match template variable
             run_id=run_id
         )
     except Exception as e:
