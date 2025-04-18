@@ -743,15 +743,87 @@ def regression_results():
         
         # Get model results from session
         model_result = session.get('regression_model_results')
+        run_id = session.get('last_regression_training_run_id')
         
+        # If no model result in session, try to get the most recent run from database
+        if not model_result or not run_id:
+            logger.info("No model results in session, attempting to fetch from database")
+            with app.app_context():
+                # Get the user's most recent regression training run
+                regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
+                                          'random_forest_regression', 'knn_regression', 'xgboost_regression']
+                
+                # First try to get the most recent run ID that has models
+                most_recent_run = db.session.query(TrainingRun).join(
+                    TrainingModel, TrainingModel.run_id == TrainingRun.id
+                ).filter(
+                    TrainingRun.user_id == current_user.id,
+                    TrainingModel.model_name.in_(regression_model_types)
+                ).order_by(TrainingRun.created_at.desc()).first()
+                
+                if most_recent_run:
+                    run_id = most_recent_run.id
+                    logger.info(f"Found most recent regression run with ID {run_id}")
+                    
+                    # Get models for this run
+                    regression_models = db.session.query(TrainingModel).filter(
+                        TrainingModel.run_id == run_id,
+                        TrainingModel.model_name.in_(regression_model_types)
+                    ).all()
+                    
+                    # Build model_result structure
+                    results = []
+                    for model in regression_models:
+                        # Try to parse metrics
+                        metrics = {}
+                        try:
+                            if model.metrics:
+                                metrics = json.loads(model.metrics)
+                        except:
+                            # Fallback to simple metrics
+                            metrics = {
+                                'r2': model.metric_value if model.metric_value is not None else 0,
+                                'rmse': 0,
+                                'mae': 0, 
+                                'mse': 0
+                            }
+                        
+                        # Create model result structure
+                        model_data = {
+                            'name': model.model_name,
+                            'model_url': model.model_url,
+                            'metrics': metrics,
+                            'parameters': {},
+                            'r2': metrics.get('r2', model.metric_value if model.metric_value is not None else 0),
+                            'rmse': metrics.get('rmse', 0),
+                            'mae': metrics.get('mae', 0),
+                            'mse': metrics.get('mse', 0)
+                        }
+                        
+                        results.append(model_data)
+                    
+                    if results:
+                        model_result = {
+                            'run_id': run_id,
+                            'results': results,
+                            'dataset_size': 'Unknown',
+                            'training_time': 'Unknown'
+                        }
+                        logger.info(f"Built model result from database with {len(results)} models")
+                else:
+                    logger.warning("No regression training runs found in database")
+        
+        # If still no model_result, redirect to training page
         if not model_result:
-            flash('No recent regression training results found.', 'warning')
+            flash('No recent regression training results found. Please train a model first.', 'warning')
             return redirect(url_for('train_regression'))
         
-        # Get the run_id
-        run_id = model_result.get('run_id')
-        if not run_id:
-            run_id = session.get('last_regression_training_run_id')
+        # Get the run_id from model_result if not already set
+        if not run_id and 'run_id' in model_result:
+            run_id = model_result.get('run_id')
+            
+        # Log what we found    
+        logger.info(f"Using run_id: {run_id} with {len(model_result.get('results', []))} models")
         
         # Process model results
         results = model_result.get('results', [])
@@ -914,7 +986,7 @@ def api_predict_regression():
             f"{REGRESSION_PREDICTOR_SERVICE_URL}/predict",
             {
                 "data": X_records,
-                "model_url": model.url
+                "model_url": model.model_url
             },
             timeout=30
         )

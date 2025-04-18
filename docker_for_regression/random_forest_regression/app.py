@@ -37,112 +37,188 @@ app = Flask(__name__)
 class RandomForestRegressionModel:
     def __init__(self):
         """Initialize the Random Forest regression model"""
-        # Default hyperparameters
+        # Default hyperparameters - will be tuned
         self.n_estimators = 100
         self.max_depth = None
         self.min_samples_split = 2
         self.min_samples_leaf = 1
         
-        self.model = RandomForestRegressor(
-            n_estimators=self.n_estimators,
-            max_depth=self.max_depth,
-            min_samples_split=self.min_samples_split,
-            min_samples_leaf=self.min_samples_leaf,
-            random_state=42
-        )
+        self.model = None
         self.is_trained = False
     
     def train(self, X_train, y_train, X_test, y_test):
-        """Train a Random Forest Regression model"""
-        logger.info(f"Training Random Forest Regression model with {X_train.shape[1]} features")
+        """Train a Random Forest Regression model with hyperparameter tuning"""
+        logger.info(f"Training Random Forest Regression model with {X_train.shape[1]} features and hyperparameter tuning")
         
         # Start timer
         start_time = time.time()
         
-        # Train the model
-        self.model.fit(X_train, y_train)
+        # Define the hyperparameter search space
+        param_grid = {
+            'n_estimators': [50, 100, 200],
+            'max_depth': [None, 10, 20, 30],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4]
+        }
         
-        # Calculate training time
-        train_time = time.time() - start_time
-        logger.info(f"Model trained in {train_time:.2f} seconds")
+        # Create combinations of parameters to try (limit to prevent too many)
+        param_combinations = [
+            {'n_estimators': 50, 'max_depth': None, 'min_samples_split': 2, 'min_samples_leaf': 1},
+            {'n_estimators': 100, 'max_depth': None, 'min_samples_split': 2, 'min_samples_leaf': 1},
+            {'n_estimators': 100, 'max_depth': 10, 'min_samples_split': 2, 'min_samples_leaf': 1},
+            {'n_estimators': 100, 'max_depth': 20, 'min_samples_split': 2, 'min_samples_leaf': 1},
+            {'n_estimators': 100, 'max_depth': None, 'min_samples_split': 5, 'min_samples_leaf': 1},
+            {'n_estimators': 100, 'max_depth': None, 'min_samples_split': 2, 'min_samples_leaf': 2},
+            {'n_estimators': 200, 'max_depth': None, 'min_samples_split': 2, 'min_samples_leaf': 1},
+            {'n_estimators': 200, 'max_depth': 20, 'min_samples_split': 5, 'min_samples_leaf': 2}
+        ]
         
-        # Make predictions
-        y_pred_train = self.model.predict(X_train)
-        y_pred_test = self.model.predict(X_test)
+        # Initialize variables to track best model
+        best_model = None
+        best_params = None
+        best_score = -float('inf')  # Initialize with worst possible score
         
-        # Calculate metrics
-        train_r2 = r2_score(y_train, y_pred_train)
-        test_r2 = r2_score(y_test, y_pred_test)
-        test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
-        test_mae = mean_absolute_error(y_test, y_pred_test)
-        test_mse = mean_squared_error(y_test, y_pred_test)
+        # Track all results for MLflow
+        all_results = []
         
-        logger.info(f"Training R²: {train_r2:.4f}")
-        logger.info(f"Test R²: {test_r2:.4f}")
-        logger.info(f"Test RMSE: {test_rmse:.4f}")
+        # Get a unique experiment ID for all the runs
+        experiment_id = int(time.time())
+        
+        # Start MLflow parent run
+        with mlflow.start_run(run_name=f"random_forest_regression_tuning_{experiment_id}") as parent_run:
+            mlflow.log_param("experiment_type", "random_forest_hyperparameter_search")
+            mlflow.log_param("num_features", X_train.shape[1])
+            
+            # Try each parameter combination
+            for params in param_combinations:
+                # Generate a name for this combination
+                param_name = f"rf_n{params['n_estimators']}_d{params['max_depth'] or 'None'}_s{params['min_samples_split']}_l{params['min_samples_leaf']}"
+                
+                # Log each attempt as a child run
+                with mlflow.start_run(run_name=param_name, nested=True) as child_run:
+                    logger.info(f"Trying parameters: {params}")
+                    
+                    # Create and train the model
+                    model = RandomForestRegressor(random_state=42, **params)
+                    model.fit(X_train, y_train)
+                    
+                    # Make predictions
+                    y_pred_train = model.predict(X_train)
+                    y_pred_test = model.predict(X_test)
+                    
+                    # Calculate metrics
+                    train_r2 = r2_score(y_train, y_pred_train)
+                    test_r2 = r2_score(y_test, y_pred_test)
+                    test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                    test_mae = mean_absolute_error(y_test, y_pred_test)
+                    test_mse = mean_squared_error(y_test, y_pred_test)
+                    
+                    logger.info(f"Params={param_name}, Test R²={test_r2:.4f}, RMSE={test_rmse:.4f}")
+                    
+                    # Get feature importances
+                    feature_importances = model.feature_importances_.tolist() if hasattr(model, 'feature_importances_') else []
+                    
+                    # Store results
+                    result = {
+                        'params': params.copy(),
+                        'train_r2': train_r2,
+                        'test_r2': test_r2,
+                        'test_rmse': test_rmse,
+                        'test_mae': test_mae,
+                        'test_mse': test_mse,
+                        'feature_importances': feature_importances,
+                        'model': model
+                    }
+                    all_results.append(result)
+                    
+                    # Log parameters and metrics to MLflow
+                    mlflow.log_params(params)
+                    mlflow.log_metrics({
+                        "train_r2": train_r2,
+                        "test_r2": test_r2,
+                        "test_rmse": test_rmse,
+                        "test_mae": test_mae,
+                        "test_mse": test_mse
+                    })
+                    
+                    # Log feature importances if available
+                    if feature_importances:
+                        for i, importance in enumerate(feature_importances):
+                            mlflow.log_metric(f"feature_importance_{i}", importance)
+                    
+                    # Track best model
+                    if test_r2 > best_score:
+                        best_score = test_r2
+                        best_model = model
+                        best_params = params.copy()
+            
+            # Log the best model parameters to the parent run
+            mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
+            mlflow.log_metric("best_test_r2", best_score)
+            
+            # Set the best model as our model
+            self.model = best_model
+            self.n_estimators = best_params['n_estimators']
+            self.max_depth = best_params['max_depth']
+            self.min_samples_split = best_params['min_samples_split']
+            self.min_samples_leaf = best_params['min_samples_leaf']
+            
+            # Get best feature importances
+            feature_importances = self.model.feature_importances_.tolist() if hasattr(self.model, 'feature_importances_') else []
+            
+            # Get model parameters
+            model_params = {
+                'n_estimators': self.n_estimators,
+                'max_depth': self.max_depth,
+                'min_samples_split': self.min_samples_split,
+                'min_samples_leaf': self.min_samples_leaf,
+                'feature_importances': feature_importances
+            }
+            
+            # Calculate training time
+            train_time = time.time() - start_time
+            logger.info(f"Hyperparameter tuning completed in {train_time:.2f} seconds")
+            logger.info(f"Best parameters: {best_params} with test R²={best_score:.4f}")
+            
+            # Save best model to disk
+            model_filename = f"{SAVED_MODELS_DIR}/random_forest_regression_{int(time.time())}.joblib"
+            joblib.dump(self.model, model_filename)
+            logger.info(f"Best model saved to {model_filename}")
+            
+            # Get the model URL (for retrieval)
+            model_url = f"/saved_models/random_forest_regression/random_forest_regression_{int(time.time())}.joblib"
+            
+            # Log the best model in the parent run
+            mlflow.sklearn.log_model(self.model, "best_model")
+            logger.info("Best model logged to MLflow successfully")
         
         # Set trained flag
         self.is_trained = True
         
-        # Get feature importances
-        feature_importances = self.model.feature_importances_.tolist() if hasattr(self.model, 'feature_importances_') else []
-        
-        # Get model parameters
-        model_params = {
-            'n_estimators': self.n_estimators,
-            'max_depth': self.max_depth,
-            'min_samples_split': self.min_samples_split,
-            'min_samples_leaf': self.min_samples_leaf,
-            'feature_importances': feature_importances
-        }
-        
-        # Save model to disk first (in case MLflow fails)
-        model_filename = f"{SAVED_MODELS_DIR}/random_forest_regression_{int(time.time())}.joblib"
-        joblib.dump(self.model, model_filename)
-        logger.info(f"Model saved to {model_filename}")
-        
-        # Get the model URL (for retrieval)
-        model_url = f"/saved_models/random_forest_regression/random_forest_regression_{int(time.time())}.joblib"
-        
-        # Log with MLflow
-        with mlflow.start_run(run_name="random_forest_regression") as run:
-            # Log parameters
-            mlflow.log_params({
-                "model_type": "random_forest_regression",
-                "num_features": X_train.shape[1],
-                "n_estimators": self.n_estimators,
-                "max_depth": self.max_depth if self.max_depth is not None else "None"
-            })
-            
-            # Log metrics
-            mlflow.log_metrics({
-                "train_r2": train_r2,
-                "test_r2": test_r2,
-                "test_rmse": test_rmse,
-                "test_mae": test_mae,
-                "test_mse": test_mse
-            })
-            
-            # Log feature importances
-            if feature_importances:
-                for i, importance in enumerate(feature_importances):
-                    mlflow.log_metric(f"feature_importance_{i}", importance)
-            
-            # Log model
-            mlflow.sklearn.log_model(self.model, "model")
-            logger.info("Model logged to MLflow successfully")
+        # Find metrics for best model
+        best_result = next(r for r in all_results if r['params'] == best_params)
         
         # Return training results
         return {
             'name': 'random_forest_regression',
             'parameters': model_params,
             'metrics': {
-                'train_r2': float(train_r2),
-                'r2': float(test_r2),
-                'rmse': float(test_rmse),
-                'mae': float(test_mae),
-                'mse': float(test_mse)
+                'train_r2': float(best_result['train_r2']),
+                'r2': float(best_result['test_r2']),
+                'rmse': float(best_result['test_rmse']),
+                'mae': float(best_result['test_mae']),
+                'mse': float(best_result['test_mse'])
             },
+            'tuning_results': [
+                {
+                    'n_estimators': r['params']['n_estimators'],
+                    'max_depth': str(r['params']['max_depth']),
+                    'min_samples_split': r['params']['min_samples_split'],
+                    'min_samples_leaf': r['params']['min_samples_leaf'],
+                    'test_r2': float(r['test_r2']),
+                    'test_rmse': float(r['test_rmse'])
+                } for r in all_results
+            ],
             'model_url': model_url,
             'training_time': train_time
         }

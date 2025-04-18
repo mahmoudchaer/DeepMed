@@ -37,91 +37,144 @@ app = Flask(__name__)
 class RidgeRegressionModel:
     def __init__(self):
         """Initialize the Ridge regression model"""
-        # Default alpha value - can be tuned
+        # Default alpha value - will be tuned
         self.alpha = 1.0
-        self.model = Ridge(alpha=self.alpha, random_state=42)
+        self.model = None
         self.is_trained = False
     
     def train(self, X_train, y_train, X_test, y_test):
-        """Train a Ridge Regression model"""
-        logger.info(f"Training Ridge Regression model with {X_train.shape[1]} features")
+        """Train a Ridge Regression model with hyperparameter tuning"""
+        logger.info(f"Training Ridge Regression model with {X_train.shape[1]} features and hyperparameter tuning")
         
         # Start timer
         start_time = time.time()
         
-        # Train the model
-        self.model.fit(X_train, y_train)
+        # Define the hyperparameter search space
+        alpha_values = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
         
-        # Calculate training time
-        train_time = time.time() - start_time
-        logger.info(f"Model trained in {train_time:.2f} seconds")
+        # Initialize variables to track best model
+        best_model = None
+        best_alpha = None
+        best_score = -float('inf')  # Initialize with worst possible score
         
-        # Make predictions
-        y_pred_train = self.model.predict(X_train)
-        y_pred_test = self.model.predict(X_test)
+        # Track all results for MLflow
+        all_results = []
         
-        # Calculate metrics
-        train_r2 = r2_score(y_train, y_pred_train)
-        test_r2 = r2_score(y_test, y_pred_test)
-        test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
-        test_mae = mean_absolute_error(y_test, y_pred_test)
-        test_mse = mean_squared_error(y_test, y_pred_test)
+        # Get a unique experiment ID for all the runs
+        experiment_id = int(time.time())
         
-        logger.info(f"Training R²: {train_r2:.4f}")
-        logger.info(f"Test R²: {test_r2:.4f}")
-        logger.info(f"Test RMSE: {test_rmse:.4f}")
+        # Start MLflow parent run
+        with mlflow.start_run(run_name=f"ridge_regression_tuning_{experiment_id}") as parent_run:
+            mlflow.log_param("experiment_type", "ridge_regression_alpha_search")
+            mlflow.log_param("num_features", X_train.shape[1])
+            
+            # Try each alpha value
+            for alpha in alpha_values:
+                # Log each attempt as a child run
+                with mlflow.start_run(run_name=f"ridge_alpha_{alpha}", nested=True) as child_run:
+                    logger.info(f"Trying alpha={alpha}")
+                    
+                    # Create and train the model
+                    model = Ridge(alpha=alpha, random_state=42, max_iter=10000)
+                    model.fit(X_train, y_train)
+                    
+                    # Make predictions
+                    y_pred_train = model.predict(X_train)
+                    y_pred_test = model.predict(X_test)
+                    
+                    # Calculate metrics
+                    train_r2 = r2_score(y_train, y_pred_train)
+                    test_r2 = r2_score(y_test, y_pred_test)
+                    test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                    test_mae = mean_absolute_error(y_test, y_pred_test)
+                    test_mse = mean_squared_error(y_test, y_pred_test)
+                    
+                    logger.info(f"Alpha={alpha}, Test R²={test_r2:.4f}, RMSE={test_rmse:.4f}")
+                    
+                    # Store results
+                    result = {
+                        'alpha': alpha,
+                        'train_r2': train_r2,
+                        'test_r2': test_r2,
+                        'test_rmse': test_rmse,
+                        'test_mae': test_mae,
+                        'test_mse': test_mse,
+                        'model': model
+                    }
+                    all_results.append(result)
+                    
+                    # Log parameters and metrics to MLflow
+                    mlflow.log_param("alpha", alpha)
+                    mlflow.log_metrics({
+                        "train_r2": train_r2,
+                        "test_r2": test_r2,
+                        "test_rmse": test_rmse,
+                        "test_mae": test_mae,
+                        "test_mse": test_mse
+                    })
+                    
+                    # Track best model
+                    if test_r2 > best_score:
+                        best_score = test_r2
+                        best_model = model
+                        best_alpha = alpha
+            
+            # Log the best model parameters to the parent run
+            mlflow.log_param("best_alpha", best_alpha)
+            mlflow.log_metric("best_test_r2", best_score)
+            
+            # Set the best model as our model
+            self.model = best_model
+            self.alpha = best_alpha
+            
+            # Get model parameters
+            model_params = {
+                'coefficients': self.model.coef_.tolist() if hasattr(self.model.coef_, 'tolist') else self.model.coef_.astype(float).tolist(),
+                'intercept': float(self.model.intercept_),
+                'alpha': float(self.alpha)
+            }
+            
+            # Calculate training time
+            train_time = time.time() - start_time
+            logger.info(f"Hyperparameter tuning completed in {train_time:.2f} seconds")
+            logger.info(f"Best alpha={best_alpha} with test R²={best_score:.4f}")
+            
+            # Save best model to disk
+            model_filename = f"{SAVED_MODELS_DIR}/ridge_regression_{int(time.time())}.joblib"
+            joblib.dump(self.model, model_filename)
+            logger.info(f"Best model saved to {model_filename}")
+            
+            # Get the model URL (for retrieval)
+            model_url = f"/saved_models/ridge_regression/ridge_regression_{int(time.time())}.joblib"
+            
+            # Log the best model in the parent run
+            mlflow.sklearn.log_model(self.model, "best_model")
+            logger.info("Best model logged to MLflow successfully")
         
         # Set trained flag
         self.is_trained = True
         
-        # Get model parameters
-        model_params = {
-            'coefficients': self.model.coef_.tolist() if hasattr(self.model.coef_, 'tolist') else self.model.coef_.astype(float).tolist(),
-            'intercept': float(self.model.intercept_),
-            'alpha': float(self.alpha)
-        }
-        
-        # Save model to disk first (in case MLflow fails)
-        model_filename = f"{SAVED_MODELS_DIR}/ridge_regression_{int(time.time())}.joblib"
-        joblib.dump(self.model, model_filename)
-        logger.info(f"Model saved to {model_filename}")
-        
-        # Get the model URL (for retrieval)
-        model_url = f"/saved_models/ridge_regression/ridge_regression_{int(time.time())}.joblib"
-        
-        # Log with MLflow
-        with mlflow.start_run(run_name="ridge_regression") as run:
-            # Log parameters
-            mlflow.log_params({
-                "model_type": "ridge_regression",
-                "num_features": X_train.shape[1],
-                "alpha": self.model.alpha
-            })
-            
-            # Log metrics
-            mlflow.log_metrics({
-                "train_r2": train_r2,
-                "test_r2": test_r2,
-                "test_rmse": test_rmse,
-                "test_mae": test_mae,
-                "test_mse": test_mse
-            })
-            
-            # Log model
-            mlflow.sklearn.log_model(self.model, "model")
-            logger.info("Model logged to MLflow successfully")
+        # Find metrics for best model
+        best_result = next(r for r in all_results if r['alpha'] == best_alpha)
         
         # Return training results
         return {
             'name': 'ridge_regression',
             'parameters': model_params,
             'metrics': {
-                'train_r2': float(train_r2),
-                'r2': float(test_r2),
-                'rmse': float(test_rmse),
-                'mae': float(test_mae),
-                'mse': float(test_mse)
+                'train_r2': float(best_result['train_r2']),
+                'r2': float(best_result['test_r2']),
+                'rmse': float(best_result['test_rmse']),
+                'mae': float(best_result['test_mae']),
+                'mse': float(best_result['test_mse'])
             },
+            'tuning_results': [
+                {
+                    'alpha': float(r['alpha']),
+                    'test_r2': float(r['test_r2']),
+                    'test_rmse': float(r['test_rmse'])
+                } for r in all_results
+            ],
             'model_url': model_url,
             'training_time': train_time
         }
