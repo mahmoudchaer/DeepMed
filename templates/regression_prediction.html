@@ -3,15 +3,385 @@
 {% block title %}Regression Prediction - DeepMed{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="gradient-text mb-4">Regression Prediction</h1>
-        <p class="lead">Make predictions using your trained regression models.</p>
-        
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i> 
-            This feature is currently under development. More functionality will be added soon.
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="gradient-text mb-4">Regression Prediction</h1>
+            <p class="lead">Make predictions on new data using your trained regression models.</p>
+            
+            <div class="row mb-4">
+                <!-- Model Selection Card -->
+                <div class="col-md-6">
+                    <div class="card bg-dark h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs me-2"></i> Step 1: Select a Model
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="modelSelectDropdown" class="form-label">Choose a Trained Model</label>
+                                <select class="form-select" id="modelSelectDropdown">
+                                    <option value="" selected disabled>Select a model...</option>
+                                    {% if models %}
+                                        {% for model in models %}
+                                            <option value="{{ model.id }}">{{ model.model_name|replace('_', ' ')|title }} (R²: {{ model.metric_value|round(4) }})</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <p class="mb-2">OR Upload Your Model Package</p>
+                                <div class="mb-3">
+                                    <label for="modelPackageUpload" class="form-label">Upload Model Package (.zip)</label>
+                                    <input class="form-control" type="file" id="modelPackageUpload" accept=".zip">
+                                </div>
+                            </div>
+                            
+                            <div id="modelInfo" class="alert alert-info d-none">
+                                <h6><i class="fas fa-info-circle me-2"></i> Model Information</h6>
+                                <div id="modelInfoContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Data Upload Card -->
+                <div class="col-md-6">
+                    <div class="card bg-dark h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-upload me-2"></i> Step 2: Upload Data
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="predictionForm" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <label for="dataFileUpload" class="form-label">Upload Your Data File (CSV or Excel)</label>
+                                    <input class="form-control" type="file" id="dataFileUpload" name="file" accept=".csv,.xlsx,.xls" required>
+                                    <div class="form-text text-light-50">
+                                        Your file should contain the same features used during model training.
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <input type="hidden" id="modelIdInput" name="model_id">
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary" id="predictButton">
+                                        <i class="fas fa-play me-2"></i>Generate Predictions
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="resultsContainer" class="card bg-dark mb-4 d-none">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i> Prediction Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="resultsInfo" class="alert alert-success mb-3">
+                        <h6 class="mb-2"><i class="fas fa-check-circle me-2"></i>Prediction Complete!</h6>
+                        <p id="resultsSummary" class="mb-0"></p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>Preview of Results:</h6>
+                        <div class="table-responsive">
+                            <table id="resultsTable" class="table table-dark table-striped table-hover">
+                                <thead id="resultsTableHead"></thead>
+                                <tbody id="resultsTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3 d-none" id="tableInfoContainer">
+                            <p class="small text-muted mb-0" id="tableInfo"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" id="backButton">
+                            <i class="fas fa-arrow-left me-2"></i>Make Another Prediction
+                        </button>
+                        <button class="btn btn-success" id="downloadButton">
+                            <i class="fas fa-download me-2"></i>Download Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingContainer" class="card bg-dark mb-4 d-none">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 id="loadingMessage">Processing your prediction request...</h5>
+                    <p class="text-muted" id="loadingSubMessage">This may take a few moments depending on your data size.</p>
+                </div>
+            </div>
+            
+            <!-- Error Message -->
+            <div id="errorContainer" class="card bg-dark mb-4 d-none">
+                <div class="card-body">
+                    <div class="alert alert-danger mb-0">
+                        <h6 class="mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                        <p id="errorMessage" class="mb-0"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Services Status -->
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="fas fa-server me-2"></i> Services Status
+                        <button class="btn btn-sm btn-link ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#servicesStatusContainer">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </h5>
+                </div>
+                <div class="collapse" id="servicesStatusContainer">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for service_name, status in services_status.items() %}
+                                    <tr>
+                                        <td>{{ service_name }}</td>
+                                        <td>
+                                            {% if status == "healthy" %}
+                                                <span class="badge bg-success">{{ status }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">{{ status }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // DOM elements
+        const modelSelectDropdown = document.getElementById('modelSelectDropdown');
+        const modelPackageUpload = document.getElementById('modelPackageUpload');
+        const modelInfo = document.getElementById('modelInfo');
+        const modelInfoContent = document.getElementById('modelInfoContent');
+        const predictionForm = document.getElementById('predictionForm');
+        const modelIdInput = document.getElementById('modelIdInput');
+        const dataFileUpload = document.getElementById('dataFileUpload');
+        const predictButton = document.getElementById('predictButton');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultsSummary = document.getElementById('resultsSummary');
+        const resultsTable = document.getElementById('resultsTable');
+        const resultsTableHead = document.getElementById('resultsTableHead');
+        const resultsTableBody = document.getElementById('resultsTableBody');
+        const tableInfoContainer = document.getElementById('tableInfoContainer');
+        const tableInfo = document.getElementById('tableInfo');
+        const backButton = document.getElementById('backButton');
+        const downloadButton = document.getElementById('downloadButton');
+        
+        // Event listeners
+        modelSelectDropdown.addEventListener('change', function() {
+            if (this.value) {
+                modelIdInput.value = this.value;
+                modelPackageUpload.value = '';
+                
+                // Show model info
+                modelInfo.classList.remove('d-none');
+                const selectedOption = this.options[this.selectedIndex];
+                modelInfoContent.innerHTML = `
+                    <p><strong>Selected Model:</strong> ${selectedOption.text}</p>
+                    <p class="mb-0">Ready for prediction. Please upload your data file.</p>
+                `;
+            }
+        });
+        
+        modelPackageUpload.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                modelSelectDropdown.value = '';
+                modelIdInput.value = '';
+                
+                // Show model info
+                modelInfo.classList.remove('d-none');
+                modelInfoContent.innerHTML = `
+                    <p><strong>Uploaded Package:</strong> ${this.files[0].name}</p>
+                    <p class="mb-0">Custom model package loaded. Please upload your data file.</p>
+                `;
+            }
+        });
+        
+        // Form submission for prediction
+        predictionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Model validation
+            if (!modelIdInput.value && (!modelPackageUpload.files || modelPackageUpload.files.length === 0)) {
+                showError('Please select a model or upload a model package.');
+                return;
+            }
+            
+            // Data file validation
+            if (!dataFileUpload.files || dataFileUpload.files.length === 0) {
+                showError('Please upload a data file for prediction.');
+                return;
+            }
+            
+            // Hide error container if previously shown
+            errorContainer.classList.add('d-none');
+            
+            // Show loading indicator
+            loadingContainer.classList.remove('d-none');
+            resultsContainer.classList.add('d-none');
+            
+            // Prepare form data
+            const formData = new FormData(predictionForm);
+            
+            // Add model package if selected
+            if (modelPackageUpload.files && modelPackageUpload.files.length > 0) {
+                formData.append('model_package', modelPackageUpload.files[0]);
+            }
+            
+            // Make prediction request
+            fetch('/api/predict_regression', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                loadingContainer.classList.add('d-none');
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                // Show results
+                displayResults(data);
+            })
+            .catch(error => {
+                // Hide loading indicator
+                loadingContainer.classList.add('d-none');
+                
+                // Show error
+                showError('An error occurred while processing your request: ' + error.message);
+            });
+        });
+        
+        // Back button
+        backButton.addEventListener('click', function() {
+            resultsContainer.classList.add('d-none');
+            
+            // Reset form if needed
+            dataFileUpload.value = '';
+        });
+        
+        // Display error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('d-none');
+            loadingContainer.classList.add('d-none');
+            resultsContainer.classList.add('d-none');
+        }
+        
+        // Display prediction results
+        function displayResults(data) {
+            // Update results summary
+            resultsSummary.textContent = `Successfully generated predictions using the ${data.model_name} model.`;
+            
+            // Create table headers
+            const tableHeaders = Object.keys(data.full_results[0]);
+            resultsTableHead.innerHTML = `
+                <tr>
+                    ${tableHeaders.map(header => `<th>${header}</th>`).join('')}
+                </tr>
+            `;
+            
+            // Create table rows (limit to first 10 for preview)
+            const previewResults = data.full_results.slice(0, 10);
+            resultsTableBody.innerHTML = previewResults.map(row => `
+                <tr>
+                    ${tableHeaders.map(header => `<td>${row[header]}</td>`).join('')}
+                </tr>
+            `).join('');
+            
+            // Show table info if results are truncated
+            if (data.full_results.length > 10) {
+                tableInfoContainer.classList.remove('d-none');
+                tableInfo.textContent = `Showing 10 of ${data.full_results.length} results. Download the full results using the button below.`;
+            } else {
+                tableInfoContainer.classList.add('d-none');
+            }
+            
+            // Show results container
+            resultsContainer.classList.remove('d-none');
+            
+            // Set up download button with CSV data
+            setupDownloadButton(data.full_results);
+        }
+        
+        // Set up CSV download button
+        function setupDownloadButton(results) {
+            if (!results || results.length === 0) return;
+            
+            // Convert results to CSV
+            const headers = Object.keys(results[0]);
+            const csvContent = [
+                headers.join(','),
+                ...results.map(row => headers.map(header => {
+                    // Handle values that need quotes (commas, quotes, newlines)
+                    const value = row[header] != null ? String(row[header]) : '';
+                    return value.includes(',') || value.includes('"') || value.includes('\n') 
+                        ? `"${value.replace(/"/g, '""')}"` 
+                        : value;
+                }).join(','))
+            ].join('\n');
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // Set up download button
+            downloadButton.addEventListener('click', function() {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const filename = `regression_predictions_${timestamp}.csv`;
+                
+                // Create temporary link and click it
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+    });
+</script>
 {% endblock %} 

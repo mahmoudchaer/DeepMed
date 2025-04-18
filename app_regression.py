@@ -16,6 +16,7 @@ import threading
 import queue
 import multiprocessing
 from flask import abort
+import shutil
 
 # Import common components from app_api.py
 from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
@@ -481,10 +482,35 @@ def regression_prediction():
     if 'logout_token' not in session:
         session['logout_token'] = secrets.token_hex(16)
     
+    # Get available regression models for the user
+    user_id = current_user.id
+    regression_models = []
+    
+    try:
+        # Define regression model types
+        regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
+                              'random_forest_regression', 'knn_regression', 'xgboost_regression']
+        
+        # Query database for user's models
+        with app.app_context():
+            models = db.session.query(TrainingModel).filter(
+                TrainingModel.user_id == user_id,
+                TrainingModel.model_name.in_(regression_model_types)
+            ).order_by(TrainingModel.metric_value.desc()).all()
+            
+            regression_models = models
+            
+    except Exception as e:
+        logger.error(f"Error fetching regression models for prediction: {str(e)}", exc_info=True)
+        flash(f"Error loading regression models: {str(e)}", 'error')
+    
     # Check regression services health for status display
     services_status = check_regression_services()
     
-    return render_template('regression_prediction.html', services_status=services_status, logout_token=session['logout_token'])
+    return render_template('regression_prediction.html', 
+                           models=regression_models,
+                           services_status=services_status, 
+                           logout_token=session['logout_token'])
 
 @app.route('/regression_results')
 @login_required
@@ -687,53 +713,121 @@ def api_predict_regression():
     try:
         # Check for file uploads
         if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+            return jsonify({'error': 'No data file uploaded'}), 400
             
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
+        data_file = request.files['file']
+        if data_file.filename == '':
+            return jsonify({'error': 'No selected data file'}), 400
             
-        if not allowed_file(file.filename):
+        if not allowed_file(data_file.filename):
             return jsonify({'error': 'Invalid file type. Please upload a CSV or Excel file.'}), 400
             
-        # Get model ID from form
-        model_id = request.form.get('model_id')
-        if not model_id:
-            return jsonify({'error': 'No model selected'}), 400
-            
-        # Save file temporarily
-        filepath = get_temp_filepath(file.filename)
-        file.save(filepath)
+        # Save data file temporarily
+        data_filepath = get_temp_filepath(data_file.filename)
+        data_file.save(data_filepath)
         
         # Load the data
-        data, file_stats = load_data(filepath)
+        data, file_stats = load_data(data_filepath)
         if data is None:
             return jsonify({'error': file_stats}), 400
+        
+        model_id = request.form.get('model_id')
+        model_package = request.files.get('model_package')
+        
+        # Check if a model was provided (either ID or package)
+        if not model_id and not model_package:
+            return jsonify({'error': 'No model selected or uploaded'}), 400
             
-        # Load model metadata from database
-        with app.app_context():
-            model = db.session.query(TrainingModel).filter_by(id=model_id).first()
-            if not model:
-                return jsonify({'error': 'Model not found'}), 404
+        selected_features = None
+        model_url = None
+        model_name = "Custom Model"
+        
+        # Process based on model selection method
+        if model_id:
+            # Load model from database
+            with app.app_context():
+                model = db.session.query(TrainingModel).filter_by(id=model_id, user_id=current_user.id).first()
+                if not model:
+                    return jsonify({'error': 'Model not found'}), 404
+                    
+                # Check if it's a regression model
+                regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
+                                          'random_forest_regression', 'knn_regression', 'xgboost_regression']
+                if model.model_name not in regression_model_types:
+                    return jsonify({'error': 'Selected model is not a regression model'}), 400
+                    
+                # Get preprocessing data for this run to get selected features
+                preprocessing_data = db.session.query(PreprocessingData).filter_by(run_id=model.run_id).first()
+                if not preprocessing_data:
+                    return jsonify({'error': 'Preprocessing data not found for this model'}), 404
+                    
+                # Parse selected features
+                if preprocessing_data.selected_columns:
+                    try:
+                        selected_features = json.loads(preprocessing_data.selected_columns)
+                    except:
+                        return jsonify({'error': 'Could not parse selected features'}), 500
                 
-            # Check if it's a regression model
-            regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
-                                      'random_forest_regression', 'knn_regression', 'xgboost_regression']
-            if model.model_name not in regression_model_types:
-                return jsonify({'error': 'Selected model is not a regression model'}), 400
+                model_url = model.model_url
+                model_name = model.model_name
                 
-            # Get preprocessing data for this run to get selected features
-            preprocessing_data = db.session.query(PreprocessingData).filter_by(run_id=model.run_id).first()
-            if not preprocessing_data:
-                return jsonify({'error': 'Preprocessing data not found for this model'}), 404
+        elif model_package:
+            # Process uploaded model package
+            if not model_package.filename.endswith('.zip'):
+                return jsonify({'error': 'Model package must be a ZIP file'}), 400
                 
-            # Parse selected features
-            selected_features = []
-            if preprocessing_data.selected_columns:
-                try:
-                    selected_features = json.loads(preprocessing_data.selected_columns)
-                except:
-                    return jsonify({'error': 'Could not parse selected features'}), 500
+            # Save the package temporarily
+            package_filepath = get_temp_filepath(model_package.filename)
+            model_package.save(package_filepath)
+            
+            # Extract the package to a temporary directory
+            import zipfile
+            import tempfile
+            
+            temp_dir = tempfile.mkdtemp()
+            
+            try:
+                with zipfile.ZipFile(package_filepath, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+                
+                # Look for model file and metadata in the package
+                model_file = None
+                metadata_file = None
+                
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        if file.endswith('.joblib') or file.endswith('.pkl'):
+                            model_file = os.path.join(root, file)
+                        elif file == 'metadata.json':
+                            metadata_file = os.path.join(root, file)
+                
+                if not model_file:
+                    return jsonify({'error': 'No model file found in the package'}), 400
+                
+                # Load metadata if available
+                if metadata_file:
+                    try:
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                            if 'selected_features' in metadata:
+                                selected_features = metadata['selected_features']
+                            if 'model_name' in metadata:
+                                model_name = metadata['model_name']
+                    except Exception as e:
+                        logger.warning(f"Error loading model metadata: {str(e)}")
+                
+                # Use the model file path for prediction
+                model_url = model_file
+                
+            except Exception as e:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                os.remove(package_filepath)
+                return jsonify({'error': f'Error processing model package: {str(e)}'}), 400
+        
+        # If we couldn't get selected features or there are none, use all columns
+        if not selected_features or len(selected_features) == 0:
+            logger.warning("No selected features found, using all columns")
+            selected_features = data.columns.tolist()
         
         # Check if all required columns are present
         missing_columns = [col for col in selected_features if col not in data.columns]
@@ -755,14 +849,14 @@ def api_predict_regression():
         # Convert to records for API
         X_records = clean_data_for_json(X)
         
-        # Call the regression predictor service - Use the URL defined at the top
+        # Call the regression predictor service
         prediction_response = safe_requests_post(
             f"{REGRESSION_PREDICTOR_SERVICE_URL}/predict",
             {
                 "data": X_records,
-                "model_url": model.model_url
+                "model_url": model_url
             },
-            timeout=30
+            timeout=60  # Increased timeout
         )
         
         if prediction_response.status_code != 200:
@@ -779,18 +873,23 @@ def api_predict_regression():
         # Convert to records for response
         result_records = clean_data_for_json(result_df)
         
+        # Clean up temporary files
+        if model_package:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            os.remove(package_filepath)
+        
         # Return predictions
         return jsonify({
             'success': True,
             'predictions': predictions,
             'full_results': result_records,
-            'model_name': model.model_name,
+            'model_name': model_name,
             'file_stats': file_stats
         })
         
     except Exception as e:
         logger.error(f"Error in regression prediction: {str(e)}", exc_info=True)
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
 
 # Add this new function for background training
 def train_regression_models_background(session_data):
