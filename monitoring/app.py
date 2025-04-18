@@ -50,6 +50,15 @@ PIPELINE_SERVICE_URL = os.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025'
 OBJECT_DETECTION_SERVICE_URL = os.getenv('OBJECT_DETECTION_SERVICE_URL', 'http://localhost:5027')
 ANOMALY_DETECTION_SERVICE_URL = os.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
 SEMANTIC_SEGMENTATION_SERVICE_URL = os.getenv('SEMANTIC_SEGMENTATION_SERVICE_URL', 'http://localhost:5031')
+TABULAR_PREDICTOR_URL = os.getenv('TABULAR_PREDICTOR_URL', 'http://localhost:5100')
+
+# Model-specific services
+LOGISTIC_REGRESSION_URL = os.getenv('LOGISTIC_REGRESSION_URL', 'http://localhost:5010')
+DECISION_TREE_URL = os.getenv('DECISION_TREE_URL', 'http://localhost:5011')
+RANDOM_FOREST_URL = os.getenv('RANDOM_FOREST_URL', 'http://localhost:5012')
+SVM_URL = os.getenv('SVM_URL', 'http://localhost:5013')
+KNN_URL = os.getenv('KNN_URL', 'http://localhost:5014')
+NAIVE_BAYES_URL = os.getenv('NAIVE_BAYES_URL', 'http://localhost:5015')
 
 # Categorize services for the dashboard
 SERVICES = {
@@ -60,7 +69,13 @@ SERVICES = {
     },
     "Model Services": {
         "Model Coordinator": {"url": MODEL_COORDINATOR_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Coordinates model training and prediction"},
-        "Model Training Service": {"url": MODEL_TRAINING_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Handles model training"}
+        "Model Training Service": {"url": MODEL_TRAINING_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Handles model training"},
+        "Logistic Regression": {"url": LOGISTIC_REGRESSION_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Logistic Regression model service"},
+        "Decision Tree": {"url": DECISION_TREE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Decision Tree model service"},
+        "Random Forest": {"url": RANDOM_FOREST_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Random Forest model service"},
+        "SVM": {"url": SVM_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Support Vector Machine model service"},
+        "KNN": {"url": KNN_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "K-Nearest Neighbors model service"},
+        "Naive Bayes": {"url": NAIVE_BAYES_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Naive Bayes model service"}
     },
     "Medical AI Services": {
         "Medical Assistant": {"url": MEDICAL_ASSISTANT_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Provides medical insights and analysis"},
@@ -71,6 +86,9 @@ SERVICES = {
         "Object Detection Service": {"url": OBJECT_DETECTION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "YOLOv5 object detection"},
         "Anomaly Detection Service": {"url": ANOMALY_DETECTION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "PyTorch autoencoder for anomaly detection"},
         "Semantic Segmentation Service": {"url": SEMANTIC_SEGMENTATION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "DeepLabV3 + ResNet50 for segmentation"}
+    },
+    "Prediction Services": {
+        "Tabular Predictor": {"url": TABULAR_PREDICTOR_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Prediction service for tabular data"}
     }
 }
 
@@ -311,6 +329,14 @@ def api_refresh():
     """API endpoint to manually refresh all service statuses"""
     check_all_services()
     return jsonify({"status": "refreshed"})
+
+@app.route('/api/prometheus')
+def prometheus_info():
+    """API endpoint to get Prometheus info"""
+    return jsonify({
+        "prometheus_url": "http://localhost:9090",
+        "grafana_url": "http://localhost:3000"
+    })
 
 if __name__ == '__main__':
     # Create logs directory

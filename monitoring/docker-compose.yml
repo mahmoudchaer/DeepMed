@@ -11,16 +11,32 @@ services:
     restart: always
     environment:
       - FLASK_ENV=production
+      # Core Services
       - DATA_CLEANER_URL=http://host.docker.internal:5001
       - FEATURE_SELECTOR_URL=http://host.docker.internal:5002
       - ANOMALY_DETECTOR_URL=http://host.docker.internal:5003
+      # Model Services
       - MODEL_COORDINATOR_URL=http://host.docker.internal:5020
-      - MEDICAL_ASSISTANT_URL=http://host.docker.internal:5005
-      - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
       - MODEL_TRAINING_SERVICE_URL=http://host.docker.internal:5021
+      - LOGISTIC_REGRESSION_URL=http://host.docker.internal:5010
+      - DECISION_TREE_URL=http://host.docker.internal:5011
+      - RANDOM_FOREST_URL=http://host.docker.internal:5012
+      - SVM_URL=http://host.docker.internal:5013
+      - KNN_URL=http://host.docker.internal:5014
+      - NAIVE_BAYES_URL=http://host.docker.internal:5015
+      # Medical AI Services
+      - MEDICAL_ASSISTANT_URL=http://host.docker.internal:5005
       - PIPELINE_SERVICE_URL=http://host.docker.internal:5025
+      # Image Processing Services
+      - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
       - OBJECT_DETECTION_SERVICE_URL=http://host.docker.internal:5027
       - ANOMALY_DETECTION_SERVICE_URL=http://host.docker.internal:5029
       - SEMANTIC_SEGMENTATION_SERVICE_URL=http://host.docker.internal:5031
+      # Predictor Services
+      - TABULAR_PREDICTOR_URL=http://host.docker.internal:5100
     extra_hosts:
-      - "host.docker.internal:host-gateway" 
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  prometheus_data:
+  grafana_data: 
