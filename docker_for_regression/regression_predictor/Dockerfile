@@ -13,8 +13,14 @@ COPY predictor.py .
 RUN mkdir -p /app/logs
 
 # Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5050
+
+# Add Azure Blob Storage environment variables - will be passed from docker-compose
+ENV AZURE_STORAGE_ACCOUNT=""
+ENV AZURE_STORAGE_KEY=""
+ENV AZURE_CONTAINER=""
 
 # Expose the port
 EXPOSE 5050
