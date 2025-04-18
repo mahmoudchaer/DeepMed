@@ -172,6 +172,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./regression_predictor/predictor.py:/app/predictor.py
+      - ./saved_models:/app/saved_models
     environment:
       - PORT=5050
       # Azure Blob Storage for model download (these will be passed from environment)

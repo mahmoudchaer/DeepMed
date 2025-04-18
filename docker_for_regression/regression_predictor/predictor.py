@@ -50,6 +50,26 @@ def download_model_from_blob(model_url, target_path):
     request_id = str(uuid.uuid4())[:8]
     print(f"[{request_id}] Attempting to download model from {model_url} to {target_path}")
     
+    # First check if this is a path we can access directly in the container
+    if model_url.startswith('/'):
+        local_path = model_url
+        # If it starts with /saved_models and we have mounted that volume, check there
+        if model_url.startswith('/saved_models') and os.path.exists('/app/saved_models'):
+            # Transform the path to use our local mount
+            transformed_path = model_url.replace('/saved_models', '/app/saved_models')
+            print(f"[{request_id}] Checking for local model at {transformed_path}")
+            
+            if os.path.exists(transformed_path):
+                print(f"[{request_id}] Found local model at {transformed_path}")
+                # Copy the file to the target path
+                try:
+                    shutil.copy2(transformed_path, target_path)
+                    print(f"[{request_id}] Copied local model to {target_path}")
+                    return True
+                except Exception as e:
+                    print(f"[{request_id}] Error copying local model: {str(e)}")
+                    # Continue with blob download as fallback
+    
     # Early return if blob storage is not available
     if not BLOB_STORAGE_AVAILABLE:
         print(f"[{request_id}] Cannot download model - Azure Blob Storage integration not available")
