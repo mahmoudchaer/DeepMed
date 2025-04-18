@@ -10,38 +10,25 @@
             <p class="lead">Make predictions on new data using your trained regression models.</p>
             
             <div class="row mb-4">
-                <!-- Model Selection Card -->
+                <!-- Model Upload Card -->
                 <div class="col-md-6">
                     <div class="card bg-dark h-100">
                         <div class="card-header">
                             <h5 class="mb-0">
-                                <i class="fas fa-cogs me-2"></i> Step 1: Select a Model
+                                <i class="fas fa-cogs me-2"></i> Step 1: Upload Model Package
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <label for="modelSelectDropdown" class="form-label">Choose a Trained Model</label>
-                                <select class="form-select" id="modelSelectDropdown">
-                                    <option value="" selected disabled>Select a model...</option>
-                                    {% if models %}
-                                        {% for model in models %}
-                                            <option value="{{ model.id }}">{{ model.model_name|replace('_', ' ')|title }} (R²: {{ model.metric_value|round(4) }})</option>
-                                        {% endfor %}
-                                    {% endif %}
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <p class="mb-2">OR Upload Your Model Package</p>
+                            <form id="predictionForm" enctype="multipart/form-data">
                                 <div class="mb-3">
                                     <label for="modelPackageUpload" class="form-label">Upload Model Package (.zip)</label>
-                                    <input class="form-control" type="file" id="modelPackageUpload" accept=".zip">
+                                    <input class="form-control" type="file" id="modelPackageUpload" name="model_package" accept=".zip" required>
                                 </div>
-                            </div>
-                            
-                            <div id="modelInfo" class="alert alert-info d-none">
-                                <h6><i class="fas fa-info-circle me-2"></i> Model Information</h6>
-                                <div id="modelInfoContent"></div>
+                                
+                                <div id="modelInfo" class="alert alert-info d-none">
+                                    <h6><i class="fas fa-info-circle me-2"></i> Model Information</h6>
+                                    <div id="modelInfoContent"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -63,10 +50,6 @@
                                     <div class="form-text text-light-50">
                                         Your file should contain the same features used during model training.
                                     </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <input type="hidden" id="modelIdInput" name="model_id">
                                 </div>
                                 
                                 <div class="d-grid">
@@ -186,12 +169,10 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // DOM elements
-        const modelSelectDropdown = document.getElementById('modelSelectDropdown');
         const modelPackageUpload = document.getElementById('modelPackageUpload');
         const modelInfo = document.getElementById('modelInfo');
         const modelInfoContent = document.getElementById('modelInfoContent');
         const predictionForm = document.getElementById('predictionForm');
-        const modelIdInput = document.getElementById('modelIdInput');
         const dataFileUpload = document.getElementById('dataFileUpload');
         const predictButton = document.getElementById('predictButton');
         const resultsContainer = document.getElementById('resultsContainer');
@@ -208,31 +189,13 @@
         const downloadButton = document.getElementById('downloadButton');
         
         // Event listeners
-        modelSelectDropdown.addEventListener('change', function() {
-            if (this.value) {
-                modelIdInput.value = this.value;
-                modelPackageUpload.value = '';
-                
-                // Show model info
-                modelInfo.classList.remove('d-none');
-                const selectedOption = this.options[this.selectedIndex];
-                modelInfoContent.innerHTML = `
-                    <p><strong>Selected Model:</strong> ${selectedOption.text}</p>
-                    <p class="mb-0">Ready for prediction. Please upload your data file.</p>
-                `;
-            }
-        });
-        
         modelPackageUpload.addEventListener('change', function() {
             if (this.files.length > 0) {
-                modelSelectDropdown.value = '';
-                modelIdInput.value = '';
-                
                 // Show model info
                 modelInfo.classList.remove('d-none');
                 modelInfoContent.innerHTML = `
                     <p><strong>Uploaded Package:</strong> ${this.files[0].name}</p>
-                    <p class="mb-0">Custom model package loaded. Please upload your data file.</p>
+                    <p class="mb-0">Model package loaded. Please upload your data file.</p>
                 `;
             }
         });
@@ -242,8 +205,8 @@
             e.preventDefault();
             
             // Model validation
-            if (!modelIdInput.value && (!modelPackageUpload.files || modelPackageUpload.files.length === 0)) {
-                showError('Please select a model or upload a model package.');
+            if (!modelPackageUpload.files || modelPackageUpload.files.length === 0) {
+                showError('Please upload a model package.');
                 return;
             }
             
@@ -262,11 +225,6 @@
             
             // Prepare form data
             const formData = new FormData(predictionForm);
-            
-            // Add model package if selected
-            if (modelPackageUpload.files && modelPackageUpload.files.length > 0) {
-                formData.append('model_package', modelPackageUpload.files[0]);
-            }
             
             // Make prediction request
             fetch('/api/predict_regression', {
@@ -301,6 +259,8 @@
             
             // Reset form if needed
             dataFileUpload.value = '';
+            modelPackageUpload.value = '';
+            modelInfo.classList.add('d-none');
         });
         
         // Display error message
