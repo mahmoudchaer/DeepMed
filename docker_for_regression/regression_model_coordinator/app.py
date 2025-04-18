@@ -16,6 +16,16 @@ from sklearn.model_selection import train_test_split
 from datetime import datetime
 from waitress import serve
 import urllib.parse
+import io
+
+# Try to import the storage module
+try:
+    from storage import upload_to_blob, get_blob_url, download_blob
+    BLOB_STORAGE_AVAILABLE = True
+    logging.info("Azure Blob Storage integration available")
+except ImportError:
+    BLOB_STORAGE_AVAILABLE = False
+    logging.warning("Azure Blob Storage integration not available")
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +73,39 @@ except Exception as e:
     logger.warning("Continuing without MLflow experiment setup")
 
 app = Flask(__name__)
+
+def save_model_to_blob(model_data, model_name, metric_name=None):
+    """Save model to Azure Blob Storage and return the URL"""
+    if not BLOB_STORAGE_AVAILABLE:
+        logger.warning("Azure Blob Storage integration not available. Cannot save model to blob.")
+        return None, None
+        
+    try:
+        # Generate a unique filename
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4())[:8]
+        if metric_name:
+            filename = f"{model_name}_{metric_name}_{timestamp}_{unique_id}.joblib"
+        else:
+            filename = f"{model_name}_{timestamp}_{unique_id}.joblib"
+            
+        # Convert model to bytes
+        model_bytes = io.BytesIO()
+        import joblib
+        joblib.dump(model_data, model_bytes)
+        model_bytes.seek(0)
+        
+        # Upload to blob storage
+        blob_url = upload_to_blob(model_bytes, filename)
+        if blob_url:
+            logger.info(f"Saved model {model_name} to blob storage: {blob_url}")
+            return blob_url, filename
+        else:
+            logger.error(f"Failed to save model {model_name} to blob storage")
+            return None, None
+    except Exception as e:
+        logger.error(f"Error saving model to blob: {str(e)}")
+        return None, None
 
 def configure_db_connection():
     """Configure the database connection with proper error handling"""
@@ -130,6 +173,34 @@ class RegressionModelCoordinator:
                 return None
             
             result = response.json()
+            
+            # If the model has been trained successfully but doesn't have a model_url
+            # (indicating it hasn't been saved to blob storage), load the model and save it
+            if 'model_url' not in result or not result['model_url']:
+                logger.warning(f"Model {model_name} has no model_url, attempting to save to blob storage")
+                
+                # Check if we can get the model directly
+                try:
+                    # Try to download model from the service
+                    model_download_url = f"{model_url}/download_model"
+                    download_response = requests.get(model_download_url, timeout=60)
+                    
+                    if download_response.status_code == 200:
+                        # Save model to blob storage
+                        model_bytes = io.BytesIO(download_response.content)
+                        blob_url, filename = save_model_to_blob(model_bytes, model_name)
+                        
+                        if blob_url:
+                            logger.info(f"Saved {model_name} to blob storage: {blob_url}")
+                            result['model_url'] = blob_url
+                            result['file_name'] = filename
+                        else:
+                            logger.warning(f"Failed to save {model_name} to blob storage")
+                    else:
+                        logger.warning(f"Could not download model from service: {download_response.text}")
+                except Exception as e:
+                    logger.error(f"Error saving model to blob: {str(e)}")
+            
             return result
         except Exception as e:
             logger.error(f"Error training {model_name} model: {str(e)}")
