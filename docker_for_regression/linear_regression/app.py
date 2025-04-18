@@ -24,15 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
+EXPERIMENT_NAME = os.getenv('MLFLOW_EXPERIMENT_NAME', 'regression_experiment')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-
-# Explicitly create the default experiment
-try:
-    # Create experiment if it doesn't exist
-    mlflow.create_experiment("regression_experiment")
-except Exception as e:
-    # If experiment already exists, it will throw an exception
-    logger.info(f"Experiment creation: {str(e)}")
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Define directories
 SAVED_MODELS_DIR = os.environ.get('SAVED_MODELS_DIR', '/app/saved_models/linear_regression')
@@ -92,33 +86,26 @@ class LinearRegressionModel:
         # Get the model URL (for retrieval)
         model_url = f"/saved_models/linear_regression/linear_regression_{int(time.time())}.joblib"
         
-        # Try logging with MLflow, but continue even if it fails
-        try:
-            # Set experiment and start run
-            mlflow.set_experiment("regression_experiment")
+        # Log with MLflow
+        with mlflow.start_run(run_name="linear_regression") as run:
+            # Log parameters
+            mlflow.log_params({
+                "model_type": "linear_regression",
+                "num_features": X_train.shape[1]
+            })
             
-            with mlflow.start_run(run_name="linear_regression") as run:
-                # Log parameters
-                mlflow.log_params({
-                    "model_type": "linear_regression",
-                    "num_features": X_train.shape[1]
-                })
-                
-                # Log metrics
-                mlflow.log_metrics({
-                    "train_r2": train_r2,
-                    "test_r2": test_r2,
-                    "test_rmse": test_rmse,
-                    "test_mae": test_mae,
-                    "test_mse": test_mse
-                })
-                
-                # Log model
-                mlflow.sklearn.log_model(self.model, "model")
-                logger.info("Model logged to MLflow successfully")
-        except Exception as e:
-            logger.error(f"Failed to log to MLflow: {str(e)}")
-            logger.error("Continuing without MLflow tracking")
+            # Log metrics
+            mlflow.log_metrics({
+                "train_r2": train_r2,
+                "test_r2": test_r2,
+                "test_rmse": test_rmse,
+                "test_mae": test_mae,
+                "test_mse": test_mse
+            })
+            
+            # Log model
+            mlflow.sklearn.log_model(self.model, "model")
+            logger.info("Model logged to MLflow successfully")
         
         # Return training results
         return {

@@ -126,7 +126,6 @@ def ensure_regression_models_saved(user_id, run_id, model_result):
                 file_name=filename,
                 metric_name='r2',
                 metric_value=r2_score,
-                accuracy=r2_score,
                 parameters=json.dumps(model_info.get('parameters', {})),
                 confusion_matrix=json.dumps([]),  # No confusion matrix for regression
                 metrics=json.dumps(metrics)

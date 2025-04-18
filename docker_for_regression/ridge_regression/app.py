@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
+EXPERIMENT_NAME = os.getenv('MLFLOW_EXPERIMENT_NAME', 'regression_experiment')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Define directories
 SAVED_MODELS_DIR = os.environ.get('SAVED_MODELS_DIR', '/app/saved_models/ridge_regression')
@@ -79,13 +81,21 @@ class RidgeRegressionModel:
             'alpha': float(self.alpha)
         }
         
-        # Log metrics and parameters with MLflow
+        # Save model to disk first (in case MLflow fails)
+        model_filename = f"{SAVED_MODELS_DIR}/ridge_regression_{int(time.time())}.joblib"
+        joblib.dump(self.model, model_filename)
+        logger.info(f"Model saved to {model_filename}")
+        
+        # Get the model URL (for retrieval)
+        model_url = f"/saved_models/ridge_regression/ridge_regression_{int(time.time())}.joblib"
+        
+        # Log with MLflow
         with mlflow.start_run(run_name="ridge_regression") as run:
             # Log parameters
             mlflow.log_params({
                 "model_type": "ridge_regression",
                 "num_features": X_train.shape[1],
-                "alpha": self.alpha
+                "alpha": self.model.alpha
             })
             
             # Log metrics
@@ -99,14 +109,7 @@ class RidgeRegressionModel:
             
             # Log model
             mlflow.sklearn.log_model(self.model, "model")
-            
-            # Save model to disk
-            model_filename = f"{SAVED_MODELS_DIR}/ridge_regression_{int(time.time())}.joblib"
-            joblib.dump(self.model, model_filename)
-            logger.info(f"Model saved to {model_filename}")
-            
-            # Get the model URL (for retrieval)
-            model_url = f"/saved_models/ridge_regression/ridge_regression_{int(time.time())}.joblib"
+            logger.info("Model logged to MLflow successfully")
         
         # Return training results
         return {

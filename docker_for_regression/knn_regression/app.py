@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
+EXPERIMENT_NAME = os.getenv('MLFLOW_EXPERIMENT_NAME', 'regression_experiment')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Define directories
 SAVED_MODELS_DIR = os.environ.get('SAVED_MODELS_DIR', '/app/saved_models/knn_regression')
@@ -91,15 +93,29 @@ class KNNRegressionModel:
             'algorithm': self.algorithm
         }
         
-        # Log metrics and parameters with MLflow
+        # Create a pipeline with both scaler and model
+        from sklearn.pipeline import Pipeline
+        pipeline = Pipeline([
+            ('scaler', self.scaler),
+            ('regressor', self.model)
+        ])
+        
+        # Save model pipeline to disk first
+        model_filename = f"{SAVED_MODELS_DIR}/knn_regression_{int(time.time())}.joblib"
+        joblib.dump(pipeline, model_filename)
+        logger.info(f"Model saved to {model_filename}")
+        
+        # Get the model URL (for retrieval)
+        model_url = f"/saved_models/knn_regression/knn_regression_{int(time.time())}.joblib"
+        
+        # Log with MLflow
         with mlflow.start_run(run_name="knn_regression") as run:
             # Log parameters
             mlflow.log_params({
                 "model_type": "knn_regression",
                 "num_features": X_train.shape[1],
                 "n_neighbors": self.n_neighbors,
-                "weights": self.weights,
-                "algorithm": self.algorithm
+                'weights': self.weights
             })
             
             # Log metrics
@@ -111,23 +127,9 @@ class KNNRegressionModel:
                 "test_mse": test_mse
             })
             
-            # Create a pipeline with both scaler and model
-            from sklearn.pipeline import Pipeline
-            pipeline = Pipeline([
-                ('scaler', self.scaler),
-                ('regressor', self.model)
-            ])
-            
             # Log model
             mlflow.sklearn.log_model(pipeline, "model")
-            
-            # Save model to disk (including the scaler)
-            model_filename = f"{SAVED_MODELS_DIR}/knn_regression_{int(time.time())}.joblib"
-            joblib.dump(pipeline, model_filename)
-            logger.info(f"Model saved to {model_filename}")
-            
-            # Get the model URL (for retrieval)
-            model_url = f"/saved_models/knn_regression/knn_regression_{int(time.time())}.joblib"
+            logger.info("Model logged to MLflow successfully")
         
         # Return training results
         return {

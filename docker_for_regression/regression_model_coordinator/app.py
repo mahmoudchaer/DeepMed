@@ -43,23 +43,23 @@ MYSQL_DB = os.environ.get('MYSQL_DB')
 
 # Configure MLflow
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'file:///app/mlruns')
+EXPERIMENT_NAME = os.getenv('MLFLOW_EXPERIMENT_NAME', 'regression_experiment')
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
+
+# Ensure MLflow tracking directory exists
+tracking_dir = MLFLOW_TRACKING_URI.replace('file://', '') if MLFLOW_TRACKING_URI.startswith('file://') else '/app/mlruns'
+os.makedirs(tracking_dir, exist_ok=True)
+logger.info(f"MLflow tracking directory: {tracking_dir}")
 
 # Create the default experiment if it doesn't exist
 try:
-    # Set up default experiment
     default_experiment = mlflow.get_experiment_by_name("Default")
     if not default_experiment:
         logger.info("Creating default MLflow experiment")
         mlflow.create_experiment("Default")
-    
-    # Set up regression experiment
-    regression_experiment = mlflow.get_experiment_by_name("regression_experiment")
-    if not regression_experiment:
-        logger.info("Creating regression_experiment MLflow experiment")
-        mlflow.create_experiment("regression_experiment")
 except Exception as e:
-    logger.error(f"Error setting up MLflow experiments: {str(e)}")
+    logger.warning(f"Error setting up MLflow default experiment: {str(e)}")
     logger.warning("Continuing without MLflow experiment setup")
 
 app = Flask(__name__)
@@ -281,33 +281,35 @@ class RegressionModelCoordinator:
                 # Get predictions from the best model
                 best_model_url = best_model.get('model_url')
                 if best_model_url:
-                    # Extract base URL from model_url
-                    base_url = best_model_url.split('/saved_models')[0] if '/saved_models' in best_model_url else ''
-                    service_url = f"http://{best_model.get('name')}/predict" if not base_url else f"{base_url}/predict"
-                    
-                    pred_response = requests.post(
-                        service_url,
-                        json={
-                            'X': X_vis.to_dict(orient='list') if isinstance(X_vis, pd.DataFrame) else X_vis
-                        },
-                        timeout=30
-                    )
-                    
-                    if pred_response.status_code == 200:
-                        pred_data = pred_response.json()
-                        y_pred = pred_data.get('predictions', [])
+                    # Get the service URL from the model services dictionary
+                    model_name = best_model.get('name')
+                    if model_name in self.model_services:
+                        # Use the model's configured URL for predictions
+                        service_url = f"{self.model_services[model_name]}/predict"
                         
-                        # Format predictions for visualization
-                        for i in range(len(y_vis)):
-                            actual = y_vis.iloc[i] if hasattr(y_vis, 'iloc') else y_vis[i]
-                            predicted = y_pred[i] if i < len(y_pred) else None
+                        pred_response = requests.post(
+                            service_url,
+                            json={
+                                'X': X_vis.to_dict(orient='list') if isinstance(X_vis, pd.DataFrame) else X_vis
+                            },
+                            timeout=30
+                        )
+                        
+                        if pred_response.status_code == 200:
+                            pred_data = pred_response.json()
+                            y_pred = pred_data.get('predictions', [])
                             
-                            if predicted is not None:
-                                predictions.append({
-                                    'actual': float(actual),
-                                    'predicted': float(predicted),
-                                    'error': float(actual) - float(predicted)
-                                })
+                            # Format predictions for visualization
+                            for i in range(len(y_vis)):
+                                actual = y_vis.iloc[i] if hasattr(y_vis, 'iloc') else y_vis[i]
+                                predicted = y_pred[i] if i < len(y_pred) else None
+                                
+                                if predicted is not None:
+                                    predictions.append({
+                                        'actual': float(actual),
+                                        'predicted': float(predicted),
+                                        'error': float(actual) - float(predicted)
+                                    })
             except Exception as e:
                 logger.error(f"Error generating sample predictions: {str(e)}")
                 logger.error(traceback.format_exc())
