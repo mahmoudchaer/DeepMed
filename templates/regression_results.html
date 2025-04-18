@@ -202,124 +202,146 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script id="chartData" type="application/json">
+{
+    "featureImportance": [
+        {% if feature_importance %}
+            {% for feature in feature_importance %}
+                {"name": "{{ feature.name }}", "importance": {{ feature.importance }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        {% endif %}
+    ],
+    "predictions": [
+        {% if predictions %}
+            {% for pred in predictions %}
+                {"actual": {{ pred.actual }}, "predicted": {{ pred.predicted }}, "error": {{ pred.error }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        {% endif %}
+    ]
+}
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Feature Importance Chart
-    {% if feature_importance %}
-    const featureCtx = document.getElementById('featureImportanceChart').getContext('2d');
-    const featureLabels = [{% for feature in feature_importance %}'{{ feature.name }}',{% endfor %}];
-    const featureValues = [{% for feature in feature_importance %}{{ feature.importance }},{% endfor %}];
+    // Get data from JSON
+    const chartDataElement = document.getElementById('chartData');
+    const chartData = JSON.parse(chartDataElement.textContent);
     
-    new Chart(featureCtx, {
-        type: 'bar',
-        data: {
-            labels: featureLabels,
-            datasets: [{
-                label: 'Feature Importance',
-                data: featureValues,
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
+    const featureImportance = chartData.featureImportance || [];
+    const predictions = chartData.predictions || [];
+    
+    // Feature Importance Chart
+    if (featureImportance.length > 0) {
+        const featureCtx = document.getElementById('featureImportanceChart').getContext('2d');
+        const featureLabels = featureImportance.map(item => item.name);
+        const featureValues = featureImportance.map(item => item.importance);
+        
+        new Chart(featureCtx, {
+            type: 'bar',
+            data: {
+                labels: featureLabels,
+                datasets: [{
+                    label: 'Feature Importance',
+                    data: featureValues,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)'
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     }
                 },
-                y: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)'
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     }
                 }
             }
-        }
-    });
-    {% endif %}
+        });
+    }
     
     // Residual Plot
-    {% if predictions %}
-    const residualCtx = document.getElementById('residualPlot').getContext('2d');
-    const actualValues = [{% for pred in predictions %}{{ pred.actual }},{% endfor %}];
-    const predictedValues = [{% for pred in predictions %}{{ pred.predicted }},{% endfor %}];
-    const residuals = [{% for pred in predictions %}{{ pred.error }},{% endfor %}];
-    
-    new Chart(residualCtx, {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: 'Residuals',
-                data: actualValues.map(function(actual, i) {
-                    return {
-                        x: predictedValues[i],
-                        y: residuals[i]
-                    };
-                }),
-                backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Predicted Values',
-                        color: 'rgba(255, 255, 255, 0.8)'
+    if (predictions.length > 0) {
+        const residualCtx = document.getElementById('residualPlot').getContext('2d');
+        
+        new Chart(residualCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Residuals',
+                    data: predictions.map(pred => ({
+                        x: pred.predicted,
+                        y: pred.error
+                    })),
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Predicted Values',
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)'
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Residuals',
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     }
                 },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Residuals',
-                        color: 'rgba(255, 255, 255, 0.8)'
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.8)'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: 'rgba(255, 255, 255, 0.8)'
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.8)'
+                        }
                     }
                 }
             }
-        }
-    });
-    {% endif %}
+        });
+    }
 });
 </script>
 {% endblock %} 
