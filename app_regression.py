@@ -595,7 +595,7 @@ def train_regression():
             # Save processed results to session
             session['regression_model_results'] = model_result
             
-            return redirect(url_for('models_regression'))
+            return redirect(url_for('regression_results'))
             
         except Exception as e:
             logger.error(f"Error processing regression data: {str(e)}", exc_info=True)
@@ -730,6 +730,103 @@ def regression_prediction():
     services_status = check_regression_services()
     
     return render_template('regression_prediction.html', services_status=services_status, logout_token=session['logout_token'])
+
+@app.route('/regression_results')
+@login_required
+def regression_results():
+    """Route for displaying regression model training results"""
+    # Check if the user is logged in
+    if not current_user.is_authenticated:
+        flash('Please log in to access the regression results page.', 'info')
+        return redirect('/login', code=302)
+    
+    # Get model results from session
+    model_result = session.get('regression_model_results')
+    
+    if not model_result:
+        flash('No recent regression training results found.', 'warning')
+        return redirect(url_for('train_regression'))
+    
+    # Get the run_id
+    run_id = model_result.get('run_id')
+    if not run_id:
+        run_id = session.get('last_regression_training_run_id')
+    
+    # Process model results
+    results = model_result.get('results', [])
+    
+    # Sort models by R² score (descending)
+    sorted_models = sorted(results, key=lambda x: x.get('metrics', {}).get('r2', 0) if isinstance(x.get('metrics'), dict) else x.get('r2', 0), reverse=True)
+    
+    # Get top models (up to 4)
+    top_models = sorted_models[:min(4, len(sorted_models))]
+    
+    # Ensure each model has necessary data structure
+    for model in top_models:
+        # Add parameters if missing
+        if 'parameters' not in model:
+            model['parameters'] = {}
+        
+        # Check if model has the best score (for highlighting)
+        model['is_best'] = model == top_models[0] if top_models else False
+        
+        # Ensure metrics is defined
+        if 'metrics' not in model and 'r2' in model:
+            model['metrics'] = {
+                'r2': model.get('r2', 0),
+                'rmse': model.get('rmse', 0),
+                'mae': model.get('mae', 0),
+                'mse': model.get('mse', 0)
+            }
+    
+    # Extract the best model
+    best_model = top_models[0] if top_models else None
+    
+    # Get training info
+    training_info = {
+        'target_column': session.get('target_column', 'Unknown'),
+        'dataset_size': model_result.get('dataset_size', 'Unknown'),
+        'training_time': model_result.get('training_time', 'Unknown')
+    }
+    
+    # Get feature importance if available
+    feature_importance = []
+    if 'selected_features_regression_file_json' in session:
+        try:
+            # Load selected features
+            selected_features = load_from_temp_file(session['selected_features_regression_file_json'])
+            
+            # Create dummy feature importance if actual importance not available
+            for feature in selected_features:
+                feature_importance.append({
+                    'name': feature,
+                    'importance': 1.0 / len(selected_features)  # Equal importance as fallback
+                })
+        except:
+            logger.error("Error loading selected features for regression", exc_info=True)
+    
+    if 'feature_importance_regression_file' in session:
+        try:
+            # Load actual feature importance
+            feature_importance = load_from_temp_file(session['feature_importance_regression_file'])
+        except:
+            logger.error("Error loading feature importance for regression", exc_info=True)
+    
+    # Metrics information for explanation
+    metrics_info = {
+        'r2': 'R² (Coefficient of Determination): Represents the proportion of variance in the dependent variable that is predictable from the independent variables. Values range from 0 to 1, with 1 indicating perfect prediction.',
+        'rmse': 'RMSE (Root Mean Square Error): Measures the average magnitude of the error. It's the square root of the average of squared differences between predicted and actual values.',
+        'mae': 'MAE (Mean Absolute Error): Measures the average magnitude of the errors in a set of predictions, without considering their direction.',
+        'mse': 'MSE (Mean Squared Error): The average of the squares of the errors—the average squared difference between the estimated values and the actual value.'
+    }
+    
+    return render_template('regression_results.html', 
+                          run_id=run_id,
+                          model_results=top_models,
+                          best_model=best_model,
+                          training_info=training_info,
+                          feature_importance=feature_importance,
+                          metrics_info=metrics_info)
 
 @app.route('/api/predict_regression', methods=['POST'])
 @login_required
