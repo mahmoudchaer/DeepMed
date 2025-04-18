@@ -17,6 +17,7 @@ import queue
 import multiprocessing
 from flask import abort
 import shutil
+import joblib  # Add joblib import for direct model loading
 
 # Import common components from app_api.py
 from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
@@ -731,98 +732,63 @@ def api_predict_regression():
         if data is None:
             return jsonify({'error': file_stats}), 400
         
-        model_id = request.form.get('model_id')
+        # Check for model package upload
         model_package = request.files.get('model_package')
+        if not model_package or model_package.filename == '':
+            return jsonify({'error': 'Please upload a model package'}), 400
         
-        # Check if a model was provided (either ID or package)
-        if not model_id and not model_package:
-            return jsonify({'error': 'No model selected or uploaded'}), 400
+        # Verify it's a zip file
+        if not model_package.filename.endswith('.zip'):
+            return jsonify({'error': 'Model package must be a ZIP file'}), 400
             
+        # Save the package temporarily
+        package_filepath = get_temp_filepath(model_package.filename)
+        model_package.save(package_filepath)
+        
         selected_features = None
-        model_url = None
+        model_file = None
         model_name = "Custom Model"
         
-        # Process based on model selection method
-        if model_id:
-            # Load model from database
-            with app.app_context():
-                model = db.session.query(TrainingModel).filter_by(id=model_id, user_id=current_user.id).first()
-                if not model:
-                    return jsonify({'error': 'Model not found'}), 404
-                    
-                # Check if it's a regression model
-                regression_model_types = ['linear_regression', 'lasso_regression', 'ridge_regression', 
-                                          'random_forest_regression', 'knn_regression', 'xgboost_regression']
-                if model.model_name not in regression_model_types:
-                    return jsonify({'error': 'Selected model is not a regression model'}), 400
-                    
-                # Get preprocessing data for this run to get selected features
-                preprocessing_data = db.session.query(PreprocessingData).filter_by(run_id=model.run_id).first()
-                if not preprocessing_data:
-                    return jsonify({'error': 'Preprocessing data not found for this model'}), 404
-                    
-                # Parse selected features
-                if preprocessing_data.selected_columns:
-                    try:
-                        selected_features = json.loads(preprocessing_data.selected_columns)
-                    except:
-                        return jsonify({'error': 'Could not parse selected features'}), 500
-                
-                model_url = model.model_url
-                model_name = model.model_name
-                
-        elif model_package:
-            # Process uploaded model package
-            if not model_package.filename.endswith('.zip'):
-                return jsonify({'error': 'Model package must be a ZIP file'}), 400
-                
-            # Save the package temporarily
-            package_filepath = get_temp_filepath(model_package.filename)
-            model_package.save(package_filepath)
+        # Process uploaded model package
+        import zipfile
+        import tempfile
+        
+        temp_dir = tempfile.mkdtemp()
+        
+        try:
+            with zipfile.ZipFile(package_filepath, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
             
-            # Extract the package to a temporary directory
-            import zipfile
-            import tempfile
+            # Look for model file and metadata in the package
+            model_file = None
+            metadata_file = None
             
-            temp_dir = tempfile.mkdtemp()
+            for root, dirs, files in os.walk(temp_dir):
+                for file in files:
+                    if file.endswith('.joblib') or file.endswith('.pkl'):
+                        model_file = os.path.join(root, file)
+                    elif file == 'metadata.json':
+                        metadata_file = os.path.join(root, file)
             
-            try:
-                with zipfile.ZipFile(package_filepath, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                
-                # Look for model file and metadata in the package
-                model_file = None
-                metadata_file = None
-                
-                for root, dirs, files in os.walk(temp_dir):
-                    for file in files:
-                        if file.endswith('.joblib') or file.endswith('.pkl'):
-                            model_file = os.path.join(root, file)
-                        elif file == 'metadata.json':
-                            metadata_file = os.path.join(root, file)
-                
-                if not model_file:
-                    return jsonify({'error': 'No model file found in the package'}), 400
-                
-                # Load metadata if available
-                if metadata_file:
-                    try:
-                        with open(metadata_file, 'r') as f:
-                            metadata = json.load(f)
-                            if 'selected_features' in metadata:
-                                selected_features = metadata['selected_features']
-                            if 'model_name' in metadata:
-                                model_name = metadata['model_name']
-                    except Exception as e:
-                        logger.warning(f"Error loading model metadata: {str(e)}")
-                
-                # Use the model file path for prediction
-                model_url = model_file
-                
-            except Exception as e:
-                shutil.rmtree(temp_dir, ignore_errors=True)
-                os.remove(package_filepath)
-                return jsonify({'error': f'Error processing model package: {str(e)}'}), 400
+            if not model_file:
+                return jsonify({'error': 'No model file found in the package'}), 400
+            
+            # Load metadata if available
+            if metadata_file:
+                try:
+                    with open(metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                        if 'selected_features' in metadata:
+                            selected_features = metadata['selected_features']
+                        if 'model_name' in metadata:
+                            model_name = metadata['model_name']
+                except Exception as e:
+                    logger.warning(f"Error loading model metadata: {str(e)}")
+            
+        except Exception as e:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            os.remove(package_filepath)
+            return jsonify({'error': f'Error processing model package: {str(e)}'}), 400
         
         # If we couldn't get selected features or there are none, use all columns
         if not selected_features or len(selected_features) == 0:
@@ -846,46 +812,45 @@ def api_predict_regression():
             else:
                 X[col] = X[col].fillna(X[col].mode()[0] if not X[col].mode().empty else "")
         
-        # Convert to records for API
-        X_records = clean_data_for_json(X)
-        
-        # Call the regression predictor service
-        prediction_response = safe_requests_post(
-            f"{REGRESSION_PREDICTOR_SERVICE_URL}/predict",
-            {
-                "data": X_records,
-                "model_url": model_url
-            },
-            timeout=60  # Increased timeout
-        )
-        
-        if prediction_response.status_code != 200:
-            return jsonify({'error': f'Prediction service error: {prediction_response.text}'}), 500
+        # DIRECT MODEL PREDICTION - Load model and make predictions directly instead of using service
+        try:
+            # Load the model directly using joblib
+            logger.info(f"Loading model from {model_file}")
+            model = joblib.load(model_file)
             
-        # Extract predictions
-        predictions_data = prediction_response.json()
-        predictions = predictions_data.get('predictions', [])
-        
-        # Combine with original data for display
-        result_df = data.copy()
-        result_df['prediction'] = predictions
-        
-        # Convert to records for response
-        result_records = clean_data_for_json(result_df)
-        
-        # Clean up temporary files
-        if model_package:
+            # Make predictions
+            logger.info("Making predictions with loaded model")
+            predictions = model.predict(X)
+            
+            # Convert predictions to list if they're numpy arrays
+            if isinstance(predictions, np.ndarray):
+                predictions = predictions.tolist()
+            
+            # Combine with original data for display
+            result_df = data.copy()
+            result_df['prediction'] = predictions
+            
+            # Convert to records for response
+            result_records = clean_data_for_json(result_df)
+            
+            # Clean up temporary files
             shutil.rmtree(temp_dir, ignore_errors=True)
             os.remove(package_filepath)
-        
-        # Return predictions
-        return jsonify({
-            'success': True,
-            'predictions': predictions,
-            'full_results': result_records,
-            'model_name': model_name,
-            'file_stats': file_stats
-        })
+            
+            # Return predictions
+            return jsonify({
+                'success': True,
+                'predictions': predictions,
+                'full_results': result_records,
+                'model_name': model_name,
+                'file_stats': file_stats
+            })
+            
+        except Exception as model_error:
+            logger.error(f"Error making predictions with model: {str(model_error)}", exc_info=True)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            os.remove(package_filepath)
+            return jsonify({'error': f'Error using the model for prediction: {str(model_error)}'}), 500
         
     except Exception as e:
         logger.error(f"Error in regression prediction: {str(e)}", exc_info=True)
