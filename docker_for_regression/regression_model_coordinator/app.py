@@ -327,7 +327,9 @@ class RegressionModelCoordinator:
             'results': results,
             'best_model': best_model,
             'available_services': available_services,
-            'predictions': predictions
+            'predictions': predictions,
+            'dataset_size': len(X),
+            'training_time': sum(model.get('training_time', 0) for model in results)
         }
         
         # For app_regression.py to use ensure_regression_models_saved

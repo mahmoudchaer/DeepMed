@@ -46,10 +46,10 @@
                                 {% for model in model_results %}
                                 <tr {% if model.is_best %}class="table-success"{% endif %}>
                                     <td>{{ model.name }}</td>
-                                    <td>{{ model.r2|round(4) }}</td>
-                                    <td>{{ model.rmse|round(4) }}</td>
-                                    <td>{{ model.mae|round(4) }}</td>
-                                    <td>{{ model.mse|round(4) }}</td>
+                                    <td>{{ model.metrics.r2|round(4) if model.metrics is defined else model.r2|round(4) }}</td>
+                                    <td>{{ model.metrics.rmse|round(4) if model.metrics is defined else model.rmse|round(4) }}</td>
+                                    <td>{{ model.metrics.mae|round(4) if model.metrics is defined else model.mae|round(4) }}</td>
+                                    <td>{{ model.metrics.mse|round(4) if model.metrics is defined else model.mse|round(4) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -65,12 +65,12 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <p><strong>R²:</strong> {{ best_model.r2|round(4) }}</p>
-                                    <p><strong>RMSE:</strong> {{ best_model.rmse|round(4) }}</p>
+                                    <p><strong>R²:</strong> {{ best_model.metrics.r2|round(4) if best_model.metrics is defined else best_model.r2|round(4) }}</p>
+                                    <p><strong>RMSE:</strong> {{ best_model.metrics.rmse|round(4) if best_model.metrics is defined else best_model.rmse|round(4) }}</p>
                                 </div>
                                 <div class="col-md-6">
-                                    <p><strong>MAE:</strong> {{ best_model.mae|round(4) }}</p>
-                                    <p><strong>MSE:</strong> {{ best_model.mse|round(4) }}</p>
+                                    <p><strong>MAE:</strong> {{ best_model.metrics.mae|round(4) if best_model.metrics is defined else best_model.mae|round(4) }}</p>
+                                    <p><strong>MSE:</strong> {{ best_model.metrics.mse|round(4) if best_model.metrics is defined else best_model.mse|round(4) }}</p>
                                 </div>
                             </div>
                             
@@ -177,7 +177,23 @@
             
             <div class="d-flex justify-content-between mt-4">
                 <a href="{{ url_for('train_regression') }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i> Back to Training</a>
-                <a href="{{ url_for('predict_regression', run_id=run_id) }}" class="btn btn-primary">Make Predictions <i class="fas fa-arrow-right ms-2"></i></a>
+                <a href="{{ url_for('models_regression') }}" class="btn btn-primary">My Models <i class="fas fa-list ms-2"></i></a>
+            </div>
+            
+            <!-- Metrics Information -->
+            <div class="card bg-dark border-secondary mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Metrics Information</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1">Models are evaluated using various regression metrics:</p>
+                    <ul>
+                        <li><strong>R² Score:</strong> {{ metrics_info.r2 }}</li>
+                        <li><strong>RMSE:</strong> {{ metrics_info.rmse }}</li>
+                        <li><strong>MAE:</strong> {{ metrics_info.mae }}</li>
+                        <li><strong>MSE:</strong> {{ metrics_info.mse }}</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
