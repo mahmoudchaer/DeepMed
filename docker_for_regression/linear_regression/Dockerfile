@@ -5,6 +5,8 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Explicitly install Azure Storage Blob (in case it wasn't in requirements.txt at build time)
+RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 
 # Copy application code
 COPY app.py .

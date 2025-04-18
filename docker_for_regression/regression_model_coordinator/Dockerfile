@@ -5,10 +5,13 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Explicitly install Azure Storage Blob (in case it wasn't in requirements.txt at build time)
+RUN pip install --no-cache-dir azure-storage-blob python-dotenv
 
 # Copy application code
 COPY app.py .
 COPY test_db_connection.py .
+COPY storage.py .
 
 # Create directories for models and MLflow
 RUN mkdir -p logs mlruns saved_models
