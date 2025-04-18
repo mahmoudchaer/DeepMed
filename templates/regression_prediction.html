@@ -273,74 +273,111 @@
         
         // Display prediction results
         function displayResults(data) {
+            console.log("Processing prediction results:", data);
+            
             // Update results summary
             resultsSummary.textContent = `Successfully generated predictions using the ${data.model_name} model.`;
             
-            // Create table headers
-            const tableHeaders = Object.keys(data.full_results[0]);
-            resultsTableHead.innerHTML = `
-                <tr>
-                    ${tableHeaders.map(header => `<th>${header}</th>`).join('')}
-                </tr>
-            `;
-            
-            // Create table rows (limit to first 10 for preview)
-            const previewResults = data.full_results.slice(0, 10);
-            resultsTableBody.innerHTML = previewResults.map(row => `
-                <tr>
-                    ${tableHeaders.map(header => `<td>${row[header]}</td>`).join('')}
-                </tr>
-            `).join('');
-            
-            // Show table info if results are truncated
-            if (data.full_results.length > 10) {
-                tableInfoContainer.classList.remove('d-none');
-                tableInfo.textContent = `Showing 10 of ${data.full_results.length} results. Download the full results using the button below.`;
-            } else {
-                tableInfoContainer.classList.add('d-none');
+            // Validate that we have full_results data
+            if (!data.full_results || !Array.isArray(data.full_results) || data.full_results.length === 0) {
+                showError("Prediction data is empty or in an unexpected format");
+                console.error("Invalid full_results data:", data.full_results);
+                return;
             }
             
-            // Show results container
-            resultsContainer.classList.remove('d-none');
-            
-            // Set up download button with CSV data
-            setupDownloadButton(data.full_results);
+            try {
+                // Create table headers
+                const tableHeaders = Object.keys(data.full_results[0]);
+                
+                // Ensure prediction column is highlighted
+                const headerHTML = tableHeaders.map(header => {
+                    if (header === 'prediction' || header.toLowerCase().includes('predict')) {
+                        return `<th class="bg-primary">${header}</th>`;
+                    }
+                    return `<th>${header}</th>`;
+                }).join('');
+                
+                resultsTableHead.innerHTML = `<tr>${headerHTML}</tr>`;
+                
+                // Create table rows (limit to first 10 for preview)
+                const previewResults = data.full_results.slice(0, 10);
+                resultsTableBody.innerHTML = previewResults.map(row => {
+                    return `<tr>
+                        ${tableHeaders.map(header => {
+                            const value = row[header];
+                            if (header === 'prediction' || header.toLowerCase().includes('predict')) {
+                                return `<td class="bg-primary bg-opacity-25 fw-bold">${value !== undefined ? value : ''}</td>`;
+                            }
+                            return `<td>${value !== undefined ? value : ''}</td>`;
+                        }).join('')}
+                    </tr>`;
+                }).join('');
+                
+                // Show table info if results are truncated
+                if (data.full_results.length > 10) {
+                    tableInfoContainer.classList.remove('d-none');
+                    tableInfo.textContent = `Showing 10 of ${data.full_results.length} results. Download the full results using the button below.`;
+                } else {
+                    tableInfoContainer.classList.add('d-none');
+                }
+                
+                // Show results container
+                resultsContainer.classList.remove('d-none');
+                
+                // Set up download button with CSV data
+                setupDownloadButton(data.full_results);
+            } catch (error) {
+                console.error("Error displaying results:", error);
+                showError(`Error displaying results: ${error.message}`);
+            }
         }
         
         // Set up CSV download button
         function setupDownloadButton(results) {
-            if (!results || results.length === 0) return;
+            if (!results || results.length === 0) {
+                console.warn("No results to download");
+                return;
+            }
             
-            // Convert results to CSV
-            const headers = Object.keys(results[0]);
-            const csvContent = [
-                headers.join(','),
-                ...results.map(row => headers.map(header => {
-                    // Handle values that need quotes (commas, quotes, newlines)
-                    const value = row[header] != null ? String(row[header]) : '';
-                    return value.includes(',') || value.includes('"') || value.includes('\n') 
-                        ? `"${value.replace(/"/g, '""')}"` 
-                        : value;
-                }).join(','))
-            ].join('\n');
-            
-            // Create download link
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            
-            // Set up download button
-            downloadButton.addEventListener('click', function() {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const filename = `regression_predictions_${timestamp}.csv`;
+            try {
+                // Convert results to CSV
+                const headers = Object.keys(results[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...results.map(row => headers.map(header => {
+                        // Handle values that need quotes (commas, quotes, newlines)
+                        const value = row[header] != null ? String(row[header]) : '';
+                        return value.includes(',') || value.includes('"') || value.includes('\n') 
+                            ? `"${value.replace(/"/g, '""')}"` 
+                            : value;
+                    }).join(','))
+                ].join('\n');
                 
-                // Create temporary link and click it
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', filename);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            });
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                // Clean up previous event listener if any
+                downloadButton.replaceWith(downloadButton.cloneNode(true));
+                const newDownloadButton = document.getElementById('downloadButton');
+                
+                // Set up download button
+                newDownloadButton.addEventListener('click', function() {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const filename = `regression_predictions_${timestamp}.csv`;
+                    
+                    // Create temporary link and click it
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', filename);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                });
+            } catch (error) {
+                console.error("Error setting up download button:", error);
+                showError(`Error setting up download: ${error.message}`);
+            }
         }
     });
 </script>

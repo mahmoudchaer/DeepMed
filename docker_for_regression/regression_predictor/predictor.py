@@ -113,94 +113,208 @@ import joblib
 import sys
 import os
 import json
+import glob
+import traceback
+
+def find_file(pattern):
+    """Find files matching a pattern"""
+    matches = glob.glob(pattern)
+    return matches[0] if matches else None
+
+def load_preprocessing_info():
+    """Load preprocessing information from json files"""
+    preprocessing_info = {}
+    
+    # Look for encoding/preprocessing files
+    encoding_files = []
+    for filename in glob.glob("*.json"):
+        if any(key in filename.lower() for key in ['encoding', 'preprocess', 'metadata', 'feature']):
+            encoding_files.append(filename)
+    
+    print(f"Found potential preprocessing files: {encoding_files}")
+    
+    # Load each file and extract preprocessing info
+    for file_path in encoding_files:
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                
+            # Extract different types of preprocessing information
+            if isinstance(data, dict):
+                # Look for selected features
+                if 'selected_features' in data:
+                    preprocessing_info['selected_features'] = data['selected_features']
+                    print(f"Found selected features in {file_path}")
+                
+                # Look for encoding mappings
+                if 'encoding_mappings' in data:
+                    preprocessing_info['encoding_mappings'] = data['encoding_mappings']
+                    print(f"Found encoding mappings in {file_path}")
+                
+                # The file itself might be encoding mappings
+                if 'selected_features' not in data and 'encoding_mappings' not in data:
+                    # Check if this looks like an encoding mapping file
+                    has_mappings = False
+                    for key, value in data.items():
+                        if isinstance(value, dict) and len(value) > 0:
+                            has_mappings = True
+                            break
+                    
+                    if has_mappings:
+                        preprocessing_info['encoding_mappings'] = data
+                        print(f"Found encoding mappings in {file_path}")
+        except Exception as e:
+            print(f"Error reading {file_path}: {str(e)}")
+    
+    print(f"Extracted preprocessing info: {preprocessing_info.keys()}")
+    return preprocessing_info
+
+def preprocess_data(data, preprocessing_info):
+    """Apply preprocessing to the input data"""
+    if not preprocessing_info:
+        return data
+    
+    # Make a copy to avoid modifying the original
+    processed_data = data.copy()
+    
+    # Apply feature selection if available
+    if 'selected_features' in preprocessing_info:
+        selected_features = preprocessing_info['selected_features']
+        available_features = [f for f in selected_features if f in processed_data.columns]
+        missing_features = [f for f in selected_features if f not in processed_data.columns]
+        
+        if missing_features:
+            print(f"Warning: Missing features in input data: {missing_features}")
+        
+        if available_features:
+            processed_data = processed_data[available_features]
+            print(f"Selected {len(available_features)} features")
+    
+    # Apply encoding if available
+    if 'encoding_mappings' in preprocessing_info:
+        encodings = preprocessing_info['encoding_mappings']
+        for column, mapping in encodings.items():
+            if column in processed_data.columns:
+                # Check if this is a categorical encoding
+                if isinstance(mapping, dict):
+                    # Create a mapping function that handles missing keys
+                    def map_value(val):
+                        # Try direct lookup
+                        if val in mapping:
+                            return mapping[val]
+                        # Try string version
+                        str_val = str(val)
+                        if str_val in mapping:
+                            return mapping[str_val]
+                        # Return original if not found
+                        print(f"Warning: Value '{val}' not found in encoding for column '{column}'")
+                        return val
+                    
+                    # Apply mapping
+                    try:
+                        processed_data[column] = processed_data[column].map(map_value)
+                        print(f"Applied encoding to column '{column}'")
+                    except Exception as e:
+                        print(f"Error applying encoding to column '{column}': {str(e)}")
+    
+    return processed_data
 
 def main():
     if len(sys.argv) < 2:
         print("Usage: python predict.py <input_file> [--stdout]")
         return 1
     
+    print("Starting prediction process...")
+    
     input_file = sys.argv[1]
     stdout_mode = "--stdout" in sys.argv
     
-    # Find model file
-    model_file = None
-    for root, _, files in os.walk('.'):
-        for file in files:
-            if file.endswith('.joblib') or file.endswith('.pkl'):
-                model_file = os.path.join(root, file)
-                break
-        if model_file:
-            break
-    
-    if not model_file:
-        print("No model file found")
-        return 1
-    
-    print(f"Using model file: {model_file}")
-    
-    # Load model
-    model = joblib.load(model_file)
-    
-    # Load metadata for feature names if available
-    feature_names = None
-    for path in ['metadata.json', 'model_metadata.json', 'features.json']:
-        if os.path.exists(path):
-            try:
-                with open(path, 'r') as f:
-                    metadata = json.load(f)
-                    if 'selected_features' in metadata:
-                        feature_names = metadata['selected_features']
-                        print(f"Found feature names: {feature_names}")
-                        break
-            except:
-                pass
-    
-    # Load input data
     try:
-        if input_file.endswith('.csv'):
-            data = pd.read_csv(input_file)
-        elif input_file.endswith('.xlsx') or input_file.endswith('.xls'):
-            data = pd.read_excel(input_file)
-        else:
-            print(f"Unsupported file format: {input_file}")
+        # Find model file
+        model_file = None
+        for root, _, files in os.walk('.'):
+            for file in files:
+                if file.endswith('.joblib') or file.endswith('.pkl'):
+                    model_file = os.path.join(root, file)
+                    break
+            if model_file:
+                break
+        
+        if not model_file:
+            print("No model file found")
+            return 1
+        
+        print(f"Using model file: {model_file}")
+        
+        # Load preprocessing information
+        preprocessing_info = load_preprocessing_info()
+        
+        # Load input data
+        try:
+            if input_file.endswith('.csv'):
+                data = pd.read_csv(input_file)
+            elif input_file.endswith('.xlsx') or input_file.endswith('.xls'):
+                data = pd.read_excel(input_file)
+            else:
+                print(f"Unsupported file format: {input_file}")
+                return 1
+                
+            print(f"Loaded input data with shape: {data.shape}")
+        except Exception as e:
+            print(f"Error loading input file: {str(e)}")
+            return 1
+        
+        # Apply preprocessing
+        X = preprocess_data(data, preprocessing_info)
+        print(f"Data after preprocessing, shape: {X.shape}")
+        
+        # Load model
+        try:
+            model = joblib.load(model_file)
+            print(f"Successfully loaded model from {model_file}")
+        except Exception as e:
+            print(f"Error loading model: {str(e)}")
+            print(traceback.format_exc())
+            return 1
+        
+        # Make predictions
+        try:
+            predictions = model.predict(X)
+            print(f"Generated {len(predictions)} predictions")
+            
+            # Add predictions to original data
+            data['prediction'] = predictions
+            
+            # Debug print
+            print(f"First few predictions: {predictions[:5]}")
+            
+            # Output to stdout or file
+            if stdout_mode:
+                csv_output = data.to_csv(index=False)
+                print(csv_output)
+            else:
+                data.to_csv('output.csv', index=False)
+                print(f"Saved predictions to output.csv")
+            
+            return 0
+        except Exception as e:
+            print(f"Error making predictions: {str(e)}")
+            print(traceback.format_exc())
             return 1
     except Exception as e:
-        print(f"Error loading input file: {str(e)}")
-        return 1
-    
-    # Filter to only include needed features if we know them
-    X = data
-    if feature_names:
-        missing_cols = [col for col in feature_names if col not in data.columns]
-        if missing_cols:
-            print(f"Warning: Input data missing columns: {missing_cols}")
-        
-        # Only use available columns from feature_names
-        available_features = [col for col in feature_names if col in data.columns]
-        if available_features:
-            X = data[available_features]
-    
-    # Make predictions
-    try:
-        predictions = model.predict(X)
-        data['prediction'] = predictions
-        
-        # Output to stdout or file
-        if stdout_mode:
-            print(data.to_csv(index=False))
-        else:
-            data.to_csv('output.csv', index=False)
-        
-        return 0
-    except Exception as e:
-        print(f"Error making predictions: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
+        print(traceback.format_exc())
         return 1
 
 if __name__ == "__main__":
     sys.exit(main())
 """)
-            print("Created default predict.py script")
-            
+            print("Created enhanced predict.py script")
+
+            # Also create an empty __init__.py to make imports work better
+            with open(os.path.join(temp_dir, "__init__.py"), 'w') as f:
+                f.write("# Package initialization file")
+                
         print(f"Running prediction with input file: {input_file.filename}")
         
         # Run the prediction with stdout capture mode instead of file output
@@ -215,6 +329,7 @@ if __name__ == "__main__":
         # Check if the process succeeded
         if result.returncode != 0:
             print(f"STDERR: {result.stderr}")
+            print(f"STDOUT: {result.stdout[:500]}")  # Show beginning of stdout for debugging
             return jsonify({"error": f"Prediction script failed: {result.stderr}"}), 400
             
         # If we have output in stdout, parse it as CSV    
@@ -222,12 +337,20 @@ if __name__ == "__main__":
             print("Found prediction output in stdout")
             output_data = result.stdout
             
+            # Debug: Print the first few lines of the output
+            output_lines = output_data.strip().split('\n')
+            print(f"Output first line: {output_lines[0] if output_lines else 'No lines'}")
+            print(f"Total output lines: {len(output_lines)}")
+            
             # Try to validate it's valid CSV
             try:
                 reader = csv.reader(io.StringIO(output_data))
                 rows = list(reader)
                 if len(rows) > 0:
-                    print(f"Valid CSV found with {len(rows)} rows")
+                    print(f"Valid CSV found with {len(rows)} rows, columns: {rows[0]}")
+                    # Check if predictions column exists
+                    if 'prediction' in rows[0]:
+                        print("Found 'prediction' column in results")
                 else:
                     print("Warning: Empty CSV output")
             except Exception as e:
@@ -244,6 +367,11 @@ if __name__ == "__main__":
             # Read and return the file content
             with open(output_path, 'r') as f:
                 output_data = f.read()
+                
+            # Debug: Print the first few lines of the output
+            output_lines = output_data.strip().split('\n')
+            print(f"Output file first line: {output_lines[0] if output_lines else 'No lines'}")
+            print(f"Total output file lines: {len(output_lines)}")
                 
             return jsonify({"output_file": output_data})
         
