@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'DeepMed Dashboards'
+    folder: 'DeepMed'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/provisioning/dashboards 
