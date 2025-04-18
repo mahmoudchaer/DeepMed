@@ -44,12 +44,12 @@
                             </thead>
                             <tbody>
                                 {% for model in model_results %}
-                                <tr {% if model.is_best %}class="table-success"{% endif %}>
+                                <tr>
                                     <td>{{ model.name }}</td>
-                                    <td>{{ model.metrics.r2|round(4) if model.metrics is defined else model.r2|round(4) }}</td>
-                                    <td>{{ model.metrics.rmse|round(4) if model.metrics is defined else model.rmse|round(4) }}</td>
-                                    <td>{{ model.metrics.mae|round(4) if model.metrics is defined else model.mae|round(4) }}</td>
-                                    <td>{{ model.metrics.mse|round(4) if model.metrics is defined else model.mse|round(4) }}</td>
+                                    <td {% if model.is_best_r2 %}class="table-success"{% endif %}>{{ model.metrics.r2|round(4) if model.metrics is defined else model.r2|round(4) }}</td>
+                                    <td {% if model.is_best_rmse %}class="table-success"{% endif %}>{{ model.metrics.rmse|round(4) if model.metrics is defined else model.rmse|round(4) }}</td>
+                                    <td {% if model.is_best_mae %}class="table-success"{% endif %}>{{ model.metrics.mae|round(4) if model.metrics is defined else model.mae|round(4) }}</td>
+                                    <td {% if model.is_best_mse %}class="table-success"{% endif %}>{{ model.metrics.mse|round(4) if model.metrics is defined else model.mse|round(4) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -193,6 +193,55 @@
                         <li><strong>MAE:</strong> {{ metrics_info.mae }}</li>
                         <li><strong>MSE:</strong> {{ metrics_info.mse }}</li>
                     </ul>
+                </div>
+            </div>
+            
+            <!-- Best Models by Metric -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h6 class="mb-3">Best Models by Metric</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-dark border-primary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Best R² Model: {{ best_models.r2.name }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>R²:</strong> {{ best_models.r2.metrics.r2|round(4) if best_models.r2.metrics is defined else best_models.r2.r2|round(4) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-dark border-primary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Best RMSE Model: {{ best_models.rmse.name }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>RMSE:</strong> {{ best_models.rmse.metrics.rmse|round(4) if best_models.rmse.metrics is defined else best_models.rmse.rmse|round(4) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-dark border-primary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Best MAE Model: {{ best_models.mae.name }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>MAE:</strong> {{ best_models.mae.metrics.mae|round(4) if best_models.mae.metrics is defined else best_models.mae.mae|round(4) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-dark border-primary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Best MSE Model: {{ best_models.mse.name }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>MSE:</strong> {{ best_models.mse.metrics.mse|round(4) if best_models.mse.metrics is defined else best_models.mse.mse|round(4) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
