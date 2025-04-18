@@ -6,8 +6,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and test script
 COPY app.py .
+COPY test_db_connection.py .
 
 # Create directories
 RUN mkdir -p /app/logs
@@ -24,5 +25,14 @@ ENV IS_DOCKER=true
 # Expose the port
 EXPOSE 5040
 
+# Add script to check database connection and run the service
+RUN echo '#!/bin/bash \n\
+echo "Testing database connection..." \n\
+python test_db_connection.py || echo "Warning: Database connection failed but continuing anyway" \n\
+echo "Starting regression model coordinator service..." \n\
+exec python app.py' > /app/start.sh
+
+RUN chmod +x /app/start.sh
+
 # Command to run the service
-CMD ["python", "app.py"] 
+CMD ["/app/start.sh"] 

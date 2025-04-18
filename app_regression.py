@@ -52,6 +52,104 @@ logger.info(f"Regression Feature Selector URL: {REGRESSION_FEATURE_SELECTOR_URL}
 logger.info(f"Regression Model Coordinator URL: {REGRESSION_MODEL_COORDINATOR_URL}")
 logger.info(f"Regression Predictor Service URL: {REGRESSION_PREDICTOR_SERVICE_URL}")
 
+def ensure_regression_models_saved(user_id, run_id, model_result):
+    """Ensure that regression models are saved to the TrainingModel table.
+    
+    This function is specifically for regression models and handles the
+    regression-specific metrics (r2, rmse, mae, mse).
+    """
+    try:
+        # Check if there are any results to save
+        if 'results' not in model_result or not model_result['results']:
+            logger.warning("No model results found to save")
+            return False
+        
+        # Get the regression models results
+        model_results = model_result['results']
+        
+        # Sort by R2 score (descending order) to get the best models
+        if len(model_results) > 0 and 'r2' in model_results[0]:
+            sorted_models = sorted(model_results, key=lambda x: x.get('r2', 0), reverse=True)
+            # Limit to top 4 models
+            top_models = sorted_models[:4]
+        else:
+            top_models = model_results[:min(4, len(model_results))]
+            
+        # Check if models already exist for this run
+        existing_models = TrainingModel.query.filter_by(run_id=run_id).count()
+        if existing_models >= len(top_models):
+            logger.info(f"Found {existing_models} models already saved for run_id {run_id}")
+            return True
+            
+        # Save each model
+        for model_info in top_models:
+            model_name = model_info.get('name', 'unknown_model')
+            model_url = model_info.get('model_url')
+            
+            if not model_url:
+                logger.warning(f"No URL found for model {model_name}")
+                continue
+                
+            # Extract filename from URL
+            filename = model_url.split('/')[-1] if '/' in model_url else model_url
+            
+            # Check if this model is already saved
+            existing_model = TrainingModel.query.filter_by(
+                run_id=run_id,
+                model_name=model_name
+            ).first()
+            
+            if existing_model:
+                logger.info(f"Model {model_name} already exists for run_id {run_id}")
+                continue
+            
+            # Get metrics from the model info
+            metrics = model_info.get('metrics', {})
+            if not metrics and 'r2' in model_info:
+                # If metrics not in separate dict but directly in model_info
+                metrics = {
+                    'r2': model_info.get('r2', 0),
+                    'rmse': model_info.get('rmse', 0),
+                    'mae': model_info.get('mae', 0),
+                    'mse': model_info.get('mse', 0)
+                }
+            
+            # Primary metric for regression is usually R2
+            r2_score = metrics.get('r2', 0) if metrics else model_info.get('r2', 0)
+            
+            # Create and save the model record
+            model_record = TrainingModel(
+                user_id=user_id,
+                run_id=run_id,
+                model_name=model_name,
+                model_url=model_url,
+                file_name=filename,
+                metric_name='r2',
+                metric_value=r2_score,
+                accuracy=r2_score,
+                parameters=json.dumps(model_info.get('parameters', {})),
+                confusion_matrix=json.dumps([]),  # No confusion matrix for regression
+                metrics=json.dumps(metrics)
+            )
+            
+            db.session.add(model_record)
+            logger.info(f"Added regression model {model_name} with R2={r2_score} to database for run_id {run_id}")
+        
+        # Commit all changes
+        db.session.commit()
+        logger.info(f"Committed regression models to database for run_id {run_id}")
+        
+        # Verify models were saved
+        saved_count = TrainingModel.query.filter_by(run_id=run_id).count()
+        logger.info(f"Verified {saved_count} regression models saved for run_id {run_id}")
+        
+        return True
+            
+    except Exception as e:
+        logger.error(f"Error ensuring regression models are saved: {str(e)}")
+        logger.error(f"Error details: {str(e)}", exc_info=True)
+        return False
+
 # Add regression services to the services check
 def check_regression_services():
     """Check the health of regression-specific services"""
@@ -470,27 +568,24 @@ def train_regression():
             # Store the complete model results in session
             model_result = response.json()
             
-            # Add code to ensure models are saved for this run properly
-            from app_others import ensure_training_models_saved
-            
+            # Ensure models are saved for this run properly
             # Check if we need to ensure models are saved for the coordinator's run_id
-            if 'saved_best_models' in model_result and model_result['saved_best_models']:
-                # Use either the coordinator's run_id or our local one
-                run_id_to_use = model_result.get('run_id', local_run_id)
-                if run_id_to_use:
-                    # Ensure all models are properly saved to the database
+            # Use either the coordinator's run_id or our local one
+            run_id_to_use = model_result.get('run_id', local_run_id)
+            if run_id_to_use:
+                # Ensure all models are properly saved to the database
+                with app.app_context():
+                    ensure_regression_models_saved(user_id, run_id_to_use, model_result)
+                
+                # Save the run ID to session for models_regression page
+                session['last_regression_training_run_id'] = run_id_to_use
+                
+                # If we have our local run_id, also ensure models are saved for it
+                if local_run_id and local_run_id != run_id_to_use:
                     with app.app_context():
-                        ensure_training_models_saved(user_id, run_id_to_use, model_result)
-                    
-                    # Save the run ID to session for model_selection page
-                    session['last_regression_training_run_id'] = run_id_to_use
-                    
-                    # If we have our local run_id, also ensure models are saved for it
-                    if local_run_id and local_run_id != run_id_to_use:
-                        with app.app_context():
-                            ensure_training_models_saved(user_id, local_run_id, model_result)
-                else:
-                    logger.warning("No run_id available to save regression models")
+                        ensure_regression_models_saved(user_id, local_run_id, model_result)
+            else:
+                logger.warning("No run_id available to save regression models")
             
             # Save processed results to session
             session['regression_model_results'] = model_result
