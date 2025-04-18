@@ -789,31 +789,104 @@ def api_predict_regression():
                 
             # Parse the output CSV
             output_csv = result['output_file']
-            result_df = pd.read_csv(io.StringIO(output_csv))
             
-            # Extract predictions from the result
-            if 'prediction' in result_df.columns:
-                predictions = result_df['prediction'].tolist()
-            else:
-                # Try to find the prediction column if it has a different name
-                prediction_columns = [col for col in result_df.columns if 'predict' in col.lower()]
-                if prediction_columns:
-                    predictions = result_df[prediction_columns[0]].tolist()
+            # Debug the CSV output
+            logger.info(f"Received CSV output of length: {len(output_csv)}")
+            output_lines = output_csv.strip().split('\n')
+            if output_lines:
+                logger.info(f"First line of CSV: {output_lines[0]}")
+                logger.info(f"Total lines in CSV: {len(output_lines)}")
+            
+            try:
+                # Strip any non-CSV content that might be at the beginning
+                # Sometimes debug output gets mixed with CSV output
+                csv_start = output_csv.find(',')
+                if csv_start > 0 and not output_csv.startswith('"'):
+                    possible_header_line = output_csv[:csv_start].strip()
+                    if ',' not in possible_header_line and '\n' in output_csv:
+                        # This might be a debug line, try to find where the CSV actually starts
+                        first_newline = output_csv.find('\n')
+                        if first_newline > 0:
+                            logger.warning(f"Stripping potential non-CSV content: '{output_csv[:first_newline]}'")
+                            output_csv = output_csv[first_newline+1:]
+                
+                # Parse the CSV
+                result_df = pd.read_csv(io.StringIO(output_csv))
+                logger.info(f"Parsed DataFrame with shape: {result_df.shape}, columns: {result_df.columns.tolist()}")
+                
+                # Check if the first line might be an error message
+                if len(result_df.columns) == 1 and result_df.shape[0] > 0:
+                    first_col = result_df.columns[0]
+                    first_val = result_df.iloc[0, 0] if not result_df.empty else None
+                    
+                    if (first_col.lower() == 'error_message' or 
+                        first_col.lower() == 'error' or 
+                        'error' in first_col.lower()):
+                        # This is likely an error
+                        logger.error(f"Error returned from predictor: {first_val}")
+                        return jsonify({'error': f"Error in prediction: {first_val}"}), 400
+                
+                # Extract predictions from the result
+                if 'prediction' in result_df.columns:
+                    predictions = result_df['prediction'].tolist()
+                    logger.info(f"Found 'prediction' column with {len(predictions)} values")
                 else:
-                    # Assume the last column is the prediction
-                    predictions = result_df.iloc[:, -1].tolist()
-            
-            # Convert to records for response
-            result_records = clean_data_for_json(result_df)
-            
-            # Return predictions
-            return jsonify({
-                'success': True,
-                'predictions': predictions,
-                'full_results': result_records,
-                'model_name': model_name,
-                'file_stats': file_stats
-            })
+                    # Try to find the prediction column if it has a different name
+                    prediction_columns = [col for col in result_df.columns if 'predict' in col.lower()]
+                    if prediction_columns:
+                        predictions = result_df[prediction_columns[0]].tolist()
+                        logger.info(f"Using '{prediction_columns[0]}' as prediction column")
+                    else:
+                        # Assume the last column is the prediction
+                        predictions = result_df.iloc[:, -1].tolist()
+                        last_col = result_df.columns[-1] if result_df.columns.size > 0 else "unknown"
+                        logger.info(f"Using last column '{last_col}' as prediction column")
+                
+                # Verify predictions are numeric
+                try:
+                    # Check the first few predictions
+                    sample_predictions = predictions[:5] if len(predictions) >= 5 else predictions
+                    logger.info(f"Sample predictions: {sample_predictions}")
+                    
+                    # Convert string numbers to float if needed
+                    if all(isinstance(p, str) for p in sample_predictions if p is not None):
+                        logger.info("Converting string predictions to float")
+                        predictions = [float(p) if p and p.strip() and p.strip().isdigit() else p for p in predictions]
+                except Exception as e:
+                    logger.warning(f"Error validating predictions: {str(e)}")
+                
+                # Convert to records for response
+                # Use clean_data_for_json to handle special values like NaN
+                try:
+                    result_records = clean_data_for_json(result_df)
+                    logger.info(f"Converted DataFrame to {len(result_records)} records")
+                except Exception as e:
+                    logger.error(f"Error converting DataFrame to records: {str(e)}")
+                    # Fallback to simple conversion
+                    result_records = result_df.to_dict(orient='records')
+                    # Replace any problematic values
+                    for record in result_records:
+                        for k, v in record.items():
+                            if pd.isna(v) or v is None:
+                                record[k] = None
+                
+                # Return predictions
+                return jsonify({
+                    'success': True,
+                    'predictions': predictions,
+                    'full_results': result_records,
+                    'model_name': model_name,
+                    'file_stats': file_stats
+                })
+                
+            except pd.errors.ParserError as pe:
+                logger.error(f"CSV parsing error: {str(pe)}")
+                logger.error(f"Raw CSV data: {output_csv[:200]}...")  # Log first 200 chars
+                return jsonify({'error': f'Error parsing prediction results: {str(pe)}'}), 500
+                
+            except Exception as e:
+                logger.error(f"Error processing prediction results: {str(e)}", exc_info=True)
+                return jsonify({'error': f'Error processing prediction results: {str(e)}'}), 500
                 
         except requests.RequestException as e:
             logger.error(f"Request to predictor service failed: {str(e)}")
