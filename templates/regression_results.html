@@ -7,7 +7,7 @@
     <div class="row">
         <div class="col-12">
             <h1 class="gradient-text mb-4">Regression Model Results</h1>
-            <p class="lead">Results of your regression model training run.</p>
+            <p class="lead">Here are the best performing models for your dataset.</p>
             
             <!-- Run Information -->
             <div class="card bg-dark border-secondary mb-4">
@@ -26,371 +26,74 @@
                 </div>
             </div>
             
-            <!-- Model Performance -->
+            <!-- Top Models -->
             <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Top Performing Models</h5>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title gradient-text-white">Model Performance</h5>
-                    
-                    <div class="table-responsive mb-4">
-                        <table class="table table-dark table-hover table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Model</th>
-                                    <th>R²</th>
-                                    <th>RMSE</th>
-                                    <th>MAE</th>
-                                    <th>MSE</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for model in model_results %}
-                                <tr>
-                                    <td>{{ model.name }}</td>
-                                    <td {% if model.is_best_r2 %}class="table-success"{% endif %}>{{ model.metrics.r2|round(4) if model.metrics is defined else model.r2|round(4) }}</td>
-                                    <td {% if model.is_best_rmse %}class="table-success"{% endif %}>{{ model.metrics.rmse|round(4) if model.metrics is defined else model.rmse|round(4) }}</td>
-                                    <td {% if model.is_best_mae %}class="table-success"{% endif %}>{{ model.metrics.mae|round(4) if model.metrics is defined else model.mae|round(4) }}</td>
-                                    <td {% if model.is_best_mse %}class="table-success"{% endif %}>{{ model.metrics.mse|round(4) if model.metrics is defined else model.mse|round(4) }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- Best Model Details -->
-                    {% if best_model %}
-                    <div class="card bg-dark border-secondary mb-4">
-                        <div class="card-header">
-                            <h6 class="mb-0">Best Model: {{ best_model.name }}</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>R²:</strong> {{ best_model.metrics.r2|round(4) if best_model.metrics is defined else best_model.r2|round(4) }}</p>
-                                    <p><strong>RMSE:</strong> {{ best_model.metrics.rmse|round(4) if best_model.metrics is defined else best_model.rmse|round(4) }}</p>
+                    <div class="row">
+                        {% for model in top_models %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100 bg-dark border-primary">
+                                <div class="card-header">
+                                    <h5 class="mb-0">{{ model.name|replace('_', ' ')|title }}</h5>
                                 </div>
-                                <div class="col-md-6">
-                                    <p><strong>MAE:</strong> {{ best_model.metrics.mae|round(4) if best_model.metrics is defined else best_model.mae|round(4) }}</p>
-                                    <p><strong>MSE:</strong> {{ best_model.metrics.mse|round(4) if best_model.metrics is defined else best_model.mse|round(4) }}</p>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span><strong>R² Score:</strong></span>
+                                        <span>{{ model.metrics.r2|round(4) if model.metrics is defined else model.r2|round(4) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span><strong>RMSE:</strong></span>
+                                        <span>{{ model.metrics.rmse|round(2) if model.metrics is defined else model.rmse|round(2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span><strong>MAE:</strong></span>
+                                        <span>{{ model.metrics.mae|round(2) if model.metrics is defined else model.mae|round(2) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span><strong>MSE:</strong></span>
+                                        <span>{{ model.metrics.mse|round(2) if model.metrics is defined else model.mse|round(2) }}</span>
+                                    </div>
+                                    {% if model == best_model %}
+                                    <div class="mt-3 text-center">
+                                        <span class="badge bg-success p-2">Best Model</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
-                            
-                            <!-- Model Parameters -->
-                            <h6 class="mt-3 mb-2">Model Parameters:</h6>
-                            <div class="model-params">
-                                <ul>
-                                    {% for param, value in best_model.parameters.items() %}
-                                    <li><strong>{{ param }}:</strong> {{ value }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
                         </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Feature Importance -->
-            {% if feature_importance %}
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-body">
-                    <h5 class="card-title gradient-text-white">Feature Importance</h5>
-                    <div class="feature-importance-container">
-                        <div class="chart-container" style="position: relative; height:400px; width:100%">
-                            <canvas id="featureImportanceChart"></canvas>
-                        </div>
-                        
-                        <div class="table-responsive mt-4">
-                            <table class="table table-dark table-hover table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Feature</th>
-                                        <th>Importance</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for feature in feature_importance %}
-                                    <tr>
-                                        <td>{{ feature.name }}</td>
-                                        <td>{{ feature.importance|round(4) }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
-            </div>
-            {% endif %}
-            
-            <!-- Predictions -->
-            {% if predictions %}
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-body">
-                    <h5 class="card-title gradient-text-white">Sample Predictions</h5>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-hover table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Actual</th>
-                                    <th>Predicted</th>
-                                    <th>Error</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for pred in predictions %}
-                                <tr>
-                                    <td>{{ pred.actual|round(4) }}</td>
-                                    <td>{{ pred.predicted|round(4) }}</td>
-                                    <td>{{ pred.error|round(4) }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Residual Plot -->
-            {% if predictions %}
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-body">
-                    <h5 class="card-title gradient-text-white">Residual Plot</h5>
-                    <div class="chart-container" style="position: relative; height:400px; width:100%">
-                        <canvas id="residualPlot"></canvas>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- AI Analysis -->
-            {% if ai_analysis %}
-            <div class="card bg-dark border-secondary mb-4">
-                <div class="card-body">
-                    <h5 class="card-title gradient-text-white">AI Analysis</h5>
-                    <div class="medical-border p-3">
-                        <p>{{ ai_analysis|safe }}</p>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <div class="d-flex justify-content-between mt-4">
-                <a href="{{ url_for('train_regression') }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i> Back to Training</a>
-                <a href="{{ url_for('models_regression') }}" class="btn btn-primary">My Models <i class="fas fa-list ms-2"></i></a>
             </div>
             
             <!-- Metrics Information -->
-            <div class="card bg-dark border-secondary mt-4">
+            <div class="card bg-dark border-secondary mb-4">
                 <div class="card-header">
-                    <h5 class="card-title mb-0">Metrics Information</h5>
+                    <h5 class="card-title mb-0">Understanding the Metrics</h5>
                 </div>
                 <div class="card-body">
-                    <p class="mb-1">Models are evaluated using various regression metrics:</p>
-                    <ul>
-                        <li><strong>R² Score:</strong> {{ metrics_info.r2 }}</li>
-                        <li><strong>RMSE:</strong> {{ metrics_info.rmse }}</li>
-                        <li><strong>MAE:</strong> {{ metrics_info.mae }}</li>
-                        <li><strong>MSE:</strong> {{ metrics_info.mse }}</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Best Models by Metric -->
-            <div class="row mt-4">
-                <div class="col-12">
-                    <h6 class="mb-3">Best Models by Metric</h6>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <div class="card bg-dark border-primary">
-                                <div class="card-header">
-                                    <h6 class="mb-0">Best R² Model: {{ best_models.r2.name }}</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p><strong>R²:</strong> {{ best_models.r2.metrics.r2|round(4) if best_models.r2.metrics is defined else best_models.r2.r2|round(4) }}</p>
-                                </div>
-                            </div>
+                        <div class="col-md-6">
+                            <p><strong>R² Score:</strong> {{ metrics_info.r2 }}</p>
+                            <p><strong>RMSE:</strong> {{ metrics_info.rmse }}</p>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card bg-dark border-primary">
-                                <div class="card-header">
-                                    <h6 class="mb-0">Best RMSE Model: {{ best_models.rmse.name }}</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p><strong>RMSE:</strong> {{ best_models.rmse.metrics.rmse|round(4) if best_models.rmse.metrics is defined else best_models.rmse.rmse|round(4) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card bg-dark border-primary">
-                                <div class="card-header">
-                                    <h6 class="mb-0">Best MAE Model: {{ best_models.mae.name }}</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p><strong>MAE:</strong> {{ best_models.mae.metrics.mae|round(4) if best_models.mae.metrics is defined else best_models.mae.mae|round(4) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card bg-dark border-primary">
-                                <div class="card-header">
-                                    <h6 class="mb-0">Best MSE Model: {{ best_models.mse.name }}</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p><strong>MSE:</strong> {{ best_models.mse.metrics.mse|round(4) if best_models.mse.metrics is defined else best_models.mse.mse|round(4) }}</p>
-                                </div>
-                            </div>
+                        <div class="col-md-6">
+                            <p><strong>MAE:</strong> {{ metrics_info.mae }}</p>
+                            <p><strong>MSE:</strong> {{ metrics_info.mse }}</p>
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Navigation Buttons -->
+            <div class="d-flex justify-content-between mt-4 mb-5">
+                <a href="{{ url_for('train_regression') }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-2"></i> Back to Training</a>
+                <a href="{{ url_for('models_regression') }}" class="btn btn-primary">My Models <i class="fas fa-list ms-2"></i></a>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script id="chartData" type="application/json">
-{
-    "featureImportance": [
-        {% if feature_importance %}
-            {% for feature in feature_importance %}
-                {"name": "{{ feature.name }}", "importance": {{ feature.importance }}}{% if not loop.last %},{% endif %}
-            {% endfor %}
-        {% endif %}
-    ],
-    "predictions": [
-        {% if predictions %}
-            {% for pred in predictions %}
-                {"actual": {{ pred.actual }}, "predicted": {{ pred.predicted }}, "error": {{ pred.error }}}{% if not loop.last %},{% endif %}
-            {% endfor %}
-        {% endif %}
-    ]
-}
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Get data from JSON
-    const chartDataElement = document.getElementById('chartData');
-    const chartData = JSON.parse(chartDataElement.textContent);
-    
-    const featureImportance = chartData.featureImportance || [];
-    const predictions = chartData.predictions || [];
-    
-    // Feature Importance Chart
-    if (featureImportance.length > 0) {
-        const featureCtx = document.getElementById('featureImportanceChart').getContext('2d');
-        const featureLabels = featureImportance.map(item => item.name);
-        const featureValues = featureImportance.map(item => item.importance);
-        
-        new Chart(featureCtx, {
-            type: 'bar',
-            data: {
-                labels: featureLabels,
-                datasets: [{
-                    label: 'Feature Importance',
-                    data: featureValues,
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        ticks: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    },
-                    y: {
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        ticks: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
-    // Residual Plot
-    if (predictions.length > 0) {
-        const residualCtx = document.getElementById('residualPlot').getContext('2d');
-        
-        new Chart(residualCtx, {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: 'Residuals',
-                    data: predictions.map(pred => ({
-                        x: pred.predicted,
-                        y: pred.error
-                    })),
-                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Predicted Values',
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        },
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        ticks: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Residuals',
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        },
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
-                        },
-                        ticks: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: 'rgba(255, 255, 255, 0.8)'
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
-</script>
 {% endblock %} 
