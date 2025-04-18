@@ -18,6 +18,7 @@ import multiprocessing
 from flask import abort
 import shutil
 import joblib  # Add joblib import for direct model loading
+import io
 
 # Import common components from app_api.py
 from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
@@ -723,15 +724,6 @@ def api_predict_regression():
         if not allowed_file(data_file.filename):
             return jsonify({'error': 'Invalid file type. Please upload a CSV or Excel file.'}), 400
             
-        # Save data file temporarily
-        data_filepath = get_temp_filepath(data_file.filename)
-        data_file.save(data_filepath)
-        
-        # Load the data
-        data, file_stats = load_data(data_filepath)
-        if data is None:
-            return jsonify({'error': file_stats}), 400
-        
         # Check for model package upload
         model_package = request.files.get('model_package')
         if not model_package or model_package.filename == '':
@@ -741,101 +733,78 @@ def api_predict_regression():
         if not model_package.filename.endswith('.zip'):
             return jsonify({'error': 'Model package must be a ZIP file'}), 400
             
-        # Save the package temporarily
-        package_filepath = get_temp_filepath(model_package.filename)
-        model_package.save(package_filepath)
+        # Save both files temporarily to pass to the predictor service
+        model_package_path = get_temp_filepath(model_package.filename)
+        data_filepath = get_temp_filepath(data_file.filename)
         
-        selected_features = None
-        model_file = None
-        model_name = "Custom Model"
+        model_package.save(model_package_path)
+        data_file.save(data_filepath)
         
-        # Process uploaded model package
-        import zipfile
-        import tempfile
+        # Load data for metadata and validation
+        data, file_stats = load_data(data_filepath)
+        if data is None:
+            # Clean up files
+            if os.path.exists(model_package_path):
+                os.remove(model_package_path)
+            return jsonify({'error': file_stats}), 400
         
-        temp_dir = tempfile.mkdtemp()
+        model_name = "Custom Model"  # Default name
         
+        logger.info(f"Using regression predictor service for prediction")
         try:
-            with zipfile.ZipFile(package_filepath, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
+            # Create multipart form data for request to predictor service
+            files = {
+                'model_package': (os.path.basename(model_package_path), open(model_package_path, 'rb'), 'application/zip'),
+                'input_file': (os.path.basename(data_filepath), open(data_filepath, 'rb'), 'text/csv')
+            }
             
-            # Look for model file and metadata in the package
-            model_file = None
-            metadata_file = None
+            # Make the request to the predictor service
+            logger.info(f"Sending request to regression predictor service at {REGRESSION_PREDICTOR_SERVICE_URL}")
+            response = requests.post(
+                f"{REGRESSION_PREDICTOR_SERVICE_URL}/predict",
+                files=files,
+                timeout=300  # 5 minute timeout
+            )
             
-            for root, dirs, files in os.walk(temp_dir):
-                for file in files:
-                    if file.endswith('.joblib') or file.endswith('.pkl'):
-                        model_file = os.path.join(root, file)
-                    elif file == 'metadata.json':
-                        metadata_file = os.path.join(root, file)
+            # Close the file handlers
+            files['model_package'][1].close()
+            files['input_file'][1].close()
             
-            if not model_file:
-                return jsonify({'error': 'No model file found in the package'}), 400
+            # Clean up temporary files
+            os.remove(model_package_path)
+            os.remove(data_filepath)
             
-            # Load metadata if available
-            if metadata_file:
-                try:
-                    with open(metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                        if 'selected_features' in metadata:
-                            selected_features = metadata['selected_features']
-                        if 'model_name' in metadata:
-                            model_name = metadata['model_name']
-                except Exception as e:
-                    logger.warning(f"Error loading model metadata: {str(e)}")
+            if response.status_code != 200:
+                logger.error(f"Error from regression predictor service: {response.text}")
+                return jsonify({'error': f'Prediction service error: {response.text}'}), 500
+                
+            # Extract the predictions result
+            result = response.json()
             
-        except Exception as e:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            os.remove(package_filepath)
-            return jsonify({'error': f'Error processing model package: {str(e)}'}), 400
-        
-        # If we couldn't get selected features or there are none, use all columns
-        if not selected_features or len(selected_features) == 0:
-            logger.warning("No selected features found, using all columns")
-            selected_features = data.columns.tolist()
-        
-        # Check if all required columns are present
-        missing_columns = [col for col in selected_features if col not in data.columns]
-        if missing_columns:
-            return jsonify({
-                'error': f'Input data is missing required columns: {", ".join(missing_columns)}'
-            }), 400
+            if 'error' in result:
+                return jsonify({'error': result['error']}), 400
+                
+            if 'output_file' not in result:
+                return jsonify({'error': 'No prediction results returned from service'}), 500
+                
+            # Parse the output CSV
+            output_csv = result['output_file']
+            result_df = pd.read_csv(io.StringIO(output_csv))
             
-        # Prepare data for prediction
-        X = data[selected_features]
-        
-        # Clean up any missing data
-        for col in X.columns:
-            if X[col].dtype.kind in 'ifc':  # integer, float, complex
-                X[col] = X[col].fillna(X[col].median())
+            # Extract predictions from the result
+            if 'prediction' in result_df.columns:
+                predictions = result_df['prediction'].tolist()
             else:
-                X[col] = X[col].fillna(X[col].mode()[0] if not X[col].mode().empty else "")
-        
-        # DIRECT MODEL PREDICTION - Load model and make predictions directly instead of using service
-        try:
-            # Load the model directly using joblib
-            logger.info(f"Loading model from {model_file}")
-            model = joblib.load(model_file)
-            
-            # Make predictions
-            logger.info("Making predictions with loaded model")
-            predictions = model.predict(X)
-            
-            # Convert predictions to list if they're numpy arrays
-            if isinstance(predictions, np.ndarray):
-                predictions = predictions.tolist()
-            
-            # Combine with original data for display
-            result_df = data.copy()
-            result_df['prediction'] = predictions
+                # Try to find the prediction column if it has a different name
+                prediction_columns = [col for col in result_df.columns if 'predict' in col.lower()]
+                if prediction_columns:
+                    predictions = result_df[prediction_columns[0]].tolist()
+                else:
+                    # Assume the last column is the prediction
+                    predictions = result_df.iloc[:, -1].tolist()
             
             # Convert to records for response
             result_records = clean_data_for_json(result_df)
-            
-            # Clean up temporary files
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            os.remove(package_filepath)
             
             # Return predictions
             return jsonify({
@@ -845,12 +814,24 @@ def api_predict_regression():
                 'model_name': model_name,
                 'file_stats': file_stats
             })
+                
+        except requests.RequestException as e:
+            logger.error(f"Request to predictor service failed: {str(e)}")
+            # Clean up files if they still exist
+            if os.path.exists(model_package_path):
+                os.remove(model_package_path)
+            if os.path.exists(data_filepath):
+                os.remove(data_filepath)
+            return jsonify({'error': f'Failed to connect to prediction service: {str(e)}'}), 500
             
-        except Exception as model_error:
-            logger.error(f"Error making predictions with model: {str(model_error)}", exc_info=True)
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            os.remove(package_filepath)
-            return jsonify({'error': f'Error using the model for prediction: {str(model_error)}'}), 500
+        except Exception as service_error:
+            logger.error(f"Error using predictor service: {str(service_error)}", exc_info=True)
+            # Clean up files if they still exist
+            if os.path.exists(model_package_path):
+                os.remove(model_package_path)
+            if os.path.exists(data_filepath):
+                os.remove(data_filepath)
+            return jsonify({'error': f'Error using predictor service: {str(service_error)}'}), 500
         
     except Exception as e:
         logger.error(f"Error in regression prediction: {str(e)}", exc_info=True)
