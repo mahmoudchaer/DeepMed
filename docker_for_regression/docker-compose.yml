@@ -54,6 +54,8 @@ services:
       - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
       - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
       - AZURE_CONTAINER=${AZURE_CONTAINER}
+      # Debug logging for blob storage
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
@@ -76,10 +78,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
 
@@ -92,10 +100,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
 
@@ -108,10 +122,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
 
@@ -124,10 +144,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
       
@@ -140,10 +166,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
       
@@ -156,10 +188,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - DB_DISABLED=true
+      # Azure Blob Storage credentials
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - VERBOSE_LOGGING=true
     volumes:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ./regression_model_coordinator/storage.py:/app/storage.py
     networks:
       - regression-network
 
@@ -179,6 +217,8 @@ services:
       - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
       - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
       - AZURE_CONTAINER=${AZURE_CONTAINER}
+      # Debug logging for blob storage
+      - VERBOSE_LOGGING=true
     networks:
       - regression-network
 

@@ -10,10 +10,11 @@ import io
 import json
 import sys
 import logging
+import traceback
 from flask import Flask, request, jsonify
 import uuid
 import datetime
-import requests
+from werkzeug.utils import secure_filename
 
 # Configure logging to ensure all output appears
 logging.basicConfig(
@@ -29,69 +30,12 @@ for handler in logging.getLogger().handlers:
     app.logger.addHandler(handler)
 app.logger.setLevel(logging.DEBUG)
 
-def check_local_model(model_url, target_path):
-    """Check if a model file exists locally and copy it to the target path.
-    
-    Args:
-        model_url (str): The URL or path to the model file
-        target_path (str): The local path to save the model
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    request_id = str(uuid.uuid4())[:8]
-    print(f"[{request_id}] Checking for local model file: {model_url}")
-    
-    # Check if this is a path we can access directly in the container
-    if model_url.startswith('/'):
-        # If it starts with /saved_models and we have mounted that volume, check there
-        if model_url.startswith('/saved_models') and os.path.exists('/app/saved_models'):
-            # Transform the path to use our local mount
-            transformed_path = model_url.replace('/saved_models', '/app/saved_models')
-            print(f"[{request_id}] Checking for local model at {transformed_path}")
-            
-            if os.path.exists(transformed_path):
-                print(f"[{request_id}] Found local model at {transformed_path}")
-                # Copy the file to the target path
-                try:
-                    shutil.copy2(transformed_path, target_path)
-                    print(f"[{request_id}] Copied local model to {target_path}")
-                    
-                    # Verify the file exists and is a valid model file
-                    if os.path.exists(target_path):
-                        file_size = os.path.getsize(target_path)
-                        print(f"[{request_id}] Model copied successfully - size: {file_size} bytes")
-                        
-                        # Verify it's not a text file (placeholder)
-                        if file_size < 1000:  # Less than 1KB
-                            try:
-                                with open(target_path, 'r') as f:
-                                    content = f.read(100)  # Read first 100 chars
-                                    if "placeholder" in content.lower() or "could not be downloaded" in content.lower():
-                                        print(f"[{request_id}] WARNING: File appears to be a placeholder: {content}")
-                                        return False
-                            except UnicodeDecodeError:
-                                # If we can't decode as text, it's likely a binary file (good)
-                                pass
-                        
-                        # Try to load with joblib to verify it's a valid model
-                        try:
-                            import joblib
-                            model = joblib.load(target_path)
-                            print(f"[{request_id}] Successfully loaded model with joblib")
-                            return True
-                        except Exception as e:
-                            print(f"[{request_id}] Error loading model with joblib: {str(e)}")
-                            return False
-                    else:
-                        print(f"[{request_id}] Target path {target_path} does not exist after copy")
-                        return False
-                except Exception as e:
-                    print(f"[{request_id}] Error copying local model: {str(e)}")
-                    return False
-    
-    print(f"[{request_id}] Model file not found locally at {model_url}")
-    return False
+# Set max content length to 100MB
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
+# Create data directories if they don't exist
+os.makedirs('uploads', exist_ok=True)
+os.makedirs('results', exist_ok=True)
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -114,680 +58,322 @@ def health():
 @app.route('/extract_encodings', methods=['POST'])
 def extract_encodings():
     """Extract encoding maps from a model package"""
-    start_time = time.time()
-    request_id = str(uuid.uuid4())[:8]  # Generate a short unique ID for this request
-    
-    print(f"[{request_id}] ===== EXTRACT ENCODINGS REQUEST STARTED =====")
+    request_id = str(uuid.uuid4())[:8]
+    print(f"[{request_id}] ===== ENCODING EXTRACTION REQUEST =====")
     print(f"[{request_id}] Timestamp: {datetime.datetime.now().isoformat()}")
     
-    # Check if this is a model URL request
-    if request.is_json and 'model_url' in request.json:
-        # This is a direct model URL extraction request
-        model_url = request.json['model_url']
-        print(f"[{request_id}] Extract encodings from model URL: {model_url}")
-        
-        # Create a temporary directory
-        temp_dir = tempfile.mkdtemp(prefix="encoding_extract_")
-        print(f"[{request_id}] Created temporary directory: {temp_dir}")
-        
-        try:
-            # Download the model file
-            target_filename = model_url.split('/')[-1] if '/' in model_url else 'model.joblib'
-            target_path = os.path.join(temp_dir, target_filename)
-            
-            print(f"[{request_id}] Downloading model to {target_path}")
-            download_success = check_local_model(model_url, target_path)
-            
-            if not download_success:
-                print(f"[{request_id}] Failed to download model from {model_url}")
-                return jsonify({"error": f"Failed to download model from {model_url}"}), 400
-            
-            # Verify the file exists and is a valid model
-            if not os.path.exists(target_path):
-                print(f"[{request_id}] Model file not found at {target_path}")
-                return jsonify({"error": f"Model file not found after download"}), 400
-            
-            # Look for encoded features in the model
-            try:
-                import joblib
-                model_data = joblib.load(target_path)
-                print(f"[{request_id}] Loaded model data of type: {type(model_data)}")
-                
-                # Check if it's a dictionary with preprocessing info
-                if isinstance(model_data, dict):
-                    # Try various keys where encodings might be stored
-                    encoding_maps = {}
-                    
-                    # Look for encoding_mappings at the top level
-                    if 'encoding_mappings' in model_data and isinstance(model_data['encoding_mappings'], dict):
-                        encoding_maps.update(model_data['encoding_mappings'])
-                        print(f"[{request_id}] Found encoding_mappings at top level with {len(model_data['encoding_mappings'])} items")
-                    
-                    # Look for preprocessing_info
-                    if 'preprocessing_info' in model_data and isinstance(model_data['preprocessing_info'], dict):
-                        preproc = model_data['preprocessing_info']
-                        if 'encoding_mappings' in preproc and isinstance(preproc['encoding_mappings'], dict):
-                            encoding_maps.update(preproc['encoding_mappings'])
-                            print(f"[{request_id}] Found encoding_mappings in preprocessing_info with {len(preproc['encoding_mappings'])} items")
-                    
-                    # Look for column_encodings
-                    if 'column_encodings' in model_data and isinstance(model_data['column_encodings'], dict):
-                        encoding_maps.update(model_data['column_encodings'])
-                        print(f"[{request_id}] Found column_encodings with {len(model_data['column_encodings'])} items")
-                    
-                    if encoding_maps:
-                        # Generate metadata for each encoding map
-                        encoding_metadata = {}
-                        for feature_name, mapping in encoding_maps.items():
-                            if isinstance(mapping, dict):
-                                value_count = len(mapping)
-                                sample_values = list(mapping.keys())[:3]  # First 3 keys
-                                encoding_metadata[feature_name] = {
-                                    "value_count": value_count,
-                                    "sample_values": sample_values,
-                                    "display_name": feature_name
-                                }
-                        
-                        print(f"[{request_id}] Successfully extracted {len(encoding_maps)} encoding maps with metadata")
-                        return jsonify({
-                            "encoding_maps": encoding_maps,
-                            "metadata": encoding_metadata,
-                            "source": "model_url"
-                        })
-                    else:
-                        print(f"[{request_id}] No encoding maps found in model data")
-                        # Return an empty result rather than an error
-                        return jsonify({
-                            "encoding_maps": {},
-                            "metadata": {},
-                            "source": "model_url",
-                            "warning": "No encoding maps found in model data"
-                        })
-                        
-                else:
-                    # It's a direct model object - cannot extract encodings
-                    print(f"[{request_id}] Model data is not a dictionary, cannot extract encodings")
-                    return jsonify({
-                        "encoding_maps": {},
-                        "metadata": {},
-                        "source": "model_url",
-                        "warning": "Model data is not a dictionary structure with encodings"
-                    })
-                    
-            except Exception as e:
-                print(f"[{request_id}] Error analyzing model file: {str(e)}")
-                return jsonify({"error": f"Error analyzing model file: {str(e)}"}), 500
-                
-        except Exception as e:
-            print(f"[{request_id}] Error processing model URL: {str(e)}")
-            return jsonify({"error": str(e)}), 500
-            
-        finally:
-            # Clean up
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-                print(f"[{request_id}] Cleaned up temporary directory: {temp_dir}")
-            
-            total_time = time.time() - start_time
-            print(f"[{request_id}] ===== EXTRACT ENCODINGS FROM URL COMPLETED in {total_time:.2f}s =====")
-    
-    # Standard model package flow (ZIP file upload)
+    # Check if the post request has the file part
     if 'model_package' not in request.files:
-        print(f"[{request_id}] Error: 'model_package' file not provided")
-        return jsonify({"error": "Model package file is required"}), 400
-    
+        print(f"[{request_id}] Error: No model_package file in request")
+        return jsonify({"error": "No model_package file provided"}), 400
+        
     model_file = request.files['model_package']
-    print(f"[{request_id}] Received model package: {model_file.filename}")
     
-    # Validate file type
+    # If user does not select file, the browser might
+    # submit an empty file without a filename
+    if model_file.filename == '':
+        print(f"[{request_id}] Error: Empty filename")
+        return jsonify({"error": "No model file selected"}), 400
+        
+    # Check if it's a ZIP file
     if not model_file.filename.lower().endswith('.zip'):
-        print(f"[{request_id}] Error: Invalid model package format: {model_file.filename}")
-        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+        print(f"[{request_id}] Error: File is not a ZIP archive: {model_file.filename}")
+        return jsonify({"error": "Model package must be a ZIP file"}), 400
     
-    # Create a temporary directory to extract files
-    temp_dir = tempfile.mkdtemp(prefix="encoding_extract_")
+    # Create a temporary directory to extract the model package
+    temp_dir = tempfile.mkdtemp(prefix="model_extract_")
     print(f"[{request_id}] Created temporary directory: {temp_dir}")
     
+    start_time = time.time()
+    
     try:
-        # Save and extract the ZIP package
-        zip_path = os.path.join(temp_dir, "model_package.zip")
-        model_file.save(zip_path)
-        print(f"[{request_id}] Saved model package to {zip_path}, size: {os.path.getsize(zip_path)} bytes")
+        # Save the model package to the temporary directory
+        model_path = os.path.join(temp_dir, secure_filename(model_file.filename))
+        model_file.save(model_path)
+        print(f"[{request_id}] Saved model package to: {model_path}")
         
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-            # Log the files in the zip for debugging
-            file_list = zip_ref.namelist()
-            print(f"[{request_id}] Extracted {len(file_list)} files from model package")
-            print(f"[{request_id}] Files in package: {', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''}")
+        # Extract the package
+        import zipfile
+        try:
+            with zipfile.ZipFile(model_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            print(f"[{request_id}] Extracted model package to: {temp_dir}")
+        except Exception as e:
+            print(f"[{request_id}] Error extracting ZIP archive: {str(e)}")
+            return jsonify({"error": f"Invalid ZIP file: {str(e)}"}), 400
         
-        # Process the extracted files
+        # Process the extracted package contents
         return process_extracted_package(temp_dir, request_id, start_time)
         
     except Exception as e:
-        print(f"[{request_id}] ERROR: {str(e)}")
-        import traceback
-        print(f"[{request_id}] Traceback: {traceback.format_exc()}")
+        print(f"[{request_id}] Unexpected error: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-    
+        
     finally:
-        # Clean up
+        # Clean up temporary directory
         try:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-                print(f"[{request_id}] Cleaned up temporary directory: {temp_dir}")
+            shutil.rmtree(temp_dir)
+            print(f"[{request_id}] Cleaned up temporary directory: {temp_dir}")
         except Exception as e:
-            print(f"[{request_id}] Warning: Failed to clean up temporary directory: {str(e)}")
+            print(f"[{request_id}] Error cleaning up: {str(e)}")
 
 def process_extracted_package(temp_dir, request_id, start_time):
-    """Process an extracted model package directory to find encoding maps"""
-    # List all files for debugging
-    all_files = os.listdir(temp_dir)
-    print(f"[{request_id}] All files in extracted package root: {all_files}")
+    """Process the contents of an extracted model package"""
+    print(f"[{request_id}] Processing extracted package contents")
     
-    # Look for encoding files with broader search
+    # Look for encoding files - check all JSON files
     encoding_files = []
-    json_files = []
+    for root, _, files in os.walk(temp_dir):
+        for file in files:
+            if file.endswith('.json'):
+                if any(key in file.lower() for key in ['encoding', 'preprocess', 'metadata', 'feature']):
+                    encoding_files.append(os.path.join(root, file))
     
-    # First pass: look for standard encoding file names
-    for filename in all_files:
-        if filename.lower().endswith('.json'):
-            json_files.append(filename)
-            if (filename == 'encoding_mappings.json' or 
-                filename == 'encoding_mappings' or
-                filename == 'preprocessing_info.json' or 
-                filename == 'preprocessing_info' or
-                filename.endswith('_encoding.json') or 
-                filename == 'encoding.json' or 
-                filename == 'preprocessing.json' or
-                'encod' in filename.lower() or
-                'feature' in filename.lower() or
-                'map' in filename.lower()):
-                encoding_files.append(filename)
+    print(f"[{request_id}] Found potential encoding files: {encoding_files}")
     
-    print(f"[{request_id}] Found {len(json_files)} JSON files: {json_files}")
-    print(f"[{request_id}] Potential encoding files based on name: {encoding_files}")
-    
-    # If no encoding files found by name, try all JSON files
-    if not encoding_files and json_files:
-        print(f"[{request_id}] No encoding files found by name pattern, examining all JSON files")
-        encoding_files = json_files
-    
+    # If no encoding files found, return empty result instead of error
     if not encoding_files:
-        # Look deeper in subdirectories
-        print(f"[{request_id}] Looking in subdirectories for encoding files")
-        for root, dirs, files in os.walk(temp_dir):
-            for filename in files:
-                if filename.lower().endswith('.json'):
-                    file_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(file_path, temp_dir)
-                    if (filename == 'encoding_mappings.json' or 
-                        filename == 'encoding_mappings' or
-                        filename == 'preprocessing_info.json' or 
-                        filename == 'preprocessing_info' or
-                        filename.endswith('_encoding.json') or 
-                        filename == 'encoding.json' or 
-                        filename == 'preprocessing.json' or
-                        'encod' in filename.lower() or
-                        'feature' in filename.lower() or
-                        'map' in filename.lower()):
-                        encoding_files.append(rel_path)
-                    elif rel_path not in json_files:
-                        json_files.append(rel_path)
-        
-        print(f"[{request_id}] After subdirectory search - JSON files: {json_files}")
-        print(f"[{request_id}] After subdirectory search - Potential encoding files: {encoding_files}")
-        
-        # If still no encoding files but found JSON files, try them all
-        if not encoding_files and json_files:
-            print(f"[{request_id}] No encoding files found in subdirectories by name pattern, examining all JSON files")
-            encoding_files = json_files
+        print(f"[{request_id}] No encoding files found in package")
+        return jsonify({
+            "encoding_maps": [],
+            "message": "No encoding maps found in the package"
+        })
     
-    if not encoding_files:
-        print(f"[{request_id}] No JSON files found in the model package")
-        return jsonify({"error": "No encoding files found in the model package"}), 404
+    # Process encoding files
+    encoding_maps = []
     
-    # Extract encoding maps from each file
-    encoding_maps = {}
-    for file in encoding_files:
-        file_path = os.path.join(temp_dir, file)
+    for file_path in encoding_files:
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
             
-            print(f"[{request_id}] Examining file {file} for encoding maps")
-            
-            # Process different potential formats
+            # Look for encoding mappings in different formats
             if isinstance(data, dict):
-                # Look for dictionary structures that could be encoding maps
-                for column, mapping in data.items():
-                    if isinstance(mapping, dict):
-                        # Look for typical encoding patterns (numeric keys or values)
-                        is_encoding_map = False
-                        
-                        # Check if it maps strings to numbers (common encoding pattern)
-                        string_keys = False
-                        numeric_values = False
-                        
-                        for k, v in mapping.items():
-                            # Check if key is string
-                            if isinstance(k, str):
-                                string_keys = True
-                            
-                            # Check if value is numeric
-                            if isinstance(v, (int, float)):
-                                numeric_values = True
-                        
-                        # If keys are strings and values are numbers, likely an encoding map
-                        if string_keys and numeric_values:
-                            is_encoding_map = True
-                        
-                        # Also check if it has a reasonable number of entries to be a category mapping
-                        if len(mapping) > 0 and len(mapping) < 100:
-                            # More likely to be an encoding map than a large data structure
-                            is_encoding_map = True
-                            
-                        if is_encoding_map:
-                            print(f"[{request_id}] Found encoding map for column '{column}' with {len(mapping)} values")
-                            encoding_maps[column] = mapping
+                # Look for direct encoding dictionary {feature_name: {value: encoded}}
+                for key, value in data.items():
+                    if isinstance(value, dict) and all(isinstance(k, str) for k in value.keys()):
+                        # Check if values are numeric (encoding maps typically map to numbers)
+                        if all(isinstance(v, (int, float)) for v in value.values()):
+                            # This looks like an encoding map!
+                            rel_path = os.path.relpath(file_path, temp_dir)
+                            encoding_maps.append({
+                                "feature_name": key,
+                                "source_file": rel_path,
+                                "mapping": value,
+                                "num_values": len(value)
+                            })
+                            print(f"[{request_id}] Found encoding map for feature '{key}' with {len(value)} values")
                 
-                # Also check for special information like selected_features
-                if 'selected_features' in data and isinstance(data['selected_features'], list):
-                    print(f"[{request_id}] Found selected_features list with {len(data['selected_features'])} features")
-                    encoding_maps['selected_features'] = data['selected_features']
-                
-                # Check for patterns like "column_name_encoding" or "column_name_map"
-                for key in data.keys():
-                    if (key.endswith('_encoding') or key.endswith('_map') or '_encoding_' in key) and isinstance(data[key], dict):
-                        print(f"[{request_id}] Found encoding map with pattern-matched key '{key}' containing {len(data[key])} values")
-                        encoding_maps[key] = data[key]
-                        
-                # Check for encoding_mappings key directly (common format)
+                # Look for encoding_mappings section
                 if 'encoding_mappings' in data and isinstance(data['encoding_mappings'], dict):
-                    print(f"[{request_id}] Found encoding_mappings dictionary with {len(data['encoding_mappings'])} entries")
-                    for col, mapping in data['encoding_mappings'].items():
-                        encoding_maps[col] = mapping
+                    for key, value in data['encoding_mappings'].items():
+                        if isinstance(value, dict):
+                            rel_path = os.path.relpath(file_path, temp_dir)
+                            encoding_maps.append({
+                                "feature_name": key,
+                                "source_file": rel_path,
+                                "mapping": value,
+                                "num_values": len(value)
+                            })
+                            print(f"[{request_id}] Found encoding map for feature '{key}' in encoding_mappings")
                 
-                # Check for column_encodings key directly (alternate format)
+                # Look for column_encodings section
                 if 'column_encodings' in data and isinstance(data['column_encodings'], dict):
-                    print(f"[{request_id}] Found column_encodings dictionary with {len(data['column_encodings'])} entries")
-                    for col, mapping in data['column_encodings'].items():
-                        encoding_maps[col] = mapping
+                    for key, value in data['column_encodings'].items():
+                        if isinstance(value, dict):
+                            rel_path = os.path.relpath(file_path, temp_dir)
+                            encoding_maps.append({
+                                "feature_name": key,
+                                "source_file": rel_path,
+                                "mapping": value,
+                                "num_values": len(value)
+                            })
+                            print(f"[{request_id}] Found encoding map for feature '{key}' in column_encodings")
+        
         except Exception as e:
-            # Skip files that can't be parsed
-            print(f"[{request_id}] Error parsing {file}: {str(e)}")
-            continue
-    
-    if not encoding_maps:
-        print(f"[{request_id}] No encoding maps found in any of the JSON files")
-        return jsonify({"error": "No valid encoding maps found in the model package"}), 404
+            print(f"[{request_id}] Error processing encoding file {file_path}: {str(e)}")
     
     # Filter out non-feature encoding maps
-    excluded_maps = ['scaler_params', 'config']
-    feature_encoding_maps = {k: v for k, v in encoding_maps.items() if k not in excluded_maps}
-    
-    if not feature_encoding_maps:
-        print(f"[{request_id}] No feature encoding maps found after filtering")
-        return jsonify({"error": "No feature encoding maps found in the model package"}), 404
-    
-    # Add metadata for each encoding map to help the frontend
-    encoding_metadata = {}
-    for feature_name, mapping in feature_encoding_maps.items():
-        if isinstance(mapping, dict): 
-            # Count the number of values in each encoding map
-            value_count = len(mapping)
-            # Get some sample values for display
-            sample_values = list(mapping.keys())[:3]  # First 3 keys
-            # Create metadata entry
-            encoding_metadata[feature_name] = {
-                "value_count": value_count,
-                "sample_values": sample_values,
-                "display_name": feature_name
-            }
-        elif feature_name == 'selected_features' and isinstance(mapping, list):
-            encoding_metadata[feature_name] = {
-                "value_count": len(mapping),
-                "sample_values": mapping[:3],
-                "display_name": "Selected Features"
-            }
-        
-    # Return both the encoding maps and metadata
-    print(f"[{request_id}] Successfully extracted {len(feature_encoding_maps)} feature encoding maps: {list(feature_encoding_maps.keys())}")
+    filtered_maps = []
+    for encoding_map in encoding_maps:
+        feature_name = encoding_map["feature_name"]
+        # Skip metadata keys that aren't actual features
+        if feature_name in ["__model_info__", "__metadata__", "model_type", "version", "timestamp"]:
+            continue
+        filtered_maps.append(encoding_map)
     
     total_time = time.time() - start_time
-    print(f"[{request_id}] ===== EXTRACT ENCODINGS REQUEST COMPLETED in {total_time:.2f}s =====")
+    print(f"[{request_id}] ===== ENCODING EXTRACTION COMPLETED in {total_time:.2f}s =====")
+    print(f"[{request_id}] Found {len(filtered_maps)} encoding maps")
     
+    # Return the list of encoding maps
     return jsonify({
-        "encoding_maps": feature_encoding_maps,
-        "metadata": encoding_metadata,
-        "source": "model_package"
+        "encoding_maps": filtered_maps,
+        "count": len(filtered_maps)
     })
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """
-    Process a prediction request with a model package and input data.
-    Returns CSV with predictions or error message.
-    """
+    """Make predictions using the provided model and input data"""
+    request_id = str(uuid.uuid4())[:8]
     start_time = time.time()
-    request_id = str(uuid.uuid4())[:8]  # Generate a short unique ID for this request
-    
-    print(f"[{request_id}] ===== PREDICTION REQUEST STARTED =====")
+    print(f"[{request_id}] ===== PREDICTION REQUEST =====")
     print(f"[{request_id}] Timestamp: {datetime.datetime.now().isoformat()}")
     
-    # Check if we have a direct model URL
-    if request.is_json and 'model_url' in request.json and 'input_file' in request.files:
-        model_url = request.json['model_url']
-        input_file = request.files['input_file']
-        
-        print(f"[{request_id}] Direct model URL prediction: model={model_url}, input={input_file.filename}")
-        
-        # Create a temporary directory
-        temp_dir = tempfile.mkdtemp(prefix="session_")
-        print(f"[{request_id}] Created temporary directory: {temp_dir}")
-        
-        try:
-            # Save the input file
-            input_file_path = os.path.join(temp_dir, input_file.filename)
-            input_file.save(input_file_path)
-            print(f"[{request_id}] Saved input file to {input_file_path}, size: {os.path.getsize(input_file_path)} bytes")
-            
-            # Validate input file type
-            if not (input_file.filename.lower().endswith('.xlsx') or 
-                    input_file.filename.lower().endswith('.xls') or 
-                    input_file.filename.lower().endswith('.csv')):
-                print(f"[{request_id}] Error: Invalid input file format: {input_file.filename}")
-                return jsonify({"error": "Input file must be an Excel or CSV file."}), 400
-            
-            # Download the model directly
-            target_filename = model_url.split('/')[-1] if '/' in model_url else 'model.joblib'
-            target_path = os.path.join(temp_dir, target_filename)
-            
-            print(f"[{request_id}] Downloading model to {target_path}")
-            download_success = check_local_model(model_url, target_path)
-            
-            if not download_success:
-                print(f"[{request_id}] Failed to download model from {model_url}")
-                return jsonify({
-                    "error": f"Failed to download model from {model_url}. Please check if the model URL is correct and the Azure Blob Storage credentials are properly configured."
-                }), 400
-            
-            # Create model package from the downloaded model
-            # We'll create the minimum files needed for prediction
-            preprocessing_info = {}
-            
-            # Try to extract preprocessing info directly from the model
-            try:
-                import joblib
-                model_data = joblib.load(target_path)
-                print(f"[{request_id}] Loaded model data of type: {type(model_data)}")
-                
-                # If it's a dictionary with preprocessing info, use it
-                if isinstance(model_data, dict):
-                    if 'preprocessing_info' in model_data:
-                        preprocessing_info = model_data['preprocessing_info']
-                        print(f"[{request_id}] Found preprocessing_info in model data")
-                    
-                    # Check for encoding_mappings
-                    if 'encoding_mappings' in model_data:
-                        if 'encoding_mappings' not in preprocessing_info:
-                            preprocessing_info['encoding_mappings'] = {}
-                        preprocessing_info['encoding_mappings'].update(model_data['encoding_mappings'])
-                        print(f"[{request_id}] Found encoding_mappings in model data")
-                    
-                    # Check for selected_features
-                    if 'selected_features' in model_data:
-                        preprocessing_info['selected_features'] = model_data['selected_features']
-                        print(f"[{request_id}] Found selected_features in model data")
-                    
-                    # Check for column_encodings (alternative format)
-                    if 'column_encodings' in model_data:
-                        if 'encoding_mappings' not in preprocessing_info:
-                            preprocessing_info['encoding_mappings'] = {}
-                        preprocessing_info['encoding_mappings'].update(model_data['column_encodings'])
-                        print(f"[{request_id}] Found column_encodings in model data")
-                
-            except Exception as e:
-                print(f"[{request_id}] Error extracting preprocessing info from model: {str(e)}")
-                # Continue without preprocessing info
-            
-            # Create a preprocessing_info.json file if we have any info
-            if preprocessing_info:
-                preprocessing_file = os.path.join(temp_dir, 'preprocessing_info.json')
-                with open(preprocessing_file, 'w') as f:
-                    json.dump(preprocessing_info, f, indent=2)
-                print(f"[{request_id}] Created preprocessing_info.json file")
-                
-                # Create separate encoding_mappings.json if available
-                if 'encoding_mappings' in preprocessing_info and preprocessing_info['encoding_mappings']:
-                    mappings_file = os.path.join(temp_dir, 'encoding_mappings.json')
-                    with open(mappings_file, 'w') as f:
-                        json.dump(preprocessing_info['encoding_mappings'], f, indent=2)
-                    print(f"[{request_id}] Created encoding_mappings.json with {len(preprocessing_info['encoding_mappings'])} mappings")
-            
-            # Create a basic requirements.txt file
-            req_file = os.path.join(temp_dir, 'requirements.txt')
-            with open(req_file, 'w') as f:
-                f.write("numpy\npandas\nscikit-learn\njoblib\npython-dotenv\nopenpyxl\n")
-            print(f"[{request_id}] Created basic requirements.txt file")
-            
-            # Continue with the rest of the predict function using this temp_dir
-            # ...
-            # Now we can proceed with the standard predict function from here
-            
-            # The following is almost identical to the standard flow, just without the extraction step
-            
-            # Create a virtual environment in the temporary directory.
-            venv_path = os.path.join(temp_dir, "venv")
-            print(f"[{request_id}] Creating virtual environment at {venv_path}")
-            subprocess.run(["python3", "-m", "venv", venv_path], check=True)
-
-            # Determine pip path based on platform
-            if os.name == 'nt':  # Windows
-                pip_path = os.path.join(venv_path, "Scripts", "pip")
-                python_path = os.path.join(venv_path, "Scripts", "python")
-            else:  # Linux/Mac
-                pip_path = os.path.join(venv_path, "bin", "pip")
-                python_path = os.path.join(venv_path, "bin", "python")
-            
-            print(f"[{request_id}] Using Python: {python_path}, pip: {pip_path}")
-
-            # Install the requirements
-            print(f"[{request_id}] Installing requirements from {req_file}")
-            pip_install = subprocess.run([pip_path, "install", "-r", req_file],
-                                        capture_output=True, text=True)
-            if pip_install.returncode != 0:
-                print(f"[{request_id}] pip install failed: {pip_install.stderr}")
-                return jsonify({"error": f"pip install failed: {pip_install.stderr}"}), 500
-            print(f"[{request_id}] Successfully installed requirements")
-            
-            # Continue with prediction script creation and execution
-            # ...
-            
-            # Rest of function remains the same
-            
-        except Exception as e:
-            print(f"[{request_id}] ERROR: Unexpected exception: {str(e)}")
-            import traceback
-            print(f"[{request_id}] Traceback: {traceback.format_exc()}")
-            return jsonify({"error": str(e)}), 500
-            
-        finally:
-            # Clean up temporary directory
-            try:
-                # Delayed cleanup to ensure any file operations are complete
-                def delayed_cleanup():
-                    time.sleep(1)  # Short delay
-                    if os.path.exists(temp_dir):
-                        shutil.rmtree(temp_dir)
-                        print(f"[{request_id}] Cleaned up temporary directory: {temp_dir}")
-                        
-                from threading import Thread
-                Thread(target=delayed_cleanup).start()
-            except Exception as e:
-                print(f"[{request_id}] Warning: Failed to clean up temporary directory: {str(e)}")
-            
-            total_time = time.time() - start_time
-            print(f"[{request_id}] ===== PREDICTION REQUEST COMPLETED in {total_time:.2f}s =====")
-    
-    # Standard model package upload flow
-    # Verify that both files are provided.
-    if 'model_package' not in request.files or 'input_file' not in request.files:
-        print(f"[{request_id}] Error: Missing required files (model_package or input_file)")
-        return jsonify({"error": "Both 'model_package' and 'input_file' must be provided."}), 400
-
-    model_file = request.files['model_package']
-    input_file = request.files['input_file']
-    
-    print(f"[{request_id}] Received files: model={model_file.filename}, input={input_file.filename}")
-
-    # Validate file types.
-    if not model_file.filename.lower().endswith('.zip'):
-        print(f"[{request_id}] Error: Invalid model package format: {model_file.filename}")
-        return jsonify({"error": "Model package must be a ZIP archive."}), 400
-    if not (input_file.filename.lower().endswith('.xlsx') or 
-            input_file.filename.lower().endswith('.xls') or 
-            input_file.filename.lower().endswith('.csv')):
-        print(f"[{request_id}] Error: Invalid input file format: {input_file.filename}")
-        return jsonify({"error": "Input file must be an Excel or CSV file."}), 400
-
-    # Create a temporary working directory.
-    temp_dir = tempfile.mkdtemp(prefix="session_")
+    # Create a temporary directory
+    temp_dir = tempfile.mkdtemp(prefix="predict_")
     print(f"[{request_id}] Created temporary directory: {temp_dir}")
     
     try:
-        # Save and extract the ZIP package.
-        zip_path = os.path.join(temp_dir, "model_package.zip")
-        model_file.save(zip_path)
-        print(f"[{request_id}] Saved model package to {zip_path}, size: {os.path.getsize(zip_path)} bytes")
+        # Check if the post request has the file parts
+        if 'input_file' not in request.files:
+            print(f"[{request_id}] Error: No input_file in request")
+            return jsonify({"error": "No input file provided"}), 400
+            
+        if 'model_package' not in request.files:
+            print(f"[{request_id}] Error: No model_package in request")
+            return jsonify({"error": "No model package provided"}), 400
+            
+        input_file = request.files['input_file']
+        model_file = request.files['model_package']
         
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-            # Log the files in the zip for debugging
-            file_list = zip_ref.namelist()
-            print(f"[{request_id}] Extracted {len(file_list)} files from model package")
-            print(f"[{request_id}] Files in package: {', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''}")
-
-        # Save the input file.
-        input_file_path = os.path.join(temp_dir, input_file.filename)
+        # If user does not select file, browser might submit empty file without filename
+        if input_file.filename == '':
+            print(f"[{request_id}] Error: Empty input filename")
+            return jsonify({"error": "No input file selected"}), 400
+            
+        if model_file.filename == '':
+            print(f"[{request_id}] Error: Empty model filename")
+            return jsonify({"error": "No model package selected"}), 400
+            
+        # Validate file types
+        if not (input_file.filename.lower().endswith('.csv') or 
+                input_file.filename.lower().endswith('.xlsx') or 
+                input_file.filename.lower().endswith('.xls')):
+            print(f"[{request_id}] Error: Input file is not CSV or Excel: {input_file.filename}")
+            return jsonify({"error": "Input file must be CSV or Excel"}), 400
+            
+        if not model_file.filename.lower().endswith('.zip'):
+            print(f"[{request_id}] Error: Model file is not a ZIP archive: {model_file.filename}")
+            return jsonify({"error": "Model package must be a ZIP file"}), 400
+        
+        # Save the files
+        input_file_path = os.path.join(temp_dir, secure_filename(input_file.filename))
+        model_path = os.path.join(temp_dir, secure_filename(model_file.filename))
+        
         input_file.save(input_file_path)
-        print(f"[{request_id}] Saved input file to {input_file_path}, size: {os.path.getsize(input_file_path)} bytes")
-
-        # Check for placeholder model files
-        model_files = []
-        placeholder_files = []
-        for root, dirs, files in os.walk(temp_dir):
-            for file in files:
-                # Check for model files
-                if file.endswith('.joblib') or file.endswith('.pkl'):
-                    model_path = os.path.join(root, file)
-                    model_files.append(model_path)
-                    file_size = os.path.getsize(model_path)
-                    print(f"[{request_id}] Found model file: {model_path}, size: {file_size} bytes")
-                    
-                    # Check if it's a placeholder (very small file)
-                    if file_size < 1000:  # Less than 1KB
-                        try:
-                            with open(model_path, 'r') as f:
-                                content = f.read()
-                                if "placeholder" in content.lower() or "could not be downloaded" in content.lower():
-                                    placeholder_files.append(model_path)
-                                    print(f"[{request_id}] WARNING: Found placeholder model file: {model_path}")
-                                    print(f"[{request_id}] Placeholder content: {content[:100]}...")
-                        except UnicodeDecodeError:
-                            # Not a text file, probably a real model
-                            print(f"[{request_id}] Model file is binary (good)")
-                            pass
-                
-                # Check for specific error files
-                if file == "model_error.txt" or file == "download_error.txt":
-                    placeholder_files.append(os.path.join(root, file))
-                    with open(os.path.join(root, file), 'r') as f:
-                        content = f.read()
-                    print(f"[{request_id}] WARNING: Found error file: {os.path.join(root, file)}")
-                    print(f"[{request_id}] Error content: {content[:100]}...")
+        model_file.save(model_path)
         
-        print(f"[{request_id}] Model files found: {len(model_files)}, placeholder files: {len(placeholder_files)}")
+        print(f"[{request_id}] Saved input file to: {input_file_path}")
+        print(f"[{request_id}] Saved model package to: {model_path}")
         
-        # If we have placeholder files but no valid model files, return specific error
-        if placeholder_files and (len(placeholder_files) == len(model_files) or len(model_files) == 0):
-            error_msg = "The model file could not be loaded. This is likely because the model was not properly saved or downloaded from MLflow."
-            
-            # Try to get more specific error from any error files
-            for error_file in placeholder_files:
-                try:
-                    with open(error_file, 'r') as f:
-                        error_content = f.read().strip()
-                        if error_content:
-                            error_msg = f"{error_msg} Error details: {error_content}"
-                            break
-                except Exception as e:
-                    print(f"[{request_id}] Error reading error file: {str(e)}")
-                    pass
-                    
-            print(f"[{request_id}] ERROR: Returning error due to placeholder model: {error_msg}")
-            return jsonify({
-                "error": error_msg,
-                "suggestion": "Please retrain the model and ensure MLflow tracking server is properly configured."
-            }), 400
-
-        # Create a virtual environment in the temporary directory.
-        venv_path = os.path.join(temp_dir, "venv")
-        print(f"[{request_id}] Creating virtual environment at {venv_path}")
-        subprocess.run(["python3", "-m", "venv", venv_path], check=True)
-
-        # Determine pip path based on platform
-        if os.name == 'nt':  # Windows
-            pip_path = os.path.join(venv_path, "Scripts", "pip")
-            python_path = os.path.join(venv_path, "Scripts", "python")
-        else:  # Linux/Mac
-            pip_path = os.path.join(venv_path, "bin", "pip")
-            python_path = os.path.join(venv_path, "bin", "python")
+        # Extract the model package
+        import zipfile
+        try:
+            with zipfile.ZipFile(model_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            print(f"[{request_id}] Extracted model package to: {temp_dir}")
+        except Exception as e:
+            print(f"[{request_id}] Error extracting ZIP archive: {str(e)}")
+            return jsonify({"error": f"Invalid ZIP file: {str(e)}"}), 400
         
-        print(f"[{request_id}] Using Python: {python_path}, pip: {pip_path}")
-
-        # Install the extracted requirements.
-        req_file = os.path.join(temp_dir, "requirements.txt")
-        if os.path.exists(req_file):
-            print(f"[{request_id}] Installing requirements from {req_file}")
-            with open(req_file, 'r') as f:
-                req_content = f.read()
-                print(f"[{request_id}] Requirements file content: {req_content}")
-                
-            pip_install = subprocess.run([pip_path, "install", "-r", req_file],
-                                        capture_output=True, text=True)
-            if pip_install.returncode != 0:
-                print(f"[{request_id}] pip install failed: {pip_install.stderr}")
-                return jsonify({"error": f"pip install failed: {pip_install.stderr}"}), 500
-            print(f"[{request_id}] Successfully installed requirements")
-        else:
-            print(f"[{request_id}] No requirements.txt file found, installing default regression packages")
-            subprocess.run([pip_path, "install", "pandas", "numpy", "scikit-learn", "joblib", "matplotlib"], 
-                          capture_output=True, text=True)
-            print(f"[{request_id}] Successfully installed default packages")
-
-        # Check if a predict.py script exists, or create one for regression
-        predict_script = os.path.join(temp_dir, "predict.py")
-        if not os.path.exists(predict_script):
-            # Find model file
-            model_files = []
-            for root, dirs, files in os.walk(temp_dir):
+        # Check if we can find preprocessing_info.json
+        preprocessing_file = os.path.join(temp_dir, "preprocessing_info.json")
+        if not os.path.exists(preprocessing_file):
+            # Look for encoding files and create preprocessing info
+            encoding_files = []
+            for root, _, files in os.walk(temp_dir):
                 for file in files:
-                    if file.endswith('.joblib') or file.endswith('.pkl'):
-                        model_files.append(os.path.join(root, file))
+                    if file.endswith('.json'):
+                        if any(key in file.lower() for key in ['encoding', 'preprocess', 'metadata', 'feature']):
+                            encoding_files.append(os.path.join(root, file))
             
-            if not model_files:
-                return jsonify({"error": "No model file (.joblib or .pkl) found in package"}), 400
+            print(f"[{request_id}] Found potential encoding files: {encoding_files}")
+            
+            # Create preprocessing_info.json if needed
+            if encoding_files:
+                encoding_mappings = {}
+                for file_path in encoding_files:
+                    try:
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                        
+                        if isinstance(data, dict):
+                            # Look for encoding_mappings
+                            if 'encoding_mappings' in data and isinstance(data['encoding_mappings'], dict):
+                                encoding_mappings.update(data['encoding_mappings'])
+                            
+                            # Look for column_encodings
+                            if 'column_encodings' in data and isinstance(data['column_encodings'], dict):
+                                encoding_mappings.update(data['column_encodings'])
+                            
+                            # Look for direct encoding dictionaries
+                            for key, value in data.items():
+                                if isinstance(value, dict) and all(isinstance(k, str) for k in value.keys()):
+                                    if all(isinstance(v, (int, float)) for v in value.values()):
+                                        encoding_mappings[key] = value
+                    except Exception as e:
+                        print(f"[{request_id}] Error processing encoding file {file_path}: {str(e)}")
                 
-            # Create a basic predict.py script for regression
-            with open(predict_script, 'w') as f:
-                f.write("""import pandas as pd
-import numpy as np
-import joblib
-import sys
+                if encoding_mappings:
+                    with open(preprocessing_file, 'w') as f:
+                        json.dump({"encoding_mappings": encoding_mappings}, f)
+                    print(f"[{request_id}] Created preprocessing_info.json with {len(encoding_mappings)} encodings")
+        
+        # Check if we can find requirements.txt and create one if not
+        requirements_file = os.path.join(temp_dir, "requirements.txt")
+        if not os.path.exists(requirements_file):
+            with open(requirements_file, 'w') as f:
+                f.write("pandas>=1.0.0\n")
+                f.write("scikit-learn>=0.22.0\n")
+                f.write("joblib>=0.14.0\n")
+                f.write("numpy>=1.18.0\n")
+                f.write("openpyxl>=3.0.0\n")  # For Excel support
+                f.write("xgboost>=1.0.0\n")   # Common for regression
+            print(f"[{request_id}] Created default requirements.txt")
+        
+        # Create Python virtual environment
+        venv_dir = os.path.join(temp_dir, "venv")
+        python_path = os.path.join(venv_dir, "bin", "python")
+        if sys.platform.startswith('win'):
+            python_path = os.path.join(venv_dir, "Scripts", "python.exe")
+        
+        print(f"[{request_id}] Creating Python virtual environment at {venv_dir}")
+        try:
+            subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
+            print(f"[{request_id}] Created virtual environment")
+            
+            # Install dependencies
+            print(f"[{request_id}] Installing dependencies from {requirements_file}")
+            pip_path = os.path.join(venv_dir, "bin", "pip")
+            if sys.platform.startswith('win'):
+                pip_path = os.path.join(venv_dir, "Scripts", "pip.exe")
+                
+            result = subprocess.run(
+                [pip_path, "install", "-r", requirements_file],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                print(f"[{request_id}] pip install error: {result.stderr}")
+            else:
+                print(f"[{request_id}] Successfully installed dependencies")
+        except Exception as e:
+            print(f"[{request_id}] Error setting up environment: {str(e)}")
+            return jsonify({"error": f"Failed to set up environment: {str(e)}"}), 500
+        
+        # Generate predict.py script
+        predict_script = os.path.join(temp_dir, "predict.py")
+        with open(predict_script, 'w') as f:
+            f.write("""
 import os
+import sys
 import json
 import glob
+import joblib
+import pandas as pd
 import traceback
 
 def main():
@@ -796,6 +382,10 @@ def main():
         sys.exit(1)
     
     input_file = sys.argv[1]
+    if not os.path.exists(input_file):
+        print(f"Input file not found: {input_file}")
+        sys.exit(1)
+    
     stdout_mode = "--stdout" in sys.argv
     
     # Find preprocessing info (encodings, selected features, etc.)
@@ -849,10 +439,10 @@ def main():
                     if file_size < 1000:  # Less than 1KB
                         with open(model_file, 'r') as f:
                             content = f.read()
-                            if "placeholder" in content.lower() or "could not be downloaded" in content.lower():
+                            if "placeholder" in content.lower():
                                 print(f"Found placeholder instead of real model: {model_file}")
                                 print(f"Content: {content}")
-                                print("Error: Model file is just a placeholder. The actual model could not be downloaded.")
+                                print("Error: Model file is just a placeholder.")
                                 sys.exit(1)
                 except Exception as e:
                     # If we can't read it as text, it's probably a real model file
@@ -1052,128 +642,6 @@ if __name__ == "__main__":
 
         total_time = time.time() - start_time
         print(f"[{request_id}] ===== PREDICTION REQUEST COMPLETED in {total_time:.2f}s =====")
-
-@app.route('/test_model_download', methods=['POST'])
-def test_model_download():
-    """Test endpoint to verify model downloads are working correctly"""
-    request_id = str(uuid.uuid4())[:8]
-    print(f"[{request_id}] ===== MODEL DOWNLOAD TEST REQUEST =====")
-    print(f"[{request_id}] Timestamp: {datetime.datetime.now().isoformat()}")
-    
-    # Parse the request
-    data = request.json
-    
-    if not data or 'model_url' not in data:
-        print(f"[{request_id}] Error: Missing required 'model_url' field")
-        return jsonify({"error": "Missing required 'model_url' field"}), 400
-    
-    model_url = data['model_url']
-    print(f"[{request_id}] Testing model download from URL: {model_url}")
-    
-    # Create a temporary directory for testing
-    temp_dir = tempfile.mkdtemp(prefix="model_test_")
-    print(f"[{request_id}] Created temporary directory: {temp_dir}")
-    
-    try:
-        # Determine the target filename
-        if 'file_name' in data and data['file_name']:
-            target_filename = data['file_name']
-        else:
-            # Extract from URL
-            target_filename = model_url.split('/')[-1]
-            if not target_filename:
-                target_filename = 'model.joblib'
-        
-        target_path = os.path.join(temp_dir, target_filename)
-        print(f"[{request_id}] Target path for download: {target_path}")
-        
-        # Try direct download first
-        direct_success = check_local_model(model_url, target_path)
-        
-        if direct_success:
-            # Try to load the model to verify it's valid
-            try:
-                import joblib
-                model = joblib.load(target_path)
-                model_info = {
-                    "model_type": type(model).__name__,
-                    "has_predict": hasattr(model, 'predict'),
-                    "file_size": os.path.getsize(target_path)
-                }
-                
-                print(f"[{request_id}] Model loaded successfully: {model_info}")
-                
-                return jsonify({
-                    "success": True,
-                    "message": "Model downloaded and loaded successfully",
-                    "model_info": model_info
-                })
-            except Exception as e:
-                print(f"[{request_id}] Error loading model: {str(e)}")
-                return jsonify({
-                    "success": False, 
-                    "error": f"Model file was downloaded but could not be loaded: {str(e)}"
-                }), 400
-        else:
-            # Try fallback to requests
-            print(f"[{request_id}] Direct download failed, trying fallback method")
-            try:
-                print(f"[{request_id}] Attempting fallback download from: {model_url}")
-                response = requests.get(model_url, stream=True, timeout=60)
-                response.raise_for_status()
-                
-                with open(target_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                
-                print(f"[{request_id}] Fallback download completed, file size: {os.path.getsize(target_path)} bytes")
-                
-                # Verify with joblib
-                try:
-                    import joblib
-                    model = joblib.load(target_path)
-                    model_info = {
-                        "model_type": type(model).__name__,
-                        "has_predict": hasattr(model, 'predict'),
-                        "file_size": os.path.getsize(target_path),
-                        "method": "fallback"
-                    }
-                    
-                    print(f"[{request_id}] Model loaded successfully via fallback: {model_info}")
-                    
-                    return jsonify({
-                        "success": True,
-                        "message": "Model downloaded and loaded successfully via fallback method",
-                        "model_info": model_info
-                    })
-                except Exception as e:
-                    print(f"[{request_id}] Error loading model from fallback download: {str(e)}")
-                    return jsonify({
-                        "success": False, 
-                        "error": f"Model file was downloaded via fallback but could not be loaded: {str(e)}"
-                    }), 400
-                
-            except Exception as e:
-                print(f"[{request_id}] Error in fallback download: {str(e)}")
-                return jsonify({
-                    "success": False,
-                    "error": f"Failed to download model via any method: {str(e)}"
-                }), 400
-    
-    except Exception as e:
-        print(f"[{request_id}] Unexpected error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
-        
-    finally:
-        # Clean up temporary directory
-        try:
-            shutil.rmtree(temp_dir)
-            print(f"[{request_id}] Cleaned up temporary directory: {temp_dir}")
-        except Exception as e:
-            print(f"[{request_id}] Error cleaning up: {str(e)}")
-        
-        print(f"[{request_id}] ===== MODEL DOWNLOAD TEST COMPLETED =====")
-        return jsonify({"success": False, "error": "Failed to download model"}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))

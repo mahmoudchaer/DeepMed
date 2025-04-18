@@ -78,6 +78,7 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
     """Save model to Azure Blob Storage and return the URL"""
     if not BLOB_STORAGE_AVAILABLE:
         logger.warning("Azure Blob Storage integration not available. Cannot save model to blob.")
+        logger.warning("Check if the storage.py module imported successfully and Azure credentials are set.")
         return None, None
         
     try:
@@ -89,22 +90,69 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
         else:
             filename = f"{model_name}_{timestamp}_{unique_id}.joblib"
             
-        # Convert model to bytes
-        model_bytes = io.BytesIO()
-        import joblib
-        joblib.dump(model_data, model_bytes)
-        model_bytes.seek(0)
+        logger.info(f"Saving model '{model_name}' to blob storage with filename: {filename}")
+        
+        # Log model data type
+        logger.debug(f"Model data type: {type(model_data).__name__}")
+        
+        # Check if we're dealing with bytes or an object
+        if not isinstance(model_data, io.BytesIO) and not isinstance(model_data, bytes):
+            logger.info("Converting model object to BytesIO for upload")
+            # Convert model to bytes
+            model_bytes = io.BytesIO()
+            try:
+                import joblib
+                logger.debug("Using joblib to serialize model")
+                joblib.dump(model_data, model_bytes)
+                model_bytes.seek(0)
+                logger.info(f"Model serialized successfully. Size: {model_bytes.getbuffer().nbytes} bytes")
+            except Exception as serialize_err:
+                logger.error(f"Error serializing model with joblib: {str(serialize_err)}")
+                logger.error(traceback.format_exc())
+                return None, None
+        else:
+            # Already BytesIO or bytes
+            logger.info("Model data is already in bytes format, using as-is")
+            model_bytes = model_data
+            if isinstance(model_bytes, bytes):
+                logger.debug("Converting bytes to BytesIO")
+                model_bytes = io.BytesIO(model_bytes)
+                model_bytes.seek(0)
+            
+            logger.info(f"Model bytes size: {model_bytes.getbuffer().nbytes if hasattr(model_bytes, 'getbuffer') else 'unknown'} bytes")
+        
+        # Log upload attempt
+        logger.info(f"Attempting to upload model to blob storage: {filename}")
         
         # Upload to blob storage
         blob_url = upload_to_blob(model_bytes, filename)
         if blob_url:
-            logger.info(f"Saved model {model_name} to blob storage: {blob_url}")
+            logger.info(f"Successfully saved model {model_name} to blob storage: {blob_url}")
+            
+            # Verify uploaded model is accessible
+            try:
+                logger.debug(f"Verifying model accessibility at {blob_url}")
+                from azure.storage.blob import BlobServiceClient
+                account_name = blob_url.split('.')[0].replace('https://', '')
+                container_name = blob_url.split('/')[3]
+                blob_name = '/'.join(blob_url.split('/')[4:])
+                
+                logger.debug(f"Parsed URL - Account: {account_name}, Container: {container_name}, Blob: {blob_name}")
+                
+                # Verify URL format is correct
+                if not all([account_name, container_name, blob_name]):
+                    logger.warning(f"URL parsing issue. Generated URL format may be incorrect: {blob_url}")
+                
+            except Exception as verify_err:
+                logger.warning(f"Error verifying model blob: {str(verify_err)}")
+            
             return blob_url, filename
         else:
-            logger.error(f"Failed to save model {model_name} to blob storage")
+            logger.error(f"Failed to save model {model_name} to blob storage. Upload returned None.")
             return None, None
     except Exception as e:
-        logger.error(f"Error saving model to blob: {str(e)}")
+        logger.error(f"Unexpected error saving model to blob: {str(e)}")
+        logger.error(traceback.format_exc())
         return None, None
 
 def configure_db_connection():
@@ -148,7 +196,7 @@ class RegressionModelCoordinator:
         """Train a specific regression model using its service"""
         model_url = self.model_services.get(model_name)
         if not model_url or not self._is_service_available(model_url):
-            logger.warning(f"Model service {model_name} is not available")
+            logger.warning(f"Model service {model_name} is not available at {model_url}")
             return None
         
         try:
@@ -161,7 +209,7 @@ class RegressionModelCoordinator:
             }
             
             # Call model service
-            logger.info(f"Training {model_name} model")
+            logger.info(f"Training {model_name} model at {model_url}")
             response = requests.post(
                 f"{model_url}/train",
                 json=train_data,
@@ -169,10 +217,12 @@ class RegressionModelCoordinator:
             )
             
             if response.status_code != 200:
-                logger.error(f"Error training {model_name} model: {response.text}")
+                logger.error(f"Error training {model_name} model. Status code: {response.status_code}")
+                logger.error(f"Response text: {response.text}")
                 return None
             
             result = response.json()
+            logger.info(f"Model {model_name} training response: {json.dumps(result, indent=2)}")
             
             # If the model has been trained successfully but doesn't have a model_url
             # (indicating it hasn't been saved to blob storage), load the model and save it
@@ -183,23 +233,41 @@ class RegressionModelCoordinator:
                 try:
                     # Try to download model from the service
                     model_download_url = f"{model_url}/download_model"
+                    logger.info(f"Attempting to download model from {model_download_url}")
+                    
                     download_response = requests.get(model_download_url, timeout=60)
                     
                     if download_response.status_code == 200:
+                        logger.info(f"Successfully downloaded model from {model_name} service. Content length: {len(download_response.content)} bytes")
+                        
+                        # Log content type and first few bytes for debugging
+                        content_type = download_response.headers.get('Content-Type', 'unknown')
+                        logger.debug(f"Response Content-Type: {content_type}")
+                        
+                        if content_type == 'application/json':
+                            logger.warning("Received JSON instead of binary model data. This might be an error response.")
+                            logger.debug(f"JSON response: {download_response.text[:500]}...")
+                        else:
+                            logger.debug(f"First 50 bytes (hex): {download_response.content[:50].hex()}")
+                        
                         # Save model to blob storage
                         model_bytes = io.BytesIO(download_response.content)
+                        logger.info(f"Created BytesIO object with {model_bytes.getbuffer().nbytes} bytes")
+                        
                         blob_url, filename = save_model_to_blob(model_bytes, model_name)
                         
                         if blob_url:
-                            logger.info(f"Saved {model_name} to blob storage: {blob_url}")
+                            logger.info(f"Successfully saved {model_name} to blob storage: {blob_url}")
                             result['model_url'] = blob_url
                             result['file_name'] = filename
                         else:
-                            logger.warning(f"Failed to save {model_name} to blob storage")
+                            logger.error(f"Failed to save {model_name} to blob storage")
                     else:
-                        logger.warning(f"Could not download model from service: {download_response.text}")
+                        logger.error(f"Could not download model from service. Status code: {download_response.status_code}")
+                        logger.error(f"Response: {download_response.text[:500]}...")
                 except Exception as e:
-                    logger.error(f"Error saving model to blob: {str(e)}")
+                    logger.error(f"Error downloading and saving model to blob: {str(e)}")
+                    logger.error(traceback.format_exc())
             
             return result
         except Exception as e:
