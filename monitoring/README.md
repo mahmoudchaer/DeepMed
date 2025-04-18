@@ -60,17 +60,12 @@ The system monitors the following DeepMed services:
    cd monitoring
    ```
 
-2. Start the monitoring service:
+2. Start all services (Monitoring, Prometheus, and Grafana):
    ```
    docker-compose up -d
    ```
 
-3. Start Prometheus and Grafana:
-   ```
-   docker-compose -f docker-compose-monitoring.yml up -d
-   ```
-
-4. Access the services:
+3. Access the services:
    - Monitoring Dashboard: http://localhost:5432
    - Prometheus: http://localhost:9090
    - Grafana: http://localhost:3000 (admin/deepmed)
@@ -114,11 +109,10 @@ The monitoring service exposes the following API endpoints:
 - `templates/` - HTML templates for the UI
 - `static/` - Static assets (if any)
 - `logs/` - Log files
-- `prometheus/` - Prometheus configuration
-- `grafana/` - Grafana configuration and dashboards
-- `Dockerfile` - Docker configuration
-- `docker-compose.yml` - Docker Compose configuration for the monitoring service
-- `docker-compose-monitoring.yml` - Docker Compose configuration for Prometheus and Grafana
+- `prometheus/` - Prometheus configuration and Dockerfile
+- `grafana/` - Grafana configuration, dashboards, and Dockerfile
+- `Dockerfile` - Docker configuration for the monitoring service
+- `docker-compose.yml` - Docker Compose configuration for all services
 - `requirements.txt` - Python dependencies
 
 ### Adding New Services
