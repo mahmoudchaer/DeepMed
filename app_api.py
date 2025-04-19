@@ -151,7 +151,9 @@ def cleanup_session_files():
     
     # Check for file paths in session
     file_keys = [
-        'uploaded_file', 'cleaned_file', 'selected_features_file', 'predictions_file'
+        'uploaded_file', 'cleaned_file', 'selected_features_file', 'predictions_file',
+        'uploaded_file_regression', 'cleaned_file_regression', 'selected_features_regression_file', 
+        'selected_features_regression_file_json', 'feature_importance_regression_file'
     ]
     
     for key in file_keys:
@@ -284,7 +286,11 @@ def index():
     
     # Only clear data-related keys, but preserve authentication
     data_keys = ['uploaded_file', 'cleaned_file', 'selected_features_file', 
-                'predictions_file', 'file_stats', 'data_columns']
+                'predictions_file', 'file_stats', 'data_columns',
+                'uploaded_file_regression', 'cleaned_file_regression', 
+                'selected_features_regression_file', 'selected_features_regression_file_json',
+                'feature_importance_regression_file', 'file_stats_regression', 
+                'data_columns_regression']
     
     for key in list(session.keys()):
         if key in data_keys:
@@ -293,11 +299,14 @@ def index():
     # Clean up any files from previous sessions
     cleanup_session_files()
     
-    # Check if we need to stay in the classification tab
+    # Check if we need to stay in a specific tab
     stay_tab = request.args.get('stay_tab')
     if stay_tab == 'classification':
         # If stay_tab is set to classification, redirect to the training page
         return redirect(url_for('training'))
+    elif stay_tab == 'regression':
+        # If stay_tab is set to regression, redirect to the regression training page
+        return redirect(url_for('train_regression'))
     
     # Otherwise, redirect to the welcome page as usual
     return redirect(url_for('welcome'))
@@ -528,14 +537,11 @@ def check_session_size(max_size=3000000):  # ~3MB limit
         logger.info(f"Session size after optimization: {get_session_size() / 1024:.2f} KB")
 
 def is_service_available(service_url):
-    """Check if a service is available by making a request to its health endpoint"""
+    """Check if a service is available"""
     try:
-        health_url = f"{service_url}/health"
-        logger.info(f"Checking service availability: {health_url}")
-        response = requests.get(health_url, timeout=5)  # Increased timeout
+        response = requests.get(f"{service_url}/health", timeout=2)
         return response.status_code == 200
-    except Exception as e:
-        logger.error(f"Service {service_url} is not available: {str(e)}")
+    except:
         return False
 
 # Create upload directory if it doesn't exist
@@ -547,13 +553,12 @@ DOWNLOADS_FOLDER = os.path.join('static', 'downloads')
 if not os.path.exists(DOWNLOADS_FOLDER):
     os.makedirs(DOWNLOADS_FOLDER)
 
-# Import modularized application components - MOVED TO THE END to avoid circular imports
-        
-if __name__ == "__main__":
-    # Import application components
+if __name__ == '__main__':
+    # Import application modules
     from app_tabular import *
     from app_images import *
     from app_others import *
+    from app_regression import *
     
     # Ensure the database exists
     with app.app_context():
@@ -566,4 +571,4 @@ if __name__ == "__main__":
     
     # Start the Flask app
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
