@@ -34,8 +34,7 @@ def augment_dataset():
     
     Expects a multipart/form-data POST with:
     - zipFile: A zip file with folders organized by class
-    - level: Augmentation level (1-5)
-    - numAugmentations: Number of augmentations per image
+    - level: Augmentation level (1-5) which determines both strength and number of augmentations
     
     Returns a zip file of the augmented dataset
     """
@@ -46,16 +45,12 @@ def augment_dataset():
         # Get the zip file from the request
         zip_file = request.files['zipFile']
         
-        # Get parameters with defaults
+        # Get the level parameter with default
         level = int(request.form.get('level', 3))
-        num_augmentations = int(request.form.get('numAugmentations', 2))
         
         # Validate parameters
         if level < 1 or level > 5:
             return jsonify({"error": "Augmentation level must be between 1 and 5"}), 400
-        
-        if num_augmentations < 1 or num_augmentations > 10:
-            return jsonify({"error": "Number of augmentations must be between 1 and 10"}), 400
         
         # Log the start of processing
         file_size = 0
@@ -90,12 +85,11 @@ def augment_dataset():
         
         start_time = time.time()
         
-        # Process the dataset
+        # Process the dataset - number of augmentations is determined by the level
         augmentor.process_dataset(
             zip_path=temp_input_zip.name,
             output_zip=temp_output_zip.name,
-            level=level,
-            num_augmentations=num_augmentations
+            level=level
         )
         
         processing_time = time.time() - start_time

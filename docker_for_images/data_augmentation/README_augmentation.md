@@ -13,8 +13,7 @@ The data augmentation service uses advanced image transformation techniques to g
 
 ## Features
 
-- Multiple augmentation levels (1-5) with increasing transformation intensity
-- Customizable number of augmentations per image
+- Multiple augmentation levels (1-5) controlling both transformation intensity and number of augmentations
 - Parallel processing for faster execution
 - Support for classification datasets organized in class folders
 - Interactive web interface with preview and progress tracking
@@ -46,17 +45,16 @@ The data augmentation service uses advanced image transformation techniques to g
 - **Augment Dataset**: `POST /augment`
   - Parameters:
     - `zipFile`: ZIP file containing images organized in class folders
-    - `level`: Augmentation level (1-5)
-    - `numAugmentations`: Number of augmentations per image (1-10)
+    - `level`: Augmentation level (1-5) which controls both transformation intensity and number of augmentations
   - Returns: ZIP file with augmented dataset
 
 ## Augmentation Levels
 
-1. **Level 1 - Light**: Basic flips and minimal brightness/contrast changes
-2. **Level 2 - Moderate**: Flips, slight rotations, and moderate brightness/contrast
-3. **Level 3 - Medium**: More rotation, scaling, shifting, and color adjustments
-4. **Level 4 - Strong**: Elastic transforms, noise, and significant geometric changes
-5. **Level 5 - Very Strong**: Maximum variation with all possible transforms
+1. **Level 1 - Light**: Basic flips and minimal brightness/contrast changes (1 augmentation per image)
+2. **Level 2 - Moderate**: Flips, slight rotations, and moderate brightness/contrast (2 augmentations per image)
+3. **Level 3 - Medium**: More rotation, scaling, shifting, and color adjustments (3 augmentations per image)
+4. **Level 4 - Strong**: Elastic transforms, noise, and significant geometric changes (4 augmentations per image)
+5. **Level 5 - Very Strong**: Maximum variation with all possible transforms (5 augmentations per image)
 
 ## Implementation Details
 
@@ -87,4 +85,4 @@ dataset.zip
 
 The output will be a ZIP file with the same structure but containing:
 - Original images
-- Augmented versions of each image 
+- Augmented versions of each image (number depends on the augmentation level) 

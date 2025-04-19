@@ -172,7 +172,6 @@ def process_augmentation():
     
     # Get form parameters
     level = request.form.get('level', '3')
-    num_augmentations = request.form.get('numAugmentations', '2')
     
     try:
         # Check if the augmentation service is available
@@ -192,8 +191,7 @@ def process_augmentation():
             m = MultipartEncoder(
                 fields={
                     'zipFile': (zip_file.filename, f, 'application/zip'),
-                    'level': level,
-                    'numAugmentations': num_augmentations
+                    'level': level
                 }
             )
             
@@ -286,7 +284,6 @@ def api_pipeline():
         # Get form parameters
         perform_augmentation = request.form.get('performAugmentation', 'false')
         augmentation_level = request.form.get('augmentationLevel', '3')
-        num_augmentations = request.form.get('numAugmentations', '2')
         num_classes = request.form.get('numClasses', '5')
         training_level = request.form.get('trainingLevel', '3')
         
@@ -302,7 +299,6 @@ def api_pipeline():
                     'zipFile': (zip_file.filename, f, 'application/zip'),
                     'performAugmentation': perform_augmentation,
                     'augmentationLevel': augmentation_level,
-                    'numAugmentations': num_augmentations,
                     'numClasses': num_classes,
                     'trainingLevel': training_level
                 }

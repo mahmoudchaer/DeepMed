@@ -73,8 +73,7 @@ def process_pipeline():
     Expects a multipart/form-data POST with:
     - zipFile: A zip file with folders organized by class
     - performAugmentation: "true" or "false" string to indicate whether to perform augmentation
-    - augmentationLevel: Augmentation level (1-5)
-    - numAugmentations: Number of augmentations per image (if augmenting)
+    - augmentationLevel: Augmentation level (1-5) which determines both strength and number of augmentations
     - numClasses: Number of classes in the dataset
     - trainingLevel: Training level (1-5)
     
@@ -100,7 +99,6 @@ def process_pipeline():
         # Get parameters with defaults
         perform_augmentation = request.form.get('performAugmentation', 'false').lower() == 'true'
         aug_level = int(request.form.get('augmentationLevel', 3))
-        num_augmentations = int(request.form.get('numAugmentations', 2))
         num_classes = int(request.form.get('numClasses', 5))
         training_level = int(request.form.get('trainingLevel', 3))
         
@@ -114,7 +112,7 @@ def process_pipeline():
         
         # Step 1: Perform augmentation if requested
         if perform_augmentation:
-            logger.info(f"Performing augmentation with level {aug_level} and {num_augmentations} augmentations per image")
+            logger.info(f"Performing augmentation with level {aug_level}")
             
             # Create a temp file for the augmented data
             temp_augmented_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
@@ -126,8 +124,7 @@ def process_pipeline():
                 m = MultipartEncoder(
                     fields={
                         'zipFile': (zip_file.filename, f, 'application/zip'),
-                        'level': str(aug_level),
-                        'numAugmentations': str(num_augmentations)
+                        'level': str(aug_level)
                     }
                 )
                 
@@ -394,7 +391,6 @@ if __name__ == '__main__':
     main()
 
 """
-#comment
             zf.writestr('predict.py', inference_code)
             
             # Add requirements.txt

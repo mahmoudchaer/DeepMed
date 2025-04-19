@@ -359,16 +359,26 @@ class ClassificationDatasetAugmentor:
         
         return class_dirs
     
-    def process_dataset(self, zip_path: str, output_zip: str, level: int, num_augmentations: int = 2):
+    def process_dataset(self, zip_path: str, output_zip: str, level: int, num_augmentations: int = None):
         """
         Process a zipped classification dataset and create a zip file of the augmented dataset
         
         Args:
             zip_path: Path to the zip file containing the dataset
             output_zip: Path to the output zip file
-            level: Augmentation level (1-5)
-            num_augmentations: Number of augmented versions to create for each image
+            level: Augmentation level (1-5) - also determines number of augmentations per image
+            num_augmentations: Optional override for number of augmented versions (if None, determined by level)
         """
+        # Automatically set number of augmentations based on level
+        if num_augmentations is None:
+            # Map level to number of augmentations:
+            # Level 1: 1 augmentation
+            # Level 2: 2 augmentations 
+            # Level 3: 3 augmentations
+            # Level 4: 4 augmentations
+            # Level 5: 5 augmentations
+            num_augmentations = level
+        
         # Create a temporary directory for processing
         temp_dir = Path(tempfile.mkdtemp())
         output_dir = temp_dir / "augmented_dataset"
@@ -462,7 +472,7 @@ def main():
         zip_path=zip_path,
         output_zip=output_zip,
         level=2,  # Augmentation level (1-5)
-        num_augmentations=2  # Number of augmented versions per image
+        num_augmentations=None  # Number of augmented versions per image
     )
 
 if __name__ == "__main__":
