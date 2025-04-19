@@ -372,187 +372,103 @@ def train_model(service_name, train_data):
 
 @app.route('/train', methods=['POST'])
 def train_models():
-    """Coordinate the training of multiple machine learning models with optional preprocessing"""
+    """Coordinate the training of multiple machine learning models"""
     try:
         # Get data from request
         data = request.json
         print(f"Received training request with data keys: {data.keys()}")
         
-        # Define URLs for preprocessing services
-        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
-        feature_selector_url = os.getenv("FEATURE_SELECTOR_URL", "http://feature_selector:5002")
-        anomaly_detector_url = os.getenv("ANOMALY_DETECTOR_URL", "http://anomaly_detector:5003")
+        if not data or 'data' not in data or 'target' not in data:
+            return jsonify({'error': 'Missing required data fields'}), 400
         
-        # Check if this is a request for full pipeline processing
-        if data.get('handle_preprocessing', False) and 'raw_data' in data:
-            print("Processing raw data with full preprocessing pipeline")
+        # Get user_id and run_name (required for database tracking)
+        user_id = data.get('user_id')
+        run_name = data.get('run_name', f"training_run_{time.strftime('%Y%m%d_%H%M%S')}")
+        
+        if not user_id:
+            return jsonify({'error': 'Missing user_id in request'}), 400
             
-            # Get preprocessing parameters
-            raw_data = data['raw_data']
-            target_column = data['target_column']
-            test_size = data.get('test_size', 0.2)
-            user_id = data.get('user_id')
-            run_id = data.get('run_id')
-            run_name = data.get('run_name', f"training_run_{time.strftime('%Y%m%d_%H%M%S')}")
-            
-            # Create training run in database if not provided
-            if not run_id:
-                if not user_id:
-                    return jsonify({'error': 'Missing user_id in request for new training run'}), 400
-                run_id = create_training_run(user_id, run_name)
-                if not run_id:
-                    return jsonify({'error': 'Failed to create training run in database'}), 500
-                print(f"Created new training run with ID {run_id}")
-            else:
-                print(f"Using provided training run ID {run_id}")
-            
-            # Initialize preprocessing results container
-            preprocessing_results = {}
-            
-            # 1. DATA CLEANING
-            print(f"Sending data to Data Cleaner at {data_cleaner_url}")
+        # Create training run in database
+        run_id = create_training_run(user_id, run_name)
+        if not run_id:
+            return jsonify({'error': 'Failed to create training run in database'}), 500
+        
+        # Enhanced debug logging
+        print(f"Training data shape: {len(data['data'].keys())} features, target shape: {len(data['target'])} samples")
+        print(f"Available features: {list(data['data'].keys())}")
+        print(f"First few target values: {data['target'][:5]}")
+        print(f"Created training run with ID {run_id} for user {user_id}")
+        
+        # Verify the training run was actually created and committed
+        # This ensures the row exists before we try to update it with the prompt
+        verify_training_run_created = False
+        try:
+            with app.app_context():
+                training_run = TrainingRun.query.get(run_id)
+                if training_run:
+                    verify_training_run_created = True
+                    print(f"Verified training run {run_id} was created successfully")
+                else:
+                    print(f"WARNING: Could not verify training run {run_id} was created")
+        except Exception as e:
+            print(f"Error verifying training run: {str(e)}")
+        
+        # Get test_size parameter (default to 0.2)
+        test_size = data.get('test_size', 0.2)
+        print(f"Using test_size: {test_size}")
+        
+        # Validate data
+        if not validate_data(data):
+            print("ERROR: Data validation failed")
+            return jsonify({'error': 'Invalid data format'}), 400
+        
+        # Transform data to format needed by model APIs
+        X_data = data['data']
+        y_data = data['target']
+        
+        # If data cleaning is needed, send to data cleaner API
+        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        cleaning_prompt = None
+        if data_cleaner_url:
             try:
-                cleaning_response = requests.post(
+                print(f"Sending data to data cleaner at {data_cleaner_url}")
+                
+                # Check if we have a previous prompt to use for consistent cleaning
+                previous_prompt = data.get('prompt')
+                
+                # Prepare payload for data cleaner
+                cleaner_payload = {
+                    'data': X_data,
+                    'target_column': 'target'  # We need to know which column is the target
+                }
+                
+                # Add previous prompt if available
+                if previous_prompt:
+                    cleaner_payload['prompt'] = previous_prompt
+                
+                # Send to data cleaner
+                response = requests.post(
                     f"{data_cleaner_url}/clean",
-                    json={"data": raw_data, "target_column": target_column},
+                    json=cleaner_payload,
                     timeout=60
                 )
                 
-                if cleaning_response.status_code != 200:
-                    return jsonify({"error": f"Data Cleaner error: {cleaning_response.text}"}), 500
-                
-                cleaning_result = cleaning_response.json()
-                cleaned_data = cleaning_result["data"]
-                cleaning_prompt = cleaning_result.get("prompt")
-                
-                # Save cleaning results for response
-                preprocessing_results["cleaned_data_summary"] = {
-                    "rows_before": len(raw_data),
-                    "rows_after": len(cleaned_data),
-                    "missing_values_handled": cleaning_result.get("report", {}).get("missing_values_handled", 0)
-                }
-                
-                # Save cleaning prompt to the database
-                if cleaning_prompt and run_id:
-                    save_cleaning_prompt(run_id, cleaning_prompt)
+                if response.status_code == 200:
+                    cleaner_result = response.json()
+                    X_data = cleaner_result['data']
                     
-                print(f"Data cleaning complete: {len(cleaned_data)} rows after cleaning")
+                    # Extract the cleaning prompt but save it later
+                    print("Data cleaning completed successfully")
+                    cleaning_prompt = cleaner_result.get('prompt')
+                    if cleaning_prompt:
+                        print(f"Received cleaning prompt - length: {len(cleaning_prompt)}")
+                        print(f"First 100 chars: {cleaning_prompt[:100]}...")
+                    else:
+                        print("No cleaning prompt was returned from data cleaner")
+                else:
+                    print(f"Data cleaner error: {response.text}")
             except Exception as e:
-                error_msg = f"Error in data cleaning step: {str(e)}"
-                print(error_msg)
-                return jsonify({"error": error_msg}), 500
-            
-            # 2. FEATURE SELECTION
-            print(f"Sending data to Feature Selector at {feature_selector_url}")
-            try:
-                # Prepare data for feature selection
-                X_data = [{k: v for k, v in record.items() if k != target_column} for record in cleaned_data]
-                y_data = [record[target_column] for record in cleaned_data]
-                
-                feature_response = requests.post(
-                    f"{feature_selector_url}/select_features",
-                    json={"data": X_data, "target": y_data, "target_name": target_column},
-                    timeout=120
-                )
-                
-                if feature_response.status_code != 200:
-                    return jsonify({"error": f"Feature Selector error: {feature_response.text}"}), 500
-                
-                feature_result = feature_response.json()
-                X_selected = feature_result["transformed_data"]
-                selected_features = list(X_selected[0].keys()) if X_selected else []
-                
-                # Process feature importance for visualization
-                feature_importance = []
-                for feature, importance in feature_result.get("feature_importances", {}).items():
-                    feature_importance.append({'Feature': feature, 'Importance': importance})
-                
-                # Save feature selection results for response
-                preprocessing_results["feature_importance"] = feature_importance
-                preprocessing_results["selected_features"] = selected_features
-                
-                print(f"Feature selection complete: {len(selected_features)} features selected")
-            except Exception as e:
-                error_msg = f"Error in feature selection step: {str(e)}"
-                print(error_msg)
-                return jsonify({"error": error_msg}), 500
-            
-            # 3. ANOMALY DETECTION
-            print(f"Sending data to Anomaly Detector at {anomaly_detector_url}")
-            try:
-                anomaly_response = requests.post(
-                    f"{anomaly_detector_url}/detect_anomalies",
-                    json={"data": X_selected},
-                    timeout=60
-                )
-                
-                if anomaly_response.status_code != 200:
-                    return jsonify({"error": f"Anomaly Detector error: {anomaly_response.text}"}), 500
-                
-                anomaly_results = anomaly_response.json()
-                
-                # Save anomaly detection results for response
-                preprocessing_results["anomaly_results"] = {
-                    "is_data_valid": anomaly_results.get("is_data_valid", True),
-                    "anomaly_percentage": anomaly_results.get("anomaly_report", {}).get("anomaly_percentage", 0)
-                }
-                
-                print(f"Anomaly detection complete: {preprocessing_results['anomaly_results']['anomaly_percentage']}% anomalies")
-            except Exception as e:
-                error_msg = f"Error in anomaly detection step: {str(e)}"
-                print(error_msg)
-                return jsonify({"error": error_msg}), 500
-            
-            # 4. PREPARE DATA FOR MODEL TRAINING
-            # Convert from list of objects to dictionary of lists for model training
-            X_data_dict = {feature: [record[feature] for record in X_selected] for feature in selected_features}
-            y_data_list = [record[target_column] for record in cleaned_data]
-            
-            # Prepare for model training
-            training_data = {
-                'data': X_data_dict,
-                'target': y_data_list,
-                'test_size': test_size,
-                'user_id': user_id,
-                'run_id': run_id,
-                'run_name': run_name
-            }
-            
-            print(f"Preprocessing complete, proceeding to model training with {len(selected_features)} features")
-        else:
-            # Original behavior - just handle the preprocessed data
-            print("Processing pre-processed data (original behavior)")
-            
-            if not data or 'data' not in data or 'target' not in data:
-                return jsonify({'error': 'Missing required data fields'}), 400
-            
-            # Get user_id and run_name (required for database tracking)
-            user_id = data.get('user_id')
-            run_name = data.get('run_name', f"training_run_{time.strftime('%Y%m%d_%H%M%S')}")
-            run_id = data.get('run_id')
-            
-            if not user_id:
-                return jsonify({'error': 'Missing user_id in request'}), 400
-            
-            # Create training run in database if not provided
-            if not run_id:
-                run_id = create_training_run(user_id, run_name)
-                if not run_id:
-                    return jsonify({'error': 'Failed to create training run in database'}), 500
-            
-            # Get test_size parameter (default to 0.2)
-            test_size = data.get('test_size', 0.2)
-            
-            # Validate data
-            if not validate_data(data):
-                print("ERROR: Data validation failed")
-                return jsonify({'error': 'Invalid data format'}), 400
-            
-            # Use data as provided
-            training_data = data
-            
-            # No preprocessing results to return
-            preprocessing_results = {}
+                print(f"Error with data cleaner: {str(e)}")
         
         # Get available model services
         model_services = get_model_services()
@@ -569,8 +485,8 @@ def train_models():
                 
                 # Create payload for model training
                 payload = {
-                    'data': training_data['data'],
-                    'target': training_data['target'],
+                    'data': X_data,
+                    'target': y_data,
                     'test_size': test_size
                 }
                 
@@ -586,6 +502,15 @@ def train_models():
                         metrics = model_result['model']['metrics']
                         print(f"Successfully trained {model_name} model. Metrics: {metrics}")
                         
+                        # Enhanced debugging for metrics
+                        print(f"DETAILED METRICS FOR {model_name}:")
+                        for metric_name, metric_value in metrics.items():
+                            print(f"  - {metric_name}: {metric_value} (type: {type(metric_value)})")
+                        
+                        # Debug - print types of metrics values
+                        for metric_name, metric_value in metrics.items():
+                            print(f"Metric {metric_name} is of type {type(metric_value)}")
+                            
                         # Ensure metrics are numeric
                         clean_metrics = {}
                         for metric_name, metric_value in metrics.items():
@@ -600,6 +525,9 @@ def train_models():
                         
                         # Replace original metrics with clean metrics
                         model_result['model']['metrics'] = clean_metrics
+                        
+                        # Store model data for later saving if it's one of the best
+                        model_data = model_result['model']
                     
                     models_results.append({
                         'model': model_result['model']
@@ -622,6 +550,10 @@ def train_models():
         # Successfully trained models - find and save the best
         print(f"Successfully trained {len(models_results)} models")
         
+        # Verify metrics for all model services - this is for debugging
+        available_services = get_model_services()
+        verify_model_metrics(available_services)
+        
         # Find the absolute best models for each metric across all architectures
         best_models = find_best_models(models_results)
         print(f"Found {len(best_models)} best models by metric")
@@ -630,19 +562,26 @@ def train_models():
         saved_best_models = save_best_models(best_models, user_id, run_id)
         print(f"Saved {len(saved_best_models)} best models to Azure Blob Storage")
         
+        # Now save the cleaning prompt after all models are trained
+        if cleaning_prompt and run_id:
+            print(f"Now saving prompt to database for run_id {run_id}")
+            result = save_cleaning_prompt(run_id, cleaning_prompt)
+            print(f"Prompt save result: {'Success' if result else 'Failed'}")
+        
         # Return combined results
         return jsonify({
             'models': models_results,
             'best_models': best_models,
             'saved_best_models': saved_best_models,
             'run_id': run_id,
-            'preprocessing_results': preprocessing_results,
             'errors': errors
         })
         
     except Exception as e:
         print(f"ERROR in train_models: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
 
 @app.route('/model_info', methods=['GET'])
 def model_info():
@@ -968,6 +907,8 @@ def save_best_models(best_models, user_id, run_id):
     except Exception as e:
         logger.error(f"Error in save_best_models: {str(e)}")
         return {}
+
+
 
 # Helper function to verify model metrics (for debugging)
 def verify_model_metrics(model_services):
