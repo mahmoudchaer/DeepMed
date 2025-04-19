@@ -83,6 +83,7 @@ def training():
     
     if not filepath:
         # If accessed directly without upload, show the upload interface
+        # Check services health for status display
         services_status = check_services()
         return render_template('index.html', services_status=services_status)
     
@@ -97,202 +98,369 @@ def training():
         session['test_size'] = 0.2
         
         try:
-            # Check if Model Coordinator service is available
-            logger.info("Checking required service: Model Coordinator")
-            if not is_service_available(MODEL_COORDINATOR_URL):
-                error_message = "The Model Coordinator service is not available. Cannot proceed with training."
+            # Check if required services are available
+            required_services = {
+                "Data Cleaner": DATA_CLEANER_URL,
+                "Feature Selector": FEATURE_SELECTOR_URL,
+                "Anomaly Detector": ANOMALY_DETECTOR_URL,
+                "Model Coordinator": MODEL_COORDINATOR_URL  # Changed from Model Trainer to Model Coordinator
+            }
+            
+            logger.info("Checking required services before training:")
+            unavailable_services = []
+            
+            for service_name, service_url in required_services.items():
+                logger.info(f"Checking service: {service_name} at {service_url}")
+                if not is_service_available(service_url):
+                    logger.error(f"Service {service_name} at {service_url} is not available")
+                    unavailable_services.append(service_name)
+                else:
+                    logger.info(f"Service {service_name} is available")
+            
+            if unavailable_services:
+                error_message = f"The following services are not available: {', '.join(unavailable_services)}. Cannot proceed with training."
                 logger.error(error_message)
                 flash(error_message, 'error')
                 return redirect(url_for('training'))
-            else:
-                logger.info("Model Coordinator service is available.")
+            
+            # DEBUG: Check which model services are available through the coordinator
+            try:
+                coordinator_health_response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=5)
+                if coordinator_health_response.status_code == 200:
+                    coordinator_health = coordinator_health_response.json()
+                    if "model_services" in coordinator_health:
+                        for model, status in coordinator_health["model_services"].items():
+                            logger.info(f"Model service {model}: {status}")
+                    else:
+                        logger.warning("Model services not found in coordinator health response")
+            except Exception as e:
+                logger.error(f"Error checking model services: {str(e)}")
+            
+            # 1. CLEAN DATA (via Data Cleaner API)
+            logger.info(f"Sending data to Data Cleaner API")
+            # Convert data to records - just a plain dictionary
+            data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
+            # Use our safe request method
+            response = safe_requests_post(
+                f"{DATA_CLEANER_URL}/clean",
+                {
+                    "data": data_records,
+                    "target_column": target_column
+                },
+                timeout=60
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Data Cleaner API error: {response.json().get('error', 'Unknown error')}")
+            
+            cleaning_result = response.json()
+            cleaned_data = pd.DataFrame.from_dict(cleaning_result["data"])
+            
+            # Clean up previous cleaned file if exists
+            if 'cleaned_file' in session and os.path.exists(session['cleaned_file']):
+                try:
+                    os.remove(session['cleaned_file'])
+                except:
+                    pass
+                    
+            cleaned_filepath = get_temp_filepath(extension='.csv')
+            cleaned_data.to_csv(cleaned_filepath, index=False)
+            session['cleaned_file'] = cleaned_filepath
+            
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Data Cleaner API: {data_records[:5]}")
+            
+            # 2. FEATURE SELECTION (via Feature Selector API)
+            logger.info(f"Sending data to Feature Selector API")
+            X = cleaned_data.drop(columns=[target_column])
+            y = cleaned_data[target_column]
+            
+            # Convert X and y to simple Python structures
+            X_records = X.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X), None).to_dict(orient='records')
+            y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
+            
+            # Use our safe request method
+            response = safe_requests_post(
+                f"{FEATURE_SELECTOR_URL}/select_features",
+                {
+                    "data": X_records,
+                    "target": y_list,
+                    "target_name": target_column
+                },
+                timeout=120
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Feature Selector API error: {response.json().get('error', 'Unknown error')}")
+            
+            feature_result = response.json()
+            X_selected = pd.DataFrame.from_dict(feature_result["transformed_data"])
+            
+            # Store selected features in session
+            selected_features = X_selected.columns.tolist()
+            
+            # Save selected features to file to prevent session bloat
+            selected_features_file_json = save_to_temp_file(selected_features, 'selected_features')
+            session['selected_features_file_json'] = selected_features_file_json
+            # Use a reference in session to avoid storing large data
+            session['selected_features'] = f"[{len(selected_features)} features]"
+            
+            # Store feature importances for visualization
+            feature_importance = []
+            for feature, importance in feature_result["feature_importances"].items():
+                feature_importance.append({'Feature': feature, 'Importance': importance})
+            
+            # Save feature importance to file
+            feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance')
+            session['feature_importance_file'] = feature_importance_file
+            
+            # Clean up previous selected features file if exists
+            if 'selected_features_file' in session and os.path.exists(session['selected_features_file']):
+                try:
+                    os.remove(session['selected_features_file'])
+                except:
+                    pass
+                    
+            selected_features_filepath = get_temp_filepath(extension='.csv')
+            X_selected.to_csv(selected_features_filepath, index=False)
+            session['selected_features_file'] = selected_features_filepath
+            
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Feature Selector API: {X_records[:5]}, Target: {y_list[:5]}")
+            
+            # 3. ANOMALY DETECTION (via Anomaly Detector API)
+            logger.info(f"Sending data to Anomaly Detector API")
+            # Convert to simple Python structure
+            X_selected_records = X_selected.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_selected), None).to_dict(orient='records')
 
-            # Load the original raw data
-            raw_data, _ = load_data(filepath)
-            # Convert data to records suitable for JSON serialization
-            # Handle potential NaNs/Infs that JSON cannot serialize directly
-            raw_data_records = raw_data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(raw_data), None).to_dict(orient='records')
+            # Use our safe request method
+            response = safe_requests_post(
+                f"{ANOMALY_DETECTOR_URL}/detect_anomalies",
+                {
+                    "data": X_selected_records
+                },
+                timeout=60
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Anomaly Detector API error: {response.json().get('error', 'Unknown error')}")
+            
+            anomaly_results = response.json()
+            session['anomaly_results'] = {
+                'is_data_valid': anomaly_results["is_data_valid"],
+                'anomaly_percentage': anomaly_results["anomaly_report"]["anomaly_percentage"]
+            }
+            
+            # Add logging to verify data being sent to APIs
+            logger.info(f"Data being sent to Anomaly Detector API: {X_selected_records[:5]}")
+            
+            # 4. MODEL TRAINING (via Model Coordinator API instead of Model Trainer API)
+            logger.info(f"Sending data to Model Coordinator API")
+            
+            # Prepare data for model coordinator
+            X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
+            y_data = y.tolist()
 
-            # --- Create Training Run Entry ---
+            # Extract original dataset filename from the temporary filepath
             import re
             temp_filepath = session.get('uploaded_file', '')
+            # The filepath format is typically: UPLOAD_FOLDER/uuid_originalfilename
+            # Extract the original filename portion
             original_filename = ""
             if temp_filepath:
+                # Match the pattern uuid_originalfilename
                 match = re.search(r'[a-f0-9-]+_(.+)$', os.path.basename(temp_filepath))
                 if match:
                     original_filename = match.group(1)
                 else:
+                    # Fallback to just basename if pattern doesn't match
                     original_filename = os.path.basename(temp_filepath)
 
+            # Add direct SQL insert to ensure training_run is populated
             run_name = original_filename if original_filename else f"Training Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             user_id = current_user.id
-            local_run_id = None # Initialize run_id
-
-            # Direct database connection to create the training run
+            
+            # Direct database connection to ensure the training run is saved
             try:
+                # Create a temporary app context for database operations
                 with app.app_context():
+                    # Create training run entry
                     training_run = TrainingRun(
                         user_id=user_id,
                         run_name=run_name,
-                        prompt=None # Prompt might be set later if applicable
+                        prompt=None
                     )
                     db.session.add(training_run)
                     db.session.commit()
+                    
+                    # Store the run_id for model saving
                     local_run_id = training_run.id
                     logger.info(f"Directly added training run to database with ID {local_run_id}")
+                    
+                    # Store preprocessing data for this run
+                    try:
+                        # Prepare data for storage
+                        original_columns = list(data.columns)
+                        
+                        # Save encoding mappings
+                        encoding_mappings = cleaning_result.get("encoding_mappings", {})
 
-                    # Verify entry was created
+                        # If there are too many mappings, limit or compress them
+                        if len(json.dumps(encoding_mappings)) > 10000:  # Set a reasonable size limit
+                            # Option 1: Only keep mappings for columns with fewer than 50 unique values
+                            reduced_mappings = {}
+                            for col, mapping in encoding_mappings.items():
+                                if len(mapping) < 50:
+                                    reduced_mappings[col] = mapping
+                            encoding_mappings = reduced_mappings
+
+                        # Create cleaner_config without encoding_mappings
+                        cleaner_config = {
+                            "llm_instructions": cleaning_result.get("prompt", ""),
+                            "options": cleaning_result.get("options", {}),
+                            "handle_missing": True,
+                            "handle_outliers": True,
+                            "encoding_mappings_summary": {col: len(mapping) for col, mapping in encoding_mappings.items()}  # Just store summary
+                        }
+
+                        # Save encoding_mappings to a separate file
+                        if encoding_mappings:
+                            try:
+                                # Create a file path for this run's encoding mappings
+                                mappings_dir = os.path.join('static', 'temp', 'mappings')
+                                os.makedirs(mappings_dir, exist_ok=True)
+                                mappings_file = os.path.join(mappings_dir, f'encoding_mappings_{local_run_id}.json')
+                                
+                                with open(mappings_file, 'w') as f:
+                                    json.dump(encoding_mappings, f)
+                                
+                                # Add file reference to cleaner_config
+                                cleaner_config["encoding_mappings_file"] = mappings_file
+                                logger.info(f"Saved encoding mappings to {mappings_file}")
+                            except Exception as e:
+                                logger.error(f"Error saving encoding mappings to file: {str(e)}")
+                                # Continue anyway, we'll just have a less detailed cleaner_config
+
+                        # Create preprocessing data record
+                        preprocessing_data = PreprocessingData(
+                            run_id=local_run_id,
+                            user_id=user_id,
+                            original_columns=json.dumps(original_columns),
+                            cleaner_config=json.dumps(cleaner_config),
+                            feature_selector_config=json.dumps(feature_result.get("options", {})),
+                            selected_columns=json.dumps(selected_features),
+                            cleaning_report=json.dumps(cleaning_result.get("report", {}))
+                        )
+                        db.session.add(preprocessing_data)
+                        db.session.commit()
+                        logger.info(f"Stored preprocessing data for run ID {local_run_id}")
+                    except Exception as pp_error:
+                        logger.error(f"Error saving preprocessing data: {str(pp_error)}")
+                    
+                    # Verify entry was created by checking the database
                     verification = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
                     if verification:
                         logger.info(f"Verified training run in database: {verification.id}, {verification.run_name}")
                     else:
-                        logger.warning(f"Could not verify training run {local_run_id} in database after commit")
-
+                        logger.warning(f"Could not verify training run in database after commit")
+                    
+                    # Try to diagnose the issue if verification failed
+                    if not verification:
+                        # Check if database is accessible
+                        db.session.execute("SELECT 1")
+                        logger.info("Database connection is working")
+                        
+                        # Check table structure
+                        logger.info("Attempting to check training_run table structure")
+                        table_info = db.session.execute("DESCRIBE training_run").fetchall()
+                        logger.info(f"Table structure: {table_info}")
             except Exception as e:
                 logger.error(f"Error adding training run directly to database: {str(e)}")
-                # Optionally, add fallback or flash error
-                flash("Failed to create a training run record in the database. Cannot proceed.", 'error')
-                return redirect(url_for('training'))
-
-            if not local_run_id:
-                 flash("Failed to obtain a valid training run ID. Cannot proceed.", 'error')
-                 return redirect(url_for('training'))
-
-            # --- Call Model Coordinator for Preprocessing and Training ---
-            logger.info(f"Sending data to Model Coordinator API for preprocessing and training (Run ID: {local_run_id})")
-            # Use our safe request method
-            # We assume the Model Coordinator has a new '/preprocess_and_train' endpoint
-            coordinator_payload = {
-                "data": raw_data_records,
-                "target_column": target_column,
-                "test_size": session['test_size'],
-                "user_id": user_id,
-                "run_name": run_name,
-                "run_id": local_run_id # Pass the created run_id
-            }
-
-            # Log payload size estimate (optional debug)
-            try:
-                 payload_size_mb = len(json.dumps(coordinator_payload)) / (1024 * 1024)
-                 logger.info(f"Payload size to coordinator: {payload_size_mb:.2f} MB")
-            except Exception as size_err:
-                 logger.warning(f"Could not estimate payload size: {size_err}")
-
-
-            response = safe_requests_post(
-                f"{MODEL_COORDINATOR_URL}/preprocess_and_train", # NEW ENDPOINT
-                coordinator_payload,
-                timeout=1800  # Allow ample time (30 mins) for full pipeline
-            )
-
-            if response.status_code != 200:
-                error_msg = f"Model Coordinator API error: {response.json().get('error', 'Unknown error')}"
-                logger.error(error_msg)
-                # Attempt to roll back the training run? Or mark it as failed?
+                # Try with direct SQL as a fallback
                 try:
-                    with app.app_context():
-                        run_to_update = db.session.query(TrainingRun).filter_by(id=local_run_id).first()
-                        if run_to_update:
-                            run_to_update.status = 'FAILED' # Assuming a status field exists
-                            run_to_update.status_message = error_msg[:500] # Limit message size
-                            db.session.commit()
-                            logger.info(f"Marked TrainingRun {local_run_id} as FAILED.")
-                except Exception as db_err:
-                     logger.error(f"Failed to mark TrainingRun {local_run_id} as FAILED: {db_err}")
-                raise Exception(error_msg)
-
-            # Process the combined results from the Model Coordinator
-            coordinator_result = response.json()
-
-            # --- Save Preprocessing Data ---
-            # Assume coordinator_result contains necessary preprocessing info
-            # e.g., selected_features, cleaner_config, feature_selector_config, cleaning_report
-            try:
-                with app.app_context():
-                    # Extract required info - use .get() for safety
-                    original_columns = list(raw_data.columns)
-                    selected_features = coordinator_result.get("selected_features", [])
-                    cleaner_config = coordinator_result.get("cleaner_config", {}) # Expect coordinator to provide this structure
-                    feature_selector_config = coordinator_result.get("feature_selector_config", {}) # Expect coordinator to provide this
-                    cleaning_report = coordinator_result.get("cleaning_report", {}) # Expect coordinator to provide this
-                    # Handle encoding mappings - maybe coordinator saved to file and provides path?
-                    # Or provides a summary like before. Assume summary for now.
-                    if "encoding_mappings" in cleaner_config:
-                         # Assume coordinator handled large mappings and provides summary/path
-                         pass # Use the config as provided by coordinator
-
-
-                    # Create preprocessing data record
-                    preprocessing_data = PreprocessingData(
-                        run_id=local_run_id,
-                        user_id=user_id,
-                        original_columns=json.dumps(original_columns),
-                        # Safely serialize potentially complex dicts
-                        cleaner_config=json.dumps(cleaner_config, cls=SafeJSONEncoder, default=str),
-                        feature_selector_config=json.dumps(feature_selector_config, cls=SafeJSONEncoder, default=str),
-                        selected_columns=json.dumps(selected_features),
-                        cleaning_report=json.dumps(cleaning_report, cls=SafeJSONEncoder, default=str)
+                    import pymysql
+                    # Get database credentials from environment variables
+                    MYSQL_USER = os.getenv("MYSQL_USER")
+                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+                    MYSQL_HOST = os.getenv("MYSQL_HOST")
+                    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
+                    MYSQL_DB = os.getenv("MYSQL_DB")
+                    
+                    # Connect to database
+                    conn = pymysql.connect(
+                        host=MYSQL_HOST,
+                        user=MYSQL_USER,
+                        password=MYSQL_PASSWORD,
+                        port=MYSQL_PORT,
+                        database=MYSQL_DB
                     )
-                    db.session.add(preprocessing_data)
-                    db.session.commit()
-                    logger.info(f"Stored preprocessing data for run ID {local_run_id}")
-            except Exception as pp_error:
-                # Log error, but don't necessarily stop the process if model results are okay
-                logger.error(f"Error saving preprocessing data for run {local_run_id}: {str(pp_error)}")
-                # Flash a warning?
-                flash(f"Warning: Could not save detailed preprocessing data for run {local_run_id}. Model results might still be available.", 'warning')
+                    cursor = conn.cursor()
+                    
+                    # Insert training run
+                    cursor.execute(
+                        "INSERT INTO training_run (user_id, run_name, prompt, created_at) VALUES (%s, %s, %s, NOW())",
+                        (user_id, run_name, None)
+                    )
+                    conn.commit()
+                    local_run_id = cursor.lastrowid
+                    logger.info(f"Added training run using direct SQL: {local_run_id}")
+                    
+                    cursor.close()
+                    conn.close()
+                except Exception as sql_error:
+                    logger.error(f"Error with direct SQL approach: {str(sql_error)}")
+                    local_run_id = None
 
-
-            # --- Handle Model Results ---
-            # Extract model results part from the coordinator's response
-            # Assuming the structure is similar to before, nested within coordinator_result
-            model_result = coordinator_result.get("model_training_results", {}) # Adjust key if needed
-
+            # Use our safe request method
+            response = safe_requests_post(
+                f"{MODEL_COORDINATOR_URL}/train",
+                {
+                    "data": X_data,
+                    "target": y_data,
+                    "test_size": session['test_size'],
+                    "user_id": current_user.id,
+                    "run_name": run_name
+                },
+                timeout=1800  # Model training can take time
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Model Coordinator API error: {response.json().get('error', 'Unknown error')}")
+            
+            # Store the complete model results in session
+            model_result = response.json()
+            
             # Add code to ensure models are saved for this run properly
-            from app_others import ensure_training_models_saved # Keep this import local
-
-            # Check if models were saved (based on the response structure)
-            if model_result and model_result.get('saved_best_models'):
-                 # Use the local_run_id we created
-                 with app.app_context():
-                     ensure_training_models_saved(user_id, local_run_id, model_result)
-                     logger.info(f"Ensured TrainingModel entries saved for run {local_run_id}")
-
-                 # Save the run ID to session for model_selection page
-                 session['last_training_run_id'] = local_run_id
-                 logger.info(f"Set last_training_run_id in session: {local_run_id}")
-            else:
-                 logger.warning(f"No saved models reported by coordinator for run {local_run_id}. Skipping TrainingModel entries.")
-                 # Ensure last_training_run_id is still set if we want to show results page anyway
-                 session['last_training_run_id'] = local_run_id
-
-
-            # Save processed results (the whole coordinator response might be useful)
-            # Be mindful of session size limit! Storing the full coordinator_result might be too large.
-            # Let's only store the model_result part for now.
-            # If other parts are needed on the results page, they should be loaded from DB using run_id.
-            session['model_results'] = model_result # Store only the model training part
-
-            # --- Clean up intermediate session keys (no longer used) ---
-            session.pop('cleaned_file', None)
-            session.pop('selected_features', None) # Pop placeholder string if it existed
-            session.pop('selected_features_file_json', None)
-            session.pop('feature_importance_file', None)
-            session.pop('selected_features_file', None)
-            session.pop('anomaly_results', None)
-            # Keep 'uploaded_file', 'file_stats', 'target_column', 'test_size', 'last_training_run_id', 'model_results'
-            # Keep AI recommendations file key if used
-            # session.pop('ai_recommendations_file', None) # Keep this as GET uses it
-
-            # Ensure session size is okay after changes
-            check_session_size()
-
+            # This will be implemented in the app_others.py
+            from app_others import ensure_training_models_saved
+            
+            # Check if we need to ensure models are saved for the coordinator's run_id
+            if 'saved_best_models' in model_result and model_result['saved_best_models']:
+                # Use either the coordinator's run_id or our local one
+                run_id_to_use = model_result.get('run_id', local_run_id)
+                if run_id_to_use:
+                    # Ensure all 4 models are properly saved to the database
+                    with app.app_context():
+                        ensure_training_models_saved(user_id, run_id_to_use, model_result)
+                    
+                    # Save the run ID to session for model_selection page
+                    session['last_training_run_id'] = run_id_to_use
+                    
+                    # If we have our local run_id, also ensure models are saved for it
+                    if local_run_id and local_run_id != run_id_to_use:
+                        with app.app_context():
+                            ensure_training_models_saved(user_id, local_run_id, model_result)
+                else:
+                    logger.warning("No run_id available to save models")
+            
+            # Save processed results to session
+            session['model_results'] = model_result
+            
             return redirect(url_for('model_selection'))
-
+            
         except Exception as e:
-            logger.error(f"Error processing data via Model Coordinator: {str(e)}", exc_info=True)
+            logger.error(f"Error processing data: {str(e)}", exc_info=True)
             flash(f"Error processing data: {str(e)}", 'error')
-            # Redirect back to training page to allow retrying or choosing different options
             return redirect(url_for('training'))
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
@@ -378,7 +546,25 @@ def tabular_prediction():
 @login_required
 def api_predict_tabular():
     """API endpoint for tabular prediction using custom models"""
-    # Simply forward the request to the predictor service
+    # Check for file uploads
+    if 'model_package' not in request.files or 'input_file' not in request.files:
+        return jsonify({"error": "Both model package and input file are required"}), 400
+    
+    model_package = request.files['model_package']
+    input_file = request.files['input_file']
+    
+    if not model_package.filename or not input_file.filename:
+        return jsonify({"error": "Both model package and input file must be selected"}), 400
+    
+    # Validate file extensions
+    if not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    if not (input_file.filename.lower().endswith('.xlsx') or 
+            input_file.filename.lower().endswith('.xls') or 
+            input_file.filename.lower().endswith('.csv')):
+        return jsonify({"error": "Input file must be an Excel or CSV file"}), 400
+    
     try:
         # Define the predictor service URL
         predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
@@ -387,17 +573,45 @@ def api_predict_tabular():
         if not is_service_available(predictor_service_url):
             return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
         
-        # Forward the files and form data directly
+        logger.info(f"Starting tabular prediction for model: {model_package.filename} and input: {input_file.filename}")
+        
+        # Forward the files to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip'),
+            'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
+        }
+        
+        # Add selected encoding column if provided
+        data = {}
+        encoding_column = request.form.get('encoding_column')
+        if encoding_column:
+            data['encoding_column'] = encoding_column
+            logger.info(f"Using encoding column: {encoding_column}")
+        
+        # Send request to the predictor service
         response = requests.post(
             f"{predictor_service_url}/predict",
-            files={name: (f.filename, f.stream, f.content_type) 
-                  for name, f in request.files.items()},
-            data=request.form,
+            files=files,
+            data=data,
             timeout=600  # 10 minute timeout
         )
         
-        # Return the predictor service response directly
-        return jsonify(response.json()), response.status_code
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error in prediction service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in prediction service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return prediction results (CSV content)
+        result = response.json()
+        
+        return jsonify(result)
         
     except Exception as e:
         logger.error(f"Error in tabular prediction: {str(e)}", exc_info=True)
@@ -407,7 +621,14 @@ def api_predict_tabular():
 @login_required
 def api_extract_encodings():
     """API endpoint to extract encoding maps from a model package"""
-    # Simply forward the request to the predictor service
+    if 'model_package' not in request.files:
+        return jsonify({"error": "Model package file is required"}), 400
+    
+    model_package = request.files['model_package']
+    
+    if not model_package.filename or not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
     try:
         # Define the predictor service URL
         predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
@@ -416,16 +637,36 @@ def api_extract_encodings():
         if not is_service_available(predictor_service_url):
             return jsonify({"error": "Tabular prediction service is not available. Please try again later."}), 503
         
-        # Forward the files directly
+        logger.info(f"Extracting encodings from model package: {model_package.filename}")
+        
+        # Forward the file to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip')
+        }
+        
+        # Send request to the predictor service
         response = requests.post(
             f"{predictor_service_url}/extract_encodings",
-            files={name: (f.filename, f.stream, f.content_type) 
-                  for name, f in request.files.items()},
+            files=files,
             timeout=60  # 1 minute timeout
         )
         
-        # Return the predictor service response directly
-        return jsonify(response.json()), response.status_code
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error extracting encodings"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error extracting encodings (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return encoding maps
+        result = response.json()
+        
+        return jsonify(result)
         
     except Exception as e:
         logger.error(f"Error extracting encodings: {str(e)}", exc_info=True)
