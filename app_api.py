@@ -325,6 +325,54 @@ def about():
     """About page """
     return render_template('about.html')
 
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy policy page"""
+    return render_template('privacy_policy.html')
+
+@app.route('/terms-of-service')
+def terms_of_service():
+    """Terms of service page"""
+    return render_template('terms_of_service.html')
+
+@app.route('/cookie-policy')
+def cookie_policy():
+    """Cookie policy page"""
+    return render_template('cookie_policy.html')
+
+@app.route('/documentation')
+def documentation():
+    """Documentation page"""
+    return render_template('documentation.html')
+
+@app.route('/blog')
+def blog():
+    """Blog page - to be implemented"""
+    # Placeholder for future blog implementation
+    return render_template('coming_soon.html', page_title="Blog", 
+                          message="Our blog is coming soon! Check back for articles and case studies.")
+
+@app.route('/case-studies')
+def case_studies():
+    """Case studies page - to be implemented"""
+    # Placeholder for future case studies implementation
+    return render_template('coming_soon.html', page_title="Case Studies", 
+                          message="Our case studies section is under development. Stay tuned for real-world applications of DeepMed.")
+
+@app.route('/api-docs')
+def api_docs():
+    """API documentation page - to be implemented"""
+    # Placeholder for future API docs implementation
+    return render_template('coming_soon.html', page_title="API Documentation", 
+                          message="Our API documentation is currently being developed. It will be available soon.")
+
+@app.route('/support')
+def support():
+    """Support page - to be implemented"""
+    # Placeholder for future support implementation
+    return render_template('coming_soon.html', page_title="Support", 
+                          message="Our dedicated support portal is coming soon. For now, please contact support@deepmed.ai for assistance.")
+
 @app.route('/home')
 def home():
     """Home page - accessible to everyone, logged in or not"""

@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Case Studies{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .case-studies-section {
+        padding: 3rem 0;
+    }
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .case-card {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        margin-bottom: 2rem;
+    }
+
+    .case-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .case-img-container {
+        height: 220px;
+        overflow: hidden;
+    }
+
+    .case-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .case-card:hover .case-img {
+        transform: scale(1.05);
+    }
+
+    .case-content {
+        padding: 1.5rem;
+    }
+
+    .case-category {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        border-radius: 1rem;
+        background-color: rgba(13, 110, 253, 0.2);
+        color: #0d6efd;
+        margin-right: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .case-title {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        line-height: 1.4;
+    }
+
+    .case-excerpt {
+        color: #c9d1d9;
+        margin-bottom: 1.5rem;
+    }
+
+    .metrics-container {
+        display: flex;
+        justify-content: space-between;
+        margin: 1.5rem 0;
+    }
+
+    .metric {
+        text-align: center;
+        padding: 0.75rem;
+        background-color: rgba(13, 17, 23, 0.6);
+        border-radius: 0.5rem;
+        width: 32%;
+    }
+
+    .metric-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: #0d6efd;
+    }
+
+    .metric-label {
+        font-size: 0.85rem;
+        color: #8b949e;
+    }
+
+    .testimonial-container {
+        background-color: rgba(13, 17, 23, 0.6);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        position: relative;
+        margin-top: 2rem;
+    }
+
+    .testimonial-text {
+        font-style: italic;
+        margin-bottom: 1rem;
+    }
+
+    .testimonial-author {
+        display: flex;
+        align-items: center;
+    }
+
+    .author-img {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        margin-right: 1rem;
+    }
+
+    .author-name {
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+
+    .author-title {
+        font-size: 0.85rem;
+        color: #8b949e;
+    }
+
+    .quote-icon {
+        font-size: 3rem;
+        color: rgba(13, 110, 253, 0.2);
+        position: absolute;
+        top: -15px;
+        left: 15px;
+    }
+
+    .featured-case {
+        margin-bottom: 4rem;
+    }
+
+    .featured-case-inner {
+        background: linear-gradient(135deg, rgba(22, 27, 34, 0.9), rgba(13, 17, 23, 0.9));
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1.5rem;
+        overflow: hidden;
+    }
+
+    .featured-img-container {
+        height: 400px;
+    }
+
+    .featured-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .featured-content {
+        padding: 2rem;
+    }
+
+    .featured-title {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .featured-metrics {
+        display: flex;
+        margin-bottom: 1.5rem;
+    }
+
+    .featured-metric {
+        text-align: center;
+        padding: 1rem;
+        width: 33.33%;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .featured-metric:last-child {
+        border-right: none;
+    }
+
+    .featured-metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .featured-metric-label {
+        font-size: 0.9rem;
+        color: #8b949e;
+    }
+
+    .filter-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 3rem;
+    }
+
+    .filter-btn {
+        margin: 0 0.5rem;
+        padding: 0.5rem 1.25rem;
+        border-radius: 2rem;
+        background-color: rgba(22, 27, 34, 0.8);
+        color: #e6edf3;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="case-studies-section">
+    <div class="container">
+        <!-- Header -->
+        <div class="section-header">
+            <h1 class="display-4 fw-bold">Customer <span class="gradient-text">Success Stories</span></h1>
+            <p class="lead text-muted">Discover how leading healthcare organizations are leveraging DeepMed's AI platform to transform patient care</p>
+        </div>
+
+        <!-- Featured Case Study -->
+        <div class="featured-case">
+            <div class="row">
+                <div class="col-lg-10 mx-auto">
+                    <div class="featured-case-inner">
+                        <div class="row g-0">
+                            <div class="col-md-6">
+                                <div class="featured-img-container">
+                                    <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=800&q=80" class="featured-img" alt="Mayo Clinic">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="featured-content">
+                                    <span class="case-category">Featured Case Study</span>
+                                    <span class="case-category">Hospital Network</span>
+                                    <h2 class="featured-title">Mayo Clinic: Revolutionizing Radiological Diagnostics with AI</h2>
+                                    <p class="case-excerpt">Mayo Clinic partnered with DeepMed to implement our advanced AI imaging platform across their network of 20 hospitals, dramatically improving diagnostic accuracy and reducing turnaround times.</p>
+                                    
+                                    <div class="featured-metrics">
+                                        <div class="featured-metric">
+                                            <div class="featured-metric-value">94%</div>
+                                            <div class="featured-metric-label">Accuracy Improvement</div>
+                                        </div>
+                                        <div class="featured-metric">
+                                            <div class="featured-metric-value">30%</div>
+                                            <div class="featured-metric-label">Faster Diagnosis</div>
+                                        </div>
+                                        <div class="featured-metric">
+                                            <div class="featured-metric-value">$2.4M</div>
+                                            <div class="featured-metric-label">Annual Savings</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="testimonial-container">
+                                        <div class="quote-icon">❝</div>
+                                        <p class="testimonial-text">"DeepMed's AI platform has completely transformed our radiological workflow. The accuracy and speed of diagnosis have improved dramatically, allowing our specialists to focus on complex cases while ensuring no abnormalities are missed."</p>
+                                        <div class="testimonial-author">
+                                            <img src="https://randomuser.me/api/portraits/men/42.jpg" alt="Dr. Robert Thompson" class="author-img">
+                                            <div>
+                                                <p class="author-name">Dr. Robert Thompson</p>
+                                                <p class="author-title">Chief of Radiology, Mayo Clinic</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <a href="#" class="btn btn-primary">Read Full Case Study</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filter Buttons -->
+        <div class="filter-container">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">Hospitals</button>
+            <button class="filter-btn">Imaging Centers</button>
+            <button class="filter-btn">Research Institutions</button>
+            <button class="filter-btn">Specialty Clinics</button>
+        </div>
+
+        <!-- Case Studies Grid -->
+        <div class="row">
+            <!-- Case Study 1 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1504439468489-c8920d796a29?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="Cleveland Clinic">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Hospital</span>
+                        <h3 class="case-title">Cleveland Clinic: Early Cancer Detection Program</h3>
+                        <p class="case-excerpt">Implementation of DeepMed's lung nodule detection AI across Cleveland Clinic's pulmonary department led to earlier detection of malignant nodules.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">47%</div>
+                                <div class="metric-label">Earlier Detection</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">12K</div>
+                                <div class="metric-label">Scans/Month</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">3.2x</div>
+                                <div class="metric-label">ROI</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Study 2 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1516549655669-9509dae3edc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="RadNet">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Imaging Center Network</span>
+                        <h3 class="case-title">RadNet: Streamlining Mammography Analysis</h3>
+                        <p class="case-excerpt">RadNet deployed DeepMed's mammography AI assistant across their 350+ imaging centers to assist radiologists in breast cancer screening.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">28%</div>
+                                <div class="metric-label">Time Saved</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">99%</div>
+                                <div class="metric-label">Accuracy</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">350+</div>
+                                <div class="metric-label">Locations</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Study 3 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="UCSF">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Research Institution</span>
+                        <h3 class="case-title">UCSF: AI-Powered Neurological Research</h3>
+                        <p class="case-excerpt">University of California, San Francisco utilized DeepMed's brain MRI analysis platform to accelerate their Alzheimer's disease research program.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">5x</div>
+                                <div class="metric-label">Faster Analysis</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">10K+</div>
+                                <div class="metric-label">MRIs Processed</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">7</div>
+                                <div class="metric-label">New Biomarkers</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Study 4 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1527613426441-4da17471b66d?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="NHS">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Public Health System</span>
+                        <h3 class="case-title">NHS England: Scaling AI Diagnostics Nationwide</h3>
+                        <p class="case-excerpt">The National Health Service implemented DeepMed's platform across 75 hospitals to standardize imaging diagnostics and reduce waiting times.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">41%</div>
+                                <div class="metric-label">Reduced Wait Time</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">£18M</div>
+                                <div class="metric-label">Annual Savings</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">75</div>
+                                <div class="metric-label">Hospitals</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Study 5 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1571772996791-2f4e9d2ff269?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="Memorial Sloan Kettering">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Cancer Center</span>
+                        <h3 class="case-title">Memorial Sloan Kettering: Precision Oncology</h3>
+                        <p class="case-excerpt">MSK Cancer Center utilized DeepMed's tumor segmentation and response assessment AI to optimize treatment planning for oncology patients.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">96%</div>
+                                <div class="metric-label">Segmentation Accuracy</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">22%</div>
+                                <div class="metric-label">Better Response</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">8500+</div>
+                                <div class="metric-label">Patients</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Case Study 6 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="case-card">
+                    <div class="case-img-container">
+                        <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="case-img" alt="Massachusetts General Hospital">
+                    </div>
+                    <div class="case-content">
+                        <span class="case-category">Teaching Hospital</span>
+                        <h3 class="case-title">Mass General: AI-Enhanced Radiology Education</h3>
+                        <p class="case-excerpt">Massachusetts General Hospital integrated DeepMed's platform into their radiology residency program to improve learning outcomes and diagnostic skills.</p>
+                        
+                        <div class="metrics-container">
+                            <div class="metric">
+                                <div class="metric-value">34%</div>
+                                <div class="metric-label">Better Test Scores</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">120</div>
+                                <div class="metric-label">Residents Trained</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">4.9/5</div>
+                                <div class="metric-label">User Satisfaction</div>
+                            </div>
+                        </div>
+                        
+                        <a href="#" class="btn btn-outline-light btn-sm">View Case Study</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CTA Section -->
+        <div class="text-center mt-5">
+            <h3>Ready to transform your organization with AI?</h3>
+            <p class="mb-4">Join these leading healthcare institutions and experience the DeepMed difference</p>
+            <a href="#" class="btn btn-primary btn-lg">Request a Demo</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

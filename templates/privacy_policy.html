@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Privacy Policy{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .policy-section {
+        padding: 3rem 0;
+    }
+
+    .policy-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        color: #63b3ed;
+    }
+
+    h3 {
+        color: #0d6efd;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .last-updated {
+        font-style: italic;
+        color: #8b949e;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="policy-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <div class="policy-container">
+                    <h1 class="mb-3">Privacy Policy</h1>
+                    <p class="last-updated">Last Updated: January 15, 2025</p>
+
+                    <h2 class="section-title">Our Commitment to Privacy</h2>
+                    <p>
+                        At DeepMed, privacy isn't just a feature—it's the foundation of our platform. We've built our 
+                        entire service around the principle that your medical data deserves the highest level of protection 
+                        and security.
+                    </p>
+                    <p>
+                        As a platform designed for healthcare professionals, we understand the critical importance of 
+                        data privacy and security in the medical field. Our privacy-first approach ensures compliance with 
+                        global regulations including GDPR and HIPAA.
+                    </p>
+
+                    <h3>How We Handle Your Data</h3>
+                    <p>
+                        DeepMed employs end-to-end encryption for all data processing. Your uploaded datasets never leave 
+                        your control—all model training and inference happen locally with no external data sharing. We do 
+                        not store or access your medical datasets beyond the immediate processing required to deliver our services.
+                    </p>
+
+                    <h3>Data Collection and Storage</h3>
+                    <ul>
+                        <li><strong>Account Information:</strong> We collect basic information (name, email, professional credentials) 
+                            to create and maintain your account.</li>
+                        <li><strong>Payment Information:</strong> Payment details are processed through secure third-party payment 
+                            processors and are not stored on our servers.</li>
+                        <li><strong>Usage Data:</strong> We collect anonymized usage statistics to improve our platform's performance 
+                            and features. This never includes the actual content of your medical datasets.</li>
+                        <li><strong>Medical Data:</strong> Your medical data remains yours. It is processed only for the specific 
+                            task you initiate, and is never used for any other purpose.</li>
+                    </ul>
+
+                    <h3>How We Use Your Information</h3>
+                    <p>
+                        We use the information we collect to:
+                    </p>
+                    <ul>
+                        <li>Provide, maintain, and improve the DeepMed platform</li>
+                        <li>Process transactions and send related information</li>
+                        <li>Respond to comments, questions, and requests</li>
+                        <li>Send technical notices, updates, security alerts, and support messages</li>
+                        <li>Monitor and analyze trends, usage, and activities in connection with our services</li>
+                    </ul>
+
+                    <h3>Data Sharing and Disclosure</h3>
+                    <p>
+                        We do not sell, rent, or share your personal information with third parties. We may share 
+                        information in the following limited circumstances:
+                    </p>
+                    <ul>
+                        <li><strong>Service Providers:</strong> With vendors who need access to such information to carry out work on our behalf (e.g., payment processing)</li>
+                        <li><strong>Legal Requirements:</strong> When required by law or to protect the rights, property, or safety of DeepMed, our users, or others</li>
+                        <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets, but only if the receiving entity honors the commitments in this Privacy Policy</li>
+                    </ul>
+
+                    <h3>Your Rights and Choices</h3>
+                    <p>
+                        You have several rights regarding your personal information:
+                    </p>
+                    <ul>
+                        <li><strong>Access:</strong> You can request a copy of the personal information we hold about you</li>
+                        <li><strong>Correction:</strong> You can ask us to correct inaccurate or incomplete information</li>
+                        <li><strong>Deletion:</strong> You can ask us to delete your personal information in certain circumstances</li>
+                        <li><strong>Restriction:</strong> You can ask us to restrict the processing of your information</li>
+                        <li><strong>Data Portability:</strong> You can request a copy of your data in a structured, commonly used, and machine-readable format</li>
+                        <li><strong>Objection:</strong> You can object to our processing of your personal information</li>
+                    </ul>
+
+                    <h3>Security Measures</h3>
+                    <p>
+                        We implement robust security measures to protect your personal information from unauthorized 
+                        access, alteration, disclosure, or destruction. These measures include:
+                    </p>
+                    <ul>
+                        <li>End-to-end encryption for all data in transit and at rest</li>
+                        <li>Regular security assessments and penetration testing</li>
+                        <li>Strict access controls and authentication protocols</li>
+                        <li>Continuous monitoring for suspicious activities</li>
+                        <li>Regular security training for all staff</li>
+                    </ul>
+
+                    <h3>Changes to This Policy</h3>
+                    <p>
+                        We may update this Privacy Policy from time to time. We will notify you of any changes by posting 
+                        the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review 
+                        this Privacy Policy periodically for any changes.
+                    </p>
+
+                    <h3>Contact Us</h3>
+                    <p>
+                        If you have any questions about this Privacy Policy or our data practices, please contact us at:
+                    </p>
+                    <p>
+                        <strong>Email:</strong> privacy@deepmed.ai<br>
+                        <strong>Address:</strong> 123 Medical Center Dr, San Francisco, CA 94143
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

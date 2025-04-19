@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Terms of Service{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .policy-section {
+        padding: 3rem 0;
+    }
+
+    .policy-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        color: #63b3ed;
+    }
+
+    h3 {
+        color: #0d6efd;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .last-updated {
+        font-style: italic;
+        color: #8b949e;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="policy-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <div class="policy-container">
+                    <h1 class="mb-3">Terms of Service</h1>
+                    <p class="last-updated">Last Updated: January 15, 2025</p>
+
+                    <h2 class="section-title">Agreement to Terms</h2>
+                    <p>
+                        By accessing or using the DeepMed platform, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing this platform.
+                    </p>
+
+                    <h3>Service Description</h3>
+                    <p>
+                        DeepMed provides a privacy-first, no-code AI platform built specifically for the medical world. Our services include but are not limited to:
+                    </p>
+                    <ul>
+                        <li>Tabular data model training and prediction (classification and regression)</li>
+                        <li>Image data model training and prediction (classification and anomaly detection)</li>
+                        <li>Automated data cleaning and feature selection</li>
+                        <li>Multi-algorithm benchmarking</li>
+                        <li>Secure deployment of trained AI models</li>
+                    </ul>
+
+                    <h3>User Accounts</h3>
+                    <p>
+                        When you create an account with us, you must provide information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of your account.
+                    </p>
+                    <p>
+                        You are responsible for safeguarding the password for your account and for any activities or actions under your password. You must notify us immediately upon becoming aware of any breach of security or unauthorized use of your account.
+                    </p>
+
+                    <h3>Billing and Payments</h3>
+                    <p>
+                        DeepMed operates on a transparent pricing model with usage-based, bundled, and subscription options:
+                    </p>
+                    <ul>
+                        <li><strong>Usage-Based Pricing:</strong>
+                            <ul>
+                                <li>Tabular Training: $1.00 + $0.10 per 1,000 rows</li>
+                                <li>Image Training: $2.00 + $0.10 per 100 images</li>
+                                <li>Tabular Prediction: $0.10 each</li>
+                                <li>Image Prediction: $0.20 each</li>
+                            </ul>
+                        </li>
+                        <li><strong>Bundled Offers:</strong> Prepaid bundles with discounted rates</li>
+                        <li><strong>Subscription Plans:</strong> Monthly plans with rolling credits</li>
+                    </ul>
+                    <p>
+                        By subscribing to a paid plan or making a purchase, you agree to pay all fees in full. We reserve the right to change our prices with advance notice. Continued use of the service after a price change constitutes acceptance of the new price.
+                    </p>
+
+                    <h3>Acceptable Use</h3>
+                    <p>
+                        You agree to use our platform only for lawful purposes and in accordance with these Terms. You agree not to:
+                    </p>
+                    <ul>
+                        <li>Use the platform in any way that violates any applicable law or regulation</li>
+                        <li>Upload or transmit any data that infringes upon the privacy rights of patients without proper consent or de-identification</li>
+                        <li>Attempt to probe, scan, or test the vulnerability of our system or bypass security measures</li>
+                        <li>Use the platform to develop competing products or services</li>
+                        <li>Reverse engineer any aspect of the platform or do anything that might discover source code</li>
+                        <li>Use our platform for any harmful or malicious purpose</li>
+                    </ul>
+
+                    <h3>Data and Privacy</h3>
+                    <p>
+                        We prioritize the privacy and security of your data. We process your data in accordance with our <a href="{{ url_for('privacy_policy') }}" class="text-primary">Privacy Policy</a>.
+                    </p>
+                    <p>
+                        You retain all rights to the data you upload to our platform. We do not claim ownership of your data, and we will not use your data for any purpose other than providing our services to you.
+                    </p>
+                    <p>
+                        You are responsible for ensuring that you have the necessary rights and permissions to use and upload any data to our platform, and that such use complies with all applicable laws and regulations, including those related to patient privacy.
+                    </p>
+
+                    <h3>Intellectual Property</h3>
+                    <p>
+                        The DeepMed platform, including its name, logo, software, features, and functionality, are owned by DeepMed and are protected by copyright, trademark, and other intellectual property laws.
+                    </p>
+                    <p>
+                        You retain ownership of your data and any models trained using your data. However, we may use anonymized, aggregated information about model performance to improve our services.
+                    </p>
+
+                    <h3>Limitation of Liability</h3>
+                    <p>
+                        DeepMed and its affiliates, officers, employees, agents, partners, and licensors shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your access to or use of, or inability to access or use, the platform.
+                    </p>
+                    <p>
+                        DeepMed is provided for informational and research purposes only. It is not intended to substitute for professional medical advice, diagnosis, or treatment. The responsibility for any clinical decisions based on outputs from DeepMed rests entirely with the healthcare professional.
+                    </p>
+
+                    <h3>Termination</h3>
+                    <p>
+                        We may terminate or suspend your account and access to the platform immediately, without prior notice or liability, for any reason, including, without limitation, if you breach the Terms.
+                    </p>
+                    <p>
+                        Upon termination, your right to use the platform will immediately cease. You may request a copy of your data before account termination, which we will provide in a standard format.
+                    </p>
+
+                    <h3>Changes to Terms</h3>
+                    <p>
+                        We reserve the right to modify or replace these Terms at any time. We will provide notice of any significant changes. Your continued use of the platform after any such changes constitutes your acceptance of the new Terms.
+                    </p>
+
+                    <h3>Contact Us</h3>
+                    <p>
+                        If you have any questions about these Terms, please contact us at:
+                    </p>
+                    <p>
+                        <strong>Email:</strong> legal@deepmed.ai<br>
+                        <strong>Address:</strong> 123 Medical Center Dr, San Francisco, CA 94143
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

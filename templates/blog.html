@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Blog{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .blog-section {
+        padding: 3rem 0;
+    }
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .blog-card {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        margin-bottom: 2rem;
+    }
+
+    .blog-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .blog-img-container {
+        height: 200px;
+        overflow: hidden;
+    }
+
+    .blog-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .blog-card:hover .blog-img {
+        transform: scale(1.05);
+    }
+
+    .blog-content {
+        padding: 1.5rem;
+    }
+
+    .blog-date {
+        font-size: 0.85rem;
+        color: #8b949e;
+        margin-bottom: 0.5rem;
+    }
+
+    .blog-tag {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        border-radius: 1rem;
+        background-color: rgba(13, 110, 253, 0.2);
+        color: #0d6efd;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .blog-title {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        line-height: 1.4;
+    }
+
+    .blog-excerpt {
+        color: #c9d1d9;
+        margin-bottom: 1.5rem;
+    }
+
+    .blog-author {
+        display: flex;
+        align-items: center;
+        margin-top: 1.5rem;
+    }
+
+    .author-img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 1rem;
+    }
+
+    .author-name {
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+
+    .author-title {
+        font-size: 0.85rem;
+        color: #8b949e;
+    }
+
+    .featured-post {
+        margin-bottom: 3rem;
+    }
+
+    .featured-img-container {
+        height: 350px;
+        border-radius: 1rem;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .featured-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .featured-content {
+        padding: 0 1rem;
+    }
+
+    .featured-title {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        line-height: 1.3;
+    }
+
+    .featured-excerpt {
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+        color: #c9d1d9;
+    }
+
+    .sidebar {
+        position: sticky;
+        top: 120px;
+    }
+
+    .sidebar-section {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .sidebar-title {
+        font-size: 1.2rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .popular-post {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .popular-post:last-child {
+        margin-bottom: 0;
+    }
+
+    .popular-img {
+        width: 80px;
+        height: 60px;
+        border-radius: 0.5rem;
+        object-fit: cover;
+        margin-right: 1rem;
+    }
+
+    .popular-title {
+        font-size: 0.95rem;
+        line-height: 1.4;
+        margin-bottom: 0.5rem;
+    }
+
+    .popular-date {
+        font-size: 0.8rem;
+        color: #8b949e;
+    }
+
+    .newsletter-form {
+        margin-top: 1.5rem;
+    }
+
+    .newsletter-input {
+        background-color: rgba(13, 17, 23, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e6edf3;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .newsletter-input:focus {
+        border-color: rgba(13, 110, 253, 0.5);
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        background-color: rgba(13, 17, 23, 0.7);
+        color: #e6edf3;
+    }
+
+    .pagination {
+        margin-top: 3rem;
+        justify-content: center;
+    }
+
+    .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .page-link {
+        background-color: rgba(22, 27, 34, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e6edf3;
+    }
+
+    .page-link:hover {
+        background-color: rgba(13, 110, 253, 0.2);
+        color: #e6edf3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="blog-section">
+    <div class="container">
+        <div class="section-header">
+            <h1 class="display-4 fw-bold mb-3">DeepMed <span class="gradient-text">Blog</span></h1>
+            <p class="lead text-muted mb-5">Insights, updates, and trends in AI-powered healthcare</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Featured Post -->
+                <div class="featured-post">
+                    <div class="featured-img-container">
+                        <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=500&q=80" class="featured-img" alt="AI in Medical Imaging">
+                    </div>
+                    <div class="featured-content">
+                        <div class="blog-date">June 15, 2023</div>
+                        <div class="mb-3">
+                            <span class="blog-tag">Featured</span>
+                            <span class="blog-tag">Research</span>
+                        </div>
+                        <h2 class="featured-title">Breakthrough: DeepMed's AI Detects Early Stage Cancer with 94% Accuracy</h2>
+                        <p class="featured-excerpt">Our latest research demonstrates how DeepMed's deep learning algorithms can detect early signs of cancer in medical imaging that often go unnoticed by human radiologists. The findings show a 94% accuracy rate, potentially revolutionizing early cancer detection worldwide.</p>
+                        
+                        <div class="blog-author">
+                            <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Dr. Sarah Chen" class="author-img">
+                            <div>
+                                <p class="author-name">Dr. Sarah Chen</p>
+                                <p class="author-title">Lead AI Research Scientist</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <a href="#" class="btn btn-primary">Read Full Article</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blog Posts Grid -->
+                <div class="row">
+                    <!-- Blog Post 1 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="blog-img" alt="AI Development">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">June 3, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Technology</span>
+                                    <span class="blog-tag">Development</span>
+                                </div>
+                                <h3 class="blog-title">How We Built DeepMed's Neural Network Architecture</h3>
+                                <p class="blog-excerpt">A deep dive into the technical architecture that powers DeepMed's medical imaging analysis, including our custom neural network design and training methodologies.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="https://randomuser.me/api/portraits/men/45.jpg" alt="Michael Rodriguez" class="author-img">
+                                    <div>
+                                        <p class="author-name">Michael Rodriguez</p>
+                                        <p class="author-title">Senior ML Engineer</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post 2 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="https://images.unsplash.com/photo-1581093588401-fbb62a02f120?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="blog-img" alt="Medical Conference">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">May 25, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Events</span>
+                                    <span class="blog-tag">Healthcare</span>
+                                </div>
+                                <h3 class="blog-title">DeepMed at RSNA 2023: Our Key Takeaways</h3>
+                                <p class="blog-excerpt">Highlights from our participation at the Radiological Society of North America (RSNA) conference and the emerging trends in AI-assisted radiology.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="https://randomuser.me/api/portraits/women/65.jpg" alt="Dr. Emily Johnson" class="author-img">
+                                    <div>
+                                        <p class="author-name">Dr. Emily Johnson</p>
+                                        <p class="author-title">Chief Medical Officer</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post 3 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="https://images.unsplash.com/photo-1551190822-a9333d879b1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="blog-img" alt="Data Privacy">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">May 12, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Security</span>
+                                    <span class="blog-tag">Compliance</span>
+                                </div>
+                                <h3 class="blog-title">Ensuring HIPAA Compliance in Medical AI Systems</h3>
+                                <p class="blog-excerpt">A comprehensive overview of how DeepMed maintains strict HIPAA compliance while processing sensitive medical data through our AI systems.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="https://randomuser.me/api/portraits/men/22.jpg" alt="James Wilson" class="author-img">
+                                    <div>
+                                        <p class="author-name">James Wilson</p>
+                                        <p class="author-title">Head of Security & Compliance</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post 4 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="https://images.unsplash.com/photo-1584036561566-baf8f5f1b144?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400&q=80" class="blog-img" alt="Hospital Partnership">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">April 28, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Partnerships</span>
+                                    <span class="blog-tag">Implementation</span>
+                                </div>
+                                <h3 class="blog-title">Case Study: Mayo Clinic's Implementation of DeepMed's Platform</h3>
+                                <p class="blog-excerpt">An in-depth look at how Mayo Clinic successfully integrated DeepMed's AI diagnostic tools into their radiology workflow, resulting in 30% faster diagnosis times.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="https://randomuser.me/api/portraits/women/28.jpg" alt="Lisa Patel" class="author-img">
+                                    <div>
+                                        <p class="author-name">Lisa Patel</p>
+                                        <p class="author-title">Customer Success Manager</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post 5 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="{{ url_for('static', filename='images/blog-5.jpg') }}" alt="Remote Monitoring" class="blog-img">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">March 22, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Remote Monitoring</span>
+                                    <span class="blog-tag">Technology</span>
+                                </div>
+                                <h3 class="blog-title">Remote Patient Monitoring: AI's Role in Telehealth</h3>
+                                <p class="blog-excerpt">How artificial intelligence is enhancing remote monitoring capabilities, allowing clinicians to track patient vitals and detect anomalies in real-time.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="{{ url_for('static', filename='images/author-6.jpg') }}" alt="Lisa Thompson" class="author-img">
+                                    <div>
+                                        <p class="author-name">Lisa Thompson</p>
+                                        <p class="author-title">Telehealth Director</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post 6 -->
+                    <div class="col-md-6">
+                        <div class="blog-card">
+                            <div class="blog-img-container">
+                                <img src="{{ url_for('static', filename='images/blog-6.jpg') }}" alt="AI Implementation" class="blog-img">
+                            </div>
+                            <div class="blog-content">
+                                <div class="blog-date">March 8, 2023</div>
+                                <div class="mb-3">
+                                    <span class="blog-tag">Implementation</span>
+                                    <span class="blog-tag">Best Practices</span>
+                                </div>
+                                <h3 class="blog-title">5 Steps to Successfully Implement AI in Your Healthcare Organization</h3>
+                                <p class="blog-excerpt">A practical guide for healthcare administrators looking to integrate AI solutions without disrupting existing workflows or overtaxing IT resources.</p>
+                                
+                                <div class="blog-author">
+                                    <img src="{{ url_for('static', filename='images/author-7.jpg') }}" alt="David Chen" class="author-img">
+                                    <div>
+                                        <p class="author-name">David Chen</p>
+                                        <p class="author-title">Implementation Specialist</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <a href="#" class="btn btn-outline-primary btn-sm">Read More</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <nav aria-label="Blog pagination">
+                    <ul class="pagination">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="sidebar">
+                    <!-- Search -->
+                    <div class="sidebar-section">
+                        <h4 class="sidebar-title">Search</h4>
+                        <div class="input-group">
+                            <input type="text" class="form-control newsletter-input" placeholder="Search articles...">
+                            <button class="btn btn-primary" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Categories -->
+                    <div class="sidebar-section">
+                        <h4 class="sidebar-title">Categories</h4>
+                        <div class="d-flex flex-wrap">
+                            <a href="#" class="blog-tag me-2 mb-2">Research</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Technology</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Healthcare</a>
+                            <a href="#" class="blog-tag me-2 mb-2">AI Ethics</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Tutorials</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Case Studies</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Events</a>
+                            <a href="#" class="blog-tag me-2 mb-2">Compliance</a>
+                        </div>
+                    </div>
+                    
+                    <!-- Popular Posts -->
+                    <div class="sidebar-section">
+                        <h4 class="sidebar-title">Popular Articles</h4>
+                        <div class="popular-post">
+                            <img src="https://images.unsplash.com/photo-1587854692152-cbe660dbde88?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=100&q=80" class="popular-img" alt="AI Ethics">
+                            <div>
+                                <h5 class="popular-title">Ethical Considerations in Medical AI Development</h5>
+                                <div class="popular-date">April 15, 2023</div>
+                            </div>
+                        </div>
+                        <div class="popular-post">
+                            <img src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=100&q=80" class="popular-img" alt="AI Education">
+                            <div>
+                                <h5 class="popular-title">Bridging the Gap: AI Education for Medical Professionals</h5>
+                                <div class="popular-date">March 22, 2023</div>
+                            </div>
+                        </div>
+                        <div class="popular-post">
+                            <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=100&q=80" class="popular-img" alt="FDA Approval">
+                            <div>
+                                <h5 class="popular-title">DeepMed Receives FDA Approval for MRI Analysis Tool</h5>
+                                <div class="popular-date">March 10, 2023</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Newsletter -->
+                    <div class="sidebar-section">
+                        <h4 class="sidebar-title">Subscribe to Our Newsletter</h4>
+                        <p class="mb-3">Stay updated with the latest in medical AI research and product updates</p>
+                        <form class="newsletter-form">
+                            <div class="mb-3">
+                                <input type="email" class="form-control newsletter-input" placeholder="Your email address">
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Subscribe</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Upcoming Webinars -->
+                    <div class="sidebar-section">
+                        <h4 class="sidebar-title">Upcoming Webinars</h4>
+                        <div class="mb-3">
+                            <h5 class="mb-1">AI in Medical Imaging</h5>
+                            <p class="blog-date">June 25, 2023 • 2:00 PM EST</p>
+                            <a href="#" class="btn btn-outline-primary btn-sm">Register</a>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Implementing Predictive Models</h5>
+                            <p class="blog-date">July 12, 2023 • 1:00 PM EST</p>
+                            <a href="#" class="btn btn-outline-primary btn-sm">Register</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

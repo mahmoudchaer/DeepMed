@@ -1,0 +1,703 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Support{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+    
+    .support-hero {
+        padding: 5rem 0;
+        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+    }
+    
+    .gradient-text {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .support-section {
+        padding: 4rem 0;
+    }
+    
+    .support-section:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+    
+    .card {
+        background-color: #161b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        transition: transform 0.3s, box-shadow 0.3s;
+        height: 100%;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: #0d6efd;
+    }
+    
+    .faq-card {
+        background-color: #161b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    
+    .faq-header {
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        position: relative;
+        font-weight: 500;
+    }
+    
+    .faq-header::after {
+        content: '+';
+        position: absolute;
+        right: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.5rem;
+        transition: transform 0.3s;
+    }
+    
+    .faq-header.active::after {
+        content: '−';
+    }
+    
+    .faq-body {
+        padding: 0 1.5rem;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out, padding 0.3s ease;
+    }
+    
+    .faq-body.active {
+        max-height: 500px;
+        padding: 0 1.5rem 1.5rem;
+    }
+    
+    .contact-form .form-control,
+    .contact-form .form-select {
+        background-color: #0d1117;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e6edf3;
+        padding: 0.75rem 1rem;
+    }
+    
+    .contact-form .form-control:focus,
+    .contact-form .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .contact-form .form-control::placeholder {
+        color: #8b949e;
+    }
+    
+    .contact-method {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .contact-icon {
+        width: 48px;
+        height: 48px;
+        background-color: rgba(13, 110, 253, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.25rem;
+        color: #0d6efd;
+    }
+    
+    .resource-card {
+        display: flex;
+        flex-direction: column;
+        background-color: #161b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        height: 100%;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .resource-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .resource-card-image {
+        height: 160px;
+        background-size: cover;
+        background-position: center;
+    }
+    
+    .resource-card-body {
+        padding: 1.5rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .resource-card-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .resource-card-text {
+        color: #8b949e;
+        margin-bottom: 1.5rem;
+        flex-grow: 1;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        border: none;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    .btn-outline-primary {
+        border: 1px solid #0d6efd;
+        color: #0d6efd;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    .btn-outline-primary:hover {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        color: white;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-operational {
+        background-color: #2ea043;
+    }
+    
+    .status-partial {
+        background-color: #d29922;
+    }
+    
+    .status-outage {
+        background-color: #f85149;
+    }
+
+    /* Responsive styles */
+    @media (max-width: 768px) {
+        .support-hero {
+            padding: 3rem 0;
+        }
+        
+        .support-section {
+            padding: 2rem 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="support-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">How can we <span class="gradient-text">help you?</span></h1>
+                <p class="lead mb-4">Our support team is here to assist you with any questions or issues you may have with the DeepMed platform.</p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="#contact" class="btn btn-primary btn-lg">Contact Support</a>
+                    <a href="#faq" class="btn btn-outline-primary btn-lg">View FAQs</a>
+                </div>
+            </div>
+            <div class="col-lg-6 d-none d-lg-block">
+                <img src="/static/images/support-hero.svg" alt="DeepMed Support" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Support Channels Section -->
+<section class="support-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="mb-3">Support Channels</h2>
+            <p class="lead text-muted">Choose the support option that works best for you</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card p-4 text-center">
+                    <div class="card-icon">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h4>Customer Support</h4>
+                    <p class="text-muted mb-4">Get personalized help from our expert support team for account, billing, and technical issues.</p>
+                    <div class="mt-auto">
+                        <a href="#contact" class="btn btn-outline-primary">Contact Support</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card p-4 text-center">
+                    <div class="card-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h4>User Community</h4>
+                    <p class="text-muted mb-4">Join our community forum to connect with other DeepMed users, share insights, and get advice.</p>
+                    <div class="mt-auto">
+                        <a href="#" class="btn btn-outline-primary">Join Community</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card p-4 text-center">
+                    <div class="card-icon">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <h4>Knowledge Base</h4>
+                    <p class="text-muted mb-4">Explore our comprehensive documentation, tutorials, and guides for self-service support.</p>
+                    <div class="mt-auto">
+                        <a href="#" class="btn btn-outline-primary">Browse Articles</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Status Section -->
+<section class="support-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="mb-3">System Status</h2>
+            <p class="lead text-muted">Check the current status of DeepMed services</p>
+        </div>
+        
+        <div class="card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0">Current System Status</h5>
+                <span class="badge bg-success">All Systems Operational</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>API</td>
+                            <td><span class="status-indicator status-operational"></span> Operational</td>
+                            <td>2 minutes ago</td>
+                        </tr>
+                        <tr>
+                            <td>Web Application</td>
+                            <td><span class="status-indicator status-operational"></span> Operational</td>
+                            <td>2 minutes ago</td>
+                        </tr>
+                        <tr>
+                            <td>Authentication Services</td>
+                            <td><span class="status-indicator status-operational"></span> Operational</td>
+                            <td>2 minutes ago</td>
+                        </tr>
+                        <tr>
+                            <td>AI Processing</td>
+                            <td><span class="status-indicator status-operational"></span> Operational</td>
+                            <td>2 minutes ago</td>
+                        </tr>
+                        <tr>
+                            <td>Storage</td>
+                            <td><span class="status-indicator status-operational"></span> Operational</td>
+                            <td>2 minutes ago</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <a href="#" class="btn btn-outline-primary mt-3">View Detailed Status</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h5 class="mb-3">Recent Incidents</h5>
+                    <div class="text-muted">
+                        <p><i class="fas fa-check-circle text-success me-2"></i> No incidents reported in the last 30 days</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h5 class="mb-3">Scheduled Maintenance</h5>
+                    <div class="text-muted">
+                        <p><strong>June 15, 2023 • 2:00 AM - 4:00 AM UTC</strong></p>
+                        <p>Scheduled database maintenance. Brief service interruptions may occur.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ Section -->
+<section id="faq" class="support-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="mb-3">Frequently Asked Questions</h2>
+            <p class="lead text-muted">Find quick answers to common questions</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="faq-card">
+                    <div class="faq-header">What is DeepMed and how does it work?</div>
+                    <div class="faq-body">
+                        <p>DeepMed is an AI-powered medical imaging platform that uses deep learning algorithms to analyze medical images such as X-rays, CT scans, MRIs, and ultrasounds. Our technology helps healthcare providers detect anomalies, assist in diagnoses, and improve patient outcomes.</p>
+                        <p>When a medical image is uploaded to DeepMed, our AI models analyze the image and identify patterns that may indicate various medical conditions. The system then generates detailed reports with highlighted areas of interest, suggested findings, and relevant medical references.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">How accurate is DeepMed's AI?</div>
+                    <div class="faq-body">
+                        <p>DeepMed's AI models have been validated through rigorous clinical studies and have shown high accuracy rates for the conditions they're trained to detect. For most applications, our models achieve sensitivity and specificity rates of over 90%, which is comparable to or exceeds the performance of experienced radiologists in controlled studies.</p>
+                        <p>However, it's important to note that DeepMed is designed to be a diagnostic aid, not a replacement for healthcare professionals. Our technology works best when used as a second opinion or screening tool alongside professional medical judgment.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">Is my medical data secure with DeepMed?</div>
+                    <div class="faq-body">
+                        <p>Yes, data security and patient privacy are our top priorities. DeepMed is fully HIPAA compliant and employs industry-leading security measures to protect all medical data, including:</p>
+                        <ul>
+                            <li>End-to-end encryption for all data in transit and at rest</li>
+                            <li>SOC 2 Type II certified infrastructure</li>
+                            <li>Regular third-party security audits and penetration testing</li>
+                            <li>Role-based access controls and detailed audit logs</li>
+                            <li>Data center redundancy and disaster recovery protocols</li>
+                        </ul>
+                        <p>We never share patient data with third parties without explicit consent, and our business model does not rely on data monetization.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">How can I integrate DeepMed with my existing systems?</div>
+                    <div class="faq-body">
+                        <p>DeepMed offers several integration options to fit into your existing healthcare IT ecosystem:</p>
+                        <ul>
+                            <li><strong>DICOM Integration:</strong> Direct integration with PACS and modalities via DICOM protocol</li>
+                            <li><strong>HL7/FHIR Integration:</strong> Interoperability with EHR/EMR systems</li>
+                            <li><strong>REST API:</strong> Comprehensive API for custom integrations</li>
+                            <li><strong>SDK:</strong> Developer tools for seamless embedding in your applications</li>
+                            <li><strong>Standalone Deployment:</strong> On-premises solutions for organizations with specific infrastructure requirements</li>
+                        </ul>
+                        <p>Our integration team works closely with your IT department to ensure smooth implementation with minimal disruption to your workflow.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">What modalities and conditions does DeepMed support?</div>
+                    <div class="faq-body">
+                        <p>DeepMed currently supports the following imaging modalities:</p>
+                        <ul>
+                            <li>X-ray (CR, DX)</li>
+                            <li>CT scans</li>
+                            <li>MRI</li>
+                            <li>Ultrasound</li>
+                            <li>Mammography</li>
+                        </ul>
+                        <p>Our AI models can assist in detecting and analyzing various conditions, including but not limited to:</p>
+                        <ul>
+                            <li>Pulmonary conditions (pneumonia, tuberculosis, COVID-19)</li>
+                            <li>Fractures and bone abnormalities</li>
+                            <li>Neurological conditions (stroke, hemorrhage, tumors)</li>
+                            <li>Cardiovascular conditions</li>
+                            <li>Oncological findings across multiple body regions</li>
+                        </ul>
+                        <p>We are continuously expanding our capabilities with new models and supported conditions.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">How much does DeepMed cost?</div>
+                    <div class="faq-body">
+                        <p>DeepMed offers flexible pricing options designed to accommodate healthcare providers of all sizes:</p>
+                        <ul>
+                            <li><strong>Pay-per-use:</strong> Ideal for smaller practices with low volume needs</li>
+                            <li><strong>Monthly subscription:</strong> For medium-sized practices with predictable volumes</li>
+                            <li><strong>Enterprise:</strong> Customized pricing for large healthcare systems with high volume requirements</li>
+                        </ul>
+                        <p>All plans include access to our core AI models, with optional add-ons for specialized models and custom integrations. For detailed pricing information tailored to your organization's needs, please contact our sales team.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-card">
+                    <div class="faq-header">How do I get started with DeepMed?</div>
+                    <div class="faq-body">
+                        <p>Getting started with DeepMed is simple:</p>
+                        <ol>
+                            <li>Request a demo through our website</li>
+                            <li>Work with our team to determine the best implementation approach for your needs</li>
+                            <li>Set up your account and configure integrations with your existing systems</li>
+                            <li>Complete our brief training program to ensure your team can maximize the benefits of our platform</li>
+                            <li>Start using DeepMed in your clinical workflow</li>
+                        </ol>
+                        <p>Most organizations can be up and running with DeepMed in as little as 2-4 weeks, depending on integration requirements and organizational readiness.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Resources Section -->
+<section class="support-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="mb-3">Support Resources</h2>
+            <p class="lead text-muted">Helpful guides and tools to get the most out of DeepMed</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/getting-started.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Getting Started Guide</h5>
+                        <p class="resource-card-text">A comprehensive guide to help you set up and start using the DeepMed platform effectively.</p>
+                        <a href="#" class="btn btn-outline-primary">Read Guide</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/video-tutorials.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Video Tutorials</h5>
+                        <p class="resource-card-text">Step-by-step video tutorials covering all aspects of the DeepMed platform.</p>
+                        <a href="#" class="btn btn-outline-primary">Watch Videos</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/webinars.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Webinars & Events</h5>
+                        <p class="resource-card-text">Join live webinars and events to learn about new features and best practices.</p>
+                        <a href="#" class="btn btn-outline-primary">View Schedule</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/case-studies.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Case Studies</h5>
+                        <p class="resource-card-text">Real-world examples of how healthcare providers are using DeepMed to improve patient care.</p>
+                        <a href="/case-studies" class="btn btn-outline-primary">View Case Studies</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/integration-guide.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Integration Guide</h5>
+                        <p class="resource-card-text">Technical documentation for integrating DeepMed with your existing systems.</p>
+                        <a href="#" class="btn btn-outline-primary">Read Guide</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="resource-card">
+                    <div class="resource-card-image" style="background-image: url('/static/images/training.jpg');"></div>
+                    <div class="resource-card-body">
+                        <h5 class="resource-card-title">Training Certification</h5>
+                        <p class="resource-card-text">Become a certified DeepMed expert with our comprehensive training program.</p>
+                        <a href="#" class="btn btn-outline-primary">Start Training</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Section -->
+<section id="contact" class="support-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="mb-3">Contact Support</h2>
+            <p class="lead text-muted">Get in touch with our team for personalized assistance</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <div class="card p-4">
+                    <h4 class="mb-4">Send us a message</h4>
+                    <form class="contact-form">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="name" placeholder="Enter your full name">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" placeholder="Enter your email address">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Subject</label>
+                            <select class="form-select" id="subject">
+                                <option selected>Select a subject</option>
+                                <option>Technical Support</option>
+                                <option>Account & Billing</option>
+                                <option>Integration Help</option>
+                                <option>Feature Request</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Message</label>
+                            <textarea class="form-control" id="message" rows="5" placeholder="Describe your issue or question in detail"></textarea>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="priority">
+                            <label class="form-check-label" for="priority">This is an urgent issue affecting system operation</label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card p-4 mb-4">
+                    <h4 class="mb-4">Other ways to reach us</h4>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Email Support</h5>
+                            <p class="mb-0 text-muted">For non-urgent inquiries</p>
+                            <a href="mailto:support@deepmed.ai" class="text-primary">support@deepmed.ai</a>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">
+                            <i class="fas fa-phone-alt"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Phone Support</h5>
+                            <p class="mb-0 text-muted">Available Monday-Friday, 9AM-6PM ET</p>
+                            <a href="tel:+18005551234" class="text-primary">+1 (800) 555-1234</a>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">
+                            <i class="fas fa-comment-dots"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Live Chat</h5>
+                            <p class="mb-0 text-muted">For quick assistance with our team</p>
+                            <a href="#" class="text-primary">Start a chat</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-4">
+                    <h4 class="mb-4">Support Hours</h4>
+                    <div class="mb-3">
+                        <h5 class="mb-2">Standard Support</h5>
+                        <p class="mb-1 text-muted">Monday - Friday: 9:00 AM - 6:00 PM ET</p>
+                        <p class="mb-0 text-muted">Weekend: Closed</p>
+                    </div>
+                    
+                    <div>
+                        <h5 class="mb-2">Enterprise Support</h5>
+                        <p class="mb-1 text-muted">24/7 availability for critical issues</p>
+                        <p class="mb-0 text-muted">Response within 1 hour for Priority 1 issues</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // FAQ accordion functionality
+        const faqHeaders = document.querySelectorAll('.faq-header');
+        
+        faqHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                this.classList.toggle('active');
+                const body = this.nextElementSibling;
+                body.classList.toggle('active');
+            });
+        });
+        
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 
