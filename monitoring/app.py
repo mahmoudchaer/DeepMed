@@ -47,7 +47,6 @@ MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:500
 AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
 MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
 PIPELINE_SERVICE_URL = os.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
-OBJECT_DETECTION_SERVICE_URL = os.getenv('OBJECT_DETECTION_SERVICE_URL', 'http://localhost:5027')
 ANOMALY_DETECTION_SERVICE_URL = os.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
 SEMANTIC_SEGMENTATION_SERVICE_URL = os.getenv('SEMANTIC_SEGMENTATION_SERVICE_URL', 'http://localhost:5031')
 TABULAR_PREDICTOR_URL = os.getenv('TABULAR_PREDICTOR_URL', 'http://localhost:5100')
@@ -83,7 +82,6 @@ SERVICES = {
     },
     "Image Processing Services": {
         "Augmentation Service": {"url": AUGMENTATION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "Performs data augmentation"},
-        "Object Detection Service": {"url": OBJECT_DETECTION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "YOLOv5 object detection"},
         "Anomaly Detection Service": {"url": ANOMALY_DETECTION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "PyTorch autoencoder for anomaly detection"},
         "Semantic Segmentation Service": {"url": SEMANTIC_SEGMENTATION_SERVICE_URL, "endpoint": "/health", "status": "unknown", "last_check": None, "description": "DeepLabV3 + ResNet50 for segmentation"}
     },
