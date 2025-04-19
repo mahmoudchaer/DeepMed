@@ -30,7 +30,6 @@ services:
       - PIPELINE_SERVICE_URL=http://host.docker.internal:5025
       # Image Processing Services
       - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
-      - OBJECT_DETECTION_SERVICE_URL=http://host.docker.internal:5027
       - ANOMALY_DETECTION_SERVICE_URL=http://host.docker.internal:5029
       - SEMANTIC_SEGMENTATION_SERVICE_URL=http://host.docker.internal:5031
       # Predictor Services

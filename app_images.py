@@ -23,9 +23,6 @@ from app_api import check_services, save_to_temp_file, clean_data_for_json
 # Define new URL for pipeline service
 PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
-# Define URL for object detection service
-OBJECT_DETECTION_SERVICE_URL = os.environ.get('OBJECT_DETECTION_SERVICE_URL', 'http://localhost:5027')
-
 # Define URL for anomaly detection service
 ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
 
@@ -42,27 +39,6 @@ def images():
     # Redirect to the pipeline page
     flash('The standalone training page has been removed. Please use the Pipeline functionality instead.', 'info')
     return redirect(url_for('pipeline'), code=302)
-
-@app.route('/object_detection')
-@login_required
-def object_detection():
-    """Route for object detection page (YOLOv5)"""
-    # Check if the user is logged in
-    if not current_user.is_authenticated:
-        flash('Please log in to access the object detection page.', 'info')
-        return redirect('/login', code=302)
-    
-    # Generate a CSRF token for logout form if needed
-    if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
-    
-    # Check services health for status display
-    services_status = check_services()
-    
-    # Add object detection service to services status
-    services_status['object_detection_service'] = is_service_available(OBJECT_DETECTION_SERVICE_URL)
-    
-    return render_template('object_detection.html', services_status=services_status, logout_token=session['logout_token'])
 
 @app.route('/anomaly_detection')
 @login_required
@@ -105,171 +81,6 @@ def semantic_segmentation():
     services_status['semantic_segmentation_service'] = is_service_available(SEMANTIC_SEGMENTATION_SERVICE_URL)
     
     return render_template('semantic_segmentation.html', services_status=services_status, logout_token=session['logout_token'])
-
-@app.route('/api/finetune_yolo', methods=['POST'])
-@login_required
-def api_finetune_yolo():
-    """API endpoint for YOLOv5 fine-tuning"""
-    # Check for file upload
-    if 'zipFile' not in request.files:
-        return jsonify({"error": "No ZIP file uploaded"}), 400
-    
-    zip_file = request.files['zipFile']
-    if not zip_file.filename:
-        return jsonify({"error": "No file selected"}), 400
-    
-    # Validate file extension
-    if not zip_file.filename.lower().endswith('.zip'):
-        return jsonify({"error": "File must be a ZIP archive"}), 400
-    
-    try:
-        # Check if the object detection service is available
-        if not is_service_available(OBJECT_DETECTION_SERVICE_URL):
-            return jsonify({"error": "Object detection service is not available. Please try again later."}), 503
-        
-        logger.info(f"Starting YOLOv5 fine-tuning for file: {zip_file.filename}")
-        
-        # Get level parameter
-        level = request.form.get('level', '3')
-        
-        # Get num_classes parameter if provided
-        num_classes = request.form.get('num_classes')
-        
-        # Save the uploaded file to a temporary location
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
-        zip_file.save(temp_file.name)
-        temp_file.close()
-        
-        # Create form data to send to the object detection service
-        with open(temp_file.name, 'rb') as f:
-            from requests_toolbelt.multipart.encoder import MultipartEncoder
-            
-            # Create fields dictionary
-            fields = {
-                'zipFile': (zip_file.filename, f, 'application/zip'),
-                'level': level
-            }
-            
-            # Add num_classes if provided
-            if num_classes:
-                fields['num_classes'] = num_classes
-                
-            form_data = MultipartEncoder(fields=fields)
-            
-            # Forward the request to the object detection service
-            headers = {'Content-Type': form_data.content_type}
-            
-            # Stream the request to the service with increased timeout
-            response = requests.post(
-                f"{OBJECT_DETECTION_SERVICE_URL}/finetune",
-                headers=headers,
-                data=form_data,
-                stream=True,
-                timeout=600  # Increase timeout to 10 minutes
-            )
-        
-        # Clean up the temporary file
-        try:
-            os.unlink(temp_file.name)
-        except Exception as e:
-            logger.error(f"Error removing temporary file: {str(e)}")
-        
-        # Check the response status
-        if response.status_code != 200:
-            error_message = "Error in object detection service"
-            try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
-                error_message = f"Error in object detection service (HTTP {response.status_code})"
-            
-            return jsonify({"error": error_message}), response.status_code
-        
-        # Extract training ID from response headers if available
-        training_id = response.headers.get('X-Training-ID', None)
-        
-        # Create a Flask response to stream the content
-        def generate():
-            for chunk in response.iter_content(chunk_size=4096):
-                yield chunk
-        
-        # Create a streaming response
-        flask_response = Response(generate(), mimetype='application/zip')
-        flask_response.headers["Content-Type"] = "application/zip"
-        flask_response.headers["Content-Disposition"] = "attachment; filename=yolov5_model.zip"
-        flask_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        flask_response.headers["Pragma"] = "no-cache"
-        flask_response.headers["Expires"] = "0"
-        
-        # Include the training ID in the response if available
-        if training_id:
-            flask_response.headers["X-Training-ID"] = training_id
-            # Add session storage for recently completed models
-            session_models = session.get('completed_models', {})
-            session_models[training_id] = {
-                'timestamp': datetime.now().isoformat(),
-                'filename': zip_file.filename
-            }
-            session['completed_models'] = session_models
-            logger.info(f"Stored training ID in session: {training_id}")
-        
-        logger.info("Successfully returned YOLOv5 model file to client")
-        return flask_response
-        
-    except Exception as e:
-        logger.error(f"Error in YOLOv5 fine-tuning: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/retrieve_yolo_model/<training_id>', methods=['GET'])
-@login_required
-def retrieve_yolo_model(training_id):
-    """API endpoint to retrieve a previously trained YOLOv5 model by its ID"""
-    try:
-        # Check if the object detection service is available
-        if not is_service_available(OBJECT_DETECTION_SERVICE_URL):
-            return jsonify({"error": "Object detection service is not available. Please try again later."}), 503
-        
-        logger.info(f"Retrieving YOLOv5 model for training ID: {training_id}")
-        
-        # Request the model from the object detection service
-        response = requests.get(
-            f"{OBJECT_DETECTION_SERVICE_URL}/retrieve_model/{training_id}",
-            stream=True,
-            timeout=60  # 1 minute timeout for retrieval
-        )
-        
-        # Check the response status
-        if response.status_code != 200:
-            error_message = "Error retrieving model from object detection service"
-            try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
-                error_message = f"Error retrieving model (HTTP {response.status_code})"
-            
-            return jsonify({"error": error_message}), response.status_code
-        
-        # Create a streaming response
-        def generate():
-            for chunk in response.iter_content(chunk_size=4096):
-                yield chunk
-        
-        # Create a Flask response to stream the content
-        flask_response = Response(generate(), mimetype='application/zip')
-        flask_response.headers["Content-Type"] = "application/zip"
-        flask_response.headers["Content-Disposition"] = "attachment; filename=yolov5_model.zip"
-        flask_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        flask_response.headers["Pragma"] = "no-cache"
-        flask_response.headers["Expires"] = "0"
-        
-        logger.info(f"Successfully retrieved YOLOv5 model with ID: {training_id}")
-        return flask_response
-        
-    except Exception as e:
-        logger.error(f"Error retrieving YOLOv5 model: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/train_model', methods=['POST'])
 @login_required
