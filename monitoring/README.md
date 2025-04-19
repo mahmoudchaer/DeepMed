@@ -40,7 +40,6 @@ The system monitors the following DeepMed services:
 
 ### Image Processing Services
 - Augmentation Service
-- Object Detection Service
 - Anomaly Detection Service
 - Semantic Segmentation Service
 

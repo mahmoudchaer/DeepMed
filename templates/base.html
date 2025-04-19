@@ -144,8 +144,6 @@
                                href="{{ url_for('pipeline') }}">Pipeline</a>
                             <a class="{% if request.endpoint == 'anomaly_detection' %}active{% endif %}" 
                                href="{{ url_for('anomaly_detection') }}">Anomaly Detection</a>
-                            <a class="{% if request.endpoint == 'semantic_segmentation' %}active{% endif %}" 
-                               href="{{ url_for('semantic_segmentation') }}">Semantic Segmentation</a>
                             <a class="{% if request.endpoint == 'images_prediction' %}active{% endif %}" 
                                href="{{ url_for('images_prediction') }}">Images Prediction</a>
                         </div>
