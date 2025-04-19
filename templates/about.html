@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - About{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .about-section {
+        padding: 3rem 0;
+    }
+
+    .about-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        color: #63b3ed;
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #63b3ed, #76e4f7, #9f7aea);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .icon-feature {
+        margin-bottom: 0.5rem;
+        color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <!-- Main About Section -->
+                <div class="about-container">
+                    <h1 class="display-4 fw-bold mb-4"><span class="gradient-text">🧠 About DeepMed</span></h1>
+                    <p class="lead">
+                        DeepMed is a privacy-first, no-code AI platform built specifically for the medical world. We empower doctors, clinicians, and healthcare researchers to harness the power of artificial intelligence—without writing a single line of code.
+                    </p>
+                    <p>
+                        From predicting patient outcomes to analyzing medical images, DeepMed makes advanced AI accessible, affordable, and secure for everyone in healthcare.
+                    </p>
+                </div>
+
+                <!-- Mission Section -->
+                <div class="about-container">
+                    <h2 class="section-title"><i class="fas fa-bullseye me-2 icon-feature"></i>Our Mission</h2>
+                    <p>
+                        To democratize access to medical AI by eliminating technical barriers and making data-driven decision-making simple, ethical, and universal.
+                    </p>
+                </div>
+
+                <!-- Offerings Section -->
+                <div class="about-container">
+                    <h2 class="section-title"><i class="fas fa-tools me-2 icon-feature"></i>What We Offer</h2>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h5><i class="fas fa-code-branch me-2"></i>No-Code AI Tools</h5>
+                            <p>Upload your tabular or image dataset. We handle everything—cleaning, training, benchmarking, and prediction.</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5><i class="fas fa-microscope me-2"></i>Medical-Specific Models</h5>
+                            <p>Tabular classification/regression, image classification, and anomaly detection—built with healthcare in mind.</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5><i class="fas fa-shield-alt me-2"></i>Privacy by Design</h5>
+                            <p>Your data stays yours. No third-party processing. Fully encrypted and secure.</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5><i class="fas fa-dollar-sign me-2"></i>Smart Pricing</h5>
+                            <p>Flexible pay-as-you-go model with bundle and subscription options for every clinic size.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Who We Serve Section -->
+                <div class="about-container">
+                    <h2 class="section-title"><i class="fas fa-user-md me-2 icon-feature"></i>Who We Serve</h2>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Independent doctors & private clinics</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Research labs & universities</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Clinical trial teams & diagnostic imaging centers</li>
+                    </ul>
+                    <p class="mt-3">
+                        Whether you're trying to predict disease risk or identify patterns in medical scans, DeepMed gives you the tools—without needing a data science team.
+                    </p>
+                </div>
+
+                <!-- Why DeepMed Section -->
+                <div class="about-container">
+                    <h2 class="section-title"><i class="fas fa-question-circle me-2 icon-feature"></i>Why DeepMed?</h2>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Built for healthcare — not general-purpose tools</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Designed for non-technical users</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Compliant with GDPR-like privacy standards</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>No installation, no coding, no hidden costs</li>
+                    </ul>
+                    <p class="mt-3">
+                        We believe the future of healthcare is AI-powered—and it starts with making AI available to every medical professional, everywhere.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

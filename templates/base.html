@@ -181,6 +181,11 @@
                 </ul>
                 
                 <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
+                            <i class="fas fa-info-circle me-1"></i>About
+                        </a>
+                    </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item has-dropdown">
                         <a class="nav-link dropdown-toggle" href="#">
@@ -229,9 +234,88 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer mt-5">
-        <div class="container text-center">
-            <p>&copy; 2025 DeepMed. All rights reserved.</p>
+    <footer class="footer mt-5 pt-5 pb-4" style="background-color: #161b22; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="container">
+            <div class="row">
+                <!-- Company Info -->
+                <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h5 class="text-white mb-4 fw-bold">DeepMed</h5>
+                    <p class="text-muted small mb-3">
+                        Privacy-first, no-code AI platform built specifically for the medical world.
+                    </p>
+                    <div class="d-flex align-items-center mb-3">
+                        <a href="#" class="me-3 text-decoration-none text-secondary">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="#" class="me-3 text-decoration-none text-secondary">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="me-3 text-decoration-none text-secondary">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <a href="#" class="text-decoration-none text-secondary">
+                            <i class="fab fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h6 class="text-white mb-3">Quick Links</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><a href="{{ url_for('about') }}" class="text-muted text-decoration-none">About Us</a></li>
+                        <li class="mb-2"><a href="#features" class="text-muted text-decoration-none">Features</a></li>
+                        <li class="mb-2"><a href="#how-it-works" class="text-muted text-decoration-none">How It Works</a></li>
+                        <li class="mb-2"><a href="#testimonials" class="text-muted text-decoration-none">Testimonials</a></li>
+                        <li class="mb-2"><a href="#pricing" class="text-muted text-decoration-none">Pricing</a></li>
+                    </ul>
+                </div>
+
+                <!-- Resources -->
+                <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                    <h6 class="text-white mb-3">Resources</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Documentation</a></li>
+                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Blog</a></li>
+                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Case Studies</a></li>
+                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">API</a></li>
+                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Support</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact -->
+                <div class="col-lg-3 col-md-6">
+                    <h6 class="text-white mb-3">Contact Us</h6>
+                    <p class="text-muted small mb-1">
+                        <i class="fas fa-map-marker-alt me-2"></i> 123 Medical Center Dr, 
+                        <br><span class="ms-4">San Francisco, CA 94143</span>
+                    </p>
+                    <p class="text-muted small mb-1">
+                        <i class="fas fa-envelope me-2"></i> contact@deepmed.ai
+                    </p>
+                    <p class="text-muted small mb-3">
+                        <i class="fas fa-phone me-2"></i> +1 (800) 555-0123
+                    </p>
+                    
+                    <!-- Newsletter -->
+                    <div class="input-group mb-3">
+                        <input type="email" class="form-control bg-dark border-secondary text-light" placeholder="Your email" aria-label="Your email">
+                        <button class="btn btn-outline-primary" type="button">Subscribe</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Legal & Copyright -->
+            <div class="row mt-4 pt-3 border-top border-secondary">
+                <div class="col-md-6 text-center text-md-start">
+                    <p class="text-muted small mb-0">&copy; 2025 DeepMed. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <a href="#" class="text-muted small text-decoration-none me-3">Privacy Policy</a>
+                    <a href="#" class="text-muted small text-decoration-none me-3">Terms of Service</a>
+                    <a href="#" class="text-muted small text-decoration-none">Cookie Policy</a>
+                </div>
+            </div>
         </div>
     </footer>
 
