@@ -468,63 +468,235 @@ cleaner = DataCleaner()
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy", "service": "data-cleaner"}), 200
+    return jsonify({"status": "healthy"}), 200
 
 @app.route('/clean', methods=['POST'])
 def clean_data():
-    """
-    Clean data endpoint
-    
-    Expected JSON input:
-    {
-        "data": {...},  # Data in JSON format that can be loaded into a pandas DataFrame
-        "target_column": "column_name",  # Name of the target column
-        "prompt": "..."  # Optional: Previous cleaning instructions to ensure consistency
-    }
-    
-    Returns:
-    {
-        "data": {...},  # Cleaned data in JSON format
-        "message": "Data cleaned successfully",
-        "prompt": "..."  # Cleaning instructions used (either the input prompt or a newly generated one)
-        "encoding_mappings": {...}  # Mappings used for categorical encoding
-    }
-    """
     try:
-        # Get request data
-        request_data = request.json
+        data = request.json
+        if not data or 'data' not in data:
+            return jsonify({"error": "No data provided"}), 400
         
-        if not request_data or 'data' not in request_data or 'target_column' not in request_data:
-            return jsonify({"error": "Invalid request. Missing 'data' or 'target_column'"}), 400
+        # Get the target column (if specified)
+        target_column = data.get('target_column', None)
         
-        # Convert JSON to DataFrame
-        try:
-            df = pd.DataFrame.from_dict(request_data['data'])
-        except Exception as e:
-            return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
+        # Get the cleaning prompt (if specified)
+        prompt = data.get('prompt', None)
         
-        target_column = request_data['target_column']
-        previous_prompt = request_data.get('prompt')  # May be None
+        # Convert the data to a pandas DataFrame
+        df = pd.DataFrame(data['data'])
         
-        # Clean data with optional previous prompt
-        cleaned_data = cleaner.clean_data(df, target_column, previous_prompt)
+        # Create a DataCleaner instance
+        cleaner = DataCleaner()
         
-        # Get the cleaning prompt (either the previous one or a new one)
-        cleaning_prompt = cleaner.last_cleaning_prompt
+        # Clean the data
+        cleaned_df = cleaner.clean_data(df, target_column, prompt)
         
-        # Convert DataFrame to JSON and include the prompt and encoding mappings
-        return jsonify({
-            "data": cleaned_data.to_dict(orient='records'),
-            "message": "Data cleaned successfully",
-            "prompt": cleaning_prompt,
-            "encoding_mappings": cleaner.encoding_mappings
-        })
-    
+        # Return the cleaned data and encoding mappings (in separate keys)
+        response = {
+            "data": json.loads(cleaned_df.to_json(orient='records')),
+            "encoding_mappings": cleaner.encoding_mappings,
+            "prompt": cleaner.last_cleaning_prompt,
+            "options": {},  # Add options if needed
+            "report": {
+                "rows_before": len(df),
+                "rows_after": len(cleaned_df),
+                "columns_before": len(df.columns),
+                "columns_after": len(cleaned_df.columns),
+                "categorical_columns_encoded": len(cleaner.encoding_mappings)
+            }
+        }
+        
+        return jsonify(response), 200
+        
     except Exception as e:
-        logging.error(f"Error in clean_data endpoint: {str(e)}", exc_info=True)
+        logging.error(f"Error in clean_data: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/apply_stored_cleaning', methods=['POST'])
+def apply_stored_cleaning():
+    """Apply cleaning operations based on stored configuration"""
+    try:
+        data = request.json
+        if not data or 'data' not in data or 'cleaner_config' not in data:
+            return jsonify({"error": "Missing data or cleaner_config in request"}), 400
+        
+        # Convert the data to a pandas DataFrame
+        df = pd.DataFrame(data['data'])
+        cleaner_config = data['cleaner_config']
+        
+        # Get cleaning options and instructions
+        options = cleaner_config.get("options", {})
+        llm_instructions = cleaner_config.get("llm_instructions", "")
+        
+        # First, identify columns that are likely irrelevant for analysis
+        irrelevant_patterns = [
+            # ID columns
+            'id', '_id', 'uuid', 'guid', 'identifier',
+            # Name columns  
+            'name', 'firstname', 'lastname', 'fullname', 'patient', 'doctor', 'physician', 'provider',
+            # Date/time columns
+            'date', 'time', 'datetime', 'timestamp', 'admission', 'discharge', 'visit',
+            # Contact and personal info
+            'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
+            # Other non-predictive columns
+            'notes', 'comment', 'description', 'url', 'link', 'file', 'path'
+        ]
+        
+        # Identify columns to potentially exclude based on name patterns
+        potential_irrelevant_cols = []
+        for col in df.columns:
+            col_lower = col.lower()
+            # Check if column name contains any of the irrelevant patterns
+            if any(pattern in col_lower for pattern in irrelevant_patterns):
+                potential_irrelevant_cols.append(col)
+                logging.info(f"Identified potentially irrelevant column in pre-cleaning check: '{col}'")
+        
+        # Get categorical variable encoding mappings if available
+        encoding_mappings = cleaner_config.get("encoding_mappings", {})
+        
+        # Filter out mappings for columns that are likely irrelevant
+        if encoding_mappings and potential_irrelevant_cols:
+            # Keep track of removed mappings for logging
+            removed_mappings = []
+            
+            # Create a filtered copy of the mappings
+            filtered_mappings = encoding_mappings.copy()
+            
+            # Remove mappings for likely irrelevant columns
+            for col in potential_irrelevant_cols:
+                if col in filtered_mappings:
+                    removed_mappings.append(col)
+                    del filtered_mappings[col]
+            
+            if removed_mappings:
+                logging.info(f"Removed encoding mappings for {len(removed_mappings)} potentially irrelevant columns: {removed_mappings}")
+                # Update the cleaner_config with the filtered mappings
+                encoding_mappings = filtered_mappings
+        
+        # If the cleaner used LLM mode, make an API call to clean data with the same prompt
+        if llm_instructions:
+            # Create a DataCleaner instance
+            cleaner = DataCleaner()
+            
+            # Use LLM to clean the data
+            cleaned_df = cleaner._llm_clean(df, llm_instructions)
+            
+            # Update encoding mappings from cleaner
+            if cleaner.encoding_mappings:
+                # Filter out mappings for likely irrelevant columns
+                for col in potential_irrelevant_cols:
+                    if col in cleaner.encoding_mappings:
+                        del cleaner.encoding_mappings[col]
+                
+                # Update our mappings
+                encoding_mappings = cleaner.encoding_mappings
+                logging.info(f"Updated encoding mappings from LLM cleaning with {len(encoding_mappings)} columns")
+            
+            response = {
+                "data": json.loads(cleaned_df.to_json(orient='records')),
+                "encoding_mappings": encoding_mappings,
+                "report": {
+                    "rows_before": len(df),
+                    "rows_after": len(cleaned_df),
+                    "columns_before": len(df.columns),
+                    "columns_after": len(cleaned_df.columns),
+                    "categorical_columns_encoded": len(encoding_mappings)
+                }
+            }
+            
+            return jsonify(response), 200
+        else:
+            # Apply basic cleaning
+            cleaned_df = apply_basic_cleaning(df, cleaner_config)
+            
+            response = {
+                "data": json.loads(cleaned_df.to_json(orient='records')),
+                "encoding_mappings": cleaner_config.get("encoding_mappings", {}),
+                "report": {
+                    "rows_before": len(df),
+                    "rows_after": len(cleaned_df),
+                    "columns_before": len(df.columns),
+                    "columns_after": len(cleaned_df.columns),
+                    "categorical_columns_encoded": len(cleaner_config.get("encoding_mappings", {}))
+                }
+            }
+            
+            return jsonify(response), 200
+    
+    except Exception as e:
+        logging.error(f"Error in apply_stored_cleaning: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+def apply_basic_cleaning(df, cleaner_config):
+    """Apply basic cleaning steps to a dataframe"""
+    # Make a copy of the dataframe to avoid modifying the original
+    cleaned_df = df.copy()
+    encoding_mappings = cleaner_config.get("encoding_mappings", {})
+    
+    # 1. Handle missing values
+    
+    # Identify numeric and categorical columns
+    numeric_cols = cleaned_df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns.tolist()
+    
+    # Replace missing values in numeric columns with column median
+    for col in numeric_cols:
+        if cleaned_df[col].isna().sum() > 0:
+            median_value = cleaned_df[col].median()
+            cleaned_df[col] = cleaned_df[col].fillna(median_value)
+            logging.info(f"Filled {cleaned_df[col].isna().sum()} missing values in numeric column '{col}' with median {median_value}")
+    
+    # Replace missing values in categorical columns with mode
+    for col in categorical_cols:
+        if cleaned_df[col].isna().sum() > 0:
+            mode_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else "MISSING"
+            cleaned_df[col] = cleaned_df[col].fillna(mode_value)
+            logging.info(f"Filled {cleaned_df[col].isna().sum()} missing values in categorical column '{col}' with mode '{mode_value}'")
+    
+    # Apply encoding for categorical columns
+    for col in categorical_cols:
+        # Check if we have a mapping for this column
+        if col in encoding_mappings:
+            mapping = encoding_mappings[col]
+            # Convert column values to strings to ensure consistent mapping
+            col_values = cleaned_df[col].astype(str)
+            # Apply mapping with fallback to -1 for values not in the mapping
+            cleaned_df[col] = col_values.map(mapping).fillna(-1).astype(int)
+            logging.info(f"Applied stored categorical mapping for column '{col}'")
+        else:
+            # Create a new mapping for this column and save it
+            unique_values = sorted(cleaned_df[col].dropna().unique())
+            new_mapping = {str(val): idx for idx, val in enumerate(unique_values)}
+            encoding_mappings[col] = new_mapping
+            # Apply the new mapping
+            col_values = cleaned_df[col].astype(str)
+            cleaned_df[col] = col_values.map(new_mapping).fillna(-1).astype(int)
+            logging.info(f"Created and applied new categorical mapping for column '{col}'")
+    
+    # Update the encoding mappings in the cleaner_config
+    cleaner_config["encoding_mappings"] = encoding_mappings
+    
+    # 2. Handle outliers - replace outliers with column limits
+    for col in numeric_cols:
+        # Calculate IQR
+        Q1 = cleaned_df[col].quantile(0.25)
+        Q3 = cleaned_df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        # Define bounds
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        # Identify outliers
+        outliers = ((cleaned_df[col] < lower_bound) | (cleaned_df[col] > upper_bound)).sum()
+        if outliers > 0:
+            logging.info(f"Found {outliers} outliers in column '{col}', clipping to IQR bounds")
+            # Replace outliers
+            cleaned_df[col] = cleaned_df[col].apply(lambda x: lower_bound if x < lower_bound else (upper_bound if x > upper_bound else x))
+    
+    return cleaned_df
+
 if __name__ == '__main__':
-    # Run the app on port 5001
     port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port) 
+    app.run(host='0.0.0.0', port=port, debug=True) 
