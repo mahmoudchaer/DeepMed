@@ -32,7 +32,7 @@ sys.path.append(PROJECT_ROOT)
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(os.path.join(SCRIPT_DIR, "auth_test_results.log")),
         logging.StreamHandler()
@@ -42,7 +42,7 @@ logger = logging.getLogger("auth_test")
 
 # Load environment variables from project root .env
 env_path = os.path.join(PROJECT_ROOT, '.env')
-logger.info(f"Loading environment variables from: {env_path}")
+logger.info(f"Loading .env from: {env_path}")
 load_dotenv(env_path)
 
 # Import db models after environment variables are loaded
@@ -64,9 +64,16 @@ def record_test_result(test_name, passed, details=None):
     global test_results
     
     result = "PASSED" if passed else "FAILED"
-    logger.info(f"{test_name}: {result}")
-    if details:
-        logger.info(f"  Details: {details}")
+    
+    # Log at appropriate level
+    if passed:
+        logger.debug(f"✓ {test_name}: {result}")
+        if details:
+            logger.debug(f"  Details: {details}")
+    else:
+        logger.error(f"✗ {test_name}: {result}")
+        if details:
+            logger.error(f"  Details: {details}")
     
     test_results["total_tests"] += 1
     if passed:
@@ -109,7 +116,7 @@ class DatabaseConnection:
         mysql_db = os.getenv('MYSQL_DB')
         
         # Log DB connection info (without password)
-        logger.info(f"Connecting to database: {mysql_user}@{mysql_host}:{mysql_port}/{mysql_db}")
+        logger.info(f"Connecting to DB: {mysql_user}@{mysql_host}:{mysql_port}/{mysql_db}")
         
         # URL encode the password to handle special characters
         encoded_password = urllib.parse.quote_plus(mysql_password)
@@ -122,9 +129,9 @@ class DatabaseConnection:
             self.engine = create_engine(db_uri)
             self.Session = sessionmaker(bind=self.engine)
             self.session = self.Session()
-            logger.info("Database connection established")
+            logger.info("DB connection established")
         except Exception as e:
-            logger.error(f"Failed to connect to database: {str(e)}")
+            logger.error(f"DB connection failed: {str(e)}")
             raise
     
     def create_user(self, user_data):
@@ -142,11 +149,11 @@ class DatabaseConnection:
             self.session.add(new_user)
             self.session.commit()
             
-            logger.info(f"User created successfully: {user_data['email']}")
+            logger.debug(f"Created user: {user_data['email']}")
             return True, new_user.id
         except IntegrityError:
             self.session.rollback()
-            logger.error(f"User already exists: {user_data['email']}")
+            logger.warning(f"User already exists: {user_data['email']}")
             return False, "User already exists"
         except Exception as e:
             self.session.rollback()
@@ -161,18 +168,18 @@ class DatabaseConnection:
             
             # Check if user exists and password is correct
             if user and user.check_password(password):
-                logger.info(f"Login successful for user: {email}")
+                logger.debug(f"Login successful: {email}")
                 return True, user.id
             
             # User not found or password incorrect
             if not user:
-                logger.info(f"User not found: {email}")
+                logger.debug(f"User not found: {email}")
                 return False, "User not found"
             else:
-                logger.info(f"Invalid password for user: {email}")
+                logger.debug(f"Invalid password: {email}")
                 return False, "Invalid password"
         except Exception as e:
-            logger.error(f"Error verifying login: {str(e)}")
+            logger.error(f"Login verification error: {str(e)}")
             return False, str(e)
     
     def clean_up_test_users(self):
@@ -188,16 +195,16 @@ class DatabaseConnection:
             return True, deleted
         except Exception as e:
             self.session.rollback()
-            logger.error(f"Error cleaning up test users: {str(e)}")
+            logger.error(f"Cleanup error: {str(e)}")
             return False, str(e)
     
     def close(self):
         """Close database connection"""
         try:
             self.session.close()
-            logger.info("Database connection closed")
+            logger.debug("DB connection closed")
         except Exception as e:
-            logger.error(f"Error closing database connection: {str(e)}")
+            logger.error(f"Error closing DB connection: {str(e)}")
 
 def run_tests():
     """Run all authentication tests"""
@@ -209,6 +216,8 @@ def run_tests():
         # Generate random credentials for testing
         test_creds1 = generate_random_credentials()
         test_creds2 = generate_random_credentials()
+        
+        logger.info("Starting DB authentication tests")
         
         # Test 1: Create a new user
         test_name = "Create New User"
@@ -271,7 +280,7 @@ def run_tests():
         record_test_result(test_name, success, f"Deleted {message} test users")
         
     except Exception as e:
-        logger.error(f"Error running tests: {str(e)}")
+        logger.error(f"Test error: {str(e)}")
     finally:
         # Close database connection
         if db_conn:
@@ -279,23 +288,24 @@ def run_tests():
 
 def print_summary():
     """Print test summary"""
+    passed = test_results['passed_tests']
+    failed = test_results['failed_tests']
+    total = test_results['total_tests']
+    
     print("\n" + "="*50)
     print("AUTHENTICATION TEST SUMMARY")
     print("="*50)
-    print(f"Total Tests: {test_results['total_tests']}")
-    print(f"Passed: {test_results['passed_tests']}")
-    print(f"Failed: {test_results['failed_tests']}")
-    print(f"Success Rate: {(test_results['passed_tests'] / test_results['total_tests'] * 100):.2f}%")
-    print("="*50)
+    print(f"Total: {total} | Passed: {passed} | Failed: {failed} | Success: {(passed / total * 100):.1f}%")
     
-    # Print details of failed tests
-    if test_results['failed_tests'] > 0:
-        print("\nFailed Tests:")
+    # Print details of failed tests only
+    if failed > 0:
+        print("\nFAILED TESTS:")
         for test in test_results['test_details']:
             if test['result'] == "FAILED":
-                print(f"  - {test['test_name']}: {test['details']}")
+                print(f"  ✗ {test['test_name']}: {test['details']}")
     
-    print("\nComplete log available at: quality_assurance/authentication/auth_test_results.log")
+    print("="*50)
+    print(f"Complete log: {os.path.join(SCRIPT_DIR, 'auth_test_results.log')}")
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -308,6 +318,6 @@ if __name__ == "__main__":
     
     end_time = time.time()
     duration = end_time - start_time
-    logger.info(f"Tests completed in {duration:.2f} seconds")
+    logger.info(f"Tests completed in {duration:.2f}s")
     
     print_summary() 

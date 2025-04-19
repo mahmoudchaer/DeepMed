@@ -32,7 +32,7 @@ sys.path.append(PROJECT_ROOT)
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(os.path.join(SCRIPT_DIR, "flask_auth_test_results.log")),
         logging.StreamHandler()
@@ -42,7 +42,7 @@ logger = logging.getLogger("flask_auth_test")
 
 # Load environment variables from project root .env
 env_path = os.path.join(PROJECT_ROOT, '.env')
-logger.info(f"Loading environment variables from: {env_path}")
+logger.info(f"Loading .env from: {env_path}")
 load_dotenv(env_path)
 
 # Import app and db after environment variables are loaded
@@ -50,7 +50,7 @@ try:
     from app_api import app, db
     from db.users import User
 except ImportError as e:
-    logger.error(f"Failed to import required modules: {str(e)}")
+    logger.error(f"Import error: {str(e)}")
     sys.exit(1)
 
 # Test results storage
@@ -66,9 +66,16 @@ def record_test_result(test_name, passed, details=None):
     global test_results
     
     result = "PASSED" if passed else "FAILED"
-    logger.info(f"{test_name}: {result}")
-    if details:
-        logger.info(f"  Details: {details}")
+    
+    # Log at appropriate level
+    if passed:
+        logger.debug(f"✓ {test_name}: {result}")
+        if details:
+            logger.debug(f"  Details: {details}")
+    else:
+        logger.error(f"✗ {test_name}: {result}")
+        if details:
+            logger.error(f"  Details: {details}")
     
     test_results["total_tests"] += 1
     if passed:
@@ -129,7 +136,7 @@ class FlaskAuthTester:
             def dummy_welcome():
                 return "Dummy welcome page for testing"
         
-        logger.info("Added dummy routes to handle redirects during testing")
+        logger.debug("Added dummy routes for testing")
     
     def register_user(self, user_data):
         """Test user registration"""
@@ -143,14 +150,14 @@ class FlaskAuthTester:
             
             # Check response
             if response.status_code == 200 and b'Account created successfully' in response.data:
-                logger.info(f"User registered successfully: {user_data['email']}")
+                logger.debug(f"Registered: {user_data['email']}")
                 self.test_users.append(user_data['email'])
                 return True, "Registration successful"
             else:
-                logger.error(f"Failed to register user: {user_data['email']}")
-                return False, f"Registration failed with status code {response.status_code}"
+                logger.warning(f"Registration failed: {user_data['email']}")
+                return False, f"Status: {response.status_code}"
         except Exception as e:
-            logger.error(f"Error during registration: {str(e)}")
+            logger.error(f"Registration error: {str(e)}")
             return False, str(e)
     
     def login_user(self, email, password):
@@ -165,19 +172,19 @@ class FlaskAuthTester:
             # First check if we got a redirect (302) which indicates successful login
             if response.status_code == 302:
                 # Successful login should redirect
-                logger.info(f"User logged in successfully: {email}")
+                logger.debug(f"Login successful: {email}")
                 return True, "Login successful"
             
             # If we got a 200 but stayed on login page, login failed
             elif response.status_code == 200 and b'Login' in response.data:
-                logger.error(f"Failed to login user: {email}")
-                return False, "Login failed - invalid credentials"
+                logger.debug(f"Login failed: {email}")
+                return False, "Invalid credentials"
             else:
-                logger.error(f"Unexpected response during login: {response.status_code}")
-                return False, f"Login failed with status code {response.status_code}"
+                logger.warning(f"Unexpected login response: {response.status_code}")
+                return False, f"Status: {response.status_code}"
                 
         except Exception as e:
-            logger.error(f"Error during login: {str(e)}")
+            logger.error(f"Login error: {str(e)}")
             return False, str(e)
     
     def logout_user(self):
@@ -188,13 +195,13 @@ class FlaskAuthTester:
             
             # Successful logout should redirect to login page
             if response.status_code == 302 or response.status_code == 303:
-                logger.info("User logged out successfully")
+                logger.debug("Logout successful")
                 return True, "Logout successful"
             else:
-                logger.error("Failed to logout user")
-                return False, f"Logout failed with status code {response.status_code}"
+                logger.warning(f"Logout failed: {response.status_code}")
+                return False, f"Status: {response.status_code}"
         except Exception as e:
-            logger.error(f"Error during logout: {str(e)}")
+            logger.error(f"Logout error: {str(e)}")
             return False, str(e)
     
     def access_protected_route(self):
@@ -206,21 +213,21 @@ class FlaskAuthTester:
             # If not logged in, should redirect to login page (302)
             if not self.is_authenticated():
                 if response.status_code == 302 and '/login' in response.location:
-                    logger.info("Protected route correctly redirected to login")
-                    return True, "Protected route correctly redirected to login"
+                    logger.debug("Protected route redirected to login")
+                    return True, "Correctly redirected to login"
                 else:
-                    logger.error("Protected route did not properly redirect to login")
-                    return False, f"Protected route failed to redirect to login, code: {response.status_code}"
+                    logger.warning(f"No login redirect: {response.status_code}")
+                    return False, f"Status: {response.status_code}"
             # If logged in, should be able to access the protected route (200)
             else:
                 if response.status_code == 200:
-                    logger.info("Successfully accessed protected route when authenticated")
-                    return True, "Successfully accessed protected route when authenticated"
+                    logger.debug("Accessed protected route when authenticated")
+                    return True, "Access successful"
                 else:
-                    logger.error("Failed to access protected route when authenticated")
-                    return False, f"Failed to access protected route when authenticated, code: {response.status_code}"
+                    logger.warning(f"Protected route access failed: {response.status_code}")
+                    return False, f"Status: {response.status_code}"
         except Exception as e:
-            logger.error(f"Error accessing protected route: {str(e)}")
+            logger.error(f"Protected route access error: {str(e)}")
             return False, str(e)
     
     def is_authenticated(self):
@@ -232,7 +239,7 @@ class FlaskAuthTester:
             # If not redirected to login, user is authenticated
             return response.status_code != 302
         except Exception as e:
-            logger.error(f"Error checking authentication status: {str(e)}")
+            logger.error(f"Auth check error: {str(e)}")
             return False
     
     def clean_up_test_users(self):
@@ -249,7 +256,7 @@ class FlaskAuthTester:
                 return True, deleted
             except Exception as e:
                 db.session.rollback()
-                logger.error(f"Error cleaning up test users: {str(e)}")
+                logger.error(f"Cleanup error: {str(e)}")
                 return False, str(e)
 
 def run_tests():
@@ -262,6 +269,8 @@ def run_tests():
         # Generate random credentials for testing
         test_creds1 = generate_random_credentials()
         test_creds2 = generate_random_credentials()
+        
+        logger.info("Starting Flask authentication tests")
         
         # Test 1: Access protected route when not logged in
         test_name = "Access Protected Route When Not Logged In"
@@ -327,27 +336,28 @@ def run_tests():
         record_test_result(test_name, success, f"Deleted {message} test users")
         
     except Exception as e:
-        logger.error(f"Error running tests: {str(e)}")
+        logger.error(f"Test error: {str(e)}")
 
 def print_summary():
     """Print test summary"""
+    passed = test_results['passed_tests']
+    failed = test_results['failed_tests']
+    total = test_results['total_tests']
+    
     print("\n" + "="*50)
     print("FLASK AUTHENTICATION TEST SUMMARY")
     print("="*50)
-    print(f"Total Tests: {test_results['total_tests']}")
-    print(f"Passed: {test_results['passed_tests']}")
-    print(f"Failed: {test_results['failed_tests']}")
-    print(f"Success Rate: {(test_results['passed_tests'] / test_results['total_tests'] * 100):.2f}%")
-    print("="*50)
+    print(f"Total: {total} | Passed: {passed} | Failed: {failed} | Success: {(passed / total * 100):.1f}%")
     
-    # Print details of failed tests
-    if test_results['failed_tests'] > 0:
-        print("\nFailed Tests:")
+    # Print details of failed tests only
+    if failed > 0:
+        print("\nFAILED TESTS:")
         for test in test_results['test_details']:
             if test['result'] == "FAILED":
-                print(f"  - {test['test_name']}: {test['details']}")
+                print(f"  ✗ {test['test_name']}: {test['details']}")
     
-    print("\nComplete log available at: quality_assurance/authentication/flask_auth_test_results.log")
+    print("="*50)
+    print(f"Complete log: {os.path.join(SCRIPT_DIR, 'flask_auth_test_results.log')}")
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -361,6 +371,6 @@ if __name__ == "__main__":
     
     end_time = time.time()
     duration = end_time - start_time
-    logger.info(f"Tests completed in {duration:.2f} seconds")
+    logger.info(f"Tests completed in {duration:.2f}s")
     
     print_summary() 
