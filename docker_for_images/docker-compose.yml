@@ -71,28 +71,6 @@ services:
     networks:
       - deepmed-network
 
-  semantic-segmentation-service:
-    build:
-      context: ./semantic_regression
-      dockerfile: Dockerfile_semantic_segmentation
-    ports:
-      - "5031:5031"
-    restart: unless-stopped
-    volumes:
-      - ./semantic_regression/semantic_segmentation_service.py:/app/semantic_segmentation_service.py
-    shm_size: '4gb'
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          memory: 2G
-    environment:
-      - PORT=5031
-    networks:
-      - deepmed-network
-
   predictor-service:
     build:
       context: ./predictor

@@ -31,7 +31,6 @@ services:
       # Image Processing Services
       - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
       - ANOMALY_DETECTION_SERVICE_URL=http://host.docker.internal:5029
-      - SEMANTIC_SEGMENTATION_SERVICE_URL=http://host.docker.internal:5031
       # Predictor Services
       - TABULAR_PREDICTOR_URL=http://host.docker.internal:5100
     extra_hosts:
