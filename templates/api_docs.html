@@ -1,0 +1,922 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - API Documentation{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .api-docs-container {
+        padding: 2rem 0 4rem;
+    }
+
+    .sidebar {
+        background-color: #161b22;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1.5rem;
+        height: calc(100vh - 80px);
+        position: sticky;
+        top: 80px;
+        overflow-y: auto;
+    }
+
+    .sidebar-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-heading {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        color: #8b949e;
+        margin-bottom: 0.75rem;
+        letter-spacing: 1px;
+    }
+
+    .sidebar-link {
+        display: block;
+        padding: 0.5rem 0.75rem;
+        margin: 0.25rem 0;
+        color: #c9d1d9;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+
+    .sidebar-link:hover, .sidebar-link.active {
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+    }
+
+    .sidebar-sublink {
+        display: block;
+        padding: 0.35rem 0.75rem 0.35rem 1.5rem;
+        margin: 0.1rem 0;
+        color: #8b949e;
+        text-decoration: none;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .sidebar-sublink:hover, .sidebar-sublink.active {
+        background-color: rgba(13, 110, 253, 0.05);
+        color: #0d6efd;
+    }
+
+    .main-content {
+        padding: 2rem;
+    }
+
+    .api-section {
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .api-section:last-child {
+        border-bottom: none;
+    }
+
+    .section-title {
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .endpoint-card {
+        background-color: #161b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .endpoint-header {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .http-method {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        margin-right: 1rem;
+        min-width: 60px;
+        text-align: center;
+    }
+
+    .get {
+        background-color: rgba(47, 129, 247, 0.15);
+        color: #2f81f7;
+    }
+
+    .post {
+        background-color: rgba(46, 160, 67, 0.15);
+        color: #2ea043;
+    }
+
+    .put {
+        background-color: rgba(202, 155, 14, 0.15);
+        color: #ca9b0e;
+    }
+
+    .delete {
+        background-color: rgba(248, 81, 73, 0.15);
+        color: #f85149;
+    }
+
+    .endpoint-path {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.95rem;
+    }
+
+    .endpoint-body {
+        padding: 1rem;
+    }
+
+    .endpoint-description {
+        margin-bottom: 1rem;
+    }
+
+    .params-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 1.5rem 0;
+    }
+
+    .params-table th, .params-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .params-table th {
+        text-align: left;
+        color: #8b949e;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .param-name {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.9rem;
+    }
+
+    .param-type {
+        color: #8b949e;
+        font-size: 0.85rem;
+        padding: 0.1rem 0.5rem;
+        background-color: rgba(110, 118, 129, 0.1);
+        border-radius: 0.25rem;
+    }
+
+    .param-required {
+        color: #f85149;
+        font-size: 0.85rem;
+        margin-left: 0.5rem;
+    }
+
+    .param-optional {
+        color: #8b949e;
+        font-size: 0.85rem;
+        margin-left: 0.5rem;
+    }
+
+    .code-block {
+        background-color: #0d1117;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        position: relative;
+    }
+
+    .code-header {
+        padding: 0.5rem 1rem;
+        background-color: rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+        font-size: 0.85rem;
+        color: #8b949e;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .code-body {
+        padding: 1rem;
+        overflow-x: auto;
+    }
+
+    .language-label {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        color: #8b949e;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+
+    .copy-btn:hover {
+        color: #e6edf3;
+    }
+
+    .response-container {
+        margin-top: 1.5rem;
+    }
+
+    .response-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+        color: #8b949e;
+    }
+
+    .status-code {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
+
+    .status-200 {
+        background-color: rgba(46, 160, 67, 0.15);
+        color: #2ea043;
+    }
+
+    .status-400, .status-401, .status-403, .status-404 {
+        background-color: rgba(248, 81, 73, 0.15);
+        color: #f85149;
+    }
+
+    .tab-container {
+        margin: 1.5rem 0;
+    }
+
+    .tab-headers {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tab-header {
+        padding: 0.75rem 1.25rem;
+        cursor: pointer;
+        color: #8b949e;
+        font-size: 0.9rem;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .tab-header.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+    }
+
+    .tab-content {
+        padding-top: 1.5rem;
+    }
+
+    .tab-panel {
+        display: none;
+    }
+
+    .tab-panel.active {
+        display: block;
+    }
+    
+    .gradient-text {
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="api-docs-container">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-3 col-md-4 d-none d-md-block">
+                <div class="sidebar">
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">Getting Started</h5>
+                        <a href="#introduction" class="sidebar-link active">Introduction</a>
+                        <a href="#authentication" class="sidebar-link">Authentication</a>
+                        <a href="#rate-limits" class="sidebar-link">Rate Limits</a>
+                        <a href="#errors" class="sidebar-link">Error Handling</a>
+                    </div>
+                    
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">Image Analysis</h5>
+                        <a href="#image-endpoints" class="sidebar-link">Overview</a>
+                        <a href="#image-upload" class="sidebar-sublink">Upload Image</a>
+                        <a href="#image-analysis" class="sidebar-sublink">Analyze Image</a>
+                        <a href="#image-segmentation" class="sidebar-sublink">Segmentation</a>
+                        <a href="#image-classification" class="sidebar-sublink">Classification</a>
+                    </div>
+                    
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">Report Generation</h5>
+                        <a href="#report-endpoints" class="sidebar-link">Overview</a>
+                        <a href="#report-create" class="sidebar-sublink">Create Report</a>
+                        <a href="#report-retrieve" class="sidebar-sublink">Retrieve Report</a>
+                        <a href="#report-templates" class="sidebar-sublink">Report Templates</a>
+                    </div>
+                    
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">Models & Training</h5>
+                        <a href="#models-endpoints" class="sidebar-link">Overview</a>
+                        <a href="#models-list" class="sidebar-sublink">List Models</a>
+                        <a href="#models-train" class="sidebar-sublink">Train Custom Model</a>
+                        <a href="#models-evaluate" class="sidebar-sublink">Evaluate Model</a>
+                    </div>
+                    
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">Data Management</h5>
+                        <a href="#data-endpoints" class="sidebar-link">Overview</a>
+                        <a href="#data-storage" class="sidebar-sublink">Data Storage</a>
+                        <a href="#data-retrieval" class="sidebar-sublink">Data Retrieval</a>
+                        <a href="#data-export" class="sidebar-sublink">Data Export</a>
+                    </div>
+                    
+                    <div class="sidebar-section">
+                        <h5 class="sidebar-heading">SDK & Libraries</h5>
+                        <a href="#sdk-python" class="sidebar-link">Python SDK</a>
+                        <a href="#sdk-javascript" class="sidebar-link">JavaScript SDK</a>
+                        <a href="#sdk-java" class="sidebar-link">Java SDK</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-lg-9 col-md-8">
+                <div class="main-content">
+                    <!-- Introduction Section -->
+                    <div id="introduction" class="api-section">
+                        <h1 class="section-title">DeepMed <span class="gradient-text">API Documentation</span></h1>
+                        <p>Welcome to the DeepMed API documentation. Our API enables you to integrate DeepMed's powerful medical imaging AI capabilities directly into your healthcare applications and workflows.</p>
+                        <p>The DeepMed API is organized around REST principles, uses JSON for data exchange, and relies on standard HTTP response codes and authentication. All API requests must use HTTPS.</p>
+                        
+                        <div class="alert alert-info mt-4">
+                            <h5>Base URL</h5>
+                            <code>https://api.deepmed.ai/v1</code>
+                        </div>
+                        
+                        <h4 class="mt-4">API Versioning</h4>
+                        <p>The current version is <code>v1</code>. When we make backwards-incompatible changes to the API, we will release a new version. We recommend specifying a version in your requests to ensure compatibility.</p>
+                    </div>
+                    
+                    <!-- Authentication Section -->
+                    <div id="authentication" class="api-section">
+                        <h2 class="section-title">Authentication</h2>
+                        <p>The DeepMed API uses API keys to authenticate requests. You can view and manage your API keys in the <a href="#" class="text-primary">DeepMed Dashboard</a>.</p>
+                        <p>Authentication is performed via HTTP Bearer Authentication. Include your API key in all requests as follows:</p>
+                        
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="language-label">HTTP Header</span>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <div class="code-body">
+                                <pre>Authorization: Bearer YOUR_API_KEY</pre>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-4">
+                            <h5>Important</h5>
+                            <p>Keep your API keys secure and do not share them in publicly accessible areas such as GitHub, client-side code, etc. API requests should be made from your server, not from the client/browser.</p>
+                        </div>
+                        
+                        <h4 class="mt-4">API Key Types</h4>
+                        <p>DeepMed offers two types of API keys:</p>
+                        <ul>
+                            <li><strong>Test Keys</strong>: Use these in your development environment. They don't incur charges but have lower rate limits and use simulated models.</li>
+                            <li><strong>Production Keys</strong>: Use these in your production environment. They authenticate with our production API servers and incur normal usage charges.</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Rate Limits Section -->
+                    <div id="rate-limits" class="api-section">
+                        <h2 class="section-title">Rate Limits</h2>
+                        <p>Our API implements rate limiting to ensure stability and fair usage across all users. Rate limits vary by endpoint and subscription tier.</p>
+                        
+                        <table class="table table-bordered mt-4">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Rate Limit</th>
+                                    <th>Burst Limit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Developer</td>
+                                    <td>100 requests/hour</td>
+                                    <td>20 requests/minute</td>
+                                </tr>
+                                <tr>
+                                    <td>Professional</td>
+                                    <td>1,000 requests/hour</td>
+                                    <td>100 requests/minute</td>
+                                </tr>
+                                <tr>
+                                    <td>Enterprise</td>
+                                    <td>10,000 requests/hour</td>
+                                    <td>500 requests/minute</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <p class="mt-4">When you exceed your rate limits, the API will return a <code>429 Too Many Requests</code> response. The response will include headers that provide information about your current rate limit status:</p>
+                        
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="language-label">HTTP Headers</span>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <div class="code-body">
+                                <pre>X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1619194800</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Handling Section -->
+                    <div id="errors" class="api-section">
+                        <h2 class="section-title">Error Handling</h2>
+                        <p>The DeepMed API uses conventional HTTP response codes to indicate the success or failure of an API request.</p>
+                        
+                        <h4 class="mt-4">HTTP Status Codes</h4>
+                        <ul>
+                            <li><code>200 OK</code> - Request succeeded</li>
+                            <li><code>201 Created</code> - Resource created successfully</li>
+                            <li><code>400 Bad Request</code> - Invalid request parameters</li>
+                            <li><code>401 Unauthorized</code> - Authentication failed</li>
+                            <li><code>403 Forbidden</code> - Insufficient permissions</li>
+                            <li><code>404 Not Found</code> - Resource not found</li>
+                            <li><code>409 Conflict</code> - Resource conflict</li>
+                            <li><code>429 Too Many Requests</code> - Rate limit exceeded</li>
+                            <li><code>500 Internal Server Error</code> - Server error</li>
+                        </ul>
+                        
+                        <h4 class="mt-4">Error Response Format</h4>
+                        <p>When an error occurs, the API will return a JSON response with an error message and additional details:</p>
+                        
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="language-label">JSON</span>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <div class="code-body">
+                                <pre>{
+  "error": {
+    "code": "invalid_parameters",
+    "message": "The request parameters are invalid.",
+    "details": [
+      {
+        "field": "image_format",
+        "message": "Unsupported image format. Must be one of: dicom, jpg, png."
+      }
+    ]
+  },
+  "request_id": "req_7a8b9c0d1e2f3g4h"
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Image Analysis Endpoints -->
+                    <div id="image-endpoints" class="api-section">
+                        <h2 class="section-title">Image Analysis Endpoints</h2>
+                        <p>The Image Analysis API allows you to upload and analyze medical images using our AI models. Supported modalities include X-ray, CT, MRI, and ultrasound.</p>
+                        
+                        <div id="image-upload" class="endpoint-card">
+                            <div class="endpoint-header">
+                                <span class="http-method post">POST</span>
+                                <span class="endpoint-path">/images/upload</span>
+                            </div>
+                            <div class="endpoint-body">
+                                <div class="endpoint-description">
+                                    <p>Upload a medical image or a set of DICOM files for analysis. The API supports individual files or ZIP archives containing multiple DICOM files.</p>
+                                </div>
+                                
+                                <h5>Request Parameters</h5>
+                                <table class="params-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Parameter</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><span class="param-name">file</span> <span class="param-required">required</span></td>
+                                            <td><span class="param-type">binary</span></td>
+                                            <td>The medical image file (DICOM, JPG, PNG) or ZIP archive.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="param-name">patient_id</span> <span class="param-optional">optional</span></td>
+                                            <td><span class="param-type">string</span></td>
+                                            <td>External patient identifier for reference.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="param-name">study_uid</span> <span class="param-optional">optional</span></td>
+                                            <td><span class="param-type">string</span></td>
+                                            <td>DICOM Study UID for reference.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="param-name">metadata</span> <span class="param-optional">optional</span></td>
+                                            <td><span class="param-type">object</span></td>
+                                            <td>Additional metadata to store with the image.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <div class="tab-container">
+                                    <div class="tab-headers">
+                                        <div class="tab-header active">cURL</div>
+                                        <div class="tab-header">Python</div>
+                                        <div class="tab-header">JavaScript</div>
+                                    </div>
+                                    <div class="tab-content">
+                                        <div class="tab-panel active">
+                                            <div class="code-block">
+                                                <div class="code-header">
+                                                    <span class="language-label">cURL</span>
+                                                    <button class="copy-btn">Copy</button>
+                                                </div>
+                                                <div class="code-body">
+                                                    <pre>curl -X POST https://api.deepmed.ai/v1/images/upload \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: multipart/form-data" \
+  -F file=@chest_xray.dcm \
+  -F "patient_id=P12345" \
+  -F "metadata={\"modality\":\"X-ray\",\"body_part\":\"chest\"}"</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tab-panel">
+                                            <div class="code-block">
+                                                <div class="code-header">
+                                                    <span class="language-label">Python</span>
+                                                    <button class="copy-btn">Copy</button>
+                                                </div>
+                                                <div class="code-body">
+                                                    <pre>import requests
+import json
+
+api_key = "YOUR_API_KEY"
+url = "https://api.deepmed.ai/v1/images/upload"
+
+headers = {
+    "Authorization": f"Bearer {api_key}"
+}
+
+metadata = {
+    "modality": "X-ray",
+    "body_part": "chest"
+}
+
+files = {
+    "file": open("chest_xray.dcm", "rb")
+}
+
+data = {
+    "patient_id": "P12345",
+    "metadata": json.dumps(metadata)
+}
+
+response = requests.post(url, headers=headers, files=files, data=data)
+print(response.json())</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tab-panel">
+                                            <div class="code-block">
+                                                <div class="code-header">
+                                                    <span class="language-label">JavaScript</span>
+                                                    <button class="copy-btn">Copy</button>
+                                                </div>
+                                                <div class="code-body">
+                                                    <pre>const form = new FormData();
+form.append('file', fileInput.files[0]);
+form.append('patient_id', 'P12345');
+form.append('metadata', JSON.stringify({
+  modality: 'X-ray',
+  body_part: 'chest'
+}));
+
+fetch('https://api.deepmed.ai/v1/images/upload', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  },
+  body: form
+})
+.then(response => response.json())
+.then(data => console.log(data))
+.catch(error => console.error('Error:', error));</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="response-container">
+                                    <div class="response-title">
+                                        <span class="status-code status-200">200</span> Success Response
+                                    </div>
+                                    <div class="code-block">
+                                        <div class="code-header">
+                                            <span class="language-label">JSON</span>
+                                            <button class="copy-btn">Copy</button>
+                                        </div>
+                                        <div class="code-body">
+                                            <pre>{
+  "image_id": "img_1a2b3c4d5e6f7g8h",
+  "status": "uploaded",
+  "created_at": "2023-05-15T14:32:17Z",
+  "file_type": "dicom",
+  "file_size": 2048576,
+  "metadata": {
+    "modality": "X-ray",
+    "body_part": "chest"
+  },
+  "patient_id": "P12345",
+  "study_uid": "1.2.840.113619.2.1.1.1.1.1.1.1"
+}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="image-analysis" class="endpoint-card">
+                            <div class="endpoint-header">
+                                <span class="http-method post">POST</span>
+                                <span class="endpoint-path">/images/{image_id}/analyze</span>
+                            </div>
+                            <div class="endpoint-body">
+                                <div class="endpoint-description">
+                                    <p>Analyze a previously uploaded medical image using one or more AI models. This endpoint initiates an asynchronous analysis job and returns a job ID for tracking the progress.</p>
+                                </div>
+                                
+                                <h5>Path Parameters</h5>
+                                <table class="params-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Parameter</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><span class="param-name">image_id</span> <span class="param-required">required</span></td>
+                                            <td><span class="param-type">string</span></td>
+                                            <td>The ID of the image to analyze.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <h5>Request Parameters</h5>
+                                <table class="params-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Parameter</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><span class="param-name">models</span> <span class="param-required">required</span></td>
+                                            <td><span class="param-type">array</span></td>
+                                            <td>Array of model IDs to use for analysis.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="param-name">options</span> <span class="param-optional">optional</span></td>
+                                            <td><span class="param-type">object</span></td>
+                                            <td>Additional options for the analysis.</td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="param-name">webhook_url</span> <span class="param-optional">optional</span></td>
+                                            <td><span class="param-type">string</span></td>
+                                            <td>URL to receive webhook notifications about job status changes.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <div class="code-block">
+                                    <div class="code-header">
+                                        <span class="language-label">cURL</span>
+                                        <button class="copy-btn">Copy</button>
+                                    </div>
+                                    <div class="code-body">
+                                        <pre>curl -X POST https://api.deepmed.ai/v1/images/img_1a2b3c4d5e6f7g8h/analyze \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "models": ["mod_xray_classifier", "mod_lung_nodule_detector"],
+    "options": {
+      "sensitivity": "high",
+      "include_heatmap": true
+    },
+    "webhook_url": "https://example.com/webhooks/deepmed"
+  }'</pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="response-container">
+                                    <div class="response-title">
+                                        <span class="status-code status-200">200</span> Success Response
+                                    </div>
+                                    <div class="code-block">
+                                        <div class="code-header">
+                                            <span class="language-label">JSON</span>
+                                            <button class="copy-btn">Copy</button>
+                                        </div>
+                                        <div class="code-body">
+                                            <pre>{
+  "job_id": "job_9h8g7f6e5d4c3b2a",
+  "status": "processing",
+  "created_at": "2023-05-15T14:35:22Z",
+  "image_id": "img_1a2b3c4d5e6f7g8h",
+  "models": ["mod_xray_classifier", "mod_lung_nodule_detector"],
+  "estimated_completion_time": "2023-05-15T14:37:22Z"
+}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- More endpoints would go here -->
+                    </div>
+                    
+                    <!-- SDK Section -->
+                    <div id="sdk-python" class="api-section">
+                        <h2 class="section-title">Python SDK</h2>
+                        <p>Our Python SDK provides a convenient way to integrate with the DeepMed API in your Python applications.</p>
+                        
+                        <h4 class="mt-4">Installation</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="language-label">Shell</span>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <div class="code-body">
+                                <pre>pip install deepmed</pre>
+                            </div>
+                        </div>
+                        
+                        <h4 class="mt-4">Quick Start</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="language-label">Python</span>
+                                <button class="copy-btn">Copy</button>
+                            </div>
+                            <div class="code-body">
+                                <pre>import deepmed
+
+# Initialize the client
+client = deepmed.Client(api_key="YOUR_API_KEY")
+
+# Upload an image
+image = client.images.upload(
+    file_path="chest_xray.dcm",
+    patient_id="P12345",
+    metadata={"modality": "X-ray", "body_part": "chest"}
+)
+
+# Analyze the image
+job = client.images.analyze(
+    image_id=image.id,
+    models=["mod_xray_classifier", "mod_lung_nodule_detector"],
+    options={"sensitivity": "high", "include_heatmap": True}
+)
+
+# Wait for the analysis to complete
+result = job.wait()
+
+# Access the results
+print(f"Classification: {result.findings.classification}")
+print(f"Abnormalities detected: {len(result.findings.abnormalities)}")
+
+# Generate a report
+report = client.reports.create(
+    job_id=job.id,
+    template="standard_radiology",
+    format="pdf"
+)
+
+# Download the report
+report.download("patient_report.pdf")</pre>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-4">
+                            <h5>Documentation</h5>
+                            <p>For detailed Python SDK documentation, visit our <a href="#" class="text-primary">Python SDK Reference</a>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Script for tab switching
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabHeaders = document.querySelectorAll('.tab-header');
+        
+        tabHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                // Get parent tab container
+                const tabContainer = this.closest('.tab-container');
+                
+                // Remove active class from all headers and panels
+                tabContainer.querySelectorAll('.tab-header').forEach(h => h.classList.remove('active'));
+                tabContainer.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                
+                // Add active class to clicked header
+                this.classList.add('active');
+                
+                // Get index of clicked header
+                const index = Array.from(tabContainer.querySelectorAll('.tab-header')).indexOf(this);
+                
+                // Add active class to corresponding panel
+                tabContainer.querySelectorAll('.tab-panel')[index].classList.add('active');
+            });
+        });
+        
+        // Smooth scrolling for sidebar links
+        document.querySelectorAll('.sidebar-link, .sidebar-sublink').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Remove active class from all links
+                document.querySelectorAll('.sidebar-link, .sidebar-sublink').forEach(l => l.classList.remove('active'));
+                
+                // Add active class to clicked link
+                this.classList.add('active');
+                
+                // Scroll to target
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+        
+        // Copy button functionality
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const codeBlock = this.closest('.code-block').querySelector('.code-body pre');
+                const textToCopy = codeBlock.textContent;
+                
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = 'Copied!';
+                    
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                    }, 2000);
+                });
+            });
+        });
+    });
+</script>
+{% endblock %} 

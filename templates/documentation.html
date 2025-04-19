@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Documentation{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .docs-section {
+        padding: 3rem 0;
+    }
+
+    .docs-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        color: #63b3ed;
+    }
+
+    h3 {
+        color: #0d6efd;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .doc-nav {
+        position: sticky;
+        top: 100px;
+    }
+
+    .doc-nav-list {
+        list-style: none;
+        padding-left: 0;
+    }
+
+    .doc-nav-list li {
+        margin-bottom: 0.5rem;
+    }
+
+    .doc-nav-list a {
+        color: #e6edf3;
+        text-decoration: none;
+        display: block;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        transition: background-color 0.2s;
+    }
+
+    .doc-nav-list a:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .doc-nav-list a.active {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .code-block {
+        background-color: #161b22;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+        font-family: monospace;
+        overflow-x: auto;
+    }
+
+    .screenshot {
+        max-width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 1.5rem 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="docs-section">
+    <div class="container">
+        <div class="row">
+            <!-- Left sidebar navigation -->
+            <div class="col-lg-3">
+                <div class="doc-nav">
+                    <h5 class="mb-3">Documentation</h5>
+                    <ul class="doc-nav-list">
+                        <li><a href="#getting-started" class="active">Getting Started</a></li>
+                        <li><a href="#tabular-data">Tabular Data Models</a></li>
+                        <li><a href="#image-models">Image Models</a></li>
+                        <li><a href="#regression">Regression Models</a></li>
+                        <li><a href="#anomaly-detection">Anomaly Detection</a></li>
+                        <li><a href="#billing">Billing & Credits</a></li>
+                        <li><a href="#data-privacy">Data Privacy</a></li>
+                        <li><a href="#faq">FAQ</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <div class="col-lg-9">
+                <!-- Getting Started -->
+                <div class="docs-container" id="getting-started">
+                    <h2 class="section-title">Getting Started with DeepMed</h2>
+                    <p>
+                        Welcome to DeepMed, the privacy-first, no-code AI platform built for medical professionals. 
+                        This guide will help you understand how to use our platform effectively.
+                    </p>
+
+                    <h3>Creating Your Account</h3>
+                    <p>
+                        To begin using DeepMed, you'll need to create an account:
+                    </p>
+                    <ol>
+                        <li>Click on "Get Started" in the navigation bar</li>
+                        <li>Enter your name, email address, and password</li>
+                        <li>Click "Create Account"</li>
+                        <li>Log in with your new credentials</li>
+                    </ol>
+
+                    <h3>Dashboard Overview</h3>
+                    <p>
+                        Once logged in, you'll be presented with your dashboard, which provides access to all DeepMed's capabilities:
+                    </p>
+                    <ul>
+                        <li><strong>Tabular:</strong> For working with tabular data (spreadsheets)</li>
+                        <li><strong>Images:</strong> For working with medical imaging data</li>
+                        <li><strong>Regression:</strong> For predicting numerical values</li>
+                    </ul>
+                    <p>
+                        Each section contains tools for training models, viewing your trained models, and making predictions.
+                    </p>
+                </div>
+
+                <!-- Tabular Data -->
+                <div class="docs-container" id="tabular-data">
+                    <h2 class="section-title">Tabular Data Models</h2>
+                    <p>
+                        Tabular models are ideal for structured data like patient records, lab results, and clinical measurements.
+                    </p>
+
+                    <h3>Preparing Your Data</h3>
+                    <p>
+                        For best results, prepare your tabular data with the following guidelines:
+                    </p>
+                    <ul>
+                        <li>Use CSV or Excel format (.csv, .xlsx, .xls)</li>
+                        <li>Include a header row with column names</li>
+                        <li>Ensure your target variable (what you want to predict) is clearly identified</li>
+                        <li>Remove any personally identifiable information (PII) for privacy</li>
+                    </ul>
+
+                    <h3>Training a Classification Model</h3>
+                    <p>
+                        To train a classification model:
+                    </p>
+                    <ol>
+                        <li>Navigate to "Tabular → Training Classification" in the main menu</li>
+                        <li>Upload your dataset using the file upload button</li>
+                        <li>Select the target column (what you want to predict)</li>
+                        <li>Choose the columns to include in your model (or use automatic selection)</li>
+                        <li>Click "Train Model" to begin the training process</li>
+                    </ol>
+                    <p>
+                        DeepMed will automatically:
+                    </p>
+                    <ul>
+                        <li>Clean your data by handling missing values and outliers</li>
+                        <li>Select the most relevant features if you opted for automatic selection</li>
+                        <li>Train multiple model types simultaneously (Random Forest, XGBoost, etc.)</li>
+                        <li>Evaluate and compare model performance</li>
+                        <li>Select the best-performing model for deployment</li>
+                    </ul>
+                </div>
+
+                <!-- Image Models -->
+                <div class="docs-container" id="image-models">
+                    <h2 class="section-title">Image Models</h2>
+                    <p>
+                        DeepMed's image models are designed for medical imaging classification, such as identifying 
+                        conditions from X-rays, MRIs, CT scans, and other medical imagery.
+                    </p>
+
+                    <h3>Preparing Your Images</h3>
+                    <p>
+                        For optimal performance:
+                    </p>
+                    <ul>
+                        <li>Organize images into folders, with each folder representing a class/category</li>
+                        <li>Use common image formats (.jpg, .png, .dicom)</li>
+                        <li>Ensure images are of similar dimensions and quality</li>
+                        <li>Remove any patient identifiers from images</li>
+                    </ul>
+
+                    <h3>Image Augmentation</h3>
+                    <p>
+                        If you have limited training data, our augmentation feature can help:
+                    </p>
+                    <ol>
+                        <li>Navigate to "Images → Augment" in the main menu</li>
+                        <li>Upload your original images</li>
+                        <li>Select augmentation techniques (rotation, flip, contrast adjustment, etc.)</li>
+                        <li>Specify how many variations to generate</li>
+                        <li>Click "Generate Augmentations"</li>
+                    </ol>
+                    <p>
+                        This creates additional training examples by applying realistic modifications to your images.
+                    </p>
+
+                    <h3>Training an Image Classification Model</h3>
+                    <p>
+                        To train an image classification model:
+                    </p>
+                    <ol>
+                        <li>Navigate to "Images → Pipeline" in the main menu</li>
+                        <li>Upload your image dataset (organized in class folders)</li>
+                        <li>Configure preprocessing options</li>
+                        <li>Select model architecture (default is fine for most use cases)</li>
+                        <li>Click "Train Model"</li>
+                    </ol>
+                </div>
+
+                <!-- Regression Models -->
+                <div class="docs-container" id="regression">
+                    <h2 class="section-title">Regression Models</h2>
+                    <p>
+                        Regression models predict numerical values instead of categories, making them ideal for 
+                        forecasting lab values, estimating patient outcomes, or predicting treatment effectiveness scores.
+                    </p>
+
+                    <h3>Training a Regression Model</h3>
+                    <p>
+                        To train a regression model:
+                    </p>
+                    <ol>
+                        <li>Navigate to "Regression → Train Regression" in the main menu</li>
+                        <li>Upload your dataset (in CSV or Excel format)</li>
+                        <li>Select the numerical target column you want to predict</li>
+                        <li>Choose which features to include (or use automatic selection)</li>
+                        <li>Click "Train Model"</li>
+                    </ol>
+                    <p>
+                        The process includes automatic data cleaning, feature selection, and model benchmarking 
+                        to find the most accurate regression model for your data.
+                    </p>
+                </div>
+
+                <!-- Anomaly Detection -->
+                <div class="docs-container" id="anomaly-detection">
+                    <h2 class="section-title">Anomaly Detection</h2>
+                    <p>
+                        Anomaly detection identifies unusual patterns in data that don't conform to expected behavior, 
+                        which is particularly useful for identifying rare conditions or abnormalities in medical images.
+                    </p>
+
+                    <h3>Using Anomaly Detection</h3>
+                    <p>
+                        To utilize anomaly detection:
+                    </p>
+                    <ol>
+                        <li>Navigate to "Images → Anomaly Detection" in the main menu</li>
+                        <li>Upload a set of "normal" images for the model to learn from</li>
+                        <li>Configure detection sensitivity</li>
+                        <li>Train the anomaly detection model</li>
+                        <li>Upload test images to identify potential anomalies</li>
+                    </ol>
+                    <p>
+                        The system will highlight regions that deviate significantly from the learned "normal" patterns.
+                    </p>
+                </div>
+
+                <!-- Billing & Credits -->
+                <div class="docs-container" id="billing">
+                    <h2 class="section-title">Billing & Credits</h2>
+                    <p>
+                        DeepMed uses a transparent pricing model with pay-as-you-go, bundle, and subscription options.
+                    </p>
+
+                    <h3>Pay-As-You-Go Pricing</h3>
+                    <p>
+                        Our standard rates:
+                    </p>
+                    <ul>
+                        <li>Tabular Training: $1.00 + $0.10 per 1,000 rows</li>
+                        <li>Image Training: $2.00 + $0.10 per 100 images</li>
+                        <li>Tabular Prediction: $0.10 each</li>
+                        <li>Image Prediction: $0.20 each</li>
+                    </ul>
+
+                    <h3>Bundles & Subscriptions</h3>
+                    <p>
+                        For regular users, our bundles and subscriptions offer better value:
+                    </p>
+                    <ul>
+                        <li><strong>Starter Bundle:</strong> $20 (10 trainings, 100 predictions; 12% discount)</li>
+                        <li><strong>Pro Bundle:</strong> $50 (30 trainings, 300 predictions; 13% discount)</li>
+                        <li><strong>Clinic Bundle:</strong> $100 (75 trainings, 800 predictions; 16% discount)</li>
+                        <li><strong>Lab+ Bundle:</strong> $200 (170 trainings, 2,000 predictions; 19% discount)</li>
+                    </ul>
+                    <p>
+                        Monthly subscriptions are also available with rolling credits and additional discounts.
+                    </p>
+
+                    <h3>Managing Your Credits</h3>
+                    <p>
+                        You can view your remaining credits and usage history in your account settings. Credits never expire 
+                        and can be used across all model types.
+                    </p>
+                </div>
+
+                <!-- Data Privacy -->
+                <div class="docs-container" id="data-privacy">
+                    <h2 class="section-title">Data Privacy</h2>
+                    <p>
+                        DeepMed is built with privacy as a core principle, ensuring your medical data remains secure and compliant.
+                    </p>
+
+                    <h3>Privacy Measures</h3>
+                    <ul>
+                        <li><strong>Local Processing:</strong> All data processing happens locally, with no external data sharing</li>
+                        <li><strong>End-to-End Encryption:</strong> Data is encrypted during transit and at rest</li>
+                        <li><strong>No Data Retention:</strong> We don't store your medical datasets beyond processing</li>
+                        <li><strong>Compliance:</strong> Our system is designed to meet GDPR and HIPAA requirements</li>
+                    </ul>
+
+                    <h3>Best Practices</h3>
+                    <p>
+                        To maximize privacy protection:
+                    </p>
+                    <ul>
+                        <li>Remove direct patient identifiers before uploading</li>
+                        <li>Use anonymized or de-identified datasets when possible</li>
+                        <li>Regularly review and delete unused models and predictions</li>
+                        <li>Ensure you have proper authorization to use the data for AI analysis</li>
+                    </ul>
+                </div>
+
+                <!-- FAQ -->
+                <div class="docs-container" id="faq">
+                    <h2 class="section-title">Frequently Asked Questions</h2>
+
+                    <h3>General Questions</h3>
+                    <div class="mb-4">
+                        <h5>What makes DeepMed different from other AI platforms?</h5>
+                        <p>
+                            DeepMed is specifically designed for healthcare, with privacy-first architecture, no-code interfaces, 
+                            and automated workflows tailored to medical data. Unlike general-purpose AI tools, we optimize for 
+                            healthcare use cases and compliance requirements.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Do I need coding experience to use DeepMed?</h5>
+                        <p>
+                            No. DeepMed is designed to be fully accessible to non-technical users with no coding required. 
+                            Our intuitive interface guides you through the entire process from data upload to prediction.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>How accurate are the models?</h5>
+                        <p>
+                            Model accuracy depends on your data quality and the complexity of the prediction task. DeepMed 
+                            automatically benchmarks multiple algorithms and selects the best performer for your specific dataset. 
+                            We typically achieve competitive or superior performance compared to manually developed models.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>How do I get help if I encounter issues?</h5>
+                        <p>
+                            Contact our support team at support@deepmed.ai for assistance. We typically respond within 24 hours 
+                            on business days. For urgent issues, you can use the live chat function available in the platform.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Simple JavaScript for the documentation navigation -->
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const navLinks = document.querySelectorAll('.doc-nav-list a');
+        
+        // Set active class based on scroll position
+        window.addEventListener('scroll', function() {
+            const fromTop = window.scrollY + 100;
+            
+            navLinks.forEach(link => {
+                const section = document.querySelector(link.hash);
+                
+                if (
+                    section.offsetTop <= fromTop &&
+                    section.offsetTop + section.offsetHeight > fromTop
+                ) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        });
+        
+        // Smooth scroll when clicking nav links
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                window.scrollTo({
+                    top: targetElement.offsetTop - 80,
+                    behavior: 'smooth'
+                });
+                
+                // Update active class
+                navLinks.forEach(link => link.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %} 

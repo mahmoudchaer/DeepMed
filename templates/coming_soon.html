@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - {{ page_title }}{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .coming-soon-section {
+        padding: 5rem 0;
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .coming-soon-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 3rem;
+        text-align: center;
+        max-width: 800px;
+    }
+
+    .gradient-text {
+        background: linear-gradient(90deg, #63b3ed, #76e4f7, #9f7aea);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+    }
+
+    .coming-soon-icon {
+        font-size: 5rem;
+        margin-bottom: 2rem;
+        color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coming-soon-section">
+    <div class="container">
+        <div class="coming-soon-container mx-auto">
+            <i class="fas fa-tools coming-soon-icon"></i>
+            <h1 class="display-4 fw-bold mb-4"><span class="gradient-text">{{ page_title }}</span></h1>
+            <p class="lead mb-5">{{ message }}</p>
+            <div class="mt-4">
+                <a href="{{ url_for('home') }}" class="btn btn-outline-primary me-3">
+                    <i class="fas fa-home me-2"></i>Return to Home
+                </a>
+                <a href="{{ url_for('about') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-info-circle me-2"></i>Learn About DeepMed
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

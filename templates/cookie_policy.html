@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}DeepMed - Cookie Policy{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        background-color: #0d1117;
+        color: #e6edf3;
+    }
+    
+    .navbar {
+        background-color: rgba(13, 17, 23, 0.95) !important;
+        backdrop-filter: blur(10px);
+    }
+
+    .policy-section {
+        padding: 3rem 0;
+    }
+
+    .policy-container {
+        background-color: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        color: #63b3ed;
+    }
+
+    h3 {
+        color: #0d6efd;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .last-updated {
+        font-style: italic;
+        color: #8b949e;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="policy-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <div class="policy-container">
+                    <h1 class="mb-3">Cookie Policy</h1>
+                    <p class="last-updated">Last Updated: January 15, 2025</p>
+
+                    <h2 class="section-title">What Are Cookies</h2>
+                    <p>
+                        Cookies are small text files that are placed on your computer or mobile device when you visit a website. 
+                        They are widely used to make websites work more efficiently and provide information to the owners of the site.
+                    </p>
+
+                    <h3>How We Use Cookies</h3>
+                    <p>
+                        DeepMed uses cookies to enhance your experience on our platform. As a privacy-focused medical AI platform, 
+                        we carefully limit our use of cookies to what's necessary and beneficial for our users.
+                    </p>
+                    <p>We use cookies for the following purposes:</p>
+                    <ul>
+                        <li><strong>Essential cookies:</strong> Required for the operation of our platform. These include cookies that enable you to log into secure areas or use core functionality.</li>
+                        <li><strong>Analytical/performance cookies:</strong> Allow us to recognize and count the number of visitors and see how visitors move around our platform when they are using it. This helps us to improve the way our platform works.</li>
+                        <li><strong>Functionality cookies:</strong> Used to recognize you when you return to our platform. This enables us to personalize our content for you and remember your preferences.</li>
+                        <li><strong>Session cookies:</strong> Temporary cookies that are deleted when you close your browser, used to maintain your session while using our platform.</li>
+                    </ul>
+
+                    <h3>Cookies We Use</h3>
+                    <table class="table table-dark table-bordered mt-3">
+                        <thead>
+                            <tr>
+                                <th>Cookie Name</th>
+                                <th>Purpose</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>session</td>
+                                <td>Used to maintain your login session</td>
+                                <td>Session (expires when browser is closed)</td>
+                            </tr>
+                            <tr>
+                                <td>csrf_token</td>
+                                <td>Security cookie to protect against cross-site request forgery</td>
+                                <td>Session (expires when browser is closed)</td>
+                            </tr>
+                            <tr>
+                                <td>preferences</td>
+                                <td>Stores your platform preferences</td>
+                                <td>1 year</td>
+                            </tr>
+                            <tr>
+                                <td>analytics_id</td>
+                                <td>Used to distinguish users for analytics</td>
+                                <td>2 years</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Third-Party Cookies</h3>
+                    <p>
+                        In line with our privacy-first approach, we minimize the use of third-party cookies. We use a limited 
+                        number of third-party services that may set cookies on your device:
+                    </p>
+                    <ul>
+                        <li><strong>Analytics:</strong> We use anonymized analytics to understand how users interact with our platform and improve its functionality.</li>
+                        <li><strong>Payment processors:</strong> When you make a payment, our payment processors may use cookies to enable secure transactions.</li>
+                    </ul>
+                    <p>
+                        We ensure that any third-party service used complies with medical data privacy standards and does not have access to your medical data.
+                    </p>
+
+                    <h3>Managing Cookies</h3>
+                    <p>
+                        Most web browsers allow you to manage your cookie preferences. You can:
+                    </p>
+                    <ul>
+                        <li>Delete cookies from your device</li>
+                        <li>Block cookies by activating the setting on your browser that allows you to refuse all or some cookies</li>
+                        <li>Set your browser to notify you when you receive a cookie</li>
+                    </ul>
+                    <p>
+                        Please note that if you choose to block all cookies (including essential cookies), you may not be able to access all or parts of our platform.
+                    </p>
+
+                    <h3>Changes to Our Cookie Policy</h3>
+                    <p>
+                        We may update our Cookie Policy from time to time. We will notify you of any changes by posting the new 
+                        Cookie Policy on this page and updating the "Last Updated" date.
+                    </p>
+
+                    <h3>Contact Us</h3>
+                    <p>
+                        If you have any questions about our Cookie Policy, please contact us at:
+                    </p>
+                    <p>
+                        <strong>Email:</strong> privacy@deepmed.ai<br>
+                        <strong>Address:</strong> 123 Medical Center Dr, San Francisco, CA 94143
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -275,11 +275,11 @@
                 <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
                     <h6 class="text-white mb-3">Resources</h6>
                     <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Documentation</a></li>
-                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Blog</a></li>
-                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Case Studies</a></li>
-                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">API</a></li>
-                        <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Support</a></li>
+                        <li class="mb-2"><a href="{{ url_for('documentation') }}" class="text-muted text-decoration-none">Documentation</a></li>
+                        <li class="mb-2"><a href="{{ url_for('blog') }}" class="text-muted text-decoration-none">Blog</a></li>
+                        <li class="mb-2"><a href="{{ url_for('case_studies') }}" class="text-muted text-decoration-none">Case Studies</a></li>
+                        <li class="mb-2"><a href="{{ url_for('api_docs') }}" class="text-muted text-decoration-none">API</a></li>
+                        <li class="mb-2"><a href="{{ url_for('support') }}" class="text-muted text-decoration-none">Support</a></li>
                     </ul>
                 </div>
 
@@ -311,9 +311,9 @@
                     <p class="text-muted small mb-0">&copy; 2025 DeepMed. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
-                    <a href="#" class="text-muted small text-decoration-none me-3">Privacy Policy</a>
-                    <a href="#" class="text-muted small text-decoration-none me-3">Terms of Service</a>
-                    <a href="#" class="text-muted small text-decoration-none">Cookie Policy</a>
+                    <a href="{{ url_for('privacy_policy') }}" class="text-muted small text-decoration-none me-3">Privacy Policy</a>
+                    <a href="{{ url_for('terms_of_service') }}" class="text-muted small text-decoration-none me-3">Terms of Service</a>
+                    <a href="{{ url_for('cookie_policy') }}" class="text-muted small text-decoration-none">Cookie Policy</a>
                 </div>
             </div>
         </div>
