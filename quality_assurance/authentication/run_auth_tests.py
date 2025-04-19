@@ -15,6 +15,7 @@ import sys
 import time
 import subprocess
 import logging
+import re
 from datetime import datetime
 
 # Get the absolute path to the script
@@ -47,6 +48,21 @@ TESTS = [
     }
 ]
 
+def extract_test_results(output):
+    """Extract test result counts from the output"""
+    # Look for the summary line with the format: "Total: X | Passed: Y | Failed: Z | Success: W%"
+    summary_match = re.search(r"Total: (\d+) \| Passed: (\d+) \| Failed: (\d+)", output)
+    if summary_match:
+        total = int(summary_match.group(1))
+        passed = int(summary_match.group(2))
+        failed = int(summary_match.group(3))
+        return {
+            "total": total,
+            "passed": passed,
+            "failed": failed
+        }
+    return None
+
 def run_test(test):
     """Run a single test script and return the result"""
     logger.info(f"Running {test['name']}")
@@ -63,13 +79,23 @@ def run_test(test):
         end_time = time.time()
         duration = end_time - start_time
         
+        # Extract test result counts from output
+        test_results = extract_test_results(result.stdout)
+        
         # Process the result
-        if result.returncode == 0:
-            status = "PASSED"
-            logger.info(f"✓ {test['name']}: {status} ({duration:.2f}s)")
+        if test_results:
+            # Consider the test suite "PASSED" only if no individual tests failed
+            status = "PASSED" if test_results["failed"] == 0 else "FAILED"
+            count_info = f"({test_results['passed']}/{test_results['total']} tests passed)"
         else:
-            status = "FAILED"
-            logger.error(f"✗ {test['name']}: {status} ({duration:.2f}s)")
+            # Fallback to just checking the return code
+            status = "PASSED" if result.returncode == 0 else "FAILED"
+            count_info = ""
+        
+        if status == "PASSED":
+            logger.info(f"✓ {test['name']}: {status} {count_info} ({duration:.2f}s)")
+        else:
+            logger.error(f"✗ {test['name']}: {status} {count_info} ({duration:.2f}s)")
         
         # Only log stdout for failed tests or if it's short
         if status == "FAILED" or len(result.stdout) < 500:
@@ -90,7 +116,8 @@ def run_test(test):
             "duration": duration,
             "returncode": result.returncode,
             "output": result.stdout,
-            "errors": result.stderr
+            "errors": result.stderr,
+            "test_results": test_results
         }
     except Exception as e:
         logger.error(f"Failed to run {test['name']}: {str(e)}")
@@ -100,7 +127,8 @@ def run_test(test):
             "duration": 0,
             "returncode": -1,
             "output": "",
-            "errors": str(e)
+            "errors": str(e),
+            "test_results": None
         }
 
 def run_all_tests():
@@ -120,11 +148,24 @@ def generate_report(results):
     failed_tests = sum(1 for r in results if r['status'] == "FAILED")
     error_tests = sum(1 for r in results if r['status'] == "ERROR")
     
+    # Count total tests across all test suites
+    individual_tests = {
+        "total": sum(r.get('test_results', {}).get('total', 0) for r in results if r.get('test_results')),
+        "passed": sum(r.get('test_results', {}).get('passed', 0) for r in results if r.get('test_results')),
+        "failed": sum(r.get('test_results', {}).get('failed', 0) for r in results if r.get('test_results'))
+    }
+    
     print("\n" + "="*60)
     print(f"AUTHENTICATION TESTS REPORT - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
-    print(f"Total Test Suites: {total_tests} | Passed: {passed_tests} | Failed: {failed_tests} | Errors: {error_tests}")
-    print(f"Success Rate: {(passed_tests / total_tests * 100):.1f}%")
+    print(f"Test Suites: {total_tests} | Passed: {passed_tests} | Failed: {failed_tests} | Errors: {error_tests}")
+    
+    if individual_tests["total"] > 0:
+        print(f"Individual Tests: {individual_tests['total']} | Passed: {individual_tests['passed']} | Failed: {individual_tests['failed']}")
+        print(f"Success Rate: {(individual_tests['passed'] / individual_tests['total'] * 100):.1f}%")
+    else:
+        print(f"Success Rate: {(passed_tests / total_tests * 100):.1f}%")
+    
     print("="*60)
     
     # Print details for failed tests only
@@ -133,6 +174,13 @@ def generate_report(results):
         print("\nFAILED TEST SUITES:")
         for result in failed_results:
             print(f"  ✗ {result['name']} - {result['status']} ({result['duration']:.2f}s)")
+            
+            # Extract failed test names from output
+            failed_tests = re.findall(r"✗ ([^:]+): FAILED", result['output'])
+            if failed_tests:
+                print(f"    Failed tests: {', '.join(failed_tests[:5])}")
+                if len(failed_tests) > 5:
+                    print(f"    ...and {len(failed_tests) - 5} more")
             
             # Print just the first few error lines
             if result['errors']:
