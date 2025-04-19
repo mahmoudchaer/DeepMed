@@ -132,12 +132,6 @@ class FlaskAuthTester:
                 training_exists = True
                 break
         
-        # Add dummy routes if they don't exist
-        if not training_exists:
-            @app.route('/training')
-            def training():
-                return "Training page for testing"
-            logger.debug("Added dummy training route")
         
         # Check for welcome route
         welcome_exists = False
@@ -145,12 +139,7 @@ class FlaskAuthTester:
             if rule.endpoint == 'welcome':
                 welcome_exists = True
                 break
-                
-        if not welcome_exists:
-            @app.route('/welcome')
-            def welcome():
-                return "Welcome page for testing"
-            logger.debug("Added dummy welcome route")
+
         
         # Disable redirect validation during testing
         app.config['TESTING'] = True
