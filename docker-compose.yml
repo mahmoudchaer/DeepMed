@@ -1,7 +1,6 @@
 version: '3'
 
 services:
-  # Original docker_versions services
   data-cleaner:
     build:
       context: ./docker_versions/data_cleaner
@@ -207,7 +206,6 @@ services:
     networks:
       - deepmed-network
 
-  # docker_for_images services
   model-training-service:
     build:
       context: ./docker_for_images/images_classification
@@ -308,6 +306,73 @@ services:
       - PORT=5100
     networks:
       - deepmed-network
+
+  monitoring:
+    build: ./monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./monitoring:/app
+      - ./monitoring/logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+    environment:
+      - FLASK_ENV=production
+      - DATA_CLEANER_URL=http://host.docker.internal:5001
+      - FEATURE_SELECTOR_URL=http://host.docker.internal:5002
+      - ANOMALY_DETECTOR_URL=http://host.docker.internal:5003
+      - MODEL_COORDINATOR_URL=http://host.docker.internal:5020
+      - MODEL_TRAINING_SERVICE_URL=http://host.docker.internal:5021
+      - LOGISTIC_REGRESSION_URL=http://host.docker.internal:5010
+      - DECISION_TREE_URL=http://host.docker.internal:5011
+      - RANDOM_FOREST_URL=http://host.docker.internal:5012
+      - SVM_URL=http://host.docker.internal:5013
+      - KNN_URL=http://host.docker.internal:5014
+      - NAIVE_BAYES_URL=http://host.docker.internal:5015
+      - MEDICAL_ASSISTANT_URL=http://host.docker.internal:5005
+      - PIPELINE_SERVICE_URL=http://host.docker.internal:5025
+      - AUGMENTATION_SERVICE_URL=http://host.docker.internal:5023
+      - ANOMALY_DETECTION_SERVICE_URL=http://host.docker.internal:5029
+      - TABULAR_PREDICTOR_URL=http://host.docker.internal:5100
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - deepmed-network
+
+  prometheus:
+    build: ./monitoring/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - deepmed-network
+
+  grafana:
+    build: ./monitoring/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=deepmed
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: always
+    depends_on:
+      - prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - deepmed-network
+
+volumes:
+  prometheus_data:
+  grafana_data:
 
 networks:
   deepmed-network:
