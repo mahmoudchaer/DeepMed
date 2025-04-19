@@ -320,6 +320,11 @@ def welcome():
         
     return render_template('welcome.html')
 
+@app.route('/about')
+def about():
+    """About page """
+    return render_template('about.html')
+
 @app.route('/home')
 def home():
     """Home page - accessible to everyone, logged in or not"""
