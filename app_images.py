@@ -24,7 +24,7 @@ from app_api import check_services, save_to_temp_file, clean_data_for_json
 PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
 # Define URL for anomaly detection service
-ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
+ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5030')
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
