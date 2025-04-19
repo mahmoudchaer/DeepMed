@@ -35,18 +35,13 @@
                             <div class="mb-3">
                                 <label for="level" class="form-label">Augmentation Level</label>
                                 <select class="form-select" id="level" name="level">
-                                    <option value="1">Level 1 - Light (minimal changes)</option>
-                                    <option value="2">Level 2 - Moderate (slight geometric and color changes)</option>
-                                    <option value="3" selected>Level 3 - Medium (more geometric and color changes)</option>
-                                    <option value="4">Level 4 - Strong (significant changes)</option>
-                                    <option value="5">Level 5 - Very Strong (extreme changes)</option>
+                                    <option value="1">Level 1 - Light (minimal changes, 1 augmentation per image)</option>
+                                    <option value="2">Level 2 - Moderate (slight geometric and color changes, 2 augmentations per image)</option>
+                                    <option value="3" selected>Level 3 - Medium (more geometric and color changes, 3 augmentations per image)</option>
+                                    <option value="4">Level 4 - Strong (significant changes, 4 augmentations per image)</option>
+                                    <option value="5">Level 5 - Very Strong (extreme changes, 5 augmentations per image)</option>
                                 </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="numAugmentations" class="form-label">Augmentations Per Image</label>
-                                <input type="number" class="form-control" id="numAugmentations" name="numAugmentations" min="1" max="10" value="2">
-                                <div class="form-text">Number of augmented versions to create for each image (1-10)</div>
+                                <div class="form-text">Higher levels create stronger augmentations and more augmented images per original image</div>
                             </div>
                             
                             <button type="submit" class="btn btn-primary w-100" id="augmentButton">
@@ -80,11 +75,11 @@
                         <div id="initialInfo">
                             <h5>Augmentation Levels Explained:</h5>
                             <ul class="list-group mb-3">
-                                <li class="list-group-item"><strong>Level 1:</strong> Basic flips and minimal brightness/contrast changes</li>
-                                <li class="list-group-item"><strong>Level 2:</strong> Flips, slight rotations, and moderate brightness/contrast</li>
-                                <li class="list-group-item"><strong>Level 3:</strong> More rotation, scaling, shifting, and color adjustments</li>
-                                <li class="list-group-item"><strong>Level 4:</strong> Elastic transforms, noise, and significant geometric changes</li>
-                                <li class="list-group-item"><strong>Level 5:</strong> Maximum variation with all possible transforms</li>
+                                <li class="list-group-item"><strong>Level 1:</strong> Basic flips and minimal brightness/contrast changes (1 augmentation per image)</li>
+                                <li class="list-group-item"><strong>Level 2:</strong> Flips, slight rotations, and moderate brightness/contrast (2 augmentations per image)</li>
+                                <li class="list-group-item"><strong>Level 3:</strong> More rotation, scaling, shifting, and color adjustments (3 augmentations per image)</li>
+                                <li class="list-group-item"><strong>Level 4:</strong> Elastic transforms, noise, and significant geometric changes (4 augmentations per image)</li>
+                                <li class="list-group-item"><strong>Level 5:</strong> Maximum variation with all possible transforms (5 augmentations per image)</li>
                             </ul>
                             
                             <div class="alert alert-warning">
