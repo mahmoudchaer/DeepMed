@@ -355,11 +355,6 @@ def case_studies():
     """Case studies page"""
     return render_template('case_studies.html')
 
-@app.route('/api-docs')
-def api_docs():
-    """API documentation page"""
-    return render_template('api_docs.html')
-
 @app.route('/support')
 def support():
     """Support page"""
