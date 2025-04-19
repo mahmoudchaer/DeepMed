@@ -125,18 +125,35 @@ class FlaskAuthTester:
     
     def _patch_flask_app(self):
         """Patch Flask app to handle redirects to non-existent endpoints during testing"""
-        # Add a dummy training route to handle redirects
-        @app.route('/training')
-        def dummy_training():
-            return "Dummy training page for testing"
+        # Check if the training route already exists to avoid conflicts
+        training_exists = False
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint == 'training':
+                training_exists = True
+                break
         
-        # Add a dummy welcome route if it doesn't exist
-        if not app.url_map.is_endpoint_expecting('welcome'):
+        # Add dummy routes if they don't exist
+        if not training_exists:
+            @app.route('/training')
+            def training():
+                return "Training page for testing"
+            logger.debug("Added dummy training route")
+        
+        # Check for welcome route
+        welcome_exists = False
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint == 'welcome':
+                welcome_exists = True
+                break
+                
+        if not welcome_exists:
             @app.route('/welcome')
-            def dummy_welcome():
-                return "Dummy welcome page for testing"
+            def welcome():
+                return "Welcome page for testing"
+            logger.debug("Added dummy welcome route")
         
-        logger.debug("Added dummy routes for testing")
+        # Disable redirect validation during testing
+        app.config['TESTING'] = True
     
     def register_user(self, user_data):
         """Test user registration"""
