@@ -504,6 +504,46 @@ def get_session_size():
         logger.error(f"Error estimating session size: {str(e)}")
         return 0
 
+@app.route('/about')
+def about():
+    """About page """
+    return render_template('about.html')
+
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy policy page"""
+    return render_template('privacy_policy.html')
+
+@app.route('/terms-of-service')
+def terms_of_service():
+    """Terms of service page"""
+    return render_template('terms_of_service.html')
+
+@app.route('/cookie-policy')
+def cookie_policy():
+    """Cookie policy page"""
+    return render_template('cookie_policy.html')
+
+@app.route('/documentation')
+def documentation():
+    """Documentation page"""
+    return render_template('documentation.html')
+
+@app.route('/blog')
+def blog():
+    """Blog page"""
+    return render_template('blog.html')
+
+@app.route('/case-studies')
+def case_studies():
+    """Case studies page"""
+    return render_template('case_studies.html')
+
+@app.route('/support')
+def support():
+    """Support page"""
+    return render_template('support.html')
+
 # Add a function to monitor and trim session if needed
 def check_session_size(max_size=3000000):  # ~3MB limit
     """Check if session is too large and trim it if needed"""
