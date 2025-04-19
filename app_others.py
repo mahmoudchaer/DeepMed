@@ -875,226 +875,76 @@ def preprocess_new_data(run_id):
         return redirect(url_for('my_models'))
 
 def apply_stored_cleaning(df, cleaner_config):
-    """Apply cleaning operations based on stored configuration"""
-    # Get cleaning options and instructions
-    options = cleaner_config.get("options", {})
-    llm_instructions = cleaner_config.get("llm_instructions", "")
-    
-    # First, identify columns that are likely irrelevant for analysis
-    irrelevant_patterns = [
-        # ID columns
-        'id', '_id', 'uuid', 'guid', 'identifier',
-        # Name columns  
-        'name', 'firstname', 'lastname', 'fullname', 'patient', 'doctor', 'physician', 'provider',
-        # Date/time columns
-        'date', 'time', 'datetime', 'timestamp', 'admission', 'discharge', 'visit',
-        # Contact and personal info
-        'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
-        # Other non-predictive columns
-        'notes', 'comment', 'description', 'url', 'link', 'file', 'path'
-    ]
-    
-    # Identify columns to potentially exclude based on name patterns
-    potential_irrelevant_cols = []
-    for col in df.columns:
-        col_lower = col.lower()
-        # Check if column name contains any of the irrelevant patterns
-        if any(pattern in col_lower for pattern in irrelevant_patterns):
-            potential_irrelevant_cols.append(col)
-            logger.info(f"Identified potentially irrelevant column in pre-cleaning check: '{col}'")
-    
-    # Get categorical variable encoding mappings if available
-    encoding_mappings = {}
-    
-    # Check if mappings are stored in a file
-    if 'encoding_mappings_file' in cleaner_config and os.path.exists(cleaner_config['encoding_mappings_file']):
-        try:
-            with open(cleaner_config['encoding_mappings_file'], 'r') as f:
-                encoding_mappings = json.load(f)
-            logger.info(f"Loaded encoding mappings from file: {cleaner_config['encoding_mappings_file']}")
-        except Exception as e:
-            logger.error(f"Error loading encoding mappings from file: {str(e)}")
-            # Fall back to any mappings in cleaner_config
-            encoding_mappings = cleaner_config.get("encoding_mappings", {})
-    else:
-        # If we don't have a file, check if there's encoding_mappings_summary and try to find 
-        # a similar encoding mapping file to use
-        if 'encoding_mappings_summary' in cleaner_config:
-            logger.info(f"Found encoding_mappings_summary but no file. Looking for similar mapping files...")
-            
-            # Search for encoding mapping files in various locations
-            possible_locations = [
-                "static/temp/mappings",
-                "mappings",
-                "static/mappings",
-                "static"
-            ]
-            
-            found_mappings = False
-            for loc in possible_locations:
-                if os.path.exists(loc):
-                    mapping_files = [f for f in os.listdir(loc) if "encoding_mappings" in f.lower()]
-                    if mapping_files:
-                        logger.info(f"Found mapping files in {loc}: {mapping_files}")
-                        # Try to load each file
-                        for mapping_file in mapping_files:
-                            file_path = os.path.join(loc, mapping_file)
-                            try:
-                                with open(file_path, 'r') as f:
-                                    potential_mappings = json.load(f)
-                                # Check if this file matches our summary
-                                if len(potential_mappings) == len(cleaner_config['encoding_mappings_summary']):
-                                    logger.info(f"Found matching encoding mappings file: {file_path}")
-                                    encoding_mappings = potential_mappings
-                                    found_mappings = True
-                                    break
-                            except:
-                                continue
-            
-            # If we found mappings, break the loop
-            if found_mappings:
-                pass
+    """Apply cleaning operations based on stored configuration by calling the data cleaner service"""
+    try:
+        # Check if the Data Cleaner service is available
+        if not is_service_available(DATA_CLEANER_URL):
+            logger.error(f"Data Cleaner service is not available at {DATA_CLEANER_URL}")
+            # Fall back to basic cleaning if service is not available
+            return apply_basic_cleaning(df, cleaner_config)
         
-        # Fall back to any mappings in cleaner_config
-        if not encoding_mappings:
-            encoding_mappings = cleaner_config.get("encoding_mappings", {})
-    
-    # Store encoding mappings back in cleaner_config for other functions
-    cleaner_config['encoding_mappings'] = encoding_mappings
-    
-    # Filter out mappings for columns that are likely irrelevant
-    if encoding_mappings and potential_irrelevant_cols:
-        # Keep track of removed mappings for logging
-        removed_mappings = []
+        # Prepare data for the request
+        data = {
+            "data": df.replace([np.inf, -np.inf], np.nan).where(pd.notnull(df), None).to_dict(orient='records'),
+            "cleaner_config": cleaner_config
+        }
         
-        # Create a filtered copy of the mappings
-        filtered_mappings = encoding_mappings.copy()
+        # Call the data cleaner service
+        response = safe_requests_post(
+            f"{DATA_CLEANER_URL}/apply_stored_cleaning",
+            data,
+            timeout=60
+        )
         
-        # Remove mappings for likely irrelevant columns
-        for col in potential_irrelevant_cols:
-            if col in filtered_mappings:
-                removed_mappings.append(col)
-                del filtered_mappings[col]
-        
-        if removed_mappings:
-            logger.info(f"Removed encoding mappings for {len(removed_mappings)} potentially irrelevant columns: {removed_mappings}")
-            # Update the cleaner_config with the filtered mappings
-            cleaner_config['encoding_mappings'] = filtered_mappings
-    
-    # If the cleaner used LLM mode, make an API call to restore the same operations
-    if llm_instructions:
-        try:
-            # Use data cleaner API to clean data with the same prompt
-            cleaner_response = safe_requests_post(
-                f"{DATA_CLEANER_URL}/clean",
-                {
-                    "data": df.to_dict(orient='records'),
-                    "target_column": "NONE",  # For preprocessing, we don't need a target column
-                    "prompt": llm_instructions
-                },
-                timeout=30
-            )
-            
-            if cleaner_response.status_code == 200:
-                # Parse the response JSON
-                cleaned_data = cleaner_response.json()["data"]
-                # Convert back to DataFrame
-                cleaned_df = pd.DataFrame(cleaned_data)
-                logger.info(f"Successfully cleaned data with LLM instructions")
-                
-                # Update encoding mappings from the response if available
-                if "encoding_mappings" in cleaner_response.json():
-                    new_mappings = cleaner_response.json()["encoding_mappings"]
-                    if new_mappings:
-                        # Filter out mappings for likely irrelevant columns
-                        for col in potential_irrelevant_cols:
-                            if col in new_mappings:
-                                del new_mappings[col]
-                        
-                        # Update our mappings
-                        cleaner_config['encoding_mappings'] = new_mappings
-                        logger.info(f"Updated encoding mappings from API response with {len(new_mappings)} columns")
-                
-                return cleaned_df
-            else:
-                logger.warning(f"Error from data cleaner API: {cleaner_response.text}")
-                # Fallback to basic cleaning
-                return apply_basic_cleaning(df, cleaner_config)
-                
-        except Exception as e:
-            logger.error(f"Error using data cleaner API: {str(e)}")
+        if response.status_code != 200:
+            logger.warning(f"Error from data cleaner API: {response.text}")
             # Fallback to basic cleaning
             return apply_basic_cleaning(df, cleaner_config)
-    else:
-        # Use basic cleaning with options
+        
+        # Parse the response
+        result = response.json()
+        
+        # Update the cleaner_config with any new encoding mappings
+        if "encoding_mappings" in result and result["encoding_mappings"]:
+            cleaner_config["encoding_mappings"] = result["encoding_mappings"]
+            logger.info(f"Updated encoding mappings from API response with {len(result['encoding_mappings'])} columns")
+        
+        # Convert the response data to a DataFrame
+        cleaned_df = pd.DataFrame.from_dict(result["data"])
+        
+        return cleaned_df
+        
+    except Exception as e:
+        logger.error(f"Error using data cleaner API: {str(e)}")
+        # Fallback to basic cleaning
         return apply_basic_cleaning(df, cleaner_config)
 
+# Keep this function as a fallback in case the service is not available
 def apply_basic_cleaning(df, cleaner_config):
-    """Apply basic cleaning steps to a dataframe"""
-    # Make a copy to avoid modifying the original
+    """Apply basic cleaning steps to a dataframe - FALLBACK IMPLEMENTATION"""
+    # Make a copy of the dataframe to avoid modifying the original
     cleaned_df = df.copy()
-    
-    # Get encoding mappings if available
     encoding_mappings = cleaner_config.get("encoding_mappings", {})
     
-    # First, handle obviously irrelevant columns
-    irrelevant_patterns = [
-        # ID columns
-        'id', '_id', 'uuid', 'guid', 'identifier',
-        # Name columns  
-        'name', 'firstname', 'lastname', 'fullname', 'patient', 'doctor', 'physician', 'provider',
-        # Date/time columns
-        'date', 'time', 'datetime', 'timestamp', 'admission', 'discharge', 'visit',
-        # Contact and personal info
-        'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
-        # Other non-predictive columns
-        'notes', 'comment', 'description', 'url', 'link', 'file', 'path'
-    ]
+    # 1. Handle missing values
     
-    # Identify columns to exclude based on name patterns
-    columns_to_exclude = []
-    for col in cleaned_df.columns:
-        col_lower = col.lower()
-        # Check if column name contains any of the irrelevant patterns
-        if any(pattern in col_lower for pattern in irrelevant_patterns):
-            columns_to_exclude.append(col)
-            logger.info(f"Excluding column in basic cleaning: '{col}' based on name pattern.")
+    # Identify numeric and categorical columns
+    numeric_cols = cleaned_df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns.tolist()
     
-    # Also exclude columns with high cardinality (many unique values)
-    categorical_cols = cleaned_df.select_dtypes(include=['object', 'category']).columns
-    for col in categorical_cols:
-        if col not in columns_to_exclude:
-            # Calculate cardinality ratio (unique values / total rows)
-            unique_ratio = len(cleaned_df[col].unique()) / len(cleaned_df)
-            # If more than 50% of values are unique, it's likely an identifier
-            if unique_ratio > 0.5:
-                columns_to_exclude.append(col)
-                logger.info(f"Excluding high-cardinality column in basic cleaning: '{col}' with {unique_ratio:.2f} unique ratio.")
-    
-    # Remove excluded columns
-    if columns_to_exclude:
-        cleaned_df = cleaned_df.drop(columns=columns_to_exclude)
-        logger.info(f"Removed {len(columns_to_exclude)} irrelevant or high-cardinality columns")
-        
-        # Remove these columns from encoding mappings too
-        for col in columns_to_exclude:
-            if col in encoding_mappings:
-                del encoding_mappings[col]
-    
-    # 1. Handle missing values - simple imputation
-    numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-    categorical_cols = cleaned_df.select_dtypes(include=['object', 'category']).columns
-    
-    # For numeric columns, fill with mean
+    # Replace missing values in numeric columns with column median
     for col in numeric_cols:
-        if cleaned_df[col].isna().any():
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        if cleaned_df[col].isna().sum() > 0:
+            median_value = cleaned_df[col].median()
+            cleaned_df[col] = cleaned_df[col].fillna(median_value)
+            logger.info(f"Filled {cleaned_df[col].isna().sum()} missing values in numeric column '{col}' with median {median_value}")
     
-    # For categorical columns, fill with mode
+    # Replace missing values in categorical columns with mode
     for col in categorical_cols:
-        if cleaned_df[col].isna().any():
-            mode_value = cleaned_df[col].mode()[0]
+        if cleaned_df[col].isna().sum() > 0:
+            mode_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else "MISSING"
             cleaned_df[col] = cleaned_df[col].fillna(mode_value)
+            logger.info(f"Filled {cleaned_df[col].isna().sum()} missing values in categorical column '{col}' with mode '{mode_value}'")
     
     # Apply encoding for categorical columns
     for col in categorical_cols:
@@ -1140,13 +990,79 @@ def apply_basic_cleaning(df, cleaner_config):
     return cleaned_df
 
 def apply_stored_feature_selection(df, feature_selector_config):
-    """Apply the stored feature selection configuration to a dataframe"""
+    """Apply the stored feature selection configuration to a dataframe by calling the feature selector service"""
+    try:
+        # Check if the Feature Selector service is available
+        if not is_service_available(FEATURE_SELECTOR_URL):
+            logger.error(f"Feature Selector service is not available at {FEATURE_SELECTOR_URL}")
+            # Fall back to local implementation
+            return _apply_stored_feature_selection_local(df, feature_selector_config)
+        
+        # Prepare data for the request
+        data = {
+            "data": df.replace([np.inf, -np.inf], np.nan).where(pd.notnull(df), None).to_dict(orient='records'),
+            "feature_selector_config": feature_selector_config
+        }
+        
+        # Call the feature selector service
+        response = safe_requests_post(
+            f"{FEATURE_SELECTOR_URL}/apply_stored_feature_selection",
+            data,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            logger.warning(f"Error from feature selector API: {response.text}")
+            # Fallback to local implementation
+            return _apply_stored_feature_selection_local(df, feature_selector_config)
+        
+        # Parse the response
+        result = response.json()
+        
+        # Update the feature_selector_config with any new selected columns
+        if "selected_columns" in result and result["selected_columns"]:
+            feature_selector_config["selected_columns"] = result["selected_columns"]
+            logger.info(f"Updated selected columns from API response with {len(result['selected_columns'])} columns")
+        
+        # Convert the response data to a DataFrame
+        cleaned_df = pd.DataFrame.from_dict(result["data"])
+        
+        return cleaned_df
+        
+    except Exception as e:
+        logger.error(f"Error using feature selector API: {str(e)}")
+        # Fallback to local implementation
+        return _apply_stored_feature_selection_local(df, feature_selector_config)
+
+# Keep this function as a fallback in case the service is not available
+def _apply_stored_feature_selection_local(df, feature_selector_config):
+    """Apply the stored feature selection configuration to a dataframe - FALLBACK IMPLEMENTATION"""
     # Make a copy of the original dataframe
     original_df = df.copy()
     columns_to_exclude = []
     cleaned_df = None
-
     
+    # Identify columns that are likely irrelevant for analysis
+    irrelevant_patterns = [
+        # ID columns
+        'id', '_id', 'uuid', 'guid', 'identifier',
+        # Name columns  
+        'name', 'firstname', 'lastname', 'fullname', 'patient', 'doctor', 'physician', 'provider',
+        # Date/time columns
+        'date', 'time', 'datetime', 'timestamp', 'admission', 'discharge', 'visit',
+        # Contact and personal info
+        'address', 'email', 'phone', 'contact', 'ssn', 'social', 'insurance',
+        # Other non-predictive columns
+        'notes', 'comment', 'description', 'url', 'link', 'file', 'path'
+    ]
+    
+    # Identify columns to potentially exclude based on name patterns
+    for col in df.columns:
+        col_lower = col.lower()
+        # Check if column name contains any of the irrelevant patterns
+        if any(pattern in col_lower for pattern in irrelevant_patterns):
+            columns_to_exclude.append(col)
+            logger.info(f"Identified potentially irrelevant column in feature selection: '{col}'")
     
     # CONFIGURED FEATURE SELECTION: Apply the stored feature selection configuration
     if 'selected_columns' in feature_selector_config and feature_selector_config['selected_columns']:
