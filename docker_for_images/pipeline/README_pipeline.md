@@ -39,8 +39,7 @@ Processes a dataset through the pipeline, optionally performing augmentation bef
 **Form Parameters:**
 - `zipFile`: ZIP file containing folders of images (one folder per class)
 - `performAugmentation`: "true" or "false" to indicate whether to perform augmentation
-- `augmentationLevel`: Augmentation level (1-5) if augmentation is enabled
-- `numAugmentations`: Number of augmentations per image if augmentation is enabled
+- `augmentationLevel`: Augmentation level (1-5) which controls both transformation intensity and number of augmentations
 - `numClasses`: Number of classes in the dataset
 - `trainingLevel`: Training level (1-5) for model training
 
@@ -74,7 +73,6 @@ files = {
 data = {
     'performAugmentation': 'true',
     'augmentationLevel': '3',
-    'numAugmentations': '2',
     'numClasses': '5',
     'trainingLevel': '3'
 }
