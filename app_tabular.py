@@ -98,9 +98,29 @@ def training():
         session['test_size'] = 0.2
         
         try:
-            # Check if Model Coordinator service is available
-            if not is_service_available(MODEL_COORDINATOR_URL):
-                flash("Model Coordinator service is not available. Cannot proceed with training.", 'error')
+            # Check if required services are available
+            required_services = {
+                "Data Cleaner": DATA_CLEANER_URL,
+                "Feature Selector": FEATURE_SELECTOR_URL,
+                "Anomaly Detector": ANOMALY_DETECTOR_URL,
+                "Model Coordinator": MODEL_COORDINATOR_URL
+            }
+            
+            logger.info("Checking required services before training:")
+            unavailable_services = []
+            
+            for service_name, service_url in required_services.items():
+                logger.info(f"Checking service: {service_name} at {service_url}")
+                if not is_service_available(service_url):
+                    logger.error(f"Service {service_name} at {service_url} is not available")
+                    unavailable_services.append(service_name)
+                else:
+                    logger.info(f"Service {service_name} is available")
+            
+            if unavailable_services:
+                error_message = f"The following services are not available: {', '.join(unavailable_services)}. Cannot proceed with training."
+                logger.error(error_message)
+                flash(error_message, 'error')
                 return redirect(url_for('training'))
             
             # Extract original dataset filename from the temporary filepath
@@ -117,23 +137,48 @@ def training():
                     # Fallback to just basename if pattern doesn't match
                     original_filename = os.path.basename(temp_filepath)
 
+            # Prepare run name for the training job
             run_name = original_filename if original_filename else f"Training Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
-            # Prepare data for the coordinator service
-            # Convert data to records - just a plain dictionary
+            # Create database entry for the training run
+            local_run_id = None
+            try:
+                # Create a temporary app context for database operations
+                with app.app_context():
+                    # Create training run entry
+                    training_run = TrainingRun(
+                        user_id=current_user.id,
+                        run_name=run_name,
+                        prompt=None
+                    )
+                    db.session.add(training_run)
+                    db.session.commit()
+                    
+                    # Store the run_id for model saving
+                    local_run_id = training_run.id
+                    logger.info(f"Added training run to database with ID {local_run_id}")
+            except Exception as e:
+                logger.error(f"Error adding training run to database: {str(e)}")
+            
+            # MODIFIED APPROACH: Send the raw data to the model coordinator with metadata
+            # The model coordinator will handle all the preprocessing steps
+            logger.info(f"Sending raw data to Model Coordinator for full processing")
+            
+            # Convert data to records format suitable for API transmission
             data_records = data.replace([np.inf, -np.inf], np.nan).where(pd.notnull(data), None).to_dict(orient='records')
             
-            logger.info(f"Sending data to Model Coordinator API for full pipeline processing")
-            
-            # Use our safe request method to send data to the Model Coordinator
+            # Send the request with all necessary metadata
             response = safe_requests_post(
-                f"{MODEL_COORDINATOR_URL}/train_full_pipeline",
+                f"{MODEL_COORDINATOR_URL}/train",
                 {
-                    "data": data_records,
+                    "raw_data": data_records,
                     "target_column": target_column,
                     "test_size": session['test_size'],
                     "user_id": current_user.id,
-                    "run_name": run_name
+                    "run_id": local_run_id,
+                    "run_name": run_name,
+                    "file_name": original_filename,
+                    "handle_preprocessing": True  # Signal to the coordinator to do all preprocessing
                 },
                 timeout=1800  # Model training can take time
             )
@@ -144,27 +189,44 @@ def training():
             # Store the complete model results in session
             model_result = response.json()
             
-            # Store additional results in session
-            session['cleaned_data'] = model_result.get('cleaned_data_summary', {})
-            session['selected_features'] = model_result.get('selected_features', [])
-            session['anomaly_results'] = model_result.get('anomaly_results', {})
+            # Store the run ID for model_selection page
+            session['last_training_run_id'] = model_result.get('run_id', local_run_id)
+            
+            # Get any preprocessing results that should be stored in session
+            if 'preprocessing_results' in model_result:
+                pp_results = model_result['preprocessing_results']
+                
+                # Store preprocessing artifacts if provided
+                if 'cleaned_data_summary' in pp_results:
+                    session['cleaning_summary'] = pp_results['cleaned_data_summary']
+                    
+                if 'feature_importance' in pp_results:
+                    # Save feature importance to file
+                    feature_importance = pp_results['feature_importance']
+                    feature_importance_file = save_to_temp_file(feature_importance, 'feature_importance')
+                    session['feature_importance_file'] = feature_importance_file
+                
+                if 'anomaly_results' in pp_results:
+                    session['anomaly_results'] = pp_results['anomaly_results']
+                
+                if 'selected_features' in pp_results:
+                    selected_features = pp_results['selected_features']
+                    # Save selected features to file to prevent session bloat
+                    selected_features_file_json = save_to_temp_file(selected_features, 'selected_features')
+                    session['selected_features_file_json'] = selected_features_file_json
+                    # Use a reference in session to avoid storing large data
+                    session['selected_features'] = f"[{len(selected_features)} features]"
+            
+            # Save model results to session
+            session['model_results'] = model_result
             
             # Add code to ensure models are saved for this run properly
-            # This will be implemented in the app_others.py
             from app_others import ensure_training_models_saved
-            
-            # Check if we need to ensure models are saved 
-            run_id = model_result.get('run_id')
-            if run_id:
-                # Save the run ID to session for model_selection page
-                session['last_training_run_id'] = run_id
-                
-                # Ensure all models are properly saved to the database
-                with app.app_context():
-                    ensure_training_models_saved(current_user.id, run_id, model_result)
-            
-            # Save processed results to session
-            session['model_results'] = model_result
+            if 'saved_best_models' in model_result and model_result['saved_best_models']:
+                run_id_to_use = model_result.get('run_id', local_run_id)
+                if run_id_to_use:
+                    with app.app_context():
+                        ensure_training_models_saved(current_user.id, run_id_to_use, model_result)
             
             return redirect(url_for('model_selection'))
             
