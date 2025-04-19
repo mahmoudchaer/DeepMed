@@ -513,7 +513,6 @@ def clean_data():
         logging.error(f"Error in clean_data: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@app.route('/apply_stored_cleaning', methods=['POST'])
 def apply_stored_cleaning():
     """Apply cleaning operations based on stored configuration"""
     try:
