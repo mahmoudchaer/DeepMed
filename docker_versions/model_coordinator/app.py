@@ -427,7 +427,7 @@ def train_models():
         y_data = data['target']
         
         # If data cleaning is needed, send to data cleaner API
-        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data-cleaner:5001")
         cleaning_prompt = None
         if data_cleaner_url:
             try:
@@ -1235,15 +1235,18 @@ def preprocess_and_train():
         
         # --- STEP 1: DATA CLEANING ---
         logger.info("STEP 1: Calling Data Cleaner service")
-        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        # Updated URL to use hyphen instead of underscore to match docker-compose.yml
+        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data-cleaner:5001")
         
         if not data_cleaner_url:
             return jsonify({'error': 'Data Cleaner URL not configured'}), 500
             
         try:
             # Check if cleaner service is available
-            cleaner_health_response = requests.get(f"{data_cleaner_url}/health", timeout=2)
+            logger.info(f"Checking Data Cleaner health at {data_cleaner_url}/health")
+            cleaner_health_response = requests.get(f"{data_cleaner_url}/health", timeout=5)
             if cleaner_health_response.status_code != 200:
+                logger.error(f"Data Cleaner health check failed with status {cleaner_health_response.status_code}")
                 return jsonify({'error': 'Data Cleaner service is unavailable'}), 503
                 
             # Prepare payload for data cleaner
@@ -1253,6 +1256,7 @@ def preprocess_and_train():
             }
             
             # Send to data cleaner
+            logger.info(f"Sending data to Data Cleaner at {data_cleaner_url}/clean")
             cleaner_response = requests.post(
                 f"{data_cleaner_url}/clean",
                 json=cleaner_payload,
@@ -1260,10 +1264,12 @@ def preprocess_and_train():
             )
             
             if cleaner_response.status_code != 200:
+                logger.error(f"Data Cleaner API returned error: {cleaner_response.text}")
                 return jsonify({'error': f'Data Cleaner API error: {cleaner_response.text}'}), 500
                 
             cleaning_result = cleaner_response.json()
             cleaned_data = cleaning_result["data"]
+            logger.info(f"Data Cleaner returned {len(cleaned_data)} cleaned records")
             
             # Store cleaning results
             result['cleaner_config'] = {
@@ -1306,7 +1312,8 @@ def preprocess_and_train():
             
         # --- STEP 2: FEATURE SELECTION ---
         logger.info("STEP 2: Calling Feature Selector service")
-        feature_selector_url = os.getenv("FEATURE_SELECTOR_URL", "http://feature_selector:5002")
+        # Updated URL to use hyphen instead of underscore to match docker-compose.yml
+        feature_selector_url = os.getenv("FEATURE_SELECTOR_URL", "http://feature-selector:5002")
         
         # Extract X and y from cleaned data
         try:
@@ -1315,6 +1322,7 @@ def preprocess_and_train():
             
             # Check if target column exists in cleaned data
             if target_column not in cleaned_df.columns:
+                logger.error(f"Target column {target_column} not found in cleaned data")
                 return jsonify({'error': f'Target column {target_column} not found in cleaned data'}), 400
                 
             X = cleaned_df.drop(columns=[target_column])
@@ -1325,8 +1333,10 @@ def preprocess_and_train():
             y_list = y.replace([np.inf, -np.inf], np.nan).where(pd.notnull(y), None).tolist()
             
             # Check feature selector availability
-            selector_health_response = requests.get(f"{feature_selector_url}/health", timeout=2)
+            logger.info(f"Checking Feature Selector health at {feature_selector_url}/health")
+            selector_health_response = requests.get(f"{feature_selector_url}/health", timeout=5)
             if selector_health_response.status_code != 200:
+                logger.error(f"Feature Selector health check failed with status {selector_health_response.status_code}")
                 return jsonify({'error': 'Feature Selector service is unavailable'}), 503
                 
             # Call feature selector
@@ -1336,6 +1346,7 @@ def preprocess_and_train():
                 "target_name": target_column
             }
             
+            logger.info(f"Sending data to Feature Selector at {feature_selector_url}/select_features")
             selector_response = requests.post(
                 f"{feature_selector_url}/select_features",
                 json=feature_selector_payload,
@@ -1343,6 +1354,7 @@ def preprocess_and_train():
             )
             
             if selector_response.status_code != 200:
+                logger.error(f"Feature Selector API returned error: {selector_response.text}")
                 return jsonify({'error': f'Feature Selector API error: {selector_response.text}'}), 500
                 
             feature_result = selector_response.json()
@@ -1363,18 +1375,22 @@ def preprocess_and_train():
             
         # --- STEP 3: ANOMALY DETECTION ---
         logger.info("STEP 3: Calling Anomaly Detector service")
-        anomaly_detector_url = os.getenv("ANOMALY_DETECTOR_URL", "http://anomaly_detector:5003")
+        # Updated URL to use hyphen instead of underscore to match docker-compose.yml
+        anomaly_detector_url = os.getenv("ANOMALY_DETECTOR_URL", "http://anomaly-detector:5003")
         
         try:
             # Convert selected features to format for anomaly detector
             X_selected_records = X_selected.replace([np.inf, -np.inf], np.nan).where(pd.notnull(X_selected), None).to_dict(orient='records')
             
             # Check anomaly detector availability
-            detector_health_response = requests.get(f"{anomaly_detector_url}/health", timeout=2)
+            logger.info(f"Checking Anomaly Detector health at {anomaly_detector_url}/health")
+            detector_health_response = requests.get(f"{anomaly_detector_url}/health", timeout=5)
             if detector_health_response.status_code != 200:
+                logger.error(f"Anomaly Detector health check failed with status {detector_health_response.status_code}")
                 return jsonify({'error': 'Anomaly Detector service is unavailable'}), 503
                 
             # Call anomaly detector
+            logger.info(f"Sending data to Anomaly Detector at {anomaly_detector_url}/detect_anomalies")
             anomaly_response = requests.post(
                 f"{anomaly_detector_url}/detect_anomalies",
                 json={"data": X_selected_records},
@@ -1382,6 +1398,7 @@ def preprocess_and_train():
             )
             
             if anomaly_response.status_code != 200:
+                logger.error(f"Anomaly Detector API returned error: {anomaly_response.text}")
                 return jsonify({'error': f'Anomaly Detector API error: {anomaly_response.text}'}), 500
                 
             anomaly_results = anomaly_response.json()

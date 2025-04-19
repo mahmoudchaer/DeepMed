@@ -87,6 +87,9 @@ services:
       - SVM_URL=http://svm:5013
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
+      - DATA_CLEANER_URL=http://data-cleaner:5001
+      - FEATURE_SELECTOR_URL=http://feature-selector:5002
+      - ANOMALY_DETECTOR_URL=http://anomaly-detector:5003
       - MLFLOW_TRACKING_URI=file:///app/mlruns
       - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
       - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
