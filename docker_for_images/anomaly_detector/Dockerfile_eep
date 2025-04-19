@@ -1,0 +1,26 @@
+FROM python:3.9-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements_eep.txt .
+RUN pip install --no-cache-dir -r requirements_eep.txt
+
+# Set up environment
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PORT=5030
+ENV ANOMALY_DETECTION_SERVICE_URL=http://anomaly_detector:5029
+
+# Copy application
+COPY anomaly_detector_eep.py .
+
+# Expose the port
+EXPOSE ${PORT}
+
+# Start the service
+CMD python anomaly_detector_eep.py 
