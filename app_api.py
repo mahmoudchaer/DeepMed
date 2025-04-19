@@ -347,31 +347,23 @@ def documentation():
 
 @app.route('/blog')
 def blog():
-    """Blog page - to be implemented"""
-    # Placeholder for future blog implementation
-    return render_template('coming_soon.html', page_title="Blog", 
-                          message="Our blog is coming soon! Check back for articles and case studies.")
+    """Blog page"""
+    return render_template('blog.html')
 
 @app.route('/case-studies')
 def case_studies():
-    """Case studies page - to be implemented"""
-    # Placeholder for future case studies implementation
-    return render_template('coming_soon.html', page_title="Case Studies", 
-                          message="Our case studies section is under development. Stay tuned for real-world applications of DeepMed.")
+    """Case studies page"""
+    return render_template('case_studies.html')
 
 @app.route('/api-docs')
 def api_docs():
-    """API documentation page - to be implemented"""
-    # Placeholder for future API docs implementation
-    return render_template('coming_soon.html', page_title="API Documentation", 
-                          message="Our API documentation is currently being developed. It will be available soon.")
+    """API documentation page"""
+    return render_template('api_docs.html')
 
 @app.route('/support')
 def support():
-    """Support page - to be implemented"""
-    # Placeholder for future support implementation
-    return render_template('coming_soon.html', page_title="Support", 
-                          message="Our dedicated support portal is coming soon. For now, please contact support@deepmed.ai for assistance.")
+    """Support page"""
+    return render_template('support.html')
 
 @app.route('/home')
 def home():
