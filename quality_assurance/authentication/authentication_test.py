@@ -178,10 +178,10 @@ class DatabaseConnection:
     def clean_up_test_users(self):
         """Clean up test users created during testing"""
         try:
-            # Find and delete all test users
+            # Find and delete all test users with synchronize_session='fetch' to fix the LIKE operator error
             deleted = self.session.query(User).filter(
                 User.email.like('test_user_%@example.com')
-            ).delete()
+            ).delete(synchronize_session='fetch')
             
             self.session.commit()
             logger.info(f"Cleaned up {deleted} test user(s)")
