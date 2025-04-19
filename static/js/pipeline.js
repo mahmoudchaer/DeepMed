@@ -40,7 +40,6 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.set('performAugmentation', 'false');
             // Remove augmentation parameters if not performing augmentation
             formData.delete('augmentationLevel');
-            formData.delete('numAugmentations');
         }
         
         // Process the pipeline
