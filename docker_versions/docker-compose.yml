@@ -1,0 +1,215 @@
+version: '3'
+
+services:
+  # Data Cleaner service
+  data-cleaner:
+    build:
+      context: ./data_cleaner
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+
+  # Feature Selector service
+  feature-selector:
+    build:
+      context: ./feature_selector
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+
+  # Anomaly Detector service
+  anomaly-detector:
+    build:
+      context: ./anomaly_detector
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+
+  # Model Trainer service (main service for training models)
+  model-trainer:
+    build:
+      context: ./model_trainer
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  # Medical Assistant service (chatbot and analysis)
+  medical-assistant:
+    build:
+      context: ./medical_assistant
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - deepmed-network
+
+  # Model Coordinator (orchestrates model services)
+  model_coordinator:
+    build:
+      context: ./model_coordinator
+      dockerfile: Dockerfile
+    container_name: model_coordinator
+    ports:
+      - "5020:5020"
+    environment:
+      - PORT=5020
+      - IS_DOCKER=true
+      - LOGISTIC_REGRESSION_URL=http://logistic_regression:5010
+      - DECISION_TREE_URL=http://decision_tree:5011
+      - RANDOM_FOREST_URL=http://random_forest:5012
+      - SVM_URL=http://svm:5013
+      - KNN_URL=http://knn:5014
+      - NAIVE_BAYES_URL=http://naive_bayes:5015
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_DB=${MYSQL_DB}
+    volumes:
+      - ./logs:/app/logs
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: on-failure
+
+  # Individual model services
+  logistic_regression:
+    build:
+      context: ./logistic_regression
+      dockerfile: Dockerfile
+    ports:
+      - "5010:5010"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  decision_tree:
+    build:
+      context: ./decision_tree
+      dockerfile: Dockerfile
+    ports:
+      - "5011:5011"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  random_forest:
+    build:
+      context: ./random_forest
+      dockerfile: Dockerfile
+    ports:
+      - "5012:5012"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  svm:
+    build:
+      context: ./svm
+      dockerfile: Dockerfile
+    ports:
+      - "5013:5013"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+      
+  knn:
+    build:
+      context: ./knn
+      dockerfile: Dockerfile
+    ports:
+      - "5014:5014"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+      
+  naive_bayes:
+    build:
+      context: ./naive_bayes
+      dockerfile: Dockerfile
+    ports:
+      - "5015:5015"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./logs:/app/logs
+      - ./saved_models:/app/saved_models
+      - ./mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  tabular-predictor-service:
+    build:
+      context: ../docker_versions/predictor
+      dockerfile: Dockerfile
+    ports:
+      - "5101:5101"
+    restart: unless-stopped
+    volumes:
+      - ../docker_versions/predictor/predictor.py:/app/predictor.py
+    environment:
+      - PORT=5101
+    networks:
+      - deepmed-network
+
+networks:
+  deepmed-network:
+    driver: bridge 
