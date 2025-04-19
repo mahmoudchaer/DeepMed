@@ -51,13 +51,13 @@ services:
   
   anomaly-detector-eep:
     build:
-      context: ./anomaly_detector
+      context: ./eep_anomaly_detector
       dockerfile: Dockerfile_eep
     ports:
       - "5030:5030"
     restart: unless-stopped
     volumes:
-      - ./anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
+      - ./eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
     environment:
       - PORT=5030
       - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
