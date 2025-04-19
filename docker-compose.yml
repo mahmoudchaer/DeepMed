@@ -1,6 +1,213 @@
 version: '3'
 
 services:
+  # Original docker_versions services
+  data-cleaner:
+    build:
+      context: ./docker_versions/data_cleaner
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./docker_versions/logs:/app/logs
+    networks:
+      - deepmed-network
+
+  feature-selector:
+    build:
+      context: ./docker_versions/feature_selector
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./docker_versions/logs:/app/logs
+    networks:
+      - deepmed-network
+
+  anomaly-detector:
+    build:
+      context: ./docker_versions/anomaly_detector
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./docker_versions/logs:/app/logs
+    networks:
+      - deepmed-network
+
+  model-trainer:
+    build:
+      context: ./docker_versions/model_trainer
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  medical-assistant:
+    build:
+      context: ./docker_versions/medical_assistant
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./docker_versions/logs:/app/logs
+    networks:
+      - deepmed-network
+
+  model_coordinator:
+    build:
+      context: ./docker_versions/model_coordinator
+      dockerfile: Dockerfile
+    container_name: model_coordinator
+    ports:
+      - "5020:5020"
+    environment:
+      - PORT=5020
+      - IS_DOCKER=true
+      - LOGISTIC_REGRESSION_URL=http://logistic_regression:5010
+      - DECISION_TREE_URL=http://decision_tree:5011
+      - RANDOM_FOREST_URL=http://random_forest:5012
+      - SVM_URL=http://svm:5013
+      - KNN_URL=http://knn:5014
+      - NAIVE_BAYES_URL=http://naive_bayes:5015
+      - DATA_CLEANER_URL=http://data-cleaner:5001
+      - FEATURE_SELECTOR_URL=http://feature-selector:5002
+      - ANOMALY_DETECTOR_URL=http://anomaly-detector:5003
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER=${AZURE_CONTAINER}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_DB=${MYSQL_DB}
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: on-failure
+
+  logistic_regression:
+    build:
+      context: ./docker_versions/logistic_regression
+      dockerfile: Dockerfile
+    ports:
+      - "5010:5010"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  decision_tree:
+    build:
+      context: ./docker_versions/decision_tree
+      dockerfile: Dockerfile
+    ports:
+      - "5011:5011"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  random_forest:
+    build:
+      context: ./docker_versions/random_forest
+      dockerfile: Dockerfile
+    ports:
+      - "5012:5012"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  svm:
+    build:
+      context: ./docker_versions/svm
+      dockerfile: Dockerfile
+    ports:
+      - "5013:5013"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  knn:
+    build:
+      context: ./docker_versions/knn
+      dockerfile: Dockerfile
+    ports:
+      - "5014:5014"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  naive_bayes:
+    build:
+      context: ./docker_versions/naive_bayes
+      dockerfile: Dockerfile
+    ports:
+      - "5015:5015"
+    environment:
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    volumes:
+      - ./docker_versions/logs:/app/logs
+      - ./docker_versions/saved_models:/app/saved_models
+      - ./docker_versions/mlruns:/app/mlruns
+    networks:
+      - deepmed-network
+
+  tabular-predictor-service:
+    build:
+      context: ./docker_versions/predictor
+      dockerfile: Dockerfile
+    ports:
+      - "5101:5101"
+    restart: unless-stopped
+    volumes:
+      - ./docker_versions/predictor/predictor.py:/app/predictor.py
+    environment:
+      - PORT=5101
+    networks:
+      - deepmed-network
+
+  # docker_for_images services
   model-training-service:
     build:
       context: ./docker_for_images/images_classification
@@ -29,7 +236,7 @@ services:
       - PORT=5023
     networks:
       - deepmed-network
-      
+
   pipeline-service:
     build:
       context: ./docker_for_images/pipeline
@@ -48,7 +255,7 @@ services:
     depends_on:
       - augmentation-service
       - model-training-service
-  
+
   anomaly-detector-eep:
     build:
       context: ./docker_for_images/eep_anomaly_detector
@@ -65,7 +272,7 @@ services:
       - deepmed-network
     depends_on:
       - anomaly-detection-service
-      
+
   anomaly-detection-service:
     build:
       context: ./docker_for_images/anomaly_detector
