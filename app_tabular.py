@@ -79,6 +79,24 @@ def upload():
 @app.route('/training', methods=['GET', 'POST'])
 @login_required
 def training():
+    # Check if we need to reset the dataset (new upload requested)
+    if request.args.get('new') == '1':
+        # Clear dataset from session
+        if 'uploaded_file' in session:
+            # Delete the file if it exists
+            if os.path.exists(session['uploaded_file']):
+                try:
+                    os.remove(session['uploaded_file'])
+                except:
+                    pass
+            # Remove from session
+            session.pop('uploaded_file', None)
+            session.pop('file_stats', None)
+            session.pop('data_columns', None)
+            
+        # Redirect to clean URL
+        return redirect(url_for('training'))
+        
     filepath = session.get('uploaded_file')
     
     if not filepath:
