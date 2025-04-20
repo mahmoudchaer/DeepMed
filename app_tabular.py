@@ -349,7 +349,7 @@ def training():
                             "options": cleaning_result.get("options", {}),
                             "handle_missing": True,
                             "handle_outliers": True,
-                            "encoding_mappings_summary": {col: len(mapping) for col, mapping in encoding_mappings.items()}  # Just store summary
+                            "encoding_mappings_summary": {} if not encoding_mappings else {col: len(mapping) for col, mapping in encoding_mappings.items()}
                         }
 
                         # Save encoding_mappings to a separate file
@@ -369,6 +369,8 @@ def training():
                             except Exception as e:
                                 logger.error(f"Error saving encoding mappings to file: {str(e)}")
                                 # Continue anyway, we'll just have a less detailed cleaner_config
+                        else:
+                            logger.info("No encoding mappings to save (no categorical columns or all numeric data)")
 
                         # Create preprocessing data record
                         preprocessing_data = PreprocessingData(

@@ -159,6 +159,9 @@ class DataCleaner:
         Returns:
             cleaned_df: Cleaned DataFrame
         """
+        # Reset encoding mappings at the start of each cleaning request
+        self.encoding_mappings = {}
+        
         df = df.copy()
         # Determine numeric columns excluding the target.
         numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns

@@ -961,13 +961,7 @@ Respond ONLY with valid JSON, no additional text or explanations outside the JSO
         return metadata
 
     def transform(self, X):
-        """Transform new data using previously selected features and encoding.
-        
-        This applies:
-        1. Filtering to only selected features
-        2. Ensures consistent encoding of categorical features
-        3. Applies any preprocessing transformations
-        """
+        """Transform new data using the previously selected features and preprocessing steps."""
         logger.info(f"Transforming new data with shape {X.shape}")
         
         # Make a copy to avoid modifying the original
@@ -1119,6 +1113,12 @@ def select_features():
             
             # Save original column names before any transformations
             original_columns = list(df.columns)
+            
+            # Check for categorical columns and reset encoding_mappings if none found
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            if not categorical_cols:
+                logger.info("No categorical columns found in input data - resetting feature_selector.encoding_mappings")
+                feature_selector.encoding_mappings = {}
             
             # Get target recommendations if no target is specified
             target_recommendations = None
@@ -1294,6 +1294,13 @@ def transform():
             logger.info("🔄 Preprocessing input data")
             X = preprocess_data(request_data['data'])
             logger.info(f"📊 Input data shape: {X.shape}")
+            
+            # Check for categorical columns and reset encoding_mappings if none found
+            categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+            if not categorical_cols:
+                logger.info("No categorical columns found in transform data - resetting feature_selector.encoding_mappings")
+                feature_selector.encoding_mappings = {}
+                
         except Exception as e:
             logger.error(f"🔴 Error preprocessing data: {str(e)}")
             return jsonify({"error": f"Failed to convert JSON to DataFrame: {str(e)}"}), 400
@@ -1321,8 +1328,8 @@ def transform():
         })
     
     except Exception as e:
-        logger.error(f"🔴 Error in transform endpoint: {str(e)}", exc_info=True)
-        return jsonify({"error": f"Transform failed: {str(e)}"}), 500
+        logger.error(f"🔴 General error in transform endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
     # Run the app on port 5002
