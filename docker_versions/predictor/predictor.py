@@ -42,20 +42,33 @@ def extract_encodings():
     if not model_file.filename.lower().endswith('.zip'):
         return jsonify({"error": "Model package must be a ZIP archive"}), 400
     
-    # Create a temporary directory to extract files
-    temp_dir = tempfile.mkdtemp(prefix="encoding_extract_")
+    # Create a unique temporary directory to prevent cross-contamination between requests
+    temp_dir = tempfile.mkdtemp(prefix=f"encoding_extract_{int(time.time())}_")
     
     try:
         # Save and extract the ZIP package
         zip_path = os.path.join(temp_dir, "model_package.zip")
         model_file.save(zip_path)
+        extraction_time = time.time()  # Record when extraction happens
+        
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
         
         print(f"Extracted model package to {temp_dir}")
         
         # List all files for debugging
-        all_files = os.listdir(temp_dir)
+        all_files = []
+        # Walk through the directory to get all files including those in subdirectories
+        for root, _, files in os.walk(temp_dir):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+                # Get file modification time - should be very close to extraction_time
+                file_time = os.path.getmtime(file_path)
+                # Only include files that were just extracted (within 5 seconds of extraction)
+                if abs(file_time - extraction_time) < 5:
+                    rel_path = os.path.relpath(file_path, temp_dir)
+                    all_files.append(rel_path)
+        
         print(f"All files in extracted package: {all_files}")
         
         # Look for encoding files with broader search
@@ -63,9 +76,11 @@ def extract_encodings():
         json_files = []
         
         # First pass: look for standard encoding file names
-        for filename in all_files:
-            if filename.lower().endswith('.json'):
-                json_files.append(filename)
+        for file_path in all_files:
+            full_path = os.path.join(temp_dir, file_path)
+            if file_path.lower().endswith('.json'):
+                json_files.append(file_path)
+                filename = os.path.basename(file_path)
                 if (filename == 'encoding_mappings.json' or 
                     filename == 'encoding_mappings' or
                     filename == 'preprocessing_info.json' or 
@@ -77,7 +92,7 @@ def extract_encodings():
                     'target' in filename.lower() or
                     'label' in filename.lower() or
                     'map' in filename.lower()):
-                    encoding_files.append(filename)
+                    encoding_files.append(file_path)
         
         print(f"Found {len(json_files)} JSON files: {json_files}")
         print(f"Potential encoding files based on name: {encoding_files}")
@@ -88,39 +103,19 @@ def extract_encodings():
             encoding_files = json_files
         
         if not encoding_files:
-            # Look deeper in subdirectories
-            print("Looking in subdirectories for encoding files")
-            for root, dirs, files in os.walk(temp_dir):
-                for filename in files:
-                    if filename.lower().endswith('.json'):
-                        file_path = os.path.join(root, filename)
-                        rel_path = os.path.relpath(file_path, temp_dir)
-                        if (filename == 'encoding_mappings.json' or 
-                            filename == 'encoding_mappings' or
-                            filename == 'preprocessing_info.json' or 
-                            filename == 'preprocessing_info' or
-                            filename.endswith('_encoding.json') or 
-                            filename == 'encoding.json' or 
-                            filename == 'preprocessing.json' or
-                            'encod' in filename.lower() or
-                            'target' in filename.lower() or
-                            'label' in filename.lower() or
-                            'map' in filename.lower()):
-                            encoding_files.append(rel_path)
-                        elif rel_path not in json_files:
-                            json_files.append(rel_path)
-            
-            print(f"After subdirectory search - JSON files: {json_files}")
-            print(f"After subdirectory search - Potential encoding files: {encoding_files}")
-            
-            # If still no encoding files but found JSON files, try them all
-            if not encoding_files and json_files:
-                print("No encoding files found in subdirectories by name pattern, examining all JSON files")
-                encoding_files = json_files
-        
-        if not encoding_files:
-            print("No JSON files found in the model package")
-            return jsonify({"error": "No encoding files found in the model package"}), 404
+            print("No encoding files found in the model package")
+            return jsonify({
+                "encoding_maps": {},
+                "metadata": {
+                    "info": {
+                        "value_count": 0,
+                        "sample_values": [],
+                        "display_name": "No Encodings Found",
+                        "message": "This model appears to use only numeric features."
+                    }
+                },
+                "message": "No encoding maps found. Select 'No encoding (numeric target)' option."
+            }), 200
         
         # Extract encoding maps from each file
         encoding_maps = {}
@@ -187,7 +182,18 @@ def extract_encodings():
         
         if not encoding_maps:
             print("No encoding maps found in any of the JSON files")
-            return jsonify({"error": "No valid encoding maps found in the model package"}), 404
+            return jsonify({
+                "encoding_maps": {},
+                "metadata": {
+                    "info": {
+                        "value_count": 0,
+                        "sample_values": [],
+                        "display_name": "No Encodings Found",
+                        "message": "This model appears to use only numeric features."
+                    }
+                },
+                "message": "No encoding maps found. Select 'No encoding (numeric target)' option."
+            }), 200
         
         # Filter out non-feature encoding maps
         excluded_maps = ['scaler_params', 'encoding_mappings', 'cleaner_config']
@@ -195,7 +201,18 @@ def extract_encodings():
         
         if not feature_encoding_maps:
             print("No feature encoding maps found after filtering")
-            return jsonify({"error": "No feature encoding maps found in the model package"}), 404
+            return jsonify({
+                "encoding_maps": {},
+                "metadata": {
+                    "info": {
+                        "value_count": 0,
+                        "sample_values": [],
+                        "display_name": "No Encodings Found",
+                        "message": "This model appears to use only numeric features."
+                    }
+                },
+                "message": "No feature encoding maps found. Select 'No encoding (numeric target)' option."
+            }), 200
         
         # Add metadata for each encoding map to help the frontend
         encoding_metadata = {}
@@ -315,6 +332,10 @@ def predict():
         
         print(f"Prediction completed with return code {result.returncode}")
         
+        # Record extraction time for validation
+        extraction_time = os.path.getmtime(os.path.join(temp_dir, "predict.py"))
+        print(f"Extraction timestamp reference: {extraction_time}")
+        
         # Check if the process succeeded
         if result.returncode != 0:
             print(f"STDERR: {result.stderr}")
@@ -355,40 +376,40 @@ def predict():
                     print(f"Looking for encoding files to decode predictions using '{selected_encoding}'")
                     
                     # First get a list of original model files to verify encoding file belongs to this model
-                    model_files = [f for f in os.listdir(temp_dir) if f.endswith('.py') or f.endswith('.json')]
-                    model_file_timestamps = {f: os.path.getmtime(os.path.join(temp_dir, f)) for f in model_files}
-                    print(f"Model files with timestamps: {model_file_timestamps}")
+                    # Use the extraction time to validate files
+                    model_files = []
+                    for root, _, files in os.walk(temp_dir):
+                        for filename in files:
+                            if filename.endswith('.py') or filename.endswith('.json'):
+                                file_path = os.path.join(root, filename)
+                                file_time = os.path.getmtime(file_path)
+                                # Only include files that were part of this extraction (within 10 seconds)
+                                if abs(file_time - extraction_time) < 10:
+                                    rel_path = os.path.relpath(file_path, temp_dir)
+                                    model_files.append(rel_path)
                     
-                    for filename in os.listdir(temp_dir):
-                        if (filename == 'encoding_mappings.json' or 
-                            filename == 'encoding_mappings' or
-                            filename == 'preprocessing_info.json' or 
-                            filename == 'preprocessing_info' or
-                            filename.endswith('_encoding.json') or 
-                            filename == 'encoding.json' or 
-                            filename == 'preprocessing.json' or
-                            'encod' in filename.lower() or
-                            'target' in filename.lower() or
-                            'label' in filename.lower() or
-                            'map' in filename.lower()):
+                    print(f"Model files that are part of this package: {model_files}")
+                    
+                    # Look for encoding files in the validated model files
+                    for file_path in model_files:
+                        if file_path.lower().endswith('.json'):
+                            full_path = os.path.join(temp_dir, file_path)
+                            filename = os.path.basename(file_path)
                             
-                            # Check if this file was extracted from the model package and not pre-existing
-                            encoding_file_path = os.path.join(temp_dir, filename)
-                            encoding_file_time = os.path.getmtime(encoding_file_path)
-                            
-                            # Compare with model extraction time - should be close in timestamp
-                            is_valid_file = False
-                            for _, model_time in model_file_timestamps.items():
-                                # Allow for small differences in file modification time
-                                if abs(encoding_file_time - model_time) < 10:  # 10 seconds difference max
-                                    is_valid_file = True
-                                    break
-                            
-                            if is_valid_file:
-                                print(f"Adding valid encoding file: {filename}")
-                                encoding_files.append(encoding_file_path)
-                            else:
-                                print(f"Skipping potentially invalid encoding file: {filename} (timestamp differs from model files)")
+                            if (filename == 'encoding_mappings.json' or 
+                                filename == 'encoding_mappings' or
+                                filename == 'preprocessing_info.json' or 
+                                filename == 'preprocessing_info' or
+                                filename.endswith('_encoding.json') or 
+                                filename == 'encoding.json' or 
+                                filename == 'preprocessing.json' or
+                                'encod' in filename.lower() or
+                                'target' in filename.lower() or
+                                'label' in filename.lower() or
+                                'map' in filename.lower()):
+                                
+                                encoding_files.append(full_path)
+                                print(f"Adding validated encoding file: {file_path}")
                     
                     print(f"Found potential encoding files: {encoding_files}")
                     
@@ -591,40 +612,40 @@ def predict():
                     print(f"Looking for encoding files to decode predictions in output.csv using '{selected_encoding}'")
                     
                     # First get a list of original model files to verify encoding file belongs to this model
-                    model_files = [f for f in os.listdir(temp_dir) if f.endswith('.py') or f.endswith('.json')]
-                    model_file_timestamps = {f: os.path.getmtime(os.path.join(temp_dir, f)) for f in model_files}
-                    print(f"Model files with timestamps: {model_file_timestamps}")
+                    # Use the extraction time to validate files
+                    model_files = []
+                    for root, _, files in os.walk(temp_dir):
+                        for filename in files:
+                            if filename.endswith('.py') or filename.endswith('.json'):
+                                file_path = os.path.join(root, filename)
+                                file_time = os.path.getmtime(file_path)
+                                # Only include files that were part of this extraction (within 10 seconds)
+                                if abs(file_time - extraction_time) < 10:
+                                    rel_path = os.path.relpath(file_path, temp_dir)
+                                    model_files.append(rel_path)
                     
-                    for filename in os.listdir(temp_dir):
-                        if (filename == 'encoding_mappings.json' or 
-                            filename == 'encoding_mappings' or
-                            filename == 'preprocessing_info.json' or 
-                            filename == 'preprocessing_info' or
-                            filename.endswith('_encoding.json') or 
-                            filename == 'encoding.json' or 
-                            filename == 'preprocessing.json' or
-                            'encod' in filename.lower() or
-                            'target' in filename.lower() or
-                            'label' in filename.lower() or
-                            'map' in filename.lower()):
+                    print(f"Model files that are part of this package: {model_files}")
+                    
+                    # Look for encoding files in the validated model files
+                    for file_path in model_files:
+                        if file_path.lower().endswith('.json'):
+                            full_path = os.path.join(temp_dir, file_path)
+                            filename = os.path.basename(file_path)
                             
-                            # Check if this file was extracted from the model package and not pre-existing
-                            encoding_file_path = os.path.join(temp_dir, filename)
-                            encoding_file_time = os.path.getmtime(encoding_file_path)
-                            
-                            # Compare with model extraction time - should be close in timestamp
-                            is_valid_file = False
-                            for _, model_time in model_file_timestamps.items():
-                                # Allow for small differences in file modification time
-                                if abs(encoding_file_time - model_time) < 10:  # 10 seconds difference max
-                                    is_valid_file = True
-                                    break
-                            
-                            if is_valid_file:
-                                print(f"Adding valid encoding file: {filename}")
-                                encoding_files.append(encoding_file_path)
-                            else:
-                                print(f"Skipping potentially invalid encoding file: {filename} (timestamp differs from model files)")
+                            if (filename == 'encoding_mappings.json' or 
+                                filename == 'encoding_mappings' or
+                                filename == 'preprocessing_info.json' or 
+                                filename == 'preprocessing_info' or
+                                filename.endswith('_encoding.json') or 
+                                filename == 'encoding.json' or 
+                                filename == 'preprocessing.json' or
+                                'encod' in filename.lower() or
+                                'target' in filename.lower() or
+                                'label' in filename.lower() or
+                                'map' in filename.lower()):
+                                
+                                encoding_files.append(full_path)
+                                print(f"Adding validated encoding file: {file_path}")
                     
                     print(f"Found potential encoding files: {encoding_files}")
                     
