@@ -282,6 +282,12 @@ def train_regression():
     
     data, _ = load_data(filepath)
     
+    # Handle case where data could not be loaded
+    if data is None:
+        flash('Error loading data from the uploaded file. Please upload a valid file.', 'error')
+        services_status = check_regression_services()
+        return render_template('train_regression.html', services_status=services_status)
+    
     if request.method == 'POST':
         # Get target column from form
         target_column = request.form.get('target_column')

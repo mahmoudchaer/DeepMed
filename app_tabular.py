@@ -85,6 +85,8 @@ def training():
         # If accessed directly without upload, show the upload interface
         # Check services health for status display
         services_status = check_services()
+        # We need to keep rendering index.html here for the upload interface
+        # This doesn't redirect to home because we're directly rendering the template
         return render_template('index.html', services_status=services_status)
     
     data, _ = load_data(filepath)
@@ -93,6 +95,7 @@ def training():
     if data is None:
         flash('Error loading data from the uploaded file. Please upload a valid file.', 'error')
         services_status = check_services()
+        # Directly render the index template with the upload interface
         return render_template('index.html', services_status=services_status)
     
     if request.method == 'POST':
