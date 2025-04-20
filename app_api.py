@@ -274,42 +274,8 @@ def clean_data_for_json(data):
 
 @app.route('/')
 def index():
-    """Root route - always check authentication first"""
-    # First, check if the user is logged in
-    if not current_user.is_authenticated:
-        flash('Please log in to access the application.', 'info')
-        return redirect('/login', code=302)
-    
-    # Generate a CSRF token for logout form
-    if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
-    
-    # Only clear data-related keys, but preserve authentication
-    data_keys = ['uploaded_file', 'cleaned_file', 'selected_features_file', 
-                'predictions_file', 'file_stats', 'data_columns',
-                'uploaded_file_regression', 'cleaned_file_regression', 
-                'selected_features_regression_file', 'selected_features_regression_file_json',
-                'feature_importance_regression_file', 'file_stats_regression', 
-                'data_columns_regression']
-    
-    for key in list(session.keys()):
-        if key in data_keys:
-            session.pop(key)
-    
-    # Clean up any files from previous sessions
-    cleanup_session_files()
-    
-    # Check if we need to stay in a specific tab
-    stay_tab = request.args.get('stay_tab')
-    if stay_tab == 'classification':
-        # If stay_tab is set to classification, redirect to the training page
-        return redirect(url_for('training'))
-    elif stay_tab == 'regression':
-        # If stay_tab is set to regression, redirect to the regression training page
-        return redirect(url_for('train_regression'))
-    
-    # Otherwise, redirect to the welcome page as usual
-    return redirect(url_for('welcome'))
+    """Root route - renders the home page"""
+    return render_template('home.html')
 
 @app.route('/welcome')
 def welcome():
