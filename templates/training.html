@@ -110,10 +110,17 @@
     .select2-dropdown {
         border: 1px solid #495057;
         background-color: #343a40;
+        margin-top: 4px;
     }
     
     .select2-container--default .select2-results__option {
         color: white;
+        padding: 8px 12px;
+    }
+    
+    .select2-search--dropdown {
+        padding: 8px;
+        background-color: #343a40;
     }
     
     .select2-search--dropdown .select2-search__field {
@@ -124,23 +131,17 @@
         border: 1px solid #495057;
     }
     
+    .select2-search__field::placeholder {
+        color: #adb5bd;
+    }
+    
     .select2-container--default .select2-results__option--highlighted[aria-selected] {
         background-color: #0077b6;
         color: white;
     }
     
     .select2-container--default .select2-results__option[aria-selected=true] {
-        background-color: #495057;
-    }
-    
-    /* Fix for the search box and dropdown styling */
-    .select2-search--dropdown {
-        padding: 8px;
-        background-color: #343a40;
-    }
-    
-    .select2-container--open .select2-dropdown {
-        margin-top: 4px;
+        background-color: #0077b6;
     }
     
     .select2-results__options {
@@ -149,27 +150,16 @@
         background-color: #343a40;
     }
     
-    /* Make sure search text is visible */
-    .select2-search__field::placeholder {
+    /* Form select styling */
+    .form-select {
+        background-color: #343a40;
+        color: white;
+        border: 1px solid #495057;
+    }
+    
+    /* Match selection placeholder styling */
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
         color: #adb5bd;
-    }
-    
-    /* Style for options in dropdown */
-    .select2-results__option {
-        padding: 8px 12px;
-    }
-    
-    /* Ensure consistent styling for the form-select */
-    .form-select-lg {
-        height: calc(1.5em + 1rem + 2px);
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-        font-size: 1.25rem;
-    }
-    
-    /* Match styling from regression template */
-    .select2-selection__placeholder {
-        color: #adb5bd !important;
     }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
@@ -286,7 +276,7 @@
                                     <div class="form-group">
                                         <label for="target_column" class="form-label fw-bold">Select Target Column</label>
                                         
-                                        <select name="target_column" id="target_column" class="form-select form-select-lg mb-3" required>
+                                        <select name="target_column" id="target_column" class="form-select mb-3" required>
                                             <option value=""></option>
                                             {% for column in columns %}
                                             <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
@@ -327,33 +317,14 @@
 {% block scripts %}
 <script>
     $(document).ready(function() {
-        // Initialize target column select with placeholder and search
+        // Initialize target column select with placeholder and search to exactly match regression
         $('#target_column').select2({
             placeholder: "Search and select target column...",
             width: '100%',
             dropdownParent: $('body'),
             allowClear: true,
-            theme: "default",
-            matcher: function(params, data) {
-                // If there are no search terms, return all of the data
-                if ($.trim(params.term) === '') {
-                    return data;
-                }
-                
-                // Do not display the item if there is no 'text' property
-                if (typeof data.text === 'undefined') {
-                    return null;
-                }
-                
-                // `params.term` should be the term that is used for searching
-                // `data.text` is the text that is displayed for the data object
-                if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
-                    return data;
-                }
-                
-                // Return `null` if the term should not be displayed
-                return null;
-            }
+            minimumResultsForSearch: 0,
+            theme: "default"
         });
         
         // Handle form submission
@@ -374,17 +345,16 @@
             });
         }
         
-        // Make sure the search box is focusable and clickable
-        $(document).on('click', '.select2-container--open .select2-search__field', function(e) {
-            e.stopPropagation();
-            $(this).focus();
-        });
-        
-        // Fix for search input focus issues
+        // Focus search field immediately when dropdown opens
         $(document).on('select2:open', function() {
             setTimeout(function() {
                 $('.select2-search__field').focus();
-            }, 100);
+            }, 50);
+        });
+        
+        // Prevent event propagation issues with search field
+        $(document).on('click', '.select2-search__field', function(e) {
+            e.stopPropagation();
         });
     });
 </script>
