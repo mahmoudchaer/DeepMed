@@ -219,7 +219,7 @@ class ModelPredictor:
             else:
                 logger.info(f"Using target column from preprocessing info: {self.target_column}")
             
-            if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+            if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings'] is not None:
                 mappings = self.preprocessing_info['encoding_mappings']
                 logger.info(f"Found encoding mappings for {len(mappings)} columns: {list(mappings.keys())}")
                 self._validate_encoding_mappings(mappings)
@@ -232,7 +232,9 @@ class ModelPredictor:
                     self._validate_encoding_mappings(encodings)
                     self.preprocessing_info['encoding_mappings'] = encodings
                 else:
-                    raise ValueError("Encoding mappings are required but not found.")
+                    # For datasets with no categorical features, create an empty mapping
+                    logger.info("No encoding mappings found. Creating empty mapping for dataset with no categorical features.")
+                    self.preprocessing_info['encoding_mappings'] = {}
         except Exception as e:
             logger.error(f"Error loading preprocessing info: {str(e)}")
             raise ValueError("Failed to load preprocessing_info.json, which is required for proper prediction.")
@@ -304,7 +306,7 @@ class ModelPredictor:
         encoding_mappings = {}
         
         # First check if encoding mappings exist in preprocessing info
-        if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+        if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings'] is not None:
             encoding_mappings = self.preprocessing_info['encoding_mappings']
             logger.info(f"Using encoding mappings from preprocessing info: {len(encoding_mappings)} columns")
         # Then check if it's in cleaner_config
@@ -419,7 +421,7 @@ class ModelPredictor:
                     
                     # Get encoding mappings
                     encoding_mappings = {}
-                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings'] is not None:
                         encoding_mappings = self.preprocessing_info['encoding_mappings']
                     elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
                         encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
@@ -444,7 +446,7 @@ class ModelPredictor:
                 else:
                     # Get encoding mappings - check various locations as in _apply_cleaning
                     encoding_mappings = {}
-                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings']:
+                    if 'encoding_mappings' in self.preprocessing_info and self.preprocessing_info['encoding_mappings'] is not None:
                         encoding_mappings = self.preprocessing_info['encoding_mappings']
                     elif 'cleaner_config' in self.preprocessing_info and 'encoding_mappings' in self.preprocessing_info.get('cleaner_config', {}):
                         encoding_mappings = self.preprocessing_info['cleaner_config']['encoding_mappings']
@@ -555,7 +557,7 @@ if __name__ == "__main__":
             
             # Try to get encoding mappings
             encoding_mappings = {}
-            if 'encoding_mappings' in predictor.preprocessing_info and predictor.preprocessing_info['encoding_mappings']:
+            if 'encoding_mappings' in predictor.preprocessing_info and predictor.preprocessing_info['encoding_mappings'] is not None:
                 encoding_mappings = predictor.preprocessing_info['encoding_mappings']
             else:
                 encodings_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'encoding_mappings.json')
@@ -734,7 +736,7 @@ predictions = predictor.predict(processed_df)
                         readme_content += f"  - {operation}: Applied\n"
     
     # Add a note about the encoding_mappings.json file
-    if preprocessing_info and 'encoding_mappings' in preprocessing_info and preprocessing_info['encoding_mappings']:
+    if preprocessing_info and 'encoding_mappings' in preprocessing_info and preprocessing_info['encoding_mappings'] is not None and len(preprocessing_info['encoding_mappings']) > 0:
         readme_content += "\n## Categorical Data Encoding\n"
         readme_content += "This model package includes encoding mappings for categorical variables.\n"
         readme_content += "- The `preprocessing_info.json` file contains these mappings\n"
@@ -742,6 +744,11 @@ predictions = predictor.predict(processed_df)
         readme_content += "- The model prediction script (`predict.py`) automatically applies these mappings\n"
         readme_content += "- When making predictions on new data, categorical columns will be encoded using these mappings\n"
         readme_content += "- If a categorical value isn't found in the mappings, it will be assigned a default value of -1\n"
+    elif preprocessing_info and 'encoding_mappings' in preprocessing_info:
+        readme_content += "\n## Data Encoding\n"
+        readme_content += "This model does not use any categorical feature encodings.\n"
+        readme_content += "- All features are numeric\n"
+        readme_content += "- No encoding/decoding is required for predictions\n"
     
     # Add info about the target column
     target_column = preprocessing_info.get('target_column')
