@@ -271,6 +271,24 @@ def train_regression():
         flash('Please log in to access the regression training page.', 'info')
         return redirect('/login', code=302)
     
+    # Check if we need to reset the dataset (new upload requested)
+    if request.args.get('new') == '1':
+        # Clear dataset from session
+        if 'uploaded_file_regression' in session:
+            # Delete the file if it exists
+            if os.path.exists(session['uploaded_file_regression']):
+                try:
+                    os.remove(session['uploaded_file_regression'])
+                except:
+                    pass
+            # Remove from session
+            session.pop('uploaded_file_regression', None)
+            session.pop('file_stats_regression', None)
+            session.pop('data_columns_regression', None)
+            
+        # Redirect to clean URL
+        return redirect(url_for('train_regression'))
+    
     filepath = session.get('uploaded_file_regression')
     
     if not filepath:
