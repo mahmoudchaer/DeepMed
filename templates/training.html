@@ -335,6 +335,104 @@
         color: #adb5bd !important;
         opacity: 1 !important;
     }
+    
+    /* Custom styling for Select2 - COMPLETE REPLACEMENT */
+    .select2-container {
+        width: 100% !important;
+    }
+    
+    /* Hide the default select2 display completely */
+    .select2-selection--single {
+        display: none !important;
+    }
+    
+    /* Make our custom search input visible by default */
+    .custom-select2-search {
+        width: 100%;
+        background-color: #343a40;
+        color: white;
+        border: 1px solid #0077b6;
+        border-radius: 0.5rem;
+        padding: 12px 16px;
+        height: 50px;
+        font-size: 1.05rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .custom-select2-search:focus {
+        outline: none;
+        box-shadow: 0 0 0 0.25rem rgba(0, 119, 182, 0.25);
+        border-color: #0077b6;
+    }
+    
+    .custom-select2-search::placeholder {
+        color: #adb5bd;
+        font-style: italic;
+    }
+    
+    /* Style the dropdown */
+    .select2-dropdown {
+        background-color: #212529 !important;
+        border: 1px solid #0077b6 !important;
+        border-radius: 0.5rem !important;
+        margin-top: 4px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        overflow: hidden;
+    }
+    
+    /* Hide the search box in the dropdown since we're using our custom one */
+    .select2-search--dropdown {
+        display: none !important;
+    }
+    
+    /* Style the results */
+    .select2-results__options {
+        max-height: 280px;
+        overflow-y: auto;
+        background-color: #212529;
+        scrollbar-width: thin;
+        scrollbar-color: #495057 #212529;
+    }
+    
+    .select2-container--default .select2-results__option {
+        color: white;
+        padding: 12px 16px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #0077b6;
+        color: white;
+        position: relative;
+    }
+    
+    .select2-container--default .select2-results__option--highlighted[aria-selected]:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background-color: #0077b6;
+    }
+    
+    .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: #0077b6;
+    }
+    
+    .select2-results__options::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .select2-results__options::-webkit-scrollbar-track {
+        background: #212529;
+    }
+    
+    .select2-results__options::-webkit-scrollbar-thumb {
+        background-color: #495057;
+        border-radius: 10px;
+    }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -491,28 +589,53 @@
 {% block scripts %}
 <script>
     $(document).ready(function() {
-        // Initialize target column select with completely custom display
+        // Create a custom search input that will replace the standard Select2 display
+        const customSearchInput = $('<input type="text" class="custom-select2-search" placeholder="Type to search for columns..." />');
+        
+        // Initialize Select2 with minimal options
         $('#target_column').select2({
-            placeholder: "Type to search for columns...",
             width: '100%',
             dropdownParent: $('body'),
-            allowClear: true,
             minimumResultsForSearch: 0,
-            theme: "default",
             language: {
-                searching: function() {
-                    return "Searching...";
-                },
                 noResults: function() {
                     return "No matches found";
                 }
-            },
-            escapeMarkup: function(markup) {
-                return markup;
-            },
-            // Remove the default display and replace with search directly
-            containerCssClass: 'select2-container--flat',
-            dropdownCssClass: 'select2-dropdown--flat'
+            }
+        });
+        
+        // Replace the default Select2 container with our custom search input
+        $('.select2-container').prepend(customSearchInput);
+        
+        // Handle custom search input focus
+        customSearchInput.on('focus click', function(e) {
+            e.stopPropagation();
+            $('#target_column').select2('open');
+            // Transfer any text from custom input to the real search field
+            const searchText = $(this).val();
+            setTimeout(function() {
+                $('.select2-search__field').val(searchText).trigger('input');
+            }, 50);
+        });
+        
+        // Handle typing in the custom search input
+        customSearchInput.on('input', function(e) {
+            e.stopPropagation();
+            const searchText = $(this).val();
+            $('#target_column').select2('open');
+            setTimeout(function() {
+                $('.select2-search__field').val(searchText).trigger('input');
+            }, 50);
+        });
+        
+        // When an item is selected, update the custom input to show what was selected
+        $('#target_column').on('select2:select', function(e) {
+            customSearchInput.val(e.params.data.text);
+        });
+        
+        // Clear the custom input when the selection is cleared
+        $('#target_column').on('select2:clear', function() {
+            customSearchInput.val('');
         });
         
         // Handle form submission
@@ -532,33 +655,6 @@
                 }
             });
         }
-        
-        // Automatically open dropdown when the user clicks on the container
-        $(document).on('click', '.select2-container--flat', function() {
-            $('#target_column').select2('open');
-        });
-        
-        // Focus search field immediately when dropdown opens and hide the default selection area
-        $(document).on('select2:open', function() {
-            setTimeout(function() {
-                const searchField = $('.select2-search__field');
-                searchField.attr('placeholder', 'Type to search for columns...');
-                searchField.focus();
-                
-                // Hide the original container if needed
-                $('.select2-selection--single').css('visibility', 'hidden');
-            }, 50);
-        });
-        
-        // Prevent event propagation issues with search field
-        $(document).on('click', '.select2-search__field', function(e) {
-            e.stopPropagation();
-        });
-        
-        // When dropdown closes, show the selection again
-        $(document).on('select2:close', function() {
-            $('.select2-selection--single').css('visibility', 'visible');
-        });
     });
 </script>
 {% endblock %} 
