@@ -100,12 +100,6 @@ def ensure_regression_models_saved(user_id, run_id, model_result):
         else:
             top_models = model_results[:min(4, len(model_results))]
             
-        # Check if models already exist for this run
-        existing_models = TrainingModel.query.filter_by(run_id=run_id).count()
-        if existing_models >= len(top_models):
-            logger.info(f"Found {existing_models} models already saved for run_id {run_id}")
-            return True
-            
         # Save each model
         for model_info in top_models:
             model_name = model_info.get('name', 'unknown_model')
@@ -117,16 +111,6 @@ def ensure_regression_models_saved(user_id, run_id, model_result):
                 
             # Extract filename from URL
             filename = model_url.split('/')[-1] if '/' in model_url else model_url
-            
-            # Check if this model is already saved
-            existing_model = TrainingModel.query.filter_by(
-                run_id=run_id,
-                model_name=model_name
-            ).first()
-            
-            if existing_model:
-                logger.info(f"Model {model_name} already exists for run_id {run_id}")
-                continue
             
             # Get metrics from the model info
             metrics = model_info.get('metrics', {})

@@ -170,6 +170,17 @@ class NaiveBayesTrainer:
 # Initialize model trainer
 model_trainer = NaiveBayesTrainer()
 
+@app.route('/reset', methods=['POST'])
+def reset_model():
+    """Reset the model trainer to ensure fresh training for each dataset"""
+    global model_trainer
+    logger.info("Received request to reset model trainer - creating new instance")
+    model_trainer = NaiveBayesTrainer()
+    return jsonify({
+        "status": "success",
+        "message": "Model trainer has been reset and will train from scratch"
+    })
+
 @app.route('/health')
 def health():
     return jsonify({
