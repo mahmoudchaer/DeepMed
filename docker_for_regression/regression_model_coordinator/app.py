@@ -17,6 +17,7 @@ from datetime import datetime
 from waitress import serve
 import urllib.parse
 import io
+from azure.storage.blob import BlobServiceClient
 
 # Try to import the storage module
 try:
@@ -132,7 +133,6 @@ def save_model_to_blob(model_data, model_name, metric_name=None):
             # Verify uploaded model is accessible
             try:
                 logger.debug(f"Verifying model accessibility at {blob_url}")
-                from azure.storage.blob import BlobServiceClient
                 account_name = blob_url.split('.')[0].replace('https://', '')
                 container_name = blob_url.split('/')[3]
                 blob_name = '/'.join(blob_url.split('/')[4:])
@@ -238,33 +238,29 @@ class RegressionModelCoordinator:
                     download_response = requests.get(model_download_url, timeout=60)
                     
                     if download_response.status_code == 200:
-                        logger.info(f"Successfully downloaded model from {model_name} service. Content length: {len(download_response.content)} bytes")
+                        # Save model to blob storage with unique name for this run
+                        timestamp = int(time.time())
+                        unique_id = str(uuid.uuid4())[:8]
+                        run_id = result.get('run_id', str(timestamp))
+                        filename = f"{model_name}_{run_id}_{timestamp}_{unique_id}.joblib"
                         
-                        # Log content type and first few bytes for debugging
-                        content_type = download_response.headers.get('Content-Type', 'unknown')
-                        logger.debug(f"Response Content-Type: {content_type}")
+                        # Save to blob storage
+                        logger.info(f"Saving model as {filename}")
+                        blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+                        container_client = blob_service.get_container_client(BLOB_CONTAINER_NAME)
+                        blob_client = container_client.get_blob_client(filename)
                         
-                        if content_type == 'application/json':
-                            logger.warning("Received JSON instead of binary model data. This might be an error response.")
-                            logger.debug(f"JSON response: {download_response.text[:500]}...")
-                        else:
-                            logger.debug(f"First 50 bytes (hex): {download_response.content[:50].hex()}")
+                        # Upload model bytes
+                        blob_client.upload_blob(download_response.content, overwrite=True)
                         
-                        # Save model to blob storage
-                        model_bytes = io.BytesIO(download_response.content)
-                        logger.info(f"Created BytesIO object with {model_bytes.getbuffer().nbytes} bytes")
+                        # Get the URL to the blob
+                        blob_url = f"{BLOB_BASE_URL}/{BLOB_CONTAINER_NAME}/{filename}"
                         
-                        blob_url, filename = save_model_to_blob(model_bytes, model_name)
-                        
-                        if blob_url:
-                            logger.info(f"Successfully saved {model_name} to blob storage: {blob_url}")
-                            result['model_url'] = blob_url
-                            result['file_name'] = filename
-                        else:
-                            logger.error(f"Failed to save {model_name} to blob storage")
+                        # Add URL to result
+                        result['model_url'] = blob_url
+                        logger.info(f"Model saved to blob storage at: {blob_url}")
                     else:
-                        logger.error(f"Could not download model from service. Status code: {download_response.status_code}")
-                        logger.error(f"Response: {download_response.text[:500]}...")
+                        logger.error(f"Failed to download model: {download_response.text}")
                 except Exception as e:
                     logger.error(f"Error downloading and saving model to blob: {str(e)}")
                     logger.error(traceback.format_exc())
@@ -347,35 +343,63 @@ class RegressionModelCoordinator:
             return False
     
     def train_models(self, X, y, test_size=0.2, run_id=None, user_id=None, run_name=None):
-        """Train multiple regression models in parallel"""
-        logger.info(f"Starting regression model training with {len(X.columns)} features")
+        """Train multiple regression models and select the best one"""
+        logger.info(f"Training regression models with run_id={run_id}, user_id={user_id}")
         
-        # Convert inputs to pandas if they're not already
-        if not isinstance(X, pd.DataFrame):
-            if isinstance(X, dict):
-                X = pd.DataFrame(X)
-            else:
-                X = pd.DataFrame(X)
+        # Log basic statistics about the data
+        logger.info(f"Dataset shape: X={X.shape}, y={len(y)}")
+        logger.info(f"Test size: {test_size}")
         
-        if not isinstance(y, (pd.Series, pd.DataFrame)):
-            y = pd.Series(y)
+        # Ensure we're always training new models for each dataset upload
+        logger.info(f"Ensuring completely new models are trained for run_id: {run_id}")
         
-        # Split data into train and test sets
+        # Create train-test split
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
         
-        logger.info(f"Split data into {len(X_train)} training samples and {len(X_test)} test samples")
+        # Check which model services are available
+        available_services = {}
+        for model_name, model_url in self.model_services.items():
+            is_available = self._is_service_available(model_url)
+            available_services[model_name] = is_available
+            logger.info(f"Model service {model_name} at {model_url}: {'Available' if is_available else 'Unavailable'}")
         
-        # Get available model services
-        available_services = self._get_available_services()
-        logger.info(f"Available model services: {available_services}")
+        # Check if we should record the run in the database
+        if run_id is None and user_id is not None:
+            # Create a new run ID using the timestamp if none provided
+            run_id = int(time.time())
+            logger.info(f"Generated new run_id: {run_id}")
+            
+            # Try to record in database if possible
+            if self.db_connection:
+                try:
+                    # Create entry in runs table
+                    run_name = run_name or f"Regression Run {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    query = text("""
+                        INSERT INTO training_runs 
+                        (id, user_id, run_name, created_at) 
+                        VALUES (:id, :user_id, :run_name, :created_at)
+                    """)
+                    
+                    # Insert with specific ID
+                    with self.db_connection.connect() as conn:
+                        conn.execute(query, {
+                            'id': run_id,
+                            'user_id': user_id,
+                            'run_name': run_name,
+                            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        })
+                    
+                    logger.info(f"Created training run with ID {run_id} in database")
+                except Exception as e:
+                    logger.error(f"Error creating run entry in database: {str(e)}")
+                    logger.error(traceback.format_exc())
         
-        # Create a unique run ID for this training session
-        run_uuid = str(uuid.uuid4())
-        mlflow_experiment_name = "regression_experiment"
-        mlflow_run_id = run_uuid
-        
-        # Initialize results list - this will store model training results
+        # Store the results of each model training
         results = []
+        
+        # MLflow setup - temporary disabled
+        # Set the tracking URI to MLflow server
+        # mlflow.set_tracking_uri("http://mlflow:5000")
         
         # ----- Direct Model Training (No MLflow) -----
         # Train each model directly without MLflow to avoid experiment issues

@@ -15,6 +15,7 @@ import tempfile
 import secrets
 import uuid
 from werkzeug.utils import secure_filename
+import time
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, ANOMALY_DETECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -283,6 +284,7 @@ def training():
             
             # 4. MODEL TRAINING (via Model Coordinator API instead of Model Trainer API)
             logger.info(f"Sending data to Model Coordinator API")
+            logger.info(f"CRITICAL: Ensuring FRESH models are trained for this dataset upload")
             
             # Prepare data for model coordinator
             X_data = {feature: X_selected[feature].tolist() for feature in selected_features}
@@ -446,7 +448,9 @@ def training():
                     "target": y_data,
                     "test_size": session['test_size'],
                     "user_id": current_user.id,
-                    "run_name": run_name
+                    "run_name": run_name,
+                    "force_new_training": True,
+                    "unique_dataset_id": f"unique_dataset_{int(time.time())}_{str(uuid.uuid4())[:8]}"
                 },
                 timeout=1800  # Model training can take time
             )

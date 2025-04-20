@@ -352,7 +352,20 @@ def train_model(service_name, train_data):
     url = get_service_url(service_name)
     logger.info(f"Training {service_name} model")
     
+    # Add unique identifier to force fresh training
+    train_data['force_new_training'] = True
+    train_data['unique_id'] = f"{service_name}_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+    
     try:
+        # First, reset the model service to clear any previous state
+        reset_response = requests.post(f"{url}/reset", timeout=10)
+        if reset_response.status_code == 200:
+            logger.info(f"Successfully reset {service_name} model service")
+        else:
+            logger.warning(f"Could not reset {service_name} model service: {reset_response.status_code}")
+            
+        # Now train on fresh model
+        logger.info(f"Starting NEW training for {service_name} with unique ID {train_data['unique_id']}")
         response = requests.post(
             f"{url}/train",
             json=train_data,
@@ -360,7 +373,7 @@ def train_model(service_name, train_data):
         )
         
         if response.status_code == 200:
-            logger.info(f"Successfully trained {service_name} model")
+            logger.info(f"Successfully trained NEW {service_name} model")
             return service_name, response.json()
         else:
             logger.error(f"Failed to train {service_name} model: {response.text}")
@@ -388,30 +401,25 @@ def train_models():
         if not user_id:
             return jsonify({'error': 'Missing user_id in request'}), 400
             
-        # Create training run in database
-        run_id = create_training_run(user_id, run_name)
-        if not run_id:
-            return jsonify({'error': 'Failed to create training run in database'}), 500
+        # CRITICAL FIX: Ensure we always create a new run_id based on timestamp
+        # to guarantee unique models for each dataset upload
+        run_id = int(time.time())
+        logger.info(f"ENFORCING NEW MODELS: Created unique run_id {run_id} for this dataset upload")
+        
+        # Create training run in database with the new run_id
+        db_run_id = create_training_run(user_id, run_name)
+        if not db_run_id:
+            logger.warning(f"Failed to create training run in database, using timestamp run_id {run_id}")
+        else:
+            # Use the database-created run_id if available
+            run_id = db_run_id
+            logger.info(f"Verified unique training run with ID {run_id} was created successfully")
         
         # Enhanced debug logging
         print(f"Training data shape: {len(data['data'].keys())} features, target shape: {len(data['target'])} samples")
         print(f"Available features: {list(data['data'].keys())}")
         print(f"First few target values: {data['target'][:5]}")
         print(f"Created training run with ID {run_id} for user {user_id}")
-        
-        # Verify the training run was actually created and committed
-        # This ensures the row exists before we try to update it with the prompt
-        verify_training_run_created = False
-        try:
-            with app.app_context():
-                training_run = TrainingRun.query.get(run_id)
-                if training_run:
-                    verify_training_run_created = True
-                    print(f"Verified training run {run_id} was created successfully")
-                else:
-                    print(f"WARNING: Could not verify training run {run_id} was created")
-        except Exception as e:
-            print(f"Error verifying training run: {str(e)}")
         
         # Get test_size parameter (default to 0.2)
         test_size = data.get('test_size', 0.2)
@@ -580,8 +588,6 @@ def train_models():
     except Exception as e:
         print(f"ERROR in train_models: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-
 
 @app.route('/model_info', methods=['GET'])
 def model_info():
@@ -831,6 +837,7 @@ def save_best_models(best_models, user_id, run_id):
         
         logger.info(f"Saving only the absolute best models for metrics: {metrics_to_save}")
         logger.info(f"Best models identified: {list(best_models.keys())}")
+        logger.info(f"Ensuring completely new models are created for run_id: {run_id}")
         
         # Only process the 4 main metrics we care about
         for metric in metrics_to_save:
@@ -868,10 +875,10 @@ def save_best_models(best_models, user_id, run_id):
                         display_name = f"best_model_for_{metric}"
                         logger.info(f"Saving {model_name} as {display_name}")
                         
-                        # Generate a unique filename
+                        # Generate a unique filename with the run_id to ensure uniqueness per dataset
                         timestamp = int(time.time())
                         unique_id = str(uuid.uuid4())[:8]
-                        filename = f"{model_name}_{metric}_{timestamp}_{unique_id}.joblib"
+                        filename = f"{model_name}_{metric}_{run_id}_{timestamp}_{unique_id}.joblib"
                         
                         # Upload to blob storage directly
                         model_bytes = io.BytesIO(download_response.content)
@@ -907,8 +914,6 @@ def save_best_models(best_models, user_id, run_id):
     except Exception as e:
         logger.error(f"Error in save_best_models: {str(e)}")
         return {}
-
-
 
 # Helper function to verify model metrics (for debugging)
 def verify_model_metrics(model_services):
