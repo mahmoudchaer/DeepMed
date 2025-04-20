@@ -237,6 +237,39 @@
     .form-text {
         color: #adb5bd;
     }
+    
+    /* Fix for the white search box */
+    .select2-container--default .select2-dropdown .select2-search__field {
+        background-color: #343a40 !important;
+        color: white !important;
+        border: 1px solid #495057 !important;
+    }
+    
+    /* Fix for the overall dropdown container */
+    .select2-container--open .select2-dropdown--below,
+    .select2-container--open .select2-dropdown--above {
+        background-color: #212529 !important;
+        border-color: #0077b6 !important;
+    }
+    
+    /* Override all select2 search fields */
+    input.select2-search__field {
+        background-color: #343a40 !important;
+        color: white !important;
+        border-color: #495057 !important;
+    }
+    
+    /* Fix safari and other browsers */
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+        background-color: #343a40 !important;
+        color: white !important;
+        border: 1px solid #495057 !important;
+    }
+    
+    /* Extra styling */
+    .select2-container--default .select2-selection--single {
+        border-color: #0077b6;
+    }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
