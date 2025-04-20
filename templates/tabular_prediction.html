@@ -226,16 +226,20 @@
             .then(data => {
                 console.log("Encoding data:", data);
                 
+                // Always reset and enable the select regardless of whether encodings were found
+                encodingSelect.innerHTML = '<option value="">-- Select target column encoding --</option>';
+                
+                // Add "No encoding" option, making it prominent
+                const noEncodingOption = document.createElement('option');
+                noEncodingOption.value = "no_encoding";
+                noEncodingOption.textContent = "No encoding (numeric target)";
+                encodingSelect.appendChild(noEncodingOption);
+                
+                // Enable the select even if no encodings found
+                encodingSelect.disabled = false;
+                
                 if (data && data.encoding_maps && Object.keys(data.encoding_maps).length > 0) {
-                    // Found encoding maps - populate dropdown
-                    encodingSelect.innerHTML = '<option value="">-- Select target column encoding --</option>';
-                    
-                    // Add "No encoding" option
-                    const noEncodingOption = document.createElement('option');
-                    noEncodingOption.value = "no_encoding";
-                    noEncodingOption.textContent = "No encoding (numeric target)";
-                    encodingSelect.appendChild(noEncodingOption);
-                    
+                    // Found encoding maps - populate dropdown with additional options
                     // Get list of maps to display
                     const maps = Object.keys(data.encoding_maps);
                     
@@ -256,9 +260,6 @@
                         encodingSelect.appendChild(option);
                     }
                     
-                    // Enable the select
-                    encodingSelect.disabled = false;
-                    
                     // Add success styling - using a darker background for better contrast
                     encodingSelectContainer.classList.add('border', 'border-success', 'p-2', 'rounded');
                     // Force the bg color to a darker shade that works well with light text
@@ -277,45 +278,62 @@
                     }
                     
                     // Auto-select first option if available
-                    if (encodingSelect.options.length > 1) {
-                        encodingSelect.selectedIndex = 1;
+                    if (encodingSelect.options.length > 2) { // > 2 because we have the default and no_encoding
+                        encodingSelect.selectedIndex = 2; // Select the first actual encoding
+                    } else {
+                        encodingSelect.selectedIndex = 1; // Select no_encoding if no other options
                     }
                     
-                    console.log("Populated encoding select with", encodingSelect.options.length - 1, "options");
+                    console.log("Populated encoding select with", encodingSelect.options.length - 2, "encodings plus 'No encoding' option");
                 } else {
                     // No encoding maps found
-                    encodingSelect.innerHTML = '<option value="">-- No encoding maps found in package --</option>';
-                    encodingSelect.disabled = true;
-                    encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded');
-                    encodingSelectContainer.style.backgroundColor = ''; // Reset background color
+                    // Add info styling
+                    encodingSelectContainer.classList.add('border', 'border-info', 'p-2', 'rounded');
+                    encodingSelectContainer.style.backgroundColor = 'rgba(13, 202, 240, 0.15)';
+                    
+                    // Auto-select the "No encoding" option
+                    encodingSelect.selectedIndex = 1;
                     
                     // Update help text
-                    encodingHelpText.textContent = 'No encoding maps found in the model package.';
+                    const message = data.message || "No encoding maps found. This model likely uses only numeric features.";
+                    encodingHelpText.textContent = message;
                     
-                    // Show debug info
-                    encodingDebugInfo.textContent = 'Your model package should include files like encoding_maps.json, preprocessing.json, or similar that contain mappings for categorical variables.';
+                    // Show help about the "No encoding" option
+                    encodingDebugInfo.textContent = 'For numeric targets or regression models, keep the "No encoding" option selected.';
                     encodingDebugInfo.classList.remove('d-none');
                     
-                    console.log("No encoding maps found in response");
+                    console.log("No encoding maps found - selected 'No encoding' option by default");
                 }
             })
             .catch(error => {
                 // Handle errors
                 console.error("Error extracting encodings:", error);
                 
+                // Even on error, add the "No encoding" option and enable the select
                 encodingSelect.innerHTML = '<option value="">-- Error loading encodings --</option>';
-                encodingSelect.disabled = true;
-                encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded');
-                encodingSelectContainer.style.backgroundColor = ''; // Reset background color
+                
+                // Add "No encoding" option as a fallback
+                const noEncodingOption = document.createElement('option');
+                noEncodingOption.value = "no_encoding";
+                noEncodingOption.textContent = "No encoding (numeric target)";
+                encodingSelect.appendChild(noEncodingOption);
+                
+                // Enable the select with "No encoding" option
+                encodingSelect.disabled = false;
+                
+                // Select the "No encoding" option by default
+                encodingSelect.selectedIndex = 1;
+                
+                // Add warning styling
+                encodingSelectContainer.classList.add('border', 'border-warning', 'p-2', 'rounded');
+                encodingSelectContainer.style.backgroundColor = 'rgba(255, 193, 7, 0.15)';
                 
                 // Update help text
                 encodingHelpText.textContent = `Error: ${error.message || 'Failed to extract encodings'}`;
                 
-                // Show debug info
-                if (!encodingDebugInfo.textContent) {
-                    encodingDebugInfo.textContent = 'Check that your model package contains valid JSON files with encoding maps.';
-                    encodingDebugInfo.classList.remove('d-none');
-                }
+                // Show debug info with helpful guidance
+                encodingDebugInfo.textContent = 'If this is a numeric-only model, you can safely use the "No encoding" option.';
+                encodingDebugInfo.classList.remove('d-none');
             })
             .finally(() => {
                 // Re-enable submit button
