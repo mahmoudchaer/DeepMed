@@ -11,6 +11,8 @@ import json
 import sys
 import logging
 from flask import Flask, request, jsonify
+import glob
+import uuid
 
 # Configure logging to ensure all output appears
 logging.basicConfig(
@@ -26,9 +28,36 @@ for handler in logging.getLogger().handlers:
     app.logger.addHandler(handler)
 app.logger.setLevel(logging.DEBUG)
 
+def cleanup_all_temp_dirs():
+    """Perform a thorough cleanup of all temporary directories we might have created"""
+    print("Performing aggressive cleanup of all temporary directories")
+    patterns = ["encoding_extract_*", "session_*"]
+    
+    for pattern in patterns:
+        try:
+            for dir_path in glob.glob(os.path.join(tempfile.gettempdir(), pattern)):
+                try:
+                    print(f"Cleaning up temporary directory: {dir_path}")
+                    shutil.rmtree(dir_path, ignore_errors=True)
+                except Exception as e:
+                    print(f"Error cleaning up directory {dir_path}: {str(e)}")
+        except Exception as e:
+            print(f"Error during cleanup of pattern {pattern}: {str(e)}")
+
+# Add a startup cleanup
+cleanup_all_temp_dirs()
+
 @app.route('/health', methods=['GET'])
 def health():
+    # Periodically clean up temporary directories on health checks
+    cleanup_all_temp_dirs()
     return jsonify({"status": "ok"}), 200
+
+@app.route('/cleanup', methods=['GET'])
+def cleanup():
+    """Endpoint to manually trigger cleanup of temporary directories"""
+    cleanup_all_temp_dirs()
+    return jsonify({"status": "cleanup completed"}), 200
 
 @app.route('/extract_encodings', methods=['POST'])
 def extract_encodings():
@@ -42,41 +71,70 @@ def extract_encodings():
     if not model_file.filename.lower().endswith('.zip'):
         return jsonify({"error": "Model package must be a ZIP archive"}), 400
     
-    # Create a unique temporary directory to prevent cross-contamination between requests
-    temp_dir = tempfile.mkdtemp(prefix=f"encoding_extract_{int(time.time())}_")
+    # Check if any temporary directories with similar prefixes exist and clean them up
+    for dir_path in glob.glob(os.path.join(tempfile.gettempdir(), "encoding_extract_*")):
+        try:
+            # Check if it's older than 1 hour
+            if time.time() - os.path.getctime(dir_path) > 3600:
+                print(f"Cleaning up stale temporary directory: {dir_path}")
+                shutil.rmtree(dir_path, ignore_errors=True)
+        except Exception as e:
+            print(f"Error cleaning up directory {dir_path}: {str(e)}")
+    
+    # Create a unique temporary directory with UUID to guarantee uniqueness
+    unique_id = str(uuid.uuid4())[:8]
+    temp_dir = tempfile.mkdtemp(prefix=f"encoding_extract_{int(time.time())}_{unique_id}_")
+    
+    print(f"Created new COMPLETELY ISOLATED temporary directory: {temp_dir}")
     
     try:
         # Save and extract the ZIP package
         zip_path = os.path.join(temp_dir, "model_package.zip")
         model_file.save(zip_path)
         extraction_time = time.time()  # Record when extraction happens
+        print(f"Saved zip file at {zip_path} with timestamp {extraction_time}")
         
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
         
         print(f"Extracted model package to {temp_dir}")
         
-        # List all files for debugging
-        all_files = []
-        # Walk through the directory to get all files including those in subdirectories
-        for root, _, files in os.walk(temp_dir):
+        # List all extracted files with timestamps for debugging
+        print(f"LISTING ALL FILES IN TEMPORARY DIRECTORY {temp_dir}:")
+        extracted_files = []
+        suspicious_files = []
+        for root, dirs, files in os.walk(temp_dir):
             for filename in files:
                 file_path = os.path.join(root, filename)
-                # Get file modification time - should be very close to extraction_time
                 file_time = os.path.getmtime(file_path)
-                # Only include files that were just extracted (within 5 seconds of extraction)
-                if abs(file_time - extraction_time) < 5:
-                    rel_path = os.path.relpath(file_path, temp_dir)
-                    all_files.append(rel_path)
+                time_diff = abs(file_time - extraction_time)
+                rel_path = os.path.relpath(file_path, temp_dir)
+                print(f"  - {rel_path}: mod_time={file_time}, diff={time_diff}s")
+                
+                # Track files that are part of this extraction
+                if time_diff < 5:
+                    extracted_files.append(rel_path)
+                else:
+                    suspicious_files.append(file_path)
+                    print(f"    WARNING: File {rel_path} has suspicious timestamp, will be excluded from validation!")
         
-        print(f"All files in extracted package: {all_files}")
+        # Actually remove suspicious files to prevent them from being used
+        for file_path in suspicious_files:
+            try:
+                if os.path.exists(file_path) and os.path.isfile(file_path):
+                    print(f"REMOVING suspicious file: {file_path}")
+                    os.remove(file_path)
+            except Exception as e:
+                print(f"Error removing suspicious file {file_path}: {str(e)}")
+        
+        print(f"Validated files in extracted package: {extracted_files}")
         
         # Look for encoding files with broader search
         encoding_files = []
         json_files = []
         
         # First pass: look for standard encoding file names
-        for file_path in all_files:
+        for file_path in extracted_files:
             full_path = os.path.join(temp_dir, file_path)
             if file_path.lower().endswith('.json'):
                 json_files.append(file_path)
@@ -271,18 +329,62 @@ def predict():
             input_file.filename.lower().endswith('.csv')):
         return jsonify({"error": "Input file must be an Excel or CSV file."}), 400
 
-    # Create a temporary working directory.
-    temp_dir = tempfile.mkdtemp(prefix="session_")
+    # Check if any temporary directories with similar prefixes exist and clean them up
+    for dir_path in glob.glob(os.path.join(tempfile.gettempdir(), "session_*")):
+        try:
+            # Check if it's older than 1 hour
+            if time.time() - os.path.getctime(dir_path) > 3600:
+                print(f"Cleaning up stale session directory: {dir_path}")
+                shutil.rmtree(dir_path, ignore_errors=True)
+        except Exception as e:
+            print(f"Error cleaning up directory {dir_path}: {str(e)}")
+    
+    # Create a temporary working directory with a unique identifier.
+    unique_id = str(uuid.uuid4())[:8]
+    temp_dir = tempfile.mkdtemp(prefix=f"session_{int(time.time())}_{unique_id}_")
     start_time = time.time()
-    print(f"Created temporary directory: {temp_dir}")
+    print(f"Created new COMPLETELY ISOLATED temporary directory: {temp_dir}")
     
     try:
         # Save and extract the ZIP package.
         zip_path = os.path.join(temp_dir, "model_package.zip")
         model_file.save(zip_path)
+        extraction_time = time.time()  # Record exact extraction time
+        print(f"Saved zip file at {zip_path} with timestamp {extraction_time}")
+        
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
         print(f"Extracted model package to {temp_dir}")
+
+        # List all extracted files with timestamps for debugging
+        print(f"LISTING ALL FILES IN TEMPORARY DIRECTORY {temp_dir}:")
+        extracted_files = []
+        suspicious_files = []
+        for root, dirs, files in os.walk(temp_dir):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+                file_time = os.path.getmtime(file_path)
+                time_diff = abs(file_time - extraction_time)
+                rel_path = os.path.relpath(file_path, temp_dir)
+                print(f"  - {rel_path}: mod_time={file_time}, diff={time_diff}s")
+                
+                # Track files that are part of this extraction
+                if time_diff < 5:
+                    extracted_files.append(rel_path)
+                else:
+                    suspicious_files.append(file_path)
+                    print(f"    WARNING: File {rel_path} has suspicious timestamp, will be excluded from validation!")
+        
+        # Actually remove suspicious files to prevent them from being used
+        for file_path in suspicious_files:
+            try:
+                if os.path.exists(file_path) and os.path.isfile(file_path):
+                    print(f"REMOVING suspicious file: {file_path}")
+                    os.remove(file_path)
+            except Exception as e:
+                print(f"Error removing suspicious file {file_path}: {str(e)}")
+        
+        print(f"Validated files in extracted package: {extracted_files}")
 
         # Save the input file.
         input_file_path = os.path.join(temp_dir, input_file.filename)
@@ -335,6 +437,31 @@ def predict():
         # Record extraction time for validation
         extraction_time = os.path.getmtime(os.path.join(temp_dir, "predict.py"))
         print(f"Extraction timestamp reference: {extraction_time}")
+        
+        # Check for any suspicious files that shouldn't be there
+        print("Checking for suspicious files that may cause encoding issues:")
+        suspicious_files = []
+        for root, dirs, files in os.walk(temp_dir):
+            for filename in files:
+                if filename.endswith('.json'):
+                    file_path = os.path.join(root, filename)
+                    file_time = os.path.getmtime(file_path)
+                    time_diff = abs(file_time - extraction_time)
+                    rel_path = os.path.relpath(file_path, temp_dir)
+                    print(f"  - JSON file: {rel_path}: mod_time={file_time}, diff={time_diff}s")
+                    
+                    if time_diff > 5:
+                        suspicious_files.append(file_path)
+                        print(f"    WARNING: JSON file {rel_path} has suspicious timestamp, will be removed!")
+        
+        # Remove any suspicious JSON files
+        for file_path in suspicious_files:
+            try:
+                if os.path.exists(file_path) and os.path.isfile(file_path):
+                    print(f"REMOVING suspicious JSON file: {file_path}")
+                    os.remove(file_path)
+            except Exception as e:
+                print(f"Error removing suspicious file {file_path}: {str(e)}")
         
         # Check if the process succeeded
         if result.returncode != 0:
@@ -417,14 +544,28 @@ def predict():
                     encoding_map = None
                     for file_path in encoding_files:
                         try:
-                            print(f"Examining file {os.path.basename(file_path)} for encoding map")
+                            filename = os.path.basename(file_path)
+                            print(f"Examining file {filename} for encoding map")
+                            
+                            # Verify the timestamp matches expected
+                            file_time = os.path.getmtime(file_path)
+                            time_diff = abs(file_time - extraction_time)
+                            if time_diff > 5:
+                                print(f"SUSPICIOUS: File {filename} has inconsistent timestamp (diff: {time_diff:.2f}s), skipping")
+                                continue
+                                
                             with open(file_path, 'r') as f:
                                 data = json.load(f)
-                                
+                            
+                            # Log the entire data structure for debugging
+                            print(f"JSON data in {filename}: {json.dumps(data)[:500]}... (truncated)")
+                            
                             # Check if the selected encoding column exists in this file
                             if selected_encoding in data:
                                 encoding_map = data[selected_encoding]
-                                print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
+                                print(f"Found encoding map for '{selected_encoding}' in {filename}")
+                                print(f"Encoding map contains {len(encoding_map)} items")
+                                print(f"Sample items: {dict(list(encoding_map.items())[:3])}")
                                 break
                                 
                             # Restructure the encoding mapping - we only want the specific encoding
@@ -611,58 +752,76 @@ def predict():
                     encoding_files = []
                     print(f"Looking for encoding files to decode predictions in output.csv using '{selected_encoding}'")
                     
-                    # First get a list of original model files to verify encoding file belongs to this model
-                    # Use the extraction time to validate files
+                    # Use timestamp-based validation to find model files
                     model_files = []
                     for root, _, files in os.walk(temp_dir):
                         for filename in files:
                             if filename.endswith('.py') or filename.endswith('.json'):
                                 file_path = os.path.join(root, filename)
                                 file_time = os.path.getmtime(file_path)
-                                # Only include files that were part of this extraction (within 10 seconds)
+                                # Only include files from this model package (within 10 seconds of extraction_time)
                                 if abs(file_time - extraction_time) < 10:
                                     rel_path = os.path.relpath(file_path, temp_dir)
                                     model_files.append(rel_path)
+                                    
+                                    # Add encoding files based on filename pattern
+                                    if filename.endswith('.json'):
+                                        if (filename == 'encoding_mappings.json' or 
+                                            filename == 'encoding_mappings' or
+                                            filename == 'preprocessing_info.json' or 
+                                            filename == 'preprocessing_info' or
+                                            filename.endswith('_encoding.json') or 
+                                            filename == 'encoding.json' or 
+                                            filename == 'preprocessing.json' or
+                                            'encod' in filename.lower() or
+                                            'target' in filename.lower() or
+                                            'label' in filename.lower() or
+                                            'map' in filename.lower()):
+                                            
+                                            full_path = os.path.join(root, filename)
+                                            encoding_files.append(full_path)
+                                            print(f"Adding validated encoding file: {rel_path} (timestamp diff: {abs(file_time - extraction_time):.2f}s)")
+                                else:
+                                    rel_path = os.path.relpath(file_path, temp_dir)
+                                    print(f"Ignoring file with suspicious timestamp: {rel_path} (diff: {abs(file_time - extraction_time):.2f}s)")
+                                    # Optionally remove suspicious files
+                                    try:
+                                        os.remove(file_path)
+                                        print(f"Removed suspicious file: {rel_path}")
+                                    except Exception as e:
+                                        print(f"Failed to remove suspicious file {rel_path}: {str(e)}")
                     
                     print(f"Model files that are part of this package: {model_files}")
-                    
-                    # Look for encoding files in the validated model files
-                    for file_path in model_files:
-                        if file_path.lower().endswith('.json'):
-                            full_path = os.path.join(temp_dir, file_path)
-                            filename = os.path.basename(file_path)
-                            
-                            if (filename == 'encoding_mappings.json' or 
-                                filename == 'encoding_mappings' or
-                                filename == 'preprocessing_info.json' or 
-                                filename == 'preprocessing_info' or
-                                filename.endswith('_encoding.json') or 
-                                filename == 'encoding.json' or 
-                                filename == 'preprocessing.json' or
-                                'encod' in filename.lower() or
-                                'target' in filename.lower() or
-                                'label' in filename.lower() or
-                                'map' in filename.lower()):
-                                
-                                encoding_files.append(full_path)
-                                print(f"Adding validated encoding file: {file_path}")
-                    
                     print(f"Found potential encoding files: {encoding_files}")
                     
                     # Extract encoding maps from files
                     encoding_map = None
                     for file_path in encoding_files:
                         try:
-                            print(f"Examining file {os.path.basename(file_path)} for encoding map")
+                            filename = os.path.basename(file_path)
+                            print(f"Examining file {filename} for encoding map")
+                            
+                            # Verify the timestamp matches expected
+                            file_time = os.path.getmtime(file_path)
+                            time_diff = abs(file_time - extraction_time)
+                            if time_diff > 5:
+                                print(f"SUSPICIOUS: File {filename} has inconsistent timestamp (diff: {time_diff:.2f}s), skipping")
+                                continue
+                                
                             with open(file_path, 'r') as f:
                                 data = json.load(f)
+                            
+                            # Log the entire data structure for debugging
+                            print(f"JSON data in {filename}: {json.dumps(data)[:500]}... (truncated)")
                             
                             # Check if the selected encoding column exists in this file
                             if selected_encoding in data:
                                 encoding_map = data[selected_encoding]
-                                print(f"Found encoding map for '{selected_encoding}' in {os.path.basename(file_path)}")
+                                print(f"Found encoding map for '{selected_encoding}' in {filename}")
+                                print(f"Encoding map contains {len(encoding_map)} items")
+                                print(f"Sample items: {dict(list(encoding_map.items())[:3])}")
                                 break
-                            
+                                
                             # Restructure the encoding mapping - we only want the specific encoding
                             # Check if this is an encoding_mappings.json file with multiple columns
                             if os.path.basename(file_path) == "encoding_mappings.json" or "encoding" in os.path.basename(file_path).lower():
