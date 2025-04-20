@@ -158,6 +158,19 @@
     .select2-results__option {
         padding: 8px 12px;
     }
+    
+    /* Ensure consistent styling for the form-select */
+    .form-select-lg {
+        height: calc(1.5em + 1rem + 2px);
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        font-size: 1.25rem;
+    }
+    
+    /* Match styling from regression template */
+    .select2-selection__placeholder {
+        color: #adb5bd !important;
+    }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -274,7 +287,7 @@
                                         <label for="target_column" class="form-label fw-bold">Select Target Column</label>
                                         
                                         <select name="target_column" id="target_column" class="form-select form-select-lg mb-3" required>
-                                            <option value="">-- Select target column --</option>
+                                            <option value=""></option>
                                             {% for column in columns %}
                                             <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
                                                 {{ column }}
@@ -316,7 +329,7 @@
     $(document).ready(function() {
         // Initialize target column select with placeholder and search
         $('#target_column').select2({
-            placeholder: "Select a target column",
+            placeholder: "Search and select target column...",
             width: '100%',
             dropdownParent: $('body'),
             allowClear: true,
