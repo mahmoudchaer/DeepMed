@@ -176,7 +176,7 @@ def extract_encodings():
             }), 200
         
         # Look for encoding files in the validated model files
-        for file_path in model_files:
+        for file_path in extracted_files:
             if file_path.lower().endswith('.json'):
                 full_path = os.path.join(temp_dir, file_path)
                 filename = os.path.basename(file_path)
@@ -253,26 +253,54 @@ def extract_encodings():
                         json.dump(data, f)
                     print("Updated preprocessing_info.json with empty encoding_mappings")
                 
-                # Check for encoding mappings in preprocessing_info.json
-                if os.path.basename(file) == 'preprocessing_info.json':
-                    if selected_encoding in data:
-                        encoding_map = data[selected_encoding]
-                        print(f"Found encoding map for '{selected_encoding}' in preprocessing_info.json")
-                    elif 'encoding_mappings' in data:
-                        if selected_encoding in data['encoding_mappings']:
-                            encoding_map = data['encoding_mappings'][selected_encoding]
-                            print(f"Found encoding map for '{selected_encoding}' in encoding_mappings section of preprocessing_info.json")
-                
-                # Restructure the encoding mapping - we only want the specific encoding
-                # Check if this is an encoding_mappings.json file with multiple columns
-                if os.path.basename(file) == "encoding_mappings.json" or "encoding" in os.path.basename(file).lower():
-                    if selected_encoding in data:
-                        # Extract only the specific column's encoding
-                        app.logger.info(f"Using specific encoding for column '{selected_encoding}' from encoding_mappings.json")
-                        encoding_map = data[selected_encoding]
-                    else:
-                        app.logger.info(f"Column '{selected_encoding}' not found in encoding_mappings.json")
-                        app.logger.info(f"Available columns: {list(data.keys())}")
+                # Process different potential formats
+                if isinstance(data, dict):
+                    # Look for dictionary structures that could be encoding maps
+                    for column, mapping in data.items():
+                        if isinstance(mapping, dict):
+                            # Look for typical encoding patterns (numeric keys or values)
+                            is_encoding_map = False
+                            
+                            # Check if it maps numbers to strings (common encoding pattern)
+                            numeric_keys = False
+                            string_values = False
+                            
+                            for k, v in mapping.items():
+                                # Try to convert key to number
+                                try:
+                                    float(k)
+                                    numeric_keys = True
+                                except (ValueError, TypeError):
+                                    pass
+                                
+                                # Check if value is string
+                                if isinstance(v, str):
+                                    string_values = True
+                            
+                            # If keys are numbers and values are strings, likely an encoding map
+                            if numeric_keys and string_values:
+                                is_encoding_map = True
+                            
+                            # Also check if it has a reasonable number of entries to be a category mapping
+                            if len(mapping) > 0 and len(mapping) < 100:
+                                # More likely to be an encoding map than a large data structure
+                                is_encoding_map = True
+                                
+                            if is_encoding_map:
+                                print(f"Found encoding map for column '{column}' with {len(mapping)} values")
+                                encoding_maps[column] = mapping
+                    
+                    # Also check if there's a 'target_map' or similar key
+                    for key in ['target_map', 'target_encoding', 'label_encoding', 'class_mapping', 'label_map']:
+                        if key in data and isinstance(data[key], dict):
+                            print(f"Found encoding map with key '{key}' containing {len(data[key])} values")
+                            encoding_maps[key] = data[key]
+                    
+                    # Check for patterns like "column_name_encoding" or "column_name_map"
+                    for key in data.keys():
+                        if (key.endswith('_encoding') or key.endswith('_map') or '_encoding_' in key) and isinstance(data[key], dict):
+                            print(f"Found encoding map with pattern-matched key '{key}' containing {len(data[key])} values")
+                            encoding_maps[key] = data[key]
             except Exception as e:
                 # Skip files that can't be parsed
                 print(f"Error parsing {file}: {str(e)}")
@@ -461,8 +489,7 @@ def predict():
         # Run the predict.py script from the package
         predict_script = os.path.join(temp_dir, "predict.py")
         if not os.path.exists(predict_script):
-            # Create a default prediction script
-            create_predict_script(temp_dir, extracted_files)
+            return jsonify({"error": "predict.py script not found in model package"}), 400
 
         # Ensure preprocessing_info.json exists
         preprocessing_info_path = os.path.join(temp_dir, 'preprocessing_info.json')
@@ -976,7 +1003,7 @@ def predict():
                                         encoding_map = mapping
                                         print(f"Found encoding map for column '{selected_encoding}' in {os.path.basename(file_path)}")
                                         break
-                                    
+                                        
                             if encoding_map:
                                 break
                         except Exception as e:
