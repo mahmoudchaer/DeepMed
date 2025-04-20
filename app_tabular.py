@@ -349,23 +349,41 @@ def training():
                             "options": cleaning_result.get("options", {}),
                             "handle_missing": True,
                             "handle_outliers": True,
-                            "encoding_mappings_summary": {} if not encoding_mappings else {col: len(mapping) for col, mapping in encoding_mappings.items()}
+                            "encoding_mappings_summary": {}  # Start with empty dictionary
                         }
 
                         # Save encoding_mappings to a separate file
                         if encoding_mappings:
                             try:
-                                # Create a file path for this run's encoding mappings
-                                mappings_dir = os.path.join('static', 'temp', 'mappings')
-                                os.makedirs(mappings_dir, exist_ok=True)
-                                mappings_file = os.path.join(mappings_dir, f'encoding_mappings_{local_run_id}.json')
+                                # First validate that the encoding mappings are actually for this dataset
+                                # by checking if the keys exist in the original columns
+                                valid_mappings = {}
+                                for col, mapping in encoding_mappings.items():
+                                    # Extract the actual column name from possible formats like "column_encoding" or "column_map"
+                                    base_col = col.split('_')[0] if '_encoding' in col or '_map' in col else col
+                                    if base_col in original_columns:
+                                        valid_mappings[col] = mapping
+                                    else:
+                                        logger.warning(f"Dropping mapping for column '{col}' as it's not in original columns")
                                 
-                                with open(mappings_file, 'w') as f:
-                                    json.dump(encoding_mappings, f)
-                                
-                                # Add file reference to cleaner_config
-                                cleaner_config["encoding_mappings_file"] = mappings_file
-                                logger.info(f"Saved encoding mappings to {mappings_file}")
+                                # Only save file if we have valid mappings
+                                if valid_mappings:
+                                    # Update mapping summary with only valid mappings
+                                    cleaner_config["encoding_mappings_summary"] = {col: len(mapping) for col, mapping in valid_mappings.items()}
+                                    
+                                    # Create a file path for this run's encoding mappings
+                                    mappings_dir = os.path.join('static', 'temp', 'mappings')
+                                    os.makedirs(mappings_dir, exist_ok=True)
+                                    mappings_file = os.path.join(mappings_dir, f'encoding_mappings_{local_run_id}.json')
+                                    
+                                    with open(mappings_file, 'w') as f:
+                                        json.dump(valid_mappings, f)
+                                    
+                                    # Add file reference to cleaner_config
+                                    cleaner_config["encoding_mappings_file"] = mappings_file
+                                    logger.info(f"Saved encoding mappings to {mappings_file} with {len(valid_mappings)} valid mappings")
+                                else:
+                                    logger.info("No valid encoding mappings found for this dataset")
                             except Exception as e:
                                 logger.error(f"Error saving encoding mappings to file: {str(e)}")
                                 # Continue anyway, we'll just have a less detailed cleaner_config
