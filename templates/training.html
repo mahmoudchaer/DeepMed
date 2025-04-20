@@ -24,14 +24,38 @@
     .table-responsive td {
         padding: 6px 10px;
         border: 1px solid #dee2e6;
+        color: #212529;
     }
     
-    .table-responsive tr:nth-child(even) {
-        background-color: #f8f9fa;
+    /* Force all cells to have a consistent background color */
+    .table-responsive tr:nth-child(odd) td {
+        background-color: #212529 !important;
+        color: white !important;
     }
     
-    .table-responsive tr:hover {
-        background-color: #e9ecef;
+    .table-responsive tr:nth-child(even) td {
+        background-color: #1a1f24 !important;
+        color: white !important;
+    }
+    
+    .table-responsive tr:hover td {
+        background-color: #343a40 !important;
+        color: white !important;
+    }
+    
+    /* Additional override for any inline styles */
+    .table-responsive td[style*="background"] {
+        background-color: #212529 !important;
+        color: white !important;
+    }
+    
+    /* Override row styles */
+    .table-responsive tr[style*="background"] {
+        background-color: transparent !important;
+    }
+    
+    .table-responsive tbody tr {
+        background-color: transparent !important;
     }
     
     /* Style for the status box */
@@ -448,7 +472,7 @@
         
         <div class="status-box medical-border mb-4">
             <h3 style="color: #0077b6;">Training Classification Models for Medical Data</h3>
-            <p>Our specialized training pipeline will analyze your tabular medical data and create accurate classification models. Select your target variable below to begin.</p>
+            <p style="color: #0077b6; font-weight: 500;">Our specialized training pipeline will analyze your tabular medical data and create accurate classification models. Select your target variable below to begin.</p>
         </div>
         
         {% if file_stats %}
