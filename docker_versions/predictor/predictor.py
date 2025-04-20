@@ -175,6 +175,60 @@ def extract_encodings():
                 "message": "No encoding maps found. Select 'No encoding (numeric target)' option."
             }), 200
         
+        # Look for encoding files in the validated model files
+        for file_path in model_files:
+            if file_path.lower().endswith('.json'):
+                full_path = os.path.join(temp_dir, file_path)
+                filename = os.path.basename(file_path)
+                
+                if (filename == 'encoding_mappings.json' or 
+                    filename == 'encoding_mappings' or
+                    filename == 'preprocessing_info.json' or 
+                    filename == 'preprocessing_info' or
+                    filename.endswith('_encoding.json') or 
+                    filename == 'encoding.json' or 
+                    filename == 'preprocessing.json' or
+                    'encod' in filename.lower() or
+                    'target' in filename.lower() or
+                    'label' in filename.lower() or
+                    'map' in filename.lower()):
+                    
+                    encoding_files.append(full_path)
+                    print(f"Adding validated encoding file: {file_path}")
+        
+        print(f"Found potential encoding files: {encoding_files}")
+        
+        # Create preprocessing_info.json if it doesn't exist
+        preprocessing_info_path = os.path.join(temp_dir, "preprocessing_info.json")
+        if not os.path.exists(preprocessing_info_path) or preprocessing_info_path not in encoding_files:
+            print("Creating a minimal preprocessing_info.json with empty encoding_mappings")
+            with open(preprocessing_info_path, 'w') as f:
+                json.dump({"encoding_mappings": {}}, f)
+            
+            # Add to encoding files if not already there
+            if preprocessing_info_path not in encoding_files:
+                encoding_files.append(preprocessing_info_path)
+            
+            print(f"Created preprocessing_info.json at {preprocessing_info_path}")
+        
+        # Ensure preprocessing_info.json has encoding_mappings
+        try:
+            with open(preprocessing_info_path, 'r') as f:
+                preprocessing_info = json.load(f)
+                
+            # Add empty encoding_mappings if it doesn't exist
+            if 'encoding_mappings' not in preprocessing_info:
+                preprocessing_info['encoding_mappings'] = {}
+                with open(preprocessing_info_path, 'w') as f:
+                    json.dump(preprocessing_info, f)
+                print("Updated preprocessing_info.json with empty encoding_mappings field")
+        except Exception as e:
+            print(f"Error reading or updating preprocessing_info.json: {str(e)}")
+            # Create a new one from scratch if there was an error
+            with open(preprocessing_info_path, 'w') as f:
+                json.dump({"encoding_mappings": {}}, f)
+            print("Created new preprocessing_info.json after error")
+        
         # Extract encoding maps from each file
         encoding_maps = {}
         for file in encoding_files:
@@ -185,54 +239,40 @@ def extract_encodings():
                 
                 print(f"Examining file {file} for encoding maps")
                 
-                # Process different potential formats
-                if isinstance(data, dict):
-                    # Look for dictionary structures that could be encoding maps
-                    for column, mapping in data.items():
-                        if isinstance(mapping, dict):
-                            # Look for typical encoding patterns (numeric keys or values)
-                            is_encoding_map = False
-                            
-                            # Check if it maps numbers to strings (common encoding pattern)
-                            numeric_keys = False
-                            string_values = False
-                            
-                            for k, v in mapping.items():
-                                # Try to convert key to number
-                                try:
-                                    float(k)
-                                    numeric_keys = True
-                                except (ValueError, TypeError):
-                                    pass
-                                
-                                # Check if value is string
-                                if isinstance(v, str):
-                                    string_values = True
-                            
-                            # If keys are numbers and values are strings, likely an encoding map
-                            if numeric_keys and string_values:
-                                is_encoding_map = True
-                            
-                            # Also check if it has a reasonable number of entries to be a category mapping
-                            if len(mapping) > 0 and len(mapping) < 100:
-                                # More likely to be an encoding map than a large data structure
-                                is_encoding_map = True
-                                
-                            if is_encoding_map:
-                                print(f"Found encoding map for column '{column}' with {len(mapping)} values")
-                                encoding_maps[column] = mapping
+                # Handle the case where encoding_mappings is empty but exists
+                if 'encoding_mappings' in data and data['encoding_mappings'] is None:
+                    data['encoding_mappings'] = {}
+                
+                # Handle the case where preprocessing_info.json exists but has no encoding_mappings key
+                if os.path.basename(file) == 'preprocessing_info.json' and 'encoding_mappings' not in data:
+                    data['encoding_mappings'] = {}
+                    print("Added empty encoding_mappings to preprocessing_info.json")
                     
-                    # Also check if there's a 'target_map' or similar key
-                    for key in ['target_map', 'target_encoding', 'label_encoding', 'class_mapping', 'label_map']:
-                        if key in data and isinstance(data[key], dict):
-                            print(f"Found encoding map with key '{key}' containing {len(data[key])} values")
-                            encoding_maps[key] = data[key]
-                    
-                    # Check for patterns like "column_name_encoding" or "column_name_map"
-                    for key in data.keys():
-                        if (key.endswith('_encoding') or key.endswith('_map') or '_encoding_' in key) and isinstance(data[key], dict):
-                            print(f"Found encoding map with pattern-matched key '{key}' containing {len(data[key])} values")
-                            encoding_maps[key] = data[key]
+                    # Save the updated preprocessing_info.json
+                    with open(file_path, 'w') as f:
+                        json.dump(data, f)
+                    print("Updated preprocessing_info.json with empty encoding_mappings")
+                
+                # Check for encoding mappings in preprocessing_info.json
+                if os.path.basename(file) == 'preprocessing_info.json':
+                    if selected_encoding in data:
+                        encoding_map = data[selected_encoding]
+                        print(f"Found encoding map for '{selected_encoding}' in preprocessing_info.json")
+                    elif 'encoding_mappings' in data:
+                        if selected_encoding in data['encoding_mappings']:
+                            encoding_map = data['encoding_mappings'][selected_encoding]
+                            print(f"Found encoding map for '{selected_encoding}' in encoding_mappings section of preprocessing_info.json")
+                
+                # Restructure the encoding mapping - we only want the specific encoding
+                # Check if this is an encoding_mappings.json file with multiple columns
+                if os.path.basename(file) == "encoding_mappings.json" or "encoding" in os.path.basename(file).lower():
+                    if selected_encoding in data:
+                        # Extract only the specific column's encoding
+                        app.logger.info(f"Using specific encoding for column '{selected_encoding}' from encoding_mappings.json")
+                        encoding_map = data[selected_encoding]
+                    else:
+                        app.logger.info(f"Column '{selected_encoding}' not found in encoding_mappings.json")
+                        app.logger.info(f"Available columns: {list(data.keys())}")
             except Exception as e:
                 # Skip files that can't be parsed
                 print(f"Error parsing {file}: {str(e)}")
@@ -421,8 +461,16 @@ def predict():
         # Run the predict.py script from the package
         predict_script = os.path.join(temp_dir, "predict.py")
         if not os.path.exists(predict_script):
-            return jsonify({"error": "predict.py script not found in model package"}), 500
-            
+            # Create a default prediction script
+            create_predict_script(temp_dir, extracted_files)
+
+        # Ensure preprocessing_info.json exists
+        preprocessing_info_path = os.path.join(temp_dir, 'preprocessing_info.json')
+        if not os.path.exists(preprocessing_info_path):
+            print("Creating a minimal preprocessing_info.json with empty encoding_mappings")
+            with open(preprocessing_info_path, 'w') as f:
+                json.dump({"encoding_mappings": {}}, f)
+
         print(f"Running prediction with input file: {input_file.filename}")
         
         # Run the prediction with stdout capture mode instead of file output
@@ -539,6 +587,35 @@ def predict():
                                 print(f"Adding validated encoding file: {file_path}")
                     
                     print(f"Found potential encoding files: {encoding_files}")
+                    
+                    # Create preprocessing_info.json if it doesn't exist
+                    preprocessing_info_path = os.path.join(temp_dir, "preprocessing_info.json")
+                    if not os.path.exists(preprocessing_info_path):
+                        print("Creating a minimal preprocessing_info.json with empty encoding_mappings")
+                        with open(preprocessing_info_path, 'w') as f:
+                            json.dump({"encoding_mappings": {}}, f)
+                        
+                        # Add to encoding files
+                        encoding_files.append(preprocessing_info_path)
+                        print(f"Created preprocessing_info.json at {preprocessing_info_path}")
+                    else:
+                        # Ensure it has encoding_mappings
+                        try:
+                            with open(preprocessing_info_path, 'r') as f:
+                                preprocessing_info = json.load(f)
+                                
+                            # Add empty encoding_mappings if it doesn't exist
+                            if 'encoding_mappings' not in preprocessing_info:
+                                preprocessing_info['encoding_mappings'] = {}
+                                with open(preprocessing_info_path, 'w') as f:
+                                    json.dump(preprocessing_info, f)
+                                print("Updated preprocessing_info.json with empty encoding_mappings field")
+                        except Exception as e:
+                            print(f"Error reading or updating preprocessing_info.json: {str(e)}")
+                            # Create a new one from scratch if there was an error
+                            with open(preprocessing_info_path, 'w') as f:
+                                json.dump({"encoding_mappings": {}}, f)
+                            print("Created new preprocessing_info.json after error")
                     
                     # Extract encoding maps from files
                     encoding_map = None
@@ -794,6 +871,58 @@ def predict():
                     print(f"Model files that are part of this package: {model_files}")
                     print(f"Found potential encoding files: {encoding_files}")
                     
+                    # Validate file contents if needed
+                    for file_path in model_files:
+                        if file_path.lower().endswith('.json'):
+                            full_path = os.path.join(temp_dir, file_path)
+                            filename = os.path.basename(file_path)
+                            
+                            if (filename == 'encoding_mappings.json' or 
+                                filename == 'encoding_mappings' or
+                                filename == 'preprocessing_info.json' or 
+                                filename == 'preprocessing_info' or
+                                filename.endswith('_encoding.json') or 
+                                filename == 'encoding.json' or 
+                                filename == 'preprocessing.json' or
+                                'encod' in filename.lower() or
+                                'target' in filename.lower() or
+                                'label' in filename.lower() or
+                                'map' in filename.lower()):
+                                
+                                encoding_files.append(full_path)
+                                print(f"Adding validated encoding file: {file_path}")
+                    
+                    print(f"Found potential encoding files: {encoding_files}")
+                    
+                    # Create preprocessing_info.json if it doesn't exist
+                    preprocessing_info_path = os.path.join(temp_dir, "preprocessing_info.json")
+                    if not os.path.exists(preprocessing_info_path):
+                        print("Creating a minimal preprocessing_info.json with empty encoding_mappings")
+                        with open(preprocessing_info_path, 'w') as f:
+                            json.dump({"encoding_mappings": {}}, f)
+                        
+                        # Add to encoding files
+                        encoding_files.append(preprocessing_info_path)
+                        print(f"Created preprocessing_info.json at {preprocessing_info_path}")
+                    else:
+                        # Ensure it has encoding_mappings
+                        try:
+                            with open(preprocessing_info_path, 'r') as f:
+                                preprocessing_info = json.load(f)
+                                
+                            # Add empty encoding_mappings if it doesn't exist
+                            if 'encoding_mappings' not in preprocessing_info:
+                                preprocessing_info['encoding_mappings'] = {}
+                                with open(preprocessing_info_path, 'w') as f:
+                                    json.dump(preprocessing_info, f)
+                                print("Updated preprocessing_info.json with empty encoding_mappings field")
+                        except Exception as e:
+                            print(f"Error reading or updating preprocessing_info.json: {str(e)}")
+                            # Create a new one from scratch if there was an error
+                            with open(preprocessing_info_path, 'w') as f:
+                                json.dump({"encoding_mappings": {}}, f)
+                            print("Created new preprocessing_info.json after error")
+                    
                     # Extract encoding maps from files
                     encoding_map = None
                     for file_path in encoding_files:
@@ -839,7 +968,7 @@ def predict():
                                     encoding_map = data[key]
                                     print(f"Found encoding map for '{selected_encoding}' under key '{key}' in {os.path.basename(file_path)}")
                                     break
-                            
+                                
                             # Check if we need to find the encoding for a specific column
                             if selected_encoding in data.keys():
                                 for col, mapping in data.items():
