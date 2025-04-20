@@ -282,6 +282,9 @@ class RegressionDataCleaner:
         """Main method to clean data for regression"""
         logger.info(f"Starting regression data cleaning process for {len(data)} rows")
         
+        # Reset encoding maps to avoid carrying over mappings from previous runs
+        self.encoding_maps = {}
+        
         # Convert to DataFrame if it's a list
         if isinstance(data, list):
             df = pd.DataFrame(data)
