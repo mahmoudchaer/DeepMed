@@ -40,7 +40,7 @@
                             <!-- Target Column Encoding selection - always visible -->
                             <div id="encodingSelectContainer" class="mb-3">
                                 <label for="encodingSelect" class="form-label">Target Column Encoding</label>
-                                <select class="form-select" id="encodingSelect" name="encoding_column" disabled>
+                                <select class="form-select" id="encodingSelect" name="encoding_column" disabled style="color: #e6edf3;">
                                     <option value="">-- Upload model package to see available options --</option>
                                 </select>
                                 <div id="encodingHelpText" class="form-text">Select the target column encoding to decode predictions (available after uploading model package)</div>
@@ -255,6 +255,9 @@
                     
                     // Add success styling
                     encodingSelectContainer.classList.add('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                    
+                    // Ensure option text is visible (add class to parent for styling specificity)
+                    encodingSelect.classList.add('encoding-populated');
                     
                     // Update help text
                     encodingHelpText.textContent = `Found ${maps.length} encoding maps. Select one to decode predictions.`;
