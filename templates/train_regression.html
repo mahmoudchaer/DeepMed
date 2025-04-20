@@ -11,44 +11,78 @@
 <style>
     /* Custom styling for the select2 component */
     .select2-container--default .select2-selection--single {
-        height: 38px;
-        line-height: 38px;
+        height: 46px;
+        line-height: 46px;
         font-size: 1rem;
-        border-radius: 0.375rem;
+        border-radius: 0.5rem;
         border: 1px solid #ced4da;
-        background-color: #343a40;
+        background-color: #212529;
         color: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .select2-container--default .select2-selection--single:hover {
+        border-color: #0077b6;
     }
     
     .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 38px;
-        padding-left: 12px;
+        line-height: 46px;
+        padding-left: 16px;
         color: #fff;
     }
     
     .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 38px;
+        height: 46px;
+        width: 30px;
     }
     
     .select2-container--default .select2-selection--single .select2-selection__arrow b {
-        border-color: #fff transparent transparent transparent;
+        border-color: #0077b6 transparent transparent transparent;
+        border-width: 6px 6px 0 6px;
     }
     
     .select2-dropdown {
-        border: 1px solid #ced4da;
-        background-color: #343a40;
+        border: 1px solid #0077b6;
+        background-color: #212529;
+        margin-top: 4px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        border-radius: 0.5rem;
+        overflow: hidden;
     }
     
     .select2-container--default .select2-results__option {
         color: #fff;
+        padding: 10px 16px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .select2-search--dropdown {
+        padding: 10px;
+        background-color: #212529;
+        border-bottom: 1px solid #343a40;
     }
     
     .select2-search--dropdown .select2-search__field {
-        padding: 8px;
-        border-radius: 0.25rem;
-        background-color: #212529;
+        padding: 10px 12px;
+        border-radius: 0.375rem;
+        background-color: #343a40;
         color: #fff;
         border: 1px solid #ced4da;
+        font-size: 1rem;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .select2-search--dropdown .select2-search__field:focus {
+        border-color: #0077b6;
+        box-shadow: 0 0 0 0.2rem rgba(0, 119, 182, 0.25);
+        outline: none;
+    }
+    
+    .select2-search__field::placeholder {
+        color: #adb5bd;
+        font-style: italic;
     }
     
     .select2-container--default .select2-results__option--highlighted[aria-selected] {
@@ -59,30 +93,49 @@
         background-color: #0077b6;
     }
     
-    /* Fix for the search box and dropdown styling */
-    .select2-search--dropdown {
-        padding: 8px;
-        background-color: #343a40;
-    }
-    
-    .select2-container--open .select2-dropdown {
-        margin-top: 4px;
-    }
-    
     .select2-results__options {
-        max-height: 250px;
+        max-height: 280px;
         overflow-y: auto;
-        background-color: #343a40;
+        background-color: #212529;
+        scrollbar-width: thin;
+        scrollbar-color: #495057 #212529;
     }
     
-    /* Make sure search text is visible */
-    .select2-search__field::placeholder {
-        color: #adb5bd;
+    .select2-results__options::-webkit-scrollbar {
+        width: 8px;
     }
     
-    /* Style for options in dropdown */
-    .select2-results__option {
-        padding: 8px 12px;
+    .select2-results__options::-webkit-scrollbar-track {
+        background: #212529;
+    }
+    
+    .select2-results__options::-webkit-scrollbar-thumb {
+        background-color: #495057;
+        border-radius: 10px;
+    }
+    
+    /* Form select styling */
+    .form-select {
+        background-color: #212529;
+        color: #fff;
+        border: 1px solid #ced4da;
+        height: 46px;
+        font-size: 1rem;
+    }
+    
+    /* Add visual contrast for highlighted items */
+    .select2-container--default .select2-results__option--highlighted {
+        position: relative;
+    }
+    
+    .select2-container--default .select2-results__option--highlighted:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background-color: #0077b6;
     }
 </style>
 {% endblock %}
@@ -213,39 +266,32 @@ $(document).ready(function() {
         width: '100%',
         dropdownParent: $('body'),
         theme: "default",
-        matcher: function(params, data) {
-            // If there are no search terms, return all of the data
-            if ($.trim(params.term) === '') {
-                return data;
+        minimumResultsForSearch: 0,
+        language: {
+            searching: function() {
+                return "Searching...";
+            },
+            noResults: function() {
+                return "No matches found";
             }
-            
-            // Do not display the item if there is no 'text' property
-            if (typeof data.text === 'undefined') {
-                return null;
-            }
-            
-            // `params.term` should be the term that is used for searching
-            // `data.text` is the text that is displayed for the data object
-            if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
-                return data;
-            }
-            
-            // Return `null` if the term should not be displayed
-            return null;
+        },
+        escapeMarkup: function(markup) {
+            return markup;
         }
     });
     
     // Make sure the search box is focusable and clickable
-    $(document).on('click', '.select2-container--open .select2-search__field', function(e) {
+    $(document).on('click', '.select2-search__field', function(e) {
         e.stopPropagation();
-        $(this).focus();
     });
     
-    // Fix for search input focus issues
+    // Focus search field immediately when dropdown opens
     $(document).on('select2:open', function() {
         setTimeout(function() {
-            $('.select2-search__field').focus();
-        }, 100);
+            const searchField = $('.select2-search__field');
+            searchField.attr('placeholder', 'Type to search...');
+            searchField.focus();
+        }, 50);
     });
 });
 </script>
