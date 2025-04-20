@@ -57,6 +57,20 @@
     .select2-container--default .select2-results__option[aria-selected=true] {
         background-color: #0077b6;
     }
+    
+    /* Fix for the search box and dropdown styling */
+    .select2-search--dropdown {
+        padding: 8px;
+    }
+    
+    .select2-container--open .select2-dropdown {
+        margin-top: 4px;
+    }
+    
+    .select2-results__options {
+        max-height: 250px;
+        overflow-y: auto;
+    }
 </style>
 {% endblock %}
 
@@ -183,7 +197,14 @@ $(document).ready(function() {
     $('#target_column').select2({
         placeholder: "Search and select target column...",
         allowClear: true,
-        width: '100%'
+        width: '100%',
+        dropdownParent: $('body'),
+        theme: "default"
+    });
+    
+    // Fix for any clicks inside the search box
+    $(document).on('click', '.select2-search__field', function(e) {
+        e.stopPropagation();
     });
 });
 </script>

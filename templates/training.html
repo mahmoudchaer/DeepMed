@@ -132,6 +132,20 @@
     .select2-container--default .select2-results__option[aria-selected=true] {
         background-color: #495057;
     }
+    
+    /* Fix for the search box and dropdown styling */
+    .select2-search--dropdown {
+        padding: 8px;
+    }
+    
+    .select2-container--open .select2-dropdown {
+        margin-top: 4px;
+    }
+    
+    .select2-results__options {
+        max-height: 250px;
+        overflow-y: auto;
+    }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -288,10 +302,13 @@
 {% block scripts %}
 <script>
     $(document).ready(function() {
-        // Initialize all select elements with Select2
-        $('select').select2({
+        // Initialize target column select with placeholder and search
+        $('#target_column').select2({
+            placeholder: "Select a target column",
             width: '100%',
-            dropdownParent: $('body')
+            dropdownParent: $('body'),
+            allowClear: true,
+            theme: "default"
         });
         
         // Handle form submission
@@ -312,11 +329,9 @@
             });
         }
         
-        // Initialize target column select with placeholder
-        $('#target_column').select2({
-            placeholder: "Select a target column",
-            width: '100%',
-            dropdownParent: $('body')
+        // Fix for any clicks inside the search box
+        $(document).on('click', '.select2-search__field', function(e) {
+            e.stopPropagation();
         });
     });
 </script>
