@@ -81,7 +81,41 @@
     .action-btn:hover {
         transform: scale(1.05);
     }
+    
+    /* Custom styling for the select2 component */
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        line-height: 38px;
+        font-size: 1rem;
+        border-radius: 0.375rem;
+        border: 1px solid #ced4da;
+    }
+    
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        padding-left: 12px;
+    }
+    
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 38px;
+    }
+    
+    .select2-dropdown {
+        border: 1px solid #ced4da;
+    }
+    
+    .select2-search--dropdown .select2-search__field {
+        padding: 8px;
+        border-radius: 0.25rem;
+    }
+    
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #0077b6;
+    }
 </style>
+<!-- Include Select2 CSS and JS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -191,13 +225,8 @@
                                     <div class="form-group">
                                         <label for="target_column" class="form-label fw-bold">Select Target Column</label>
                                         
-                                        <!-- Search bar for target column -->
-                                        <div class="input-group mb-3">
-                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                            <input type="text" class="form-control" id="column-search" placeholder="Search columns...">
-                                        </div>
-                                        
                                         <select name="target_column" id="target_column" class="form-select form-select-lg mb-3" required>
+                                            <option value="">-- Select target column --</option>
                                             {% for column in columns %}
                                             <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
                                                 {{ column }}
@@ -243,27 +272,11 @@
             sessionStorage.removeItem('processing_data');
         }
         
-        // Column search functionality
-        $('#column-search').on('keyup', function() {
-            const searchValue = $(this).val().toLowerCase();
-            const selectOptions = $('#target_column option');
-            
-            // Filter the options
-            selectOptions.each(function() {
-                const optionText = $(this).text().toLowerCase();
-                if (optionText.indexOf(searchValue) > -1) {
-                    $(this).show();
-                    $(this).prop('disabled', false);
-                } else {
-                    $(this).hide();
-                    $(this).prop('disabled', true);
-                }
-            });
-            
-            // If the currently selected option is hidden, select the first visible option
-            if ($('#target_column option:selected').is(':disabled')) {
-                $('#target_column option:not(:disabled):first').prop('selected', true);
-            }
+        // Initialize Select2 for the target column dropdown
+        $('#target_column').select2({
+            placeholder: "Search and select target column...",
+            allowClear: true,
+            width: '100%'
         });
     
         $('#training-form').on('submit', function() {
