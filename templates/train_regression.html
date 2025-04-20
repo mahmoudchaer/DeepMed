@@ -85,6 +85,13 @@
                     <form action="{{ url_for('train_regression') }}" method="post">
                         <div class="mb-3">
                             <label for="target_column" class="form-label">Target Column:</label>
+                            
+                            <!-- Search bar for target column -->
+                            <div class="input-group mb-3">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="column-search" placeholder="Search columns...">
+                            </div>
+                            
                             <select class="form-select" id="target_column" name="target_column" required>
                                 <option value="">-- Select target column --</option>
                                 {% for column in columns %}
@@ -120,7 +127,35 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add any JavaScript needed for the training page
+    // Column search functionality
+    document.getElementById('column-search').addEventListener('keyup', function() {
+        const searchValue = this.value.toLowerCase();
+        const selectElement = document.getElementById('target_column');
+        const options = selectElement.options;
+        
+        // Skip the first placeholder option
+        for (let i = 1; i < options.length; i++) {
+            const optionText = options[i].text.toLowerCase();
+            if (optionText.includes(searchValue)) {
+                options[i].style.display = '';
+                options[i].disabled = false;
+            } else {
+                options[i].style.display = 'none';
+                options[i].disabled = true;
+            }
+        }
+        
+        // If the currently selected option is hidden, select the first visible option
+        if (selectElement.selectedIndex > 0 && options[selectElement.selectedIndex].disabled) {
+            // Find first enabled option
+            for (let i = 1; i < options.length; i++) {
+                if (!options[i].disabled) {
+                    selectElement.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    });
 });
 </script>
 {% endblock %} 

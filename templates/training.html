@@ -190,6 +190,13 @@
                                 <div class="col-md-8 mx-auto">
                                     <div class="form-group">
                                         <label for="target_column" class="form-label fw-bold">Select Target Column</label>
+                                        
+                                        <!-- Search bar for target column -->
+                                        <div class="input-group mb-3">
+                                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                            <input type="text" class="form-control" id="column-search" placeholder="Search columns...">
+                                        </div>
+                                        
                                         <select name="target_column" id="target_column" class="form-select form-select-lg mb-3" required>
                                             {% for column in columns %}
                                             <option value="{{ column }}" {% if ai_recommendations and ai_recommendations.target_column == column %}selected{% endif %}>
@@ -235,6 +242,29 @@
         if (sessionStorage.getItem('processing_data') === 'true') {
             sessionStorage.removeItem('processing_data');
         }
+        
+        // Column search functionality
+        $('#column-search').on('keyup', function() {
+            const searchValue = $(this).val().toLowerCase();
+            const selectOptions = $('#target_column option');
+            
+            // Filter the options
+            selectOptions.each(function() {
+                const optionText = $(this).text().toLowerCase();
+                if (optionText.indexOf(searchValue) > -1) {
+                    $(this).show();
+                    $(this).prop('disabled', false);
+                } else {
+                    $(this).hide();
+                    $(this).prop('disabled', true);
+                }
+            });
+            
+            // If the currently selected option is hidden, select the first visible option
+            if ($('#target_column option:selected').is(':disabled')) {
+                $('#target_column option:not(:disabled):first').prop('selected', true);
+            }
+        });
     
         $('#training-form').on('submit', function() {
             $('#start-pipeline-btn').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Training Models...');
