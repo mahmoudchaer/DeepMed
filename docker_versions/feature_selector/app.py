@@ -702,6 +702,12 @@ Respond ONLY with valid JSON, no additional text or explanations outside the JSO
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
         logger.info(f"Found {len(categorical_cols)} categorical columns")
         
+        # Reset encoding_mappings if no categorical columns are found
+        if not categorical_cols:
+            logger.info("No categorical columns found - resetting encoding_mappings to empty dictionary")
+            self.encoding_mappings = {}
+            return [], []
+        
         # Track columns that need encoding and those that are problematic
         needs_encoding = []
         encoding_issues = []
@@ -750,6 +756,12 @@ Respond ONLY with valid JSON, no additional text or explanations outside the JSO
         """Fit the feature selector and transform the data with improved validation."""
         logger.info(f"Starting feature selection using method: {self.method}")
         logger.info(f"Input data shape: {X.shape}")
+        
+        # Reset encoding_mappings at the start of a new fit_transform operation
+        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+        if not categorical_cols:
+            logger.info("No categorical columns found at beginning of fit_transform - resetting encoding_mappings")
+            self.encoding_mappings = {}
         
         X = X.copy()
         original_columns = list(X.columns)
@@ -936,6 +948,16 @@ Respond ONLY with valid JSON, no additional text or explanations outside the JSO
         logger.info(f"  - Categorical features: {len(metadata['categorical_features'])}")
         logger.info(f"  - Date features: {len(metadata['date_features'])}")
         
+        # Ensure encoding_mappings is reset if no categorical features are found
+        if len(metadata["categorical_features"]) == 0:
+            logger.info("No categorical features found in metadata - resetting encoding_mappings")
+            self.encoding_mappings = {}
+        else:
+            # Filter encoding_mappings to only keep mappings for selected categorical features
+            self.encoding_mappings = {col: mapping for col, mapping in self.encoding_mappings.items() 
+                                     if col in metadata["categorical_features"]}
+            logger.info(f"Filtered encoding_mappings to {len(self.encoding_mappings)} relevant categorical features")
+        
         return metadata
 
     def transform(self, X):
@@ -969,6 +991,15 @@ Respond ONLY with valid JSON, no additional text or explanations outside the JSO
         
         # Filter to only include selected features
         X_filtered = X_transformed[available_features].copy()
+        
+        # Check if there are any categorical columns
+        categorical_cols = X_filtered.select_dtypes(include=['object', 'category']).columns
+        if len(categorical_cols) == 0:
+            logger.info("No categorical columns found during transform")
+            # If no categorical columns are found, ensure encoding_mappings is empty
+            if hasattr(self, 'encoding_mappings') and self.encoding_mappings:
+                logger.warning("encoding_mappings exists but no categorical columns found. Resetting to empty dictionary.")
+                self.encoding_mappings = {}
         
         # Apply encoding to categorical columns
         if hasattr(self, 'encoding_mappings') and self.encoding_mappings:
