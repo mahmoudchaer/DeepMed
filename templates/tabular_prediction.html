@@ -43,8 +43,8 @@
                                 <select class="form-select" id="encodingSelect" name="encoding_column" disabled style="color: #e6edf3;">
                                     <option value="">-- Upload model package to see available options --</option>
                                 </select>
-                                <div id="encodingHelpText" class="form-text">Select the target column encoding to decode predictions (available after uploading model package)</div>
-                                <div id="encodingDebugInfo" class="small text-muted mt-1 d-none"></div>
+                                <div id="encodingHelpText" class="form-text" style="color: #e6edf3;">Select the target column encoding to decode predictions (available after uploading model package)</div>
+                                <div id="encodingDebugInfo" class="small text-muted mt-1 d-none" style="color: #e6edf3;"></div>
                             </div>
 
                             <div class="mb-3">
@@ -253,8 +253,10 @@
                     // Enable the select
                     encodingSelect.disabled = false;
                     
-                    // Add success styling
-                    encodingSelectContainer.classList.add('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                    // Add success styling - using a darker background for better contrast
+                    encodingSelectContainer.classList.add('border', 'border-success', 'p-2', 'rounded');
+                    // Force the bg color to a darker shade that works well with light text
+                    encodingSelectContainer.style.backgroundColor = 'rgba(25, 135, 84, 0.15)';
                     
                     // Ensure option text is visible (add class to parent for styling specificity)
                     encodingSelect.classList.add('encoding-populated');
@@ -278,7 +280,8 @@
                     // No encoding maps found
                     encodingSelect.innerHTML = '<option value="">-- No encoding maps found in package --</option>';
                     encodingSelect.disabled = true;
-                    encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                    encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded');
+                    encodingSelectContainer.style.backgroundColor = ''; // Reset background color
                     
                     // Update help text
                     encodingHelpText.textContent = 'No encoding maps found in the model package.';
@@ -296,7 +299,8 @@
                 
                 encodingSelect.innerHTML = '<option value="">-- Error loading encodings --</option>';
                 encodingSelect.disabled = true;
-                encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+                encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded');
+                encodingSelectContainer.style.backgroundColor = ''; // Reset background color
                 
                 // Update help text
                 encodingHelpText.textContent = `Error: ${error.message || 'Failed to extract encodings'}`;
@@ -319,7 +323,8 @@
             console.log("Model package file changed");
             
             // Reset styling
-            encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded', 'bg-light');
+            encodingSelectContainer.classList.remove('border', 'border-success', 'p-2', 'rounded');
+            encodingSelectContainer.style.backgroundColor = ''; // Reset background color
             
             if (this.files.length > 0) {
                 console.log("Selected file:", this.files[0].name);

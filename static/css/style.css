@@ -24,6 +24,16 @@ select option {
     color: black;
 }
 
+/* Fix for encoding container with bg-light class and form-text in that context */
+#encodingSelectContainer.bg-light {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+#encodingSelectContainer.bg-light .form-text,
+#encodingSelectContainer.bg-light .text-muted {
+    color: #e6edf3 !important;
+}
+
 /* Hero section */
 .hero-section {
     background-color: #0a0c10;
