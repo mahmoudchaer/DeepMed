@@ -1349,24 +1349,47 @@ def download_model(model_id):
                                     continue
             
             # Add encoding mappings to preprocessing_info
-            preprocessing_info['encoding_mappings'] = encoding_mappings
+            if encoding_mappings:
+                # Check if cleaner_config has empty encoding_mappings_summary, which indicates no categorical columns
+                if 'encoding_mappings_summary' in cleaner_config and not cleaner_config['encoding_mappings_summary']:
+                    logger.info("Encoding mappings summary is empty, indicating no categorical columns. Not adding any encoding mappings.")
+                    preprocessing_info['encoding_mappings'] = {}
+                    
+                    # Also put empty encodings in cleaner_config for compatibility
+                    package_cleaner_config = {k: v for k, v in cleaner_config.items() if k != 'encoding_mappings_file'}
+                    package_cleaner_config['encoding_mappings'] = {}
+                    preprocessing_info['cleaner_config'] = package_cleaner_config
+                else:
+                    # There are categorical columns, so add the encoding mappings
+                    preprocessing_info['encoding_mappings'] = encoding_mappings
+                    
+                    # Also put encodings in cleaner_config for compatibility
+                    package_cleaner_config = {k: v for k, v in cleaner_config.items() if k != 'encoding_mappings_file'}
+                    package_cleaner_config['encoding_mappings'] = encoding_mappings
+                    preprocessing_info['cleaner_config'] = package_cleaner_config
+            else:
+                # No encoding mappings provided
+                preprocessing_info['encoding_mappings'] = {}
+                
+                # Also put empty encodings in cleaner_config for compatibility
+                package_cleaner_config = {k: v for k, v in cleaner_config.items() if k != 'encoding_mappings_file'}
+                package_cleaner_config['encoding_mappings'] = {}
+                preprocessing_info['cleaner_config'] = package_cleaner_config
             
-            # Also put encodings in cleaner_config for compatibility
-            package_cleaner_config = {k: v for k, v in cleaner_config.items() if k != 'encoding_mappings_file'}
-            package_cleaner_config['encoding_mappings'] = encoding_mappings
-            preprocessing_info['cleaner_config'] = package_cleaner_config
-        
-        # Save preprocessing info to a JSON file
-        preprocessing_file = os.path.join(temp_dir, 'preprocessing_info.json')
-        with open(preprocessing_file, 'w') as f:
-            json.dump(preprocessing_info, f, indent=2, cls=NumpyEncoder)
-        
-        # Create a separate encoding mappings file for clarity
-        if preprocessing_info['encoding_mappings']:
-            mappings_file = os.path.join(temp_dir, 'encoding_mappings.json')
-            with open(mappings_file, 'w') as f:
-                json.dump(preprocessing_info['encoding_mappings'], f, indent=2, cls=NumpyEncoder)
-            logger.info(f"Created separate encoding_mappings.json file with {len(preprocessing_info['encoding_mappings'])} columns")
+            # Save preprocessing info to a JSON file
+            preprocessing_file = os.path.join(temp_dir, 'preprocessing_info.json')
+            with open(preprocessing_file, 'w') as f:
+                json.dump(preprocessing_info, f, indent=2, cls=NumpyEncoder)
+            
+            # Create a separate encoding mappings file for clarity, only if there are actual mappings to save
+            has_mappings = bool(preprocessing_info['encoding_mappings'])
+            if has_mappings and len(preprocessing_info['encoding_mappings']) > 0:
+                mappings_file = os.path.join(temp_dir, 'encoding_mappings.json')
+                with open(mappings_file, 'w') as f:
+                    json.dump(preprocessing_info['encoding_mappings'], f, indent=2, cls=NumpyEncoder)
+                logger.info(f"Created separate encoding_mappings.json file with {len(preprocessing_info['encoding_mappings'])} columns")
+            else:
+                logger.info("Not creating encoding_mappings.json because there are no categorical features")
         
         # Create a separate target column file
         target_column = preprocessing_info['target_column']
