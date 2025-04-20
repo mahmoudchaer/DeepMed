@@ -16,7 +16,7 @@
         font-size: 1rem;
         border-radius: 0.375rem;
         border: 1px solid #ced4da;
-        background-color: #1e2124;
+        background-color: #343a40;
         color: #fff;
     }
     
@@ -36,7 +36,7 @@
     
     .select2-dropdown {
         border: 1px solid #ced4da;
-        background-color: #2a2d31;
+        background-color: #343a40;
     }
     
     .select2-container--default .select2-results__option {
@@ -46,8 +46,9 @@
     .select2-search--dropdown .select2-search__field {
         padding: 8px;
         border-radius: 0.25rem;
-        background-color: #343a40;
+        background-color: #212529;
         color: #fff;
+        border: 1px solid #ced4da;
     }
     
     .select2-container--default .select2-results__option--highlighted[aria-selected] {
@@ -61,6 +62,7 @@
     /* Fix for the search box and dropdown styling */
     .select2-search--dropdown {
         padding: 8px;
+        background-color: #343a40;
     }
     
     .select2-container--open .select2-dropdown {
@@ -70,6 +72,17 @@
     .select2-results__options {
         max-height: 250px;
         overflow-y: auto;
+        background-color: #343a40;
+    }
+    
+    /* Make sure search text is visible */
+    .select2-search__field::placeholder {
+        color: #adb5bd;
+    }
+    
+    /* Style for options in dropdown */
+    .select2-results__option {
+        padding: 8px 12px;
     }
 </style>
 {% endblock %}
@@ -193,18 +206,46 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // Initialize Select2 for the target column dropdown
+    // Initialize Select2 for the target column dropdown with search enabled
     $('#target_column').select2({
         placeholder: "Search and select target column...",
         allowClear: true,
         width: '100%',
         dropdownParent: $('body'),
-        theme: "default"
+        theme: "default",
+        matcher: function(params, data) {
+            // If there are no search terms, return all of the data
+            if ($.trim(params.term) === '') {
+                return data;
+            }
+            
+            // Do not display the item if there is no 'text' property
+            if (typeof data.text === 'undefined') {
+                return null;
+            }
+            
+            // `params.term` should be the term that is used for searching
+            // `data.text` is the text that is displayed for the data object
+            if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
+                return data;
+            }
+            
+            // Return `null` if the term should not be displayed
+            return null;
+        }
     });
     
-    // Fix for any clicks inside the search box
-    $(document).on('click', '.select2-search__field', function(e) {
+    // Make sure the search box is focusable and clickable
+    $(document).on('click', '.select2-container--open .select2-search__field', function(e) {
         e.stopPropagation();
+        $(this).focus();
+    });
+    
+    // Fix for search input focus issues
+    $(document).on('select2:open', function() {
+        setTimeout(function() {
+            $('.select2-search__field').focus();
+        }, 100);
     });
 });
 </script>
