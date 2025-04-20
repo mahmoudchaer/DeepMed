@@ -230,6 +230,12 @@
                     // Found encoding maps - populate dropdown
                     encodingSelect.innerHTML = '<option value="">-- Select target column encoding --</option>';
                     
+                    // Add "No encoding" option
+                    const noEncodingOption = document.createElement('option');
+                    noEncodingOption.value = "no_encoding";
+                    noEncodingOption.textContent = "No encoding (numeric target)";
+                    encodingSelect.appendChild(noEncodingOption);
+                    
                     // Get list of maps to display
                     const maps = Object.keys(data.encoding_maps);
                     

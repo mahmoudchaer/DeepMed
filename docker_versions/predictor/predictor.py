@@ -238,6 +238,13 @@ def predict():
     
     # Get selected encoding map if provided
     selected_encoding = request.form.get('encoding_column', None)
+    
+    # Check if "No encoding" option was selected
+    skip_decoding = False
+    if selected_encoding == "no_encoding":
+        skip_decoding = True
+        selected_encoding = None
+        print("'No encoding' option selected - will skip decoding step")
 
     # Validate file types.
     if not model_file.filename.lower().endswith('.zip'):
@@ -328,6 +335,17 @@ def predict():
                     print("Warning: Empty CSV output")
             except Exception as e:
                 print(f"Warning: Output is not valid CSV: {str(e)}")
+            
+            # If skip_decoding is True, just parse and return the CSV as is
+            if skip_decoding:
+                print("Skipping decoding as requested - returning numeric predictions as is")
+                try:
+                    df = pd.read_csv(io.StringIO(output_data))
+                    output_csv = df.to_csv(index=False)
+                    return jsonify({"output_file": output_csv})
+                except Exception as e:
+                    print(f"Error parsing output CSV: {str(e)}")
+                    return jsonify({"output_file": output_data})  # Return as is if parsing fails
             
             # If selected_encoding is provided, try to decode the prediction column
             if selected_encoding:
@@ -550,6 +568,17 @@ def predict():
         output_path = os.path.join(temp_dir, "output.csv")
         if os.path.exists(output_path):
             print(f"Reading output from file: {output_path}")
+            
+            # If skip_decoding is True, just read and return the CSV as is
+            if skip_decoding:
+                print("Skipping decoding as requested - returning numeric predictions as is")
+                try:
+                    with open(output_path, 'r') as f:
+                        output_data = f.read()
+                    return jsonify({"output_file": output_data})
+                except Exception as e:
+                    print(f"Error reading output CSV: {str(e)}")
+                    return jsonify({"error": f"Error reading prediction results: {str(e)}"}), 500
             
             # If selected_encoding is provided, try to decode the prediction column
             if selected_encoding:
