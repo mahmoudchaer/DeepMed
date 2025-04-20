@@ -190,6 +190,71 @@
     .select2-container--default .select2-selection--single {
         border-color: #0077b6;
     }
+    
+    /* Custom flat styling for Select2 */
+    .select2-container--flat .select2-selection--single {
+        background-color: #212529 !important;
+        border: 1px solid #0077b6 !important;
+        border-radius: 0.5rem !important;
+        height: 50px !important;
+    }
+    
+    .select2-dropdown--flat {
+        background-color: #212529 !important;
+        border: 1px solid #0077b6 !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    /* Make dropdown appear immediately */
+    .select2-dropdown {
+        display: block !important;
+    }
+    
+    /* Auto-focus the search directly */
+    .select2-search--dropdown {
+        padding: 12px !important;
+        background-color: #212529 !important;
+        border-bottom: 1px solid #343a40 !important;
+    }
+    
+    .select2-search--dropdown .select2-search__field {
+        background-color: #343a40 !important;
+        color: white !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 0.375rem !important;
+        padding: 12px 16px !important;
+        height: 50px !important;
+        font-size: 1rem !important;
+        width: 100% !important;
+    }
+    
+    /* Hide unwanted elements */
+    .select2-container--default .select2-selection__arrow {
+        display: none !important;
+    }
+    
+    /* Make search display more prominent */
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+        background-color: #343a40 !important;
+        color: white !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 8px !important;
+        padding: 12px 16px !important;
+        height: 50px !important;
+        font-size: 1rem !important;
+    }
+    
+    .select2-container--default .select2-search--dropdown .select2-search__field:focus {
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(0, 119, 182, 0.25) !important;
+        border-color: #0077b6 !important;
+    }
+    
+    /* Fix placeholder text */
+    .select2-search__field::placeholder {
+        color: #adb5bd !important;
+        opacity: 1 !important;
+    }
 </style>
 {% endblock %}
 
@@ -312,9 +377,9 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // Initialize Select2 for the target column dropdown with search enabled
+    // Initialize target column select with completely custom display
     $('#target_column').select2({
-        placeholder: "Search and select target column...",
+        placeholder: "Type to search for columns...",
         allowClear: true,
         width: '100%',
         dropdownParent: $('body'),
@@ -330,21 +395,37 @@ $(document).ready(function() {
         },
         escapeMarkup: function(markup) {
             return markup;
-        }
+        },
+        // Remove the default display and replace with search directly
+        containerCssClass: 'select2-container--flat',
+        dropdownCssClass: 'select2-dropdown--flat'
     });
     
-    // Make sure the search box is focusable and clickable
-    $(document).on('click', '.select2-search__field', function(e) {
-        e.stopPropagation();
+    // Automatically open dropdown when the user clicks on the container
+    $(document).on('click', '.select2-container--flat', function() {
+        $('#target_column').select2('open');
     });
     
-    // Focus search field immediately when dropdown opens
+    // Focus search field immediately when dropdown opens and hide the default selection area
     $(document).on('select2:open', function() {
         setTimeout(function() {
             const searchField = $('.select2-search__field');
             searchField.attr('placeholder', 'Type to search for columns...');
             searchField.focus();
+            
+            // Hide the original container if needed
+            $('.select2-selection--single').css('visibility', 'hidden');
         }, 50);
+    });
+    
+    // Prevent event propagation issues with search field
+    $(document).on('click', '.select2-search__field', function(e) {
+        e.stopPropagation();
+    });
+    
+    // When dropdown closes, show the selection again
+    $(document).on('select2:close', function() {
+        $('.select2-selection--single').css('visibility', 'visible');
     });
 });
 </script>
