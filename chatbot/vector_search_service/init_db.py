@@ -53,8 +53,7 @@ def populate_db() -> None:
                 documents=[chunk],
                 metadatas=[{"source": md.name, "chunk": i}]
             )
-
-    client.persist()
+    # PersistentClient automatically persists data, so no need to call persist()
     print("✅ ChromaDB initialized.")
 
 
