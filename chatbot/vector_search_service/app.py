@@ -3,14 +3,10 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
-from chromadb import Client
-from chromadb.config import Settings
+import chromadb
 
 app = FastAPI()
-client = Client(Settings(
-    chroma_db_impl="duckdb+parquet",
-    persist_directory=os.getenv("CHROMA_PERSIST_DIR","./chroma_data")
-))
+client = chromadb.PersistentClient(path=os.getenv("CHROMA_PERSIST_DIR","./chroma_data"))
 collection = client.get_or_create_collection("deepmed_docs")
 
 class SearchRequest(BaseModel):
