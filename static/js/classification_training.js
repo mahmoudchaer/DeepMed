@@ -259,14 +259,14 @@ function updateOverallProgress(progress, status) {
  * Start polling for training status
  */
 function startPollingTrainingStatus() {
-    // Demo values for models with faster progression
+    // Demo values with faster progression - only two steps: start and complete
     const models = [
-        { name: 'logistic-regression', steps: [25, 60, 100] },
-        { name: 'decision-tree', steps: [35, 75, 100] },
-        { name: 'random-forest', steps: [30, 65, 100] },
-        { name: 'knn', steps: [40, 90, 100] },
-        { name: 'svm', steps: [20, 55, 100] },
-        { name: 'naive-bayes', steps: [45, 85, 100] }
+        { name: 'logistic-regression', steps: [80, 100] },
+        { name: 'decision-tree', steps: [85, 100] },
+        { name: 'random-forest', steps: [90, 100] },
+        { name: 'knn', steps: [95, 100] },
+        { name: 'svm', steps: [85, 100] },
+        { name: 'naive-bayes', steps: [90, 100] }
     ];
     
     // Overall progress tracking
@@ -297,16 +297,22 @@ function startPollingTrainingStatus() {
                         data.overall_status || 'Training in progress...'
                     );
                     
-                    // Continue polling more frequently
-                    setTimeout(pollTrainingStatus, 800);
+                    // Continue polling very frequently
+                    setTimeout(pollTrainingStatus, 300);
                 } else if (data.status === 'complete') {
+                    // Force all models to 100% complete
+                    const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
+                    modelNames.forEach(name => {
+                        updateModelProgress(name, 100, 'Model training complete!');
+                    });
+                    
                     // All models complete
                     updateOverallProgress(100, 'Training complete! Redirecting to results...');
                     
                     // Redirect after a short delay
                     setTimeout(() => {
                         window.location.href = data.redirect_url || '/model_selection';
-                    }, 1000);
+                    }, 800);
                 }
             })
             .catch(error => {
@@ -317,22 +323,14 @@ function startPollingTrainingStatus() {
             });
     }
     
-    // For demo purposes - simulate progress with faster progression
+    // For demo purposes - simulate very fast progress
     function simulateTrainingProgress() {
-        // Simulate faster progress for each model
+        // Immediately set progress to high values for all models
         models.forEach(model => {
             const currentStep = model.currentStep || 0;
             if (currentStep < model.steps.length) {
                 const progress = model.steps[currentStep];
-                let status = 'Training in progress...';
-                
-                if (progress === 100) {
-                    status = 'Model training complete!';
-                } else if (progress > 50) {
-                    status = 'Evaluating model...';
-                } else {
-                    status = 'Fitting model...';
-                }
+                const status = progress === 100 ? 'Model training complete!' : 'Finishing training...';
                 
                 updateModelProgress(model.name, progress, status);
                 model.currentStep = currentStep + 1;
@@ -344,12 +342,9 @@ function startPollingTrainingStatus() {
         const completedSteps = models.reduce((sum, model) => sum + (model.currentStep || 0), 0);
         overallCompletion = Math.round((completedSteps / totalSteps) * 100);
         
-        let overallStatus = 'Training classification models...';
-        if (overallCompletion > 80) {
-            overallStatus = 'Almost done! Finalizing models...';
-        } else if (overallCompletion > 40) {
-            overallStatus = 'Models training in progress...';
-        }
+        let overallStatus = overallCompletion >= 90 ? 
+            'Almost done! Finalizing models...' : 
+            'Training classification models...';
         
         updateOverallProgress(overallCompletion, overallStatus);
         
@@ -357,15 +352,21 @@ function startPollingTrainingStatus() {
         const allDone = models.every(model => (model.currentStep || 0) >= model.steps.length);
         
         if (allDone) {
+            // Force all models to 100%
+            const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
+            modelNames.forEach(name => {
+                updateModelProgress(name, 100, 'Model training complete!');
+            });
+            
             updateOverallProgress(100, 'Training complete! Redirecting to results...');
             
             // Redirect after a short delay
             setTimeout(() => {
                 window.location.href = '/model_selection';
-            }, 1000);
+            }, 800);
         } else {
-            // Continue with next step more quickly
-            setTimeout(simulateTrainingProgress, 800);
+            // Continue with next step very quickly
+            setTimeout(simulateTrainingProgress, 300);
         }
     }
     
