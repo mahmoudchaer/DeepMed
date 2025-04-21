@@ -541,7 +541,24 @@ def predict():
         # Check if the process succeeded
         if result.returncode != 0:
             print(f"STDERR: {result.stderr}")
-            return jsonify({"error": f"Prediction script failed: {result.stderr}"}), 400
+            
+            # Check for specific exit code 2 which indicates missing features
+            if result.returncode == 2:
+                # Try to parse the error output from stdout
+                try:
+                    error_df = pd.read_csv(io.StringIO(result.stdout))
+                    if 'error_message' in error_df.columns:
+                        error_message = error_df['error_message'].iloc[0]
+                        print(f"Feature validation error: {error_message}")
+                        return jsonify({"error": f"Feature validation error: {error_message}"}), 400
+                except Exception:
+                    pass
+                
+                # Fallback error message
+                return jsonify({"error": "Missing required features. The input dataset must contain all features used during training."}), 400
+            else:
+                # Generic error handling
+                return jsonify({"error": f"Prediction script failed: {result.stderr}"}), 400
             
         # If we have output in stdout, parse it as CSV    
         if result.stdout.strip():

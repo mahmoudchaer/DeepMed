@@ -370,12 +370,18 @@ class ModelPredictor:
         result_df = df.copy()
         if 'selected_columns' in self.preprocessing_info and self.preprocessing_info['selected_columns']:
             selected_columns = self.preprocessing_info['selected_columns']
-            available_columns = [col for col in selected_columns if col in result_df.columns]
-            if len(available_columns) != len(selected_columns):
-                missing = set(selected_columns) - set(available_columns)
-                logger.warning(f"Missing columns: {missing}")
-            logger.info(f"Using selected columns: {available_columns}")
-            return result_df[available_columns].copy()
+            # Check if all required features are present
+            missing_columns = [col for col in selected_columns if col not in result_df.columns]
+            
+            if missing_columns:
+                error_msg = f"Missing required features: {missing_columns}. All features must be present in the input data."
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            # Reorder columns to match the original order used during training
+            logger.info(f"Enforcing strict feature selection and ordering using {len(selected_columns)} selected features")
+            return result_df[selected_columns].copy()
+        
         logger.warning("No selected_columns provided; using all columns")
         return result_df
     
@@ -511,9 +517,28 @@ if __name__ == "__main__":
             print("Unsupported file format. Provide a CSV or Excel file.")
             sys.exit(1)
         logger.info(f"Loaded data from {data_file} with shape {df.shape}")
-        predictor = ModelPredictor()
-        predictions = predictor.predict(df)
         
+        try:
+            predictor = ModelPredictor()
+            predictions = predictor.predict(df)
+        except ValueError as e:
+            # Handle errors related to missing features
+            error_message = str(e)
+            logger.error(f"Feature validation error: {error_message}")
+            
+            # Create error output
+            error_df = pd.DataFrame({
+                'error': ['FEATURE_ERROR'],
+                'error_message': [error_message]
+            })
+            
+            if use_stdout:
+                print(error_df.to_csv(index=False))
+            else:
+                error_df.to_csv("error_output.csv", index=False)
+                print(f"ERROR: {error_message}")
+            sys.exit(2)  # Use specific exit code for feature errors
+            
         # Create result dataframe
         result_df = df.copy()
         
