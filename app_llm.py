@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request
 import os
 import logging
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -43,6 +44,27 @@ def test_api():
             "status": "error",
             "error": str(e)
         }), 500
+
+@chatbot_blueprint.route('/query', methods=['POST'])
+def query():
+    """Forward requests to the chatbot gateway service"""
+    try:
+        data = request.get_json()
+        logger.info(f"Forwarding request to chatbot gateway: {data}")
+        
+        # Forward the request to the chatbot gateway service
+        response = requests.post('http://localhost:5204/chatbot/query', json=data)
+        
+        # Return the response from the chatbot gateway
+        return jsonify(response.json())
+    except Exception as e:
+        logger.error(f"Error forwarding to chatbot gateway: {str(e)}")
+        # Fall back to test API if the gateway is not available
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "response": "Sorry, the chatbot service is currently unavailable."
+        })
 
 def register_chatbot_blueprint(app):
     """Register the chatbot blueprint with the Flask app"""
