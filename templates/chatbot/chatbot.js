@@ -13,8 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatbotState = {
         isOpen: false,
         isLoading: false,
-        storageKey: 'deepmed_chatbot_history',
-        useTestEndpoint: false  // Will be set to true if the main endpoint fails
+        storageKey: 'deepmed_chatbot_history'
     };
     
     // Open/close chat window
@@ -163,10 +162,8 @@ document.addEventListener('DOMContentLoaded', function() {
             history: getChatHistory()
         };
         
-        // Determine which endpoint to use
-        const endpoint = false // Set to false to use the real endpoint
-            ? '/chatbot/test-api'
-            : '/chatbot/query';  // Updated to use our new Flask route
+        // Always use the real endpoint
+        const endpoint = '/chatbot/query';
         
         // Make API request
         fetch(endpoint, {
@@ -186,60 +183,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Remove loading indicator
             removeLoadingIndicator();
             
-            if (data && data.response) {
+            if (data && (data.response || data.reply)) {
+                // Extract reply from either response or reply property
+                const reply = data.reply || data.response;
+                
                 // Add assistant message to UI
-                appendMessage('assistant', data.response);
+                appendMessage('assistant', reply);
                 
                 // Save assistant message to history
-                saveMessageToHistory('assistant', data.response);
+                saveMessageToHistory('assistant', reply);
             } else {
                 throw new Error('Invalid response from server');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            
-            // If this was the main endpoint that failed, try the test endpoint
-            if (!chatbotState.useTestEndpoint) {
-                chatbotState.useTestEndpoint = true;
-                console.log("Switching to test endpoint for future requests");
-                
-                // Try again with the test endpoint
-                fetch('/chatbot/test-api', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Remove loading indicator
-                    removeLoadingIndicator();
-                    
-                    if (data && data.response) {
-                        // Add assistant message to UI
-                        appendMessage('assistant', data.response);
-                        
-                        // Save assistant message to history
-                        saveMessageToHistory('assistant', data.response);
-                    } else {
-                        throw new Error('Invalid response from test server');
-                    }
-                })
-                .catch(innerError => {
-                    // Both endpoints failed
-                    console.error('Both endpoints failed:', innerError);
-                    removeLoadingIndicator();
-                    appendMessage('assistant', 'Sorry, I encountered an error. Please try again later.');
-                    saveMessageToHistory('assistant', 'Sorry, I encountered an error. Please try again later.');
-                });
-            } else {
-                // Test endpoint already failed
-                removeLoadingIndicator();
-                appendMessage('assistant', 'Sorry, I encountered an error. Please try again later.');
-                saveMessageToHistory('assistant', 'Sorry, I encountered an error. Please try again later.');
-            }
+            removeLoadingIndicator();
+            appendMessage('assistant', 'Sorry, I encountered an error. Please try again later.');
+            saveMessageToHistory('assistant', 'Sorry, I encountered an error. Please try again later.');
         });
     }
     

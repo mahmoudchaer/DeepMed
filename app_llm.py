@@ -25,26 +25,6 @@ def inject_chatbot():
     """Inject the chatbot HTML into the page"""
     return render_template('chatbot/chatbot_inject.html')
 
-@chatbot_blueprint.route('/test-api', methods=['POST'])
-def test_api():
-    """Test endpoint for the chatbot API"""
-    try:
-        data = request.get_json()
-        logger.info(f"Received test request: {data}")
-        
-        # Echo back the request with a sample response
-        return jsonify({
-            "status": "success",
-            "received": data,
-            "response": "This is a test response from the chatbot API."
-        })
-    except Exception as e:
-        logger.error(f"Error in test API: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
-
 @chatbot_blueprint.route('/query', methods=['POST'])
 def query():
     """Forward requests to the chatbot gateway service"""
@@ -59,7 +39,6 @@ def query():
         return jsonify(response.json())
     except Exception as e:
         logger.error(f"Error forwarding to chatbot gateway: {str(e)}")
-        # Fall back to test API if the gateway is not available
         return jsonify({
             "status": "error",
             "error": str(e),
