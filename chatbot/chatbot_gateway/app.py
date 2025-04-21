@@ -20,6 +20,15 @@ SYSTEM_PROMPT = os.getenv(
     "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
 )
 
+# Guardrail for responses
+GUARDRAIL_DISCLAIMER = os.getenv(
+    "GUARDRAIL_DISCLAIMER",
+    "You are an AI assistant for DeepMed, a no-code AI platform for medical professionals. Your purpose is to help users understand and use the DeepMed platform — including how to upload data, configure models, interpret results, and navigate the interface. You are also allowed to explain relevant AI concepts **as they apply to DeepMed**, such as why small datasets might lead to poor accuracy, or what a classification model does. However, you must not act like a general-purpose AI tutor. Only explain AI in the context of how DeepMed uses it. You must never provide medical advice, diagnoses, or treatment suggestions under any circumstances. If a user asks for such help, respond with: \"I’m not qualified to answer that. Please consult a healthcare professional.\" You must also not answer any questions unrelated to DeepMed. Even if the user says it's relevant or claims it will help them use the site, do not respond unless you know it is within the scope of DeepMed. You know exactly what DeepMed does. If something is not part of the platform, clearly say: That is not part of DeepMed’s functionality. Always stay focused on helping users safely and effectively use DeepMed and its built-in AI features."
+)
+
+# Whether to add the disclaimer to every response
+ADD_DISCLAIMER = os.getenv("ADD_DISCLAIMER", "true").lower() in ("true", "1", "yes")
+
 # Log service URLs for debugging
 logger.info(f"EMB_URL: {EMB_URL}")
 logger.info(f"VEC_URL: {VEC_URL}")
@@ -93,6 +102,11 @@ async def chatbot_query(req: ChatReq):
         except Exception as ex:
             logger.error(f"LLM error: {ex}")
             raise HTTPException(502, f"LLM error: {ex}")
+
+        # 5) Apply response guardrail if configured
+        if ADD_DISCLAIMER:
+            reply = f"{reply}\n\n{GUARDRAIL_DISCLAIMER}"
+            logger.info("Added guardrail disclaimer to response")
 
         return {"reply": reply}
 
