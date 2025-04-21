@@ -523,11 +523,23 @@ def predict():
                     file_time = os.path.getmtime(file_path)
                     time_diff = abs(file_time - extraction_time)
                     rel_path = os.path.relpath(file_path, temp_dir)
+                    
+                    # Skip files in packages/libraries directories - those are legitimate
+                    if 'site-packages' in rel_path or 'dist-packages' in rel_path:
+                        continue
+                    
                     print(f"  - JSON file: {rel_path}: mod_time={file_time}, diff={time_diff}s")
                     
-                    if time_diff > 5:
+                    # Only consider JSON files at the root of the model directory or in common model subdirectories
+                    is_in_model_root = len(rel_path.split(os.sep)) <= 2  # Direct child of root
+                    is_in_model_subdir = any(model_dir in rel_path.lower() for model_dir in 
+                                            ['model', 'metadata', 'config', 'weights', 'preprocessing'])
+                    
+                    if time_diff > 5 and (is_in_model_root or is_in_model_subdir):
                         suspicious_files.append(file_path)
                         print(f"    WARNING: JSON file {rel_path} has suspicious timestamp, will be removed!")
+                    else:
+                        print(f"    Keeping legitimate JSON file: {rel_path}")
         
         # Remove any suspicious JSON files
         for file_path in suspicious_files:
@@ -594,22 +606,58 @@ def predict():
                     encoding_files = []
                     print(f"Looking for encoding files to decode predictions using '{selected_encoding}'")
                     
-                    # First get a list of original model files to verify encoding file belongs to this model
-                    # Use the extraction time to validate files
+                    # Use timestamp-based validation to find model files
                     model_files = []
                     for root, _, files in os.walk(temp_dir):
                         for filename in files:
                             if filename.endswith('.py') or filename.endswith('.json'):
                                 file_path = os.path.join(root, filename)
                                 file_time = os.path.getmtime(file_path)
-                                # Only include files that were part of this extraction (within 10 seconds)
+                                # Only include files from this model package (within 10 seconds of extraction_time)
+                                rel_path = os.path.relpath(file_path, temp_dir)
+                                
+                                # Skip files in packages/libraries directories - those are legitimate
+                                if 'site-packages' in rel_path or 'dist-packages' in rel_path:
+                                    continue
+                                    
                                 if abs(file_time - extraction_time) < 10:
-                                    rel_path = os.path.relpath(file_path, temp_dir)
                                     model_files.append(rel_path)
+                                    
+                                    # Add encoding files based on filename pattern
+                                    if filename.endswith('.json'):
+                                        if (filename == 'encoding_mappings.json' or 
+                                            filename == 'encoding_mappings' or
+                                            filename == 'preprocessing_info.json' or 
+                                            filename == 'preprocessing_info' or
+                                            filename.endswith('_encoding.json') or 
+                                            filename == 'encoding.json' or 
+                                            filename == 'preprocessing.json' or
+                                            'encod' in filename.lower() or
+                                            'target' in filename.lower() or
+                                            'label' in filename.lower() or
+                                            'map' in filename.lower()):
+                                            
+                                            full_path = os.path.join(root, filename)
+                                            encoding_files.append(full_path)
+                                            print(f"Adding validated encoding file: {rel_path} (timestamp diff: {abs(file_time - extraction_time):.2f}s)")
+                                else:
+                                    print(f"Ignoring file with suspicious timestamp: {rel_path} (diff: {abs(file_time - extraction_time):.2f}s)")
+                                    # Optionally remove suspicious files - but only if they're in model directories
+                                    is_in_model_root = len(rel_path.split(os.sep)) <= 2  # Direct child of root
+                                    is_in_model_subdir = any(model_dir in rel_path.lower() for model_dir in 
+                                                      ['model', 'metadata', 'config', 'weights', 'preprocessing'])
+                                    
+                                    if filename.endswith('.json') and (is_in_model_root or is_in_model_subdir):
+                                        try:
+                                            os.remove(file_path)
+                                            print(f"Removed suspicious file: {rel_path}")
+                                        except Exception as e:
+                                            print(f"Failed to remove suspicious file {rel_path}: {str(e)}")
                     
                     print(f"Model files that are part of this package: {model_files}")
+                    print(f"Found potential encoding files: {encoding_files}")
                     
-                    # Look for encoding files in the validated model files
+                    # Validate file contents if needed
                     for file_path in model_files:
                         if file_path.lower().endswith('.json'):
                             full_path = os.path.join(temp_dir, file_path)
@@ -911,8 +959,13 @@ def predict():
                                 file_path = os.path.join(root, filename)
                                 file_time = os.path.getmtime(file_path)
                                 # Only include files from this model package (within 10 seconds of extraction_time)
+                                rel_path = os.path.relpath(file_path, temp_dir)
+                                
+                                # Skip files in packages/libraries directories - those are legitimate
+                                if 'site-packages' in rel_path or 'dist-packages' in rel_path:
+                                    continue
+                                    
                                 if abs(file_time - extraction_time) < 10:
-                                    rel_path = os.path.relpath(file_path, temp_dir)
                                     model_files.append(rel_path)
                                     
                                     # Add encoding files based on filename pattern
@@ -933,14 +986,18 @@ def predict():
                                             encoding_files.append(full_path)
                                             print(f"Adding validated encoding file: {rel_path} (timestamp diff: {abs(file_time - extraction_time):.2f}s)")
                                 else:
-                                    rel_path = os.path.relpath(file_path, temp_dir)
                                     print(f"Ignoring file with suspicious timestamp: {rel_path} (diff: {abs(file_time - extraction_time):.2f}s)")
-                                    # Optionally remove suspicious files
-                                    try:
-                                        os.remove(file_path)
-                                        print(f"Removed suspicious file: {rel_path}")
-                                    except Exception as e:
-                                        print(f"Failed to remove suspicious file {rel_path}: {str(e)}")
+                                    # Optionally remove suspicious files - but only if they're in model directories
+                                    is_in_model_root = len(rel_path.split(os.sep)) <= 2  # Direct child of root
+                                    is_in_model_subdir = any(model_dir in rel_path.lower() for model_dir in 
+                                                      ['model', 'metadata', 'config', 'weights', 'preprocessing'])
+                                    
+                                    if filename.endswith('.json') and (is_in_model_root or is_in_model_subdir):
+                                        try:
+                                            os.remove(file_path)
+                                            print(f"Removed suspicious file: {rel_path}")
+                                        except Exception as e:
+                                            print(f"Failed to remove suspicious file {rel_path}: {str(e)}")
                     
                     print(f"Model files that are part of this package: {model_files}")
                     print(f"Found potential encoding files: {encoding_files}")
