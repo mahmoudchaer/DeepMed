@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import openai
 import chromadb
+import uuid
 
 # Initialize OpenAI client with API key
 client_openai = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -40,7 +41,11 @@ def populate_db():
             )
             emb = response.data[0].embedding
 
+            # Generate a unique ID for each document
+            unique_id = str(uuid.uuid4())
+            
             collection.add(
+                ids=[unique_id],
                 embeddings=[emb],
                 documents=[chunk],
                 metadatas=[{"source": md.name, "chunk": i}]
