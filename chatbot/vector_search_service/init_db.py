@@ -3,16 +3,13 @@
 import os
 from pathlib import Path
 import openai
-from chromadb import Client
-from chromadb.config import Settings
+import chromadb
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 
-client = Client(Settings(
-    chroma_db_impl="duckdb+parquet",
-    persist_directory=persist_dir
-))
+# Updated to new ChromaDB client initialization
+client = chromadb.PersistentClient(path=persist_dir)
 collection = client.get_or_create_collection("deepmed_docs")
 
 DOCS_DIR = Path(__file__).parent / "docs"
