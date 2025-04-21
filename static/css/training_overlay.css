@@ -86,10 +86,12 @@
 .progress {
     height: 8px;
     background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .progress-bar {
-    transition: width 0.5s ease;
+    transition: width 0.5s ease, background-color 0.5s ease;
 }
 
 .main-progress-container {
@@ -127,4 +129,16 @@
     to {
         opacity: 1;
     }
+}
+
+.bg-warning {
+    background-color: #f39c12 !important;
+}
+
+.bg-success {
+    background-color: #2ecc71 !important;
+}
+
+.bg-primary {
+    background-color: #3498db !important;
 } 
