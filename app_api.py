@@ -559,6 +559,89 @@ DOWNLOADS_FOLDER = os.path.join('static', 'downloads')
 if not os.path.exists(DOWNLOADS_FOLDER):
     os.makedirs(DOWNLOADS_FOLDER)
 
+# Define the API endpoints
+@app.route('/api/status/tabular_classification_training', methods=['GET'])
+@login_required
+def api_status_tabular_classification_training():
+    user_id = current_user.id
+    if user_id in classification_training_status:
+        return jsonify(classification_training_status[user_id])
+    else:
+        # If not found, assume completed or not started
+        return jsonify({
+            'status': 'not_found',
+            'overall_progress': 0,
+            'overall_status': 'No training in progress'
+        })
+
+@app.route('/api/reset/tabular_classification_training', methods=['POST'])
+@login_required
+def api_reset_tabular_classification_training():
+    user_id = current_user.id
+    
+    # Clear the training status
+    if user_id in classification_training_status:
+        classification_training_status.pop(user_id, None)
+    
+    # Clear training-related session data
+    keys_to_remove = [
+        'model_results', 'last_training_run_id', 'run_id', 'trained_models',
+        'selected_features', 'cleaned_file', 'anomaly_results',
+        'current_training_dataset_id', 'feature_importance_file',
+        'selected_features_file', 'selected_features_file_json'
+    ]
+    
+    for key in keys_to_remove:
+        if key in session:
+            session.pop(key, None)
+    
+    # Also remove any keys that might be from previous training sessions
+    session_keys = list(session.keys())
+    for key in session_keys:
+        if key.startswith('old_') or key.endswith('_cached'):
+            session.pop(key, None)
+    
+    return jsonify({'status': 'success'})
+
+@app.route('/api/start/tabular_classification_training', methods=['POST'])
+@login_required
+def api_start_tabular_classification_training():
+    user_id = current_user.id
+    # Clear any existing training status first
+    if user_id in classification_training_status:
+        classification_training_status.pop(user_id, None)
+        
+    # Clear any previous training results
+    keys_to_remove = [
+        'model_results', 'last_training_run_id', 'run_id', 'trained_models',
+        'selected_features', 'cleaned_file', 'anomaly_results',
+        'current_training_dataset_id', 'feature_importance_file',
+        'selected_features_file', 'selected_features_file_json'
+    ]
+    
+    for key in keys_to_remove:
+        if key in session:
+            session.pop(key, None)
+    
+    # Initialize the training status
+    classification_training_status[user_id] = {
+        'status': 'in_progress',
+        'overall_progress': 0,
+        'overall_status': 'Training initialized. Preparing data...',
+        'model_statuses': {
+            'logistic-regression': {'progress': 0, 'status': 'Initializing...'},
+            'decision-tree': {'progress': 0, 'status': 'Initializing...'},
+            'random-forest': {'progress': 0, 'status': 'Initializing...'},
+            'knn': {'progress': 0, 'status': 'Initializing...'},
+            'svm': {'progress': 0, 'status': 'Initializing...'},
+            'naive-bayes': {'progress': 0, 'status': 'Initializing...'}
+        }
+    }
+    
+    # In a real implementation, we would call the training process in a background task here
+    # For now, we just return the initial status
+    return jsonify(classification_training_status[user_id])
+
 if __name__ == '__main__':
     # Import application modules
     from app_tabular import *

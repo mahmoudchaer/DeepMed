@@ -39,6 +39,26 @@ def upload():
         logger.warning("Upload attempted without authentication")
         flash('Please log in to upload files.', 'warning')
         return redirect(url_for('login'))
+    
+    # Clear all training-related session data to ensure a fresh start
+    keys_to_remove = [
+        'model_results', 'last_training_run_id', 'run_id', 'trained_models',
+        'selected_features', 'selected_features_file', 'cleaned_file',
+        'feature_importance_file', 'selected_features_file_json', 'anomaly_results'
+    ]
+    
+    for key in keys_to_remove:
+        if key in session:
+            session.pop(key, None)
+    
+    # Also clear any keys that might be from previous training
+    for key in list(session.keys()):
+        if key.startswith('old_') or key.endswith('_cached'):
+            session.pop(key, None)
+            
+    # Remove user from training status tracking
+    if current_user.id in classification_training_status:
+        classification_training_status.pop(current_user.id, None)
         
     if 'file' not in request.files:
         flash('No file part', 'error')
@@ -102,7 +122,13 @@ def training():
             
         # Redirect to clean URL
         return redirect(url_for('training'))
-        
+    
+    # Clear any training results if we're at the training page (this ensures we don't show old results)
+    if 'model_results' in session:
+        session.pop('model_results', None)
+    if 'last_training_run_id' in session:
+        session.pop('last_training_run_id', None)
+    
     filepath = session.get('uploaded_file')
     
     if not filepath:
@@ -168,6 +194,23 @@ def training():
                         logger.warning("Model services not found in coordinator health response")
             except Exception as e:
                 logger.error(f"Error checking model services: {str(e)}")
+            
+            # Initialize training status for this user BEFORE starting the actual training
+            # This ensures we always have a fresh status
+            user_id = current_user.id
+            classification_training_status[user_id] = {
+                'status': 'in_progress',
+                'overall_progress': 0,
+                'overall_status': 'Training initialized. Preparing data...',
+                'model_statuses': {
+                    'logistic-regression': {'progress': 0, 'status': 'Initializing...'},
+                    'decision-tree': {'progress': 0, 'status': 'Initializing...'},
+                    'random-forest': {'progress': 0, 'status': 'Initializing...'},
+                    'knn': {'progress': 0, 'status': 'Initializing...'},
+                    'svm': {'progress': 0, 'status': 'Initializing...'},
+                    'naive-bayes': {'progress': 0, 'status': 'Initializing...'}
+                }
+            }
             
             # 1. CLEAN DATA (via Data Cleaner API)
             logger.info(f"Sending data to Data Cleaner API")
@@ -465,24 +508,15 @@ def training():
                     logger.error(f"Error with direct SQL approach: {str(sql_error)}")
                     local_run_id = None
 
-            # Initialize training status for this user
-            classification_training_status[user_id] = {
-                'status': 'in_progress',
-                'overall_progress': 5,
-                'overall_status': 'Training initialized. Preparing data...',
-                'model_statuses': {
-                    'logistic-regression': {'progress': 0, 'status': 'Initializing...'},
-                    'decision-tree': {'progress': 0, 'status': 'Initializing...'},
-                    'random-forest': {'progress': 0, 'status': 'Initializing...'},
-                    'knn': {'progress': 0, 'status': 'Initializing...'},
-                    'svm': {'progress': 0, 'status': 'Initializing...'},
-                    'naive-bayes': {'progress': 0, 'status': 'Initializing...'}
-                }
-            }
-            
             # Update status before sending to model coordinator
             classification_training_status[user_id]['overall_progress'] = 15
             classification_training_status[user_id]['overall_status'] = 'Data prepared. Starting model training...'
+            
+            # Create a unique dataset identifier for the coordinator
+            unique_dataset_id = f"unique_dataset_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+            
+            # Save it in the session to check if we've seen this request before
+            session['current_training_dataset_id'] = unique_dataset_id
             
             # Use our safe request method
             response = safe_requests_post(
@@ -494,7 +528,7 @@ def training():
                     "user_id": current_user.id,
                     "run_name": run_name,
                     "force_new_training": True,
-                    "unique_dataset_id": f"unique_dataset_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+                    "unique_dataset_id": unique_dataset_id
                 },
                 timeout=1800  # Model training can take time
             )
