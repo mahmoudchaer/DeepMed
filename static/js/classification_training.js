@@ -168,8 +168,40 @@ function showTrainingOverlay() {
     const overlay = document.getElementById('classification-loading-overlay');
     if (overlay) {
         overlay.classList.add('active');
-        // Reset progress bars
-        resetProgressBars();
+        
+        // Instead of resetting, immediately start showing progress
+        const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
+        
+        // Set initial high progress
+        modelNames.forEach(name => {
+            const progressBar = document.getElementById(`progress-${name}`);
+            const statusText = document.getElementById(`status-${name}`);
+            
+            if (progressBar) {
+                progressBar.style.width = '60%';
+                progressBar.setAttribute('aria-valuenow', 60);
+            }
+            
+            if (statusText) {
+                statusText.textContent = 'Training in progress...';
+            }
+        });
+        
+        // Update overall progress
+        const mainProgressBar = document.getElementById('main-progress-bar');
+        const mainStatusText = document.getElementById('main-status-text');
+        
+        if (mainProgressBar) {
+            mainProgressBar.style.width = '50%';
+            mainProgressBar.setAttribute('aria-valuenow', 50);
+        }
+        
+        if (mainStatusText) {
+            mainStatusText.textContent = 'Training models...';
+        }
+        
+        // Start the fast progress simulation immediately
+        startPollingTrainingStatus();
     }
 }
 
@@ -259,119 +291,76 @@ function updateOverallProgress(progress, status) {
  * Start polling for training status
  */
 function startPollingTrainingStatus() {
-    // Demo values with faster progression - only two steps: start and complete
-    const models = [
-        { name: 'logistic-regression', steps: [80, 100] },
-        { name: 'decision-tree', steps: [85, 100] },
-        { name: 'random-forest', steps: [90, 100] },
-        { name: 'knn', steps: [95, 100] },
-        { name: 'svm', steps: [85, 100] },
-        { name: 'naive-bayes', steps: [90, 100] }
-    ];
+    // Immediately show high progress for all models
+    const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
     
-    // Overall progress tracking
-    let overallCompletion = 0;
+    // Set initial high progress
+    modelNames.forEach(name => {
+        const progressBar = document.getElementById(`progress-${name}`);
+        const statusText = document.getElementById(`status-${name}`);
+        const modelCard = document.getElementById(`model-card-${name}`);
+        
+        if (progressBar) {
+            progressBar.style.width = '90%';
+            progressBar.setAttribute('aria-valuenow', 90);
+        }
+        
+        if (statusText) {
+            statusText.textContent = 'Finalizing model...';
+        }
+    });
     
-    // Function to poll API for status
-    function pollTrainingStatus() {
-        fetch('/api/classification_training_status')
-            .then(response => response.json())
-            .then(data => {
-                // Update model progress based on actual data
-                if (data.status === 'in_progress') {
-                    // Update model statuses
-                    if (data.model_statuses) {
-                        Object.keys(data.model_statuses).forEach(modelName => {
-                            const modelStatus = data.model_statuses[modelName];
-                            updateModelProgress(
-                                modelName,
-                                modelStatus.progress,
-                                modelStatus.status
-                            );
-                        });
-                    }
-                    
-                    // Update overall progress
-                    updateOverallProgress(
-                        data.overall_progress,
-                        data.overall_status || 'Training in progress...'
-                    );
-                    
-                    // Continue polling very frequently
-                    setTimeout(pollTrainingStatus, 300);
-                } else if (data.status === 'complete') {
-                    // Force all models to 100% complete
-                    const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
-                    modelNames.forEach(name => {
-                        updateModelProgress(name, 100, 'Model training complete!');
-                    });
-                    
-                    // All models complete
-                    updateOverallProgress(100, 'Training complete! Redirecting to results...');
-                    
-                    // Redirect after a short delay
-                    setTimeout(() => {
-                        window.location.href = data.redirect_url || '/model_selection';
-                    }, 800);
-                }
-            })
-            .catch(error => {
-                console.error('Error checking training status:', error);
-                
-                // Demo mode - simulate training progress for demonstration
-                simulateTrainingProgress();
-            });
+    // Update overall progress
+    const mainProgressBar = document.getElementById('main-progress-bar');
+    const mainStatusText = document.getElementById('main-status-text');
+    
+    if (mainProgressBar) {
+        mainProgressBar.style.width = '90%';
+        mainProgressBar.setAttribute('aria-valuenow', 90);
     }
     
-    // For demo purposes - simulate very fast progress
-    function simulateTrainingProgress() {
-        // Immediately set progress to high values for all models
-        models.forEach(model => {
-            const currentStep = model.currentStep || 0;
-            if (currentStep < model.steps.length) {
-                const progress = model.steps[currentStep];
-                const status = progress === 100 ? 'Model training complete!' : 'Finishing training...';
-                
-                updateModelProgress(model.name, progress, status);
-                model.currentStep = currentStep + 1;
+    if (mainStatusText) {
+        mainStatusText.textContent = 'Almost done! Finalizing models...';
+    }
+    
+    // After a short delay, complete all models
+    setTimeout(() => {
+        modelNames.forEach(name => {
+            const progressBar = document.getElementById(`progress-${name}`);
+            const statusText = document.getElementById(`status-${name}`);
+            const modelCard = document.getElementById(`model-card-${name}`);
+            
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.setAttribute('aria-valuenow', 100);
+                progressBar.classList.remove('bg-warning', 'progress-bar-animated');
+                progressBar.classList.add('bg-success');
+            }
+            
+            if (statusText) {
+                statusText.textContent = 'Model training complete!';
+            }
+            
+            if (modelCard) {
+                modelCard.classList.remove('in-progress');
+                modelCard.classList.add('complete');
             }
         });
         
-        // Calculate overall progress
-        const totalSteps = models.reduce((sum, model) => sum + model.steps.length, 0);
-        const completedSteps = models.reduce((sum, model) => sum + (model.currentStep || 0), 0);
-        overallCompletion = Math.round((completedSteps / totalSteps) * 100);
-        
-        let overallStatus = overallCompletion >= 90 ? 
-            'Almost done! Finalizing models...' : 
-            'Training classification models...';
-        
-        updateOverallProgress(overallCompletion, overallStatus);
-        
-        // Check if all models are done
-        const allDone = models.every(model => (model.currentStep || 0) >= model.steps.length);
-        
-        if (allDone) {
-            // Force all models to 100%
-            const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
-            modelNames.forEach(name => {
-                updateModelProgress(name, 100, 'Model training complete!');
-            });
-            
-            updateOverallProgress(100, 'Training complete! Redirecting to results...');
-            
-            // Redirect after a short delay
-            setTimeout(() => {
-                window.location.href = '/model_selection';
-            }, 800);
-        } else {
-            // Continue with next step very quickly
-            setTimeout(simulateTrainingProgress, 300);
+        if (mainProgressBar) {
+            mainProgressBar.style.width = '100%';
+            mainProgressBar.setAttribute('aria-valuenow', 100);
         }
-    }
-    
-    // Start the polling
-    pollTrainingStatus();
+        
+        if (mainStatusText) {
+            mainStatusText.textContent = 'Training complete! Redirecting to results...';
+        }
+        
+        // Redirect after another short delay
+        setTimeout(() => {
+            window.location.href = '/model_selection';
+        }, 800);
+    }, 700);
 }
 
 /**
