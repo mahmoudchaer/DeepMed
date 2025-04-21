@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the training overlay
+    // Initialize the training overlay structure but don't activate it yet
     initTrainingOverlay();
     
     // Handle form submission for the training form
@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
         trainingForm.addEventListener('submit', function(e) {
             // Show the loading overlay
             showTrainingOverlay();
+            
+            // Only start polling when form is submitted
+            startPollingTrainingStatus();
         });
     }
 });
@@ -156,9 +159,6 @@ function initTrainingOverlay() {
     if (stopButton) {
         stopButton.addEventListener('click', stopTraining);
     }
-    
-    // Start polling for training status when training starts
-    startPollingTrainingStatus();
 }
 
 /**
