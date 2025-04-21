@@ -164,9 +164,9 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         // Determine which endpoint to use
-        const endpoint = chatbotState.useTestEndpoint 
+        const endpoint = false // Set to false to use the real endpoint
             ? '/chatbot/test-api'
-            : 'http://localhost:5204/chatbot/query';
+            : '/chatbot/query';  // Updated to use our new Flask route
         
         // Make API request
         fetch(endpoint, {
