@@ -4,31 +4,62 @@
 
 {% block content %}
 <style>
-    /* Ensure the delete button displays properly */
+    /* Styles for the delete button */
+    .delete-run-btn {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.5rem;
+        color: #dc3545;
+        background-color: transparent;
+        border: 1px solid #dc3545;
+        opacity: 0.7;
+        transition: all 0.2s ease;
+    }
+    
+    .delete-run-btn:hover {
+        background-color: rgba(220, 53, 69, 0.1);
+        opacity: 1;
+        color: #dc3545;
+    }
+    
+    /* Position at the far right */
+    .run-container {
+        position: relative;
+    }
+    
+    .run-action-buttons {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+    }
+    
+    /* Ensure the accordion button has enough space */
+    .accordion-button {
+        padding-right: 60px;
+    }
+    
+    /* Responsive styles */
     @media (max-width: 768px) {
-        .accordion-button {
-            padding-right: 2.5rem; /* Add extra space for delete button */
-        }
-        
         .delete-run-btn {
             font-size: 0.7rem;
-            padding: 0.15rem 0.4rem;
+            padding: 0.1rem 0.35rem;
         }
         
-        .delete-run-btn i {
-            margin-right: 0;
+        .run-action-buttons {
+            right: 8px;
+        }
+    }
+    
+    /* Improve display on very small screens */
+    @media (max-width: 480px) {
+        .run-info-container {
+            flex-direction: column;
+            align-items: flex-start;
         }
         
-        /* Improve display on very small screens */
-        @media (max-width: 480px) {
-            .run-info-container {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .run-meta-info {
-                margin-top: 0.5rem;
-            }
+        .run-meta-info {
+            margin-top: 0.5rem;
         }
     }
 </style>
@@ -46,29 +77,33 @@
         <div class="accordion" id="trainingRunsAccordion">
             {% for run in training_runs %}
                 <div class="accordion-item mb-3 border {% if run.models|length > 0 %}border-primary{% else %}border-secondary{% endif %}">
-                    <h2 class="accordion-header" id="heading{{ run.id }}">
-                        <button class="accordion-button collapsed {% if run.models|length > 0 %}bg-light{% else %}bg-light text-muted{% endif %}" 
-                                type="button" data-bs-toggle="collapse" 
-                                data-bs-target="#collapse{{ run.id }}" aria-expanded="false" 
-                                aria-controls="collapse{{ run.id }}">
-                            <div class="d-flex w-100 justify-content-between align-items-center run-info-container">
-                                <div>
-                                    <span class="badge {% if run.models|length > 0 %}bg-primary{% else %}bg-secondary{% endif %} me-2">Run #{{ run.id }}</span>
-                                    <strong>{{ run.run_name }}</strong>
+                    <div class="run-container">
+                        <div class="run-action-buttons">
+                            <button type="button" class="btn btn-sm delete-run-btn" 
+                                    data-run-id="{{ run.id }}" data-bs-toggle="modal" 
+                                    data-bs-target="#deleteRunModal"
+                                    onclick="event.stopPropagation();" title="Delete run">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        <h2 class="accordion-header" id="heading{{ run.id }}">
+                            <button class="accordion-button collapsed {% if run.models|length > 0 %}bg-light{% else %}bg-light text-muted{% endif %}" 
+                                    type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ run.id }}" aria-expanded="false" 
+                                    aria-controls="collapse{{ run.id }}">
+                                <div class="d-flex w-100 justify-content-between align-items-center run-info-container">
+                                    <div>
+                                        <span class="badge {% if run.models|length > 0 %}bg-primary{% else %}bg-secondary{% endif %} me-2">Run #{{ run.id }}</span>
+                                        <strong>{{ run.run_name }}</strong>
+                                    </div>
+                                    <div class="text-muted small run-meta-info">
+                                        <i class="fas fa-calendar-alt me-1"></i> {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <span class="badge bg-info ms-2">{{ run.models|length }} models</span>
+                                    </div>
                                 </div>
-                                <div class="text-muted small run-meta-info">
-                                    <i class="fas fa-calendar-alt me-1"></i> {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}
-                                    <span class="badge bg-info ms-2">{{ run.models|length }} models</span>
-                                    <button type="button" class="btn btn-sm btn-danger ms-3 delete-run-btn" 
-                                            data-run-id="{{ run.id }}" data-bs-toggle="modal" 
-                                            data-bs-target="#deleteRunModal"
-                                            onclick="event.stopPropagation();">
-                                        <i class="fas fa-trash-alt"></i> <span class="delete-btn-text">Delete</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </button>
-                    </h2>
+                            </button>
+                        </h2>
+                    </div>
                     <div id="collapse{{ run.id }}" class="accordion-collapse collapse" 
                          aria-labelledby="heading{{ run.id }}" data-bs-parent="#trainingRunsAccordion">
                         <div class="accordion-body">
@@ -211,7 +246,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                    <button type="button" class="btn btn-outline-danger" id="confirmDeleteBtn">Delete</button>
                 </div>
             </div>
         </div>
@@ -226,6 +261,12 @@
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+        
+        // Initialize tooltips on delete buttons
+        var deleteButtons = document.querySelectorAll('.delete-run-btn');
+        deleteButtons.forEach(function(btn) {
+            new bootstrap.Tooltip(btn);
         });
         
         // Add loading indicator when download button is clicked
@@ -294,22 +335,16 @@
             }
         });
         
-        // Responsive adjustments for smaller screens
-        function adjustForMobile() {
-            if (window.innerWidth <= 480) {
-                document.querySelectorAll('.delete-btn-text').forEach(el => {
-                    el.style.display = 'none';
-                });
-            } else {
-                document.querySelectorAll('.delete-btn-text').forEach(el => {
-                    el.style.display = 'inline';
-                });
-            }
-        }
-        
-        // Run initially and on resize
-        adjustForMobile();
-        window.addEventListener('resize', adjustForMobile);
+        // Handle button clicks inside accordions
+        document.querySelectorAll('.accordion-button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                // Prevent the delete button from triggering the accordion
+                if (e.target.closest('.delete-run-btn')) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            });
+        });
     });
 </script>
 {% endblock %} 
