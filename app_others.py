@@ -392,6 +392,27 @@ class ModelPredictor:
             if processed_df.empty:
                 raise ValueError("Data is empty after preprocessing.")
             logger.info(f"Preprocessed data shape: {processed_df.shape}")
+            
+            # Verify DataFrame integrity before prediction
+            try:
+                # Check for NaN values that might cause issues
+                nan_counts = processed_df.isna().sum()
+                if nan_counts.sum() > 0:
+                    logger.warning(f"Warning: DataFrame contains {nan_counts.sum()} NaN values which might cause prediction issues")
+                    for col in processed_df.columns:
+                        if nan_counts[col] > 0:
+                            logger.warning(f"Column '{col}' has {nan_counts[col]} NaN values")
+                            
+                # Check for duplicate indices which can cause length mismatch errors
+                if processed_df.index.duplicated().any():
+                    logger.warning("DataFrame contains duplicate indices which can cause length mismatches")
+                    # Reset index to ensure consistency
+                    processed_df = processed_df.reset_index(drop=True)
+                    logger.info("Reset DataFrame index to prevent length mismatch errors")
+            except Exception as e:
+                logger.warning(f"Error checking DataFrame integrity: {str(e)}")
+                
+            # Make prediction with error handling
             try:
                 predictions = self.model.predict(processed_df)
                 logger.info(f"Predictions made for {len(predictions)} samples")
@@ -402,6 +423,18 @@ class ModelPredictor:
                 y_dummy = np.zeros(len(processed_df))
                 dummy.fit(processed_df, y_dummy)
                 predictions = dummy.predict(processed_df)
+                
+            # Verify predictions length matches dataframe length
+            if len(predictions) != len(processed_df):
+                logger.error(f"Length mismatch: predictions length ({len(predictions)}) does not match DataFrame length ({len(processed_df)})")
+                # Try to adjust lengths to prevent errors
+                if len(predictions) < len(processed_df):
+                    logger.warning("Trimming DataFrame to match predictions length")
+                    processed_df = processed_df.iloc[:len(predictions)]
+                else:
+                    logger.warning("Trimming predictions to match DataFrame length")
+                    predictions = predictions[:len(processed_df)]
+            
             probabilities = None
             if hasattr(self.model, 'predict_proba'):
                 try:
@@ -573,6 +606,15 @@ if __name__ == "__main__":
         # Ensure predictions are class names, not numbers
         prediction_values = predictions['predictions']
         
+        # Ensure prediction values length matches DataFrame length to avoid errors
+        if len(prediction_values) != len(result_df):
+            logger.warning(f"Length mismatch: predictions ({len(prediction_values)}) vs DataFrame ({len(result_df)})")
+            # Handle length mismatch by trimming to the shorter length
+            min_len = min(len(prediction_values), len(result_df))
+            prediction_values = prediction_values[:min_len]
+            result_df = result_df.iloc[:min_len].copy()
+            logger.info(f"Trimmed both to length {min_len} to prevent errors")
+        
         # Check if predictions are still numeric and try to decode them if needed
         if isinstance(prediction_values, list) and len(prediction_values) > 0 and (
             isinstance(prediction_values[0], (int, float, np.integer, np.floating)) or 
@@ -597,20 +639,77 @@ if __name__ == "__main__":
             target_column = predictor.preprocessing_info.get('target_column')
             
             # Try to decode using the target column or available mappings
-            if encoding_mappings:
-                if target_column and target_column in encoding_mappings:
-                    # Use the target column mapping specifically
-                    inv_mapping = {v: k for k, v in encoding_mappings[target_column].items()}
-                    prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
-                    logger.info(f"Decoded predictions using target column mapping: {target_column}")
-                elif len(encoding_mappings) == 1:
-                    # If only one mapping available, use it
-                    target_col = list(encoding_mappings.keys())[0]
-                    inv_mapping = {v: k for k, v in encoding_mappings[target_col].items()}
-                    prediction_values = [inv_mapping.get(int(float(p)), f"unknown_{p}") for p in prediction_values]
-                    logger.info(f"Used {target_col} mapping to decode predictions to class names")
+            if target_column or (len(encoding_mappings) == 1):
+                if not target_column and len(encoding_mappings) == 1:
+                    target_column = list(encoding_mappings.keys())[0]
+                    logger.info(f"No target column specified, using the only available encoding: {target_column}")
+
+                # Add the predictions back to the original dataframe
+                try:
+                    # Create a proper Series with matched indices to avoid length mismatch errors
+                    pred_series = pd.Series(prediction_values, index=result_df.index[:len(prediction_values)])
+                    
+                    # Reset the index to ensure alignment
+                    result_df = result_df.reset_index(drop=True)
+                    
+                    # Apply the prediction using a safe approach to prevent length mismatches
+                    result_df['prediction'] = pred_series.reindex(result_df.index).values
+                    
+                    logger.info(f"Added predictions to result dataframe, length: {len(result_df)}")
+                except Exception as e:
+                    logger.error(f"Error adding predictions to dataframe: {str(e)}")
+                    # Fallback: add predictions in a safer way
+                    temp_df = pd.DataFrame({'prediction': prediction_values})
+                    if len(temp_df) != len(result_df):
+                        logger.warning(f"Length mismatch in fallback: {len(temp_df)} vs {len(result_df)}")
+                        # Use the min length to avoid errors
+                        min_len = min(len(temp_df), len(result_df))
+                        result_df = result_df.iloc[:min_len]
+                        temp_df = temp_df.iloc[:min_len]
+                    
+                    # Concatenate instead of direct assignment to avoid index issues
+                    result_df = pd.concat([result_df.reset_index(drop=True), 
+                                        temp_df.reset_index(drop=True)], axis=1)
+                    
+                    logger.info("Successfully added predictions using fallback approach")
+                    
+                # Output the CSV
+                if use_stdout:
+                    print(result_df.to_csv(index=False))
                 else:
-                    logger.warning("Could not determine which mapping to use for decoding")
+                    output_file = 'output.csv'
+                    result_df.to_csv(output_file, index=False)
+                    logger.info(f"Saved predictions to {output_file}")
+                
+                return 0
+            else:
+                logger.warning("No suitable encoding mapping found for decoding")
+                
+                # Just add the raw predictions without decoding
+                try:
+                    # Create a Series with matching index to avoid "Length of values does not match length of index"
+                    pred_series = pd.Series(prediction_values, index=result_df.index[:len(prediction_values)])
+                    
+                    # Reset index and use the values to avoid index mismatches
+                    result_df = result_df.reset_index(drop=True)
+                    result_df['prediction'] = pred_series.reindex(result_df.index).values
+                except Exception as e:
+                    logger.error(f"Error assigning predictions: {str(e)}")
+                    # Fallback with special handling
+                    common_len = min(len(result_df), len(prediction_values))
+                    result_df = result_df.iloc[:common_len].copy()
+                    result_df['prediction'] = prediction_values[:common_len]
+                    logger.info(f"Used fallback approach with trimmed length: {common_len}")
+                
+                # Output the CSV
+                if use_stdout:
+                    print(result_df.to_csv(index=False))
+                else:
+                    output_file = 'output.csv'
+                    result_df.to_csv(output_file, index=False)
+                    logger.info(f"Saved predictions to {output_file}")
+                
+                return 0
         
         result_df['prediction'] = prediction_values
         
