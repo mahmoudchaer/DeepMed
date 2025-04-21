@@ -6,6 +6,11 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 import os
 import httpx
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 EMB_URL       = os.getenv("EMBEDDING_URL", "http://embedding_service:5201")
 VEC_URL       = os.getenv("VECTOR_URL",    "http://vector_search_service:5202")
@@ -14,6 +19,11 @@ SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
 )
+
+# Log service URLs for debugging
+logger.info(f"EMB_URL: {EMB_URL}")
+logger.info(f"VEC_URL: {VEC_URL}")
+logger.info(f"LLM_URL: {LLM_URL}")
 
 app = FastAPI(title="DeepMed Chatbot Gateway")
 
@@ -39,24 +49,31 @@ class ChatRes(BaseModel):
 
 @app.post("/chatbot/query", response_model=ChatRes)
 async def chatbot_query(req: ChatReq):
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    logger.info(f"Processing request for user: {req.user_id}")
+    async with httpx.AsyncClient(timeout=30.0) as client:
         # 1) Embed
         try:
+            logger.info(f"Calling embedding service at: {EMB_URL}")
             e = await client.post(f"{EMB_URL}/embedding/generate", json={"text": req.message})
             e.raise_for_status()
             embedding = e.json()["embedding"]
+            logger.info("Successfully received embedding")
         except Exception as ex:
+            logger.error(f"Embedding error: {ex}")
             raise HTTPException(502, f"Embedding error: {ex}")
 
         # 2) Vector search
         try:
+            logger.info(f"Calling vector search service at: {VEC_URL}")
             v = await client.post(
                 f"{VEC_URL}/vector/search",
                 json={"embedding": embedding, "k": 4}
             )
             v.raise_for_status()
             contexts = v.json().get("documents", [])
+            logger.info(f"Retrieved {len(contexts)} context documents")
         except Exception as ex:
+            logger.error(f"Vector search error: {ex}")
             raise HTTPException(502, f"Vector search error: {ex}")
 
         # 3) Build prompt
@@ -68,10 +85,13 @@ async def chatbot_query(req: ChatReq):
 
         # 4) LLM
         try:
+            logger.info(f"Calling LLM service at: {LLM_URL}")
             l = await client.post(f"{LLM_URL}/llm/generate", json={"messages": msgs})
             l.raise_for_status()
             reply = l.json().get("reply", "")
+            logger.info("Successfully generated reply")
         except Exception as ex:
+            logger.error(f"LLM error: {ex}")
             raise HTTPException(502, f"LLM error: {ex}")
 
         return {"reply": reply}

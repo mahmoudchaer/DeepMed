@@ -4,6 +4,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
 from openai import OpenAI
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -17,15 +22,25 @@ class EmbeddingResponse(BaseModel):
 @app.post("/embedding/generate", response_model=EmbeddingResponse)
 async def generate_embedding(req: EmbeddingRequest):
     try:
+        logger.info(f"Generating embedding for text: {req.text[:50]}...")
         response = client.embeddings.create(
             model="text-embedding-3-small",
             input=req.text
         )
-        return EmbeddingResponse(embedding=response.data[0].embedding)
+        embedding = response.data[0].embedding
+        logger.info(f"Successfully generated embedding of dimension {len(embedding)}")
+        return EmbeddingResponse(embedding=embedding)
     except Exception as e:
+        logger.error(f"Error generating embedding: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "embedding"}
 
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting embedding service on port 5201")
     uvicorn.run("app:app", host="0.0.0.0", port=5201, reload=True)

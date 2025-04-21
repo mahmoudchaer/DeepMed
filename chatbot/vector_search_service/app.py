@@ -5,12 +5,23 @@ from pydantic import BaseModel
 from typing import List
 import os
 import chromadb
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
-client = chromadb.PersistentClient(
-    path=os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
-)
-collection = client.get_or_create_collection("deepmed_docs")
+persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+logger.info(f"Using ChromaDB persist directory: {persist_dir}")
+
+try:
+    client = chromadb.PersistentClient(path=persist_dir)
+    collection = client.get_or_create_collection("deepmed_docs")
+    logger.info(f"Successfully connected to ChromaDB collection")
+except Exception as e:
+    logger.error(f"Failed to initialize ChromaDB: {e}")
+    raise
 
 
 class SearchRequest(BaseModel):
@@ -26,20 +37,43 @@ class SearchResponse(BaseModel):
 @app.post("/vector/search", response_model=SearchResponse)
 async def vector_search(req: SearchRequest):
     try:
+        logger.info(f"Searching for similar documents with k={req.k}")
+        if len(req.embedding) < 1:
+            raise ValueError("Empty embedding provided")
+            
         res = collection.query(
             query_embeddings=[req.embedding],
             n_results=req.k
         )
+        
+        logger.info(f"Found {len(res['documents'][0])} documents")
         return SearchResponse(
             documents=res["documents"][0],
             distances=res["distances"][0]
         )
     except Exception as e:
+        logger.error(f"Vector search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health_check():
+    try:
+        # Simple count to verify we can query the collection
+        count = collection.count()
+        return {
+            "status": "healthy", 
+            "service": "vector_search",
+            "document_count": count
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting vector search service on port 5202")
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
