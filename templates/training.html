@@ -459,6 +459,33 @@
         background-color: #495057;
         border-radius: 10px;
     }
+    
+    /* AI Recommendations styling */
+    .ai-recommendation-field {
+        background-color: #343a40;
+        color: #f8f9fa;
+        border: 1px solid #495057;
+        padding: 0.75rem !important;
+        border-radius: 0.375rem;
+        font-weight: 500;
+    }
+    
+    .ai-recommendation-section {
+        background-color: #212529;
+        border: 1px solid #0077b6;
+        border-radius: 0.5rem;
+    }
+    
+    .ai-recommendation-title {
+        color: #0077b6;
+        font-weight: 600;
+    }
+    
+    .ai-data-issue {
+        color: #f8f9fa;
+        background-color: #30363d;
+        border-left: 3px solid #ffc107;
+    }
 </style>
 <!-- Make sure jQuery is included before Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -518,7 +545,7 @@
         {% if ai_recommendations %}
         <div class="row mb-4">
             <div class="col-12">
-                <div class="tabular-card">
+                <div class="tabular-card ai-recommendation-section">
                     <div class="tabular-header">
                         <h3 class="mb-0"><i class="fas fa-robot me-2"></i> AI Recommendations</h3>
                     </div>
@@ -526,19 +553,19 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="fw-bold text-primary">Recommended Target Column:</label>
-                                    <div class="p-2 bg-light rounded border">{{ ai_recommendations.target_column }}</div>
+                                    <label class="fw-bold ai-recommendation-title">Recommended Target Column:</label>
+                                    <div class="ai-recommendation-field">{{ ai_recommendations.target_column }}</div>
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label class="fw-bold text-primary">Suggested Model Type:</label>
-                                    <div class="p-2 bg-light rounded border">{{ ai_recommendations.model_type }}</div>
+                                    <label class="fw-bold ai-recommendation-title">Suggested Model Type:</label>
+                                    <div class="ai-recommendation-field">{{ ai_recommendations.model_type }}</div>
                                 </div>
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="fw-bold text-primary">Analysis Reasoning:</label>
-                                <p class="p-2 bg-light rounded border">{{ ai_recommendations.reasoning }}</p>
+                                <label class="fw-bold ai-recommendation-title">Analysis Reasoning:</label>
+                                <p class="ai-recommendation-field">{{ ai_recommendations.reasoning }}</p>
                             </div>
                         </div>
                         
@@ -550,7 +577,7 @@
                             </div>
                             <ul class="mb-0">
                                 {% for issue in ai_recommendations.data_issues %}
-                                <li>{{ issue }}</li>
+                                <li class="ai-data-issue p-2 mb-2 rounded">{{ issue }}</li>
                                 {% endfor %}
                             </ul>
                         </div>
