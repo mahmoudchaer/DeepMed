@@ -7,6 +7,7 @@ from typing import List, Literal
 import os
 import httpx
 import logging
+import random
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +48,69 @@ class ChatReq(BaseModel):
 class ChatRes(BaseModel):
     reply: str
 
+def apply_message_retention_strategy(messages: List[Message]) -> List[Message]:
+    """
+    Apply a balanced retention strategy to message history:
+    - Always keep the system prompt
+    - Keep the last 6 messages (100% retention)
+    - Messages -7 to -12: 85% retention
+    - Messages -13 to -20: 60% retention
+    - Messages -21 to -30: 35% retention
+    - Older than 30: 10-20% retention
+    
+    Returns a filtered list of messages according to the retention policy.
+    """
+    if not messages:
+        return []
+    
+    # First separate system messages (which are always kept)
+    system_messages = [msg for msg in messages if msg.role == "system"]
+    non_system_messages = [msg for msg in messages if msg.role != "system"]
+    total_non_system = len(non_system_messages)
+    
+    # Always keep the last 6 messages
+    result = system_messages + ([] if total_non_system <= 6 else non_system_messages[-6:])
+    
+    # Apply retention probabilities to earlier messages
+    if total_non_system > 6:
+        # Messages -7 to -12: 85% retention
+        start_idx = max(0, total_non_system - 12)
+        end_idx = total_non_system - 6
+        for i in range(start_idx, end_idx):
+            if random.random() < 0.85:
+                result.append(non_system_messages[i])
+        
+        # Messages -13 to -20: 60% retention
+        start_idx = max(0, total_non_system - 20)
+        end_idx = max(0, total_non_system - 12)
+        for i in range(start_idx, end_idx):
+            if random.random() < 0.60:
+                result.append(non_system_messages[i])
+        
+        # Messages -21 to -30: 35% retention
+        start_idx = max(0, total_non_system - 30)
+        end_idx = max(0, total_non_system - 20)
+        for i in range(start_idx, end_idx):
+            if random.random() < 0.35:
+                result.append(non_system_messages[i])
+        
+        # Older than 30: 10-20% retention (using 15%)
+        start_idx = 0
+        end_idx = max(0, total_non_system - 30)
+        for i in range(start_idx, end_idx):
+            if random.random() < 0.15:
+                result.append(non_system_messages[i])
+    
+    # Sort messages to maintain chronological order
+    # System messages stay at the beginning, then non-system messages in order
+    final_result = system_messages + sorted(
+        [msg for msg in result if msg.role != "system"],
+        key=lambda x: messages.index(x)
+    )
+    
+    logger.info(f"Message retention: {total_non_system} messages reduced to {len(final_result) - len(system_messages)} (plus {len(system_messages)} system messages)")
+    return final_result
+
 @app.post("/chatbot/query", response_model=ChatRes)
 async def chatbot_query(req: ChatReq):
     logger.info(f"Processing request for user: {req.user_id}")
@@ -78,7 +142,11 @@ async def chatbot_query(req: ChatReq):
 
         # 3) Build prompt
         msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
-        msgs += [m.dict() for m in req.history]
+        
+        # Apply retention strategy to message history
+        filtered_history = apply_message_retention_strategy(req.history)
+        msgs += [m.dict() for m in filtered_history]
+        
         for c in contexts:
             msgs.append({"role": "system", "content": c})
         msgs.append({"role": "user", "content": req.message})
