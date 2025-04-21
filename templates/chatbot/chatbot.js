@@ -88,18 +88,63 @@ document.addEventListener('DOMContentLoaded', function() {
         return history ? JSON.parse(history) : [];
     }
     
-    // Append message to chat window
+    // Format text content (process markdown-style formatting)
+    function formatTextContent(content) {
+        if (!content) return '';
+        
+        // Convert line breaks to paragraphs
+        let formatted = content
+            // Split by double line breaks for paragraphs
+            .split(/\n\s*\n/)
+            .map(para => `<p>${para.trim()}</p>`)
+            .join('');
+            
+        // Handle single line breaks
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        // Convert **bold** to <strong>bold</strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Convert numbered lists (1. item)
+        const numberedListRegex = /<p>(\d+\.\s+.*?)(<\/p>|$)/g;
+        if (numberedListRegex.test(formatted)) {
+            formatted = formatted.replace(/<p>(\d+\.\s+.*?)<\/p>/g, (match, item) => {
+                return `<ol><li>${item.replace(/^\d+\.\s+/, '')}</li></ol>`;
+            });
+            
+            // Merge consecutive list items
+            formatted = formatted.replace(/<\/ol>\s*<ol>/g, '');
+        }
+        
+        // Convert bullet lists (* item or - item)
+        const bulletListRegex = /<p>[\*\-]\s+(.*?)(<\/p>|$)/g;
+        if (bulletListRegex.test(formatted)) {
+            formatted = formatted.replace(/<p>[\*\-]\s+(.*?)<\/p>/g, (match, item) => {
+                return `<ul><li>${item}</li></ul>`;
+            });
+            
+            // Merge consecutive list items
+            formatted = formatted.replace(/<\/ul>\s*<ul>/g, '');
+        }
+        
+        return formatted;
+    }
+    
+    // Append message to chat window with improved formatting
     function appendMessage(role, content) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message');
         
         if (role === 'user') {
             messageDiv.classList.add('user-message');
+            // For user messages, keep simple formatting
+            messageDiv.textContent = content;
         } else {
             messageDiv.classList.add('assistant-message');
+            // For assistant messages, apply enhanced formatting
+            messageDiv.innerHTML = formatTextContent(content);
         }
         
-        messageDiv.textContent = content;
         messagesContainer.appendChild(messageDiv);
         scrollToBottom();
     }

@@ -31,14 +31,14 @@
     color: white;
 }
 
-/* Chatbot window */
+/* Chatbot window - increased size */
 .chatbot-window {
     display: none;
     position: absolute;
     bottom: 80px;
     right: 0;
-    width: 350px;
-    height: 500px;
+    width: 400px; /* Increased from 350px */
+    height: 600px; /* Increased from 500px */
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -75,20 +75,46 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px; /* Increased from 10px for better spacing between messages */
     height: calc(100% - 130px);
 }
 
-/* Message styles */
+/* Message styles - improved readability */
 .message {
-    max-width: 80%;
-    padding: 10px 15px;
+    max-width: 85%; /* Slightly wider messages */
+    padding: 12px 16px; /* Increased padding */
     border-radius: 18px;
-    line-height: 1.4;
+    line-height: 1.6; /* Increased line height for better readability */
+    font-size: 15px; /* Slightly larger font */
     word-wrap: break-word;
     margin-bottom: 8px;
     position: relative;
     animation: fadeIn 0.3s;
+    white-space: pre-line; /* Preserves line breaks in text */
+}
+
+/* Style for paragraphs within messages to add spacing */
+.message p {
+    margin: 0 0 12px 0; /* Add spacing between paragraphs */
+}
+
+.message p:last-child {
+    margin-bottom: 0;
+}
+
+/* Style for lists within messages */
+.message ul, .message ol {
+    padding-left: 20px;
+    margin: 10px 0;
+}
+
+.message li {
+    margin-bottom: 5px;
+}
+
+/* Style for bold text */
+.message strong {
+    font-weight: bold;
 }
 
 @keyframes fadeIn {
@@ -113,7 +139,7 @@
 /* Input area */
 .chatbot-input-container {
     display: flex;
-    padding: 10px 15px;
+    padding: 12px 15px; /* Slightly more padding */
     border-top: 1px solid #e0e0e0;
     background-color: #f9f9f9;
 }
@@ -122,11 +148,11 @@
     flex: 1;
     border: 1px solid #ddd;
     border-radius: 20px;
-    padding: 10px 15px;
+    padding: 12px 15px; /* Slightly more padding */
     resize: none;
     outline: none;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 15px; /* Slightly larger font */
     max-height: 100px;
     overflow-y: auto;
 }
@@ -136,11 +162,12 @@
     color: white;
     border: none;
     border-radius: 20px;
-    padding: 0 15px;
+    padding: 0 16px;
     margin-left: 10px;
     cursor: pointer;
     font-weight: bold;
-    height: 38px;
+    height: 40px; /* Slightly taller button */
+    font-size: 15px; /* Slightly larger font */
 }
 
 .chatbot-send-btn:hover {
@@ -184,4 +211,23 @@
     0% { transform: scale(1); }
     50% { transform: scale(1.5); }
     100% { transform: scale(1); }
+}
+
+/* Add a scrollbar styling for better UX */
+.chatbot-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chatbot-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.chatbot-messages::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 } 
