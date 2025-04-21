@@ -802,42 +802,72 @@ def predict():
                             
                             # COMPLETELY SIMPLIFIED APPROACH:
                             # 1. Create the decoded values
-                            decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
-                                                                               inverse_mapping.get(str(x), 
-                                                                                   inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
-                                                                                       None))))
-                            
-                            # 2. Remove ALL prediction-related columns
-                            prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
-                            app.logger.info(f"Removing all prediction columns: {prediction_columns}")
-                            df.drop(columns=prediction_columns, inplace=True)
-                            
-                            # 3. Add only the final decoded column
-                            df["Prediction (Decoded)"] = decoded_values
-                            
-                            # 4. Ensure it's at the end
-                            all_cols = df.columns.tolist()
-                            all_cols.remove("Prediction (Decoded)")
-                            all_cols.append("Prediction (Decoded)")
-                            df = df[all_cols]
-                            
-                            app.logger.info(f"Final output has only one prediction column at the end")
-                            
-                            # Check if decoding worked
-                            null_count = df["Prediction (Decoded)"].isna().sum()
-                            decoded_count = len(df) - null_count
-                            
-                            if decoded_count > 0:
-                                # At least some values were decoded
-                                success_percentage = (decoded_count / len(df)) * 100
-                                app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                            try:
+                                decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                   inverse_mapping.get(str(x), 
+                                                                       inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                           None))))
                                 
-                                # No message row - just log to console
-                            else:
-                                app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                # 2. Remove ALL prediction-related columns
+                                prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
+                                app.logger.info(f"Removing all prediction columns: {prediction_columns}")
+                                df.drop(columns=prediction_columns, inplace=True)
                                 
-                                # If decoding completely failed, we'll remove the decoded column
-                                df.drop(columns=["Prediction (Decoded)"], inplace=True)
+                                # 3. Add only the final decoded column
+                                df["Prediction (Decoded)"] = decoded_values
+                                
+                                # 4. Ensure it's at the end
+                                all_cols = df.columns.tolist()
+                                all_cols.remove("Prediction (Decoded)")
+                                all_cols.append("Prediction (Decoded)")
+                                df = df[all_cols]
+                                
+                                app.logger.info(f"Final output has only one prediction column at the end")
+                                
+                                # Check if decoding worked
+                                null_count = df["Prediction (Decoded)"].isna().sum()
+                                decoded_count = len(df) - null_count
+                                
+                                if decoded_count > 0:
+                                    # At least some values were decoded
+                                    success_percentage = (decoded_count / len(df)) * 100
+                                    app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                                    
+                                    # No message row - just log to console
+                                else:
+                                    app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                    
+                                    # If decoding completely failed, we'll remove the decoded column
+                                    df.drop(columns=["Prediction (Decoded)"], inplace=True)
+                            except ValueError as ve:
+                                error_msg = str(ve)
+                                app.logger.error(f"Error during prediction decoding: {error_msg}")
+                                
+                                # Check specifically for length mismatch errors
+                                if "Length of values" in error_msg and "does not match length of index" in error_msg:
+                                    app.logger.error("DataFrame length mismatch detected - this often indicates inconsistency in the prediction output")
+                                    app.logger.error(f"DataFrame shape: {df.shape}, Prediction column values: {len(df[pred_col])}")
+                                    
+                                    # Create simple error dataframe instead
+                                    error_df = pd.DataFrame({
+                                        'error': ['DATA_LENGTH_ERROR'],
+                                        'error_message': [f"Prediction failed: {error_msg}. This might indicate an issue with missing values or inconsistent data shapes."]
+                                    })
+                                    
+                                    # Return error as CSV
+                                    output_csv = error_df.to_csv(index=False)
+                                    return jsonify({"output_file": output_csv})
+                                
+                                # For other value errors, create a helpful error message
+                                app.logger.error("Creating error message CSV instead of prediction output")
+                                error_df = pd.DataFrame({
+                                    'error': ['PROCESSING_ERROR'],
+                                    'error_message': [f"Error processing predictions: {error_msg}"]
+                                })
+                                
+                                # Return error as CSV
+                                output_csv = error_df.to_csv(index=False)
+                                return jsonify({"output_file": output_csv})
                 except Exception as decode_error:
                     print(f"Error decoding prediction: {str(decode_error)}")
                     # Continue without decoding if there's an error
@@ -1108,42 +1138,72 @@ def predict():
                             
                             # COMPLETELY SIMPLIFIED APPROACH:
                             # 1. Create the decoded values
-                            decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
-                                                                               inverse_mapping.get(str(x), 
-                                                                                   inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
-                                                                                       None))))
-                            
-                            # 2. Remove ALL prediction-related columns
-                            prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
-                            app.logger.info(f"Removing all prediction columns: {prediction_columns}")
-                            df.drop(columns=prediction_columns, inplace=True)
-                            
-                            # 3. Add only the final decoded column
-                            df["Prediction (Decoded)"] = decoded_values
-                            
-                            # 4. Ensure it's at the end
-                            all_cols = df.columns.tolist()
-                            all_cols.remove("Prediction (Decoded)")
-                            all_cols.append("Prediction (Decoded)")
-                            df = df[all_cols]
-                            
-                            app.logger.info(f"Final output has only one prediction column at the end")
-                            
-                            # Check if decoding worked
-                            null_count = df["Prediction (Decoded)"].isna().sum()
-                            decoded_count = len(df) - null_count
-                            
-                            if decoded_count > 0:
-                                # At least some values were decoded
-                                success_percentage = (decoded_count / len(df)) * 100
-                                app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                            try:
+                                decoded_values = df[pred_col].apply(lambda x: inverse_mapping.get(x, 
+                                                                   inverse_mapping.get(str(x), 
+                                                                       inverse_mapping.get(int(float(x)) if isinstance(x, (int, float, str)) and x != '' else None,
+                                                                           None))))
                                 
-                                # No message row - just log to console
-                            else:
-                                app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                # 2. Remove ALL prediction-related columns
+                                prediction_columns = [col for col in df.columns if 'predict' in col.lower() or 'original' in col.lower()]
+                                app.logger.info(f"Removing all prediction columns: {prediction_columns}")
+                                df.drop(columns=prediction_columns, inplace=True)
                                 
-                                # If decoding completely failed, we'll remove the decoded column
-                                df.drop(columns=["Prediction (Decoded)"], inplace=True)
+                                # 3. Add only the final decoded column
+                                df["Prediction (Decoded)"] = decoded_values
+                                
+                                # 4. Ensure it's at the end
+                                all_cols = df.columns.tolist()
+                                all_cols.remove("Prediction (Decoded)")
+                                all_cols.append("Prediction (Decoded)")
+                                df = df[all_cols]
+                                
+                                app.logger.info(f"Final output has only one prediction column at the end")
+                                
+                                # Check if decoding worked
+                                null_count = df["Prediction (Decoded)"].isna().sum()
+                                decoded_count = len(df) - null_count
+                                
+                                if decoded_count > 0:
+                                    # At least some values were decoded
+                                    success_percentage = (decoded_count / len(df)) * 100
+                                    app.logger.info(f"===== DECODING SUCCEEDED for {decoded_count}/{len(df)} values ({success_percentage:.1f}%) =====")
+                                    
+                                    # No message row - just log to console
+                                else:
+                                    app.logger.info("===== DECODING COMPLETELY FAILED - NO VALUES DECODED =====")
+                                    
+                                    # If decoding completely failed, we'll remove the decoded column
+                                    df.drop(columns=["Prediction (Decoded)"], inplace=True)
+                            except ValueError as ve:
+                                error_msg = str(ve)
+                                app.logger.error(f"Error during prediction decoding: {error_msg}")
+                                
+                                # Check specifically for length mismatch errors
+                                if "Length of values" in error_msg and "does not match length of index" in error_msg:
+                                    app.logger.error("DataFrame length mismatch detected - this often indicates inconsistency in the prediction output")
+                                    app.logger.error(f"DataFrame shape: {df.shape}, Prediction column values: {len(df[pred_col])}")
+                                    
+                                    # Create simple error dataframe instead
+                                    error_df = pd.DataFrame({
+                                        'error': ['DATA_LENGTH_ERROR'],
+                                        'error_message': [f"Prediction failed: {error_msg}. This might indicate an issue with missing values or inconsistent data shapes."]
+                                    })
+                                    
+                                    # Return error as CSV
+                                    output_csv = error_df.to_csv(index=False)
+                                    return jsonify({"output_file": output_csv})
+                                
+                                # For other value errors, create a helpful error message
+                                app.logger.error("Creating error message CSV instead of prediction output")
+                                error_df = pd.DataFrame({
+                                    'error': ['PROCESSING_ERROR'],
+                                    'error_message': [f"Error processing predictions: {error_msg}"]
+                                })
+                                
+                                # Return error as CSV
+                                output_csv = error_df.to_csv(index=False)
+                                return jsonify({"output_file": output_csv})
                 except Exception as decode_error:
                     print(f"Error decoding prediction from file: {str(decode_error)}")
                     # Continue without decoding if there's an error
