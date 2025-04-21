@@ -5,7 +5,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .  # includes app.py, init_db.py, docs/, etc.
+# Copy all files (app.py, init_db.py, docs/, etc.)
+COPY . .
 
 # Initialize the DB on container startup
 ENV CHROMA_PERSIST_DIR=./chroma_data
