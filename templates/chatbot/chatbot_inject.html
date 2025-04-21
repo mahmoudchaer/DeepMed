@@ -1,0 +1,32 @@
+<!-- Chatbot Widget HTML -->
+<div id="deepmed-chatbot-widget" class="chatbot-widget-container">
+    <div class="chatbot-button" id="chatbot-toggle-btn">
+        <span class="chatbot-icon">💬</span>
+    </div>
+    
+    <div class="chatbot-window" id="chatbot-window">
+        <div class="chatbot-header">
+            <div class="chatbot-title">DeepMed Assistant</div>
+            <button class="chatbot-close-btn" id="chatbot-close-btn">✕</button>
+        </div>
+        
+        <div class="chatbot-messages" id="chatbot-messages">
+            <!-- Messages will be populated here -->
+        </div>
+        
+        <div class="chatbot-input-container">
+            <textarea 
+                id="chatbot-input" 
+                class="chatbot-input" 
+                placeholder="Type your question here..." 
+                rows="1"></textarea>
+            <button id="chatbot-send-btn" class="chatbot-send-btn">
+                <span>Send</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Include chatbot assets -->
+<link rel="stylesheet" href="{{ url_for('chatbot.chatbot_css') }}">
+<script src="{{ url_for('chatbot.chatbot_js') }}"></script> 

@@ -20,6 +20,8 @@ import urllib.parse
 from werkzeug.utils import secure_filename
 import plotly.graph_objects as go
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
+# Import the chatbot module
+from app_llm import register_chatbot_blueprint
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -648,6 +650,9 @@ if __name__ == '__main__':
     from app_images import *
     from app_others import *
     from app_regression import *
+    
+    # Register the chatbot blueprint
+    app = register_chatbot_blueprint(app)
     
     # Ensure the database exists
     with app.app_context():

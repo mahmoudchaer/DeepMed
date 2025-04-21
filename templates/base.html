@@ -369,5 +369,10 @@
 
     <!-- Child template scripts -->
     {% block scripts %}{% endblock %}
+
+    <!-- Include the chatbot if enabled -->
+    {% if chatbot_enabled is defined and chatbot_enabled %}
+        {% include 'chatbot/chatbot_inject.html' %}
+    {% endif %}
 </body>
 </html> 
