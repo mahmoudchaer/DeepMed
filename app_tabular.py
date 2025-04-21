@@ -32,6 +32,8 @@ from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 classification_training_status = {}
 
 @app.route('/upload', methods=['POST'])
+
+
 @login_required
 def upload():
     # Double check authentication - ensure user is logged in

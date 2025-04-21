@@ -2104,3 +2104,36 @@ def extract_features():
     except Exception as e:
         logger.error(f"Error extracting features: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/delete_training_run/<int:run_id>', methods=['POST'])
+@login_required
+def delete_training_run(run_id):
+    """Delete a training run and its associated models"""
+    user_id = current_user.id
+    
+    try:
+        # Ensure the run belongs to the current user
+        run = TrainingRun.query.filter_by(id=run_id, user_id=user_id).first_or_404()
+        
+        # Delete all associated training models
+        models = TrainingModel.query.filter_by(run_id=run_id, user_id=user_id).all()
+        for model in models:
+            db.session.delete(model)
+        
+        # Delete any associated preprocessing data
+        preprocessing_data = PreprocessingData.query.filter_by(run_id=run_id, user_id=user_id).first()
+        if preprocessing_data:
+            db.session.delete(preprocessing_data)
+        
+        # Delete the training run itself
+        db.session.delete(run)
+        
+        # Commit the changes
+        db.session.commit()
+        
+        return jsonify({'status': 'success', 'message': 'Training run and associated models deleted successfully'})
+    
+    except Exception as e:
+        logger.error(f"Error deleting training run: {str(e)}")
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
