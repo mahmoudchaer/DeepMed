@@ -790,36 +790,36 @@ def get_classification_training_status():
         
         for i, model_name in enumerate(model_names):
             # Offset each model's progress to stagger them
-            time_offset = i * 3  # seconds offset
+            time_offset = i * 5  # seconds offset
             
             # Calculate a deterministic progress value based on time (0-100)
-            # Different models progress at different rates
+            # Different models progress at different rates but faster than before
             if model_name == 'logistic-regression':
                 # Logistic regression completes faster
-                progress = min(100, (current_time % 60) * 2 + time_offset)
+                progress = min(100, (current_time % 30) * 4 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             elif model_name == 'decision-tree':
-                progress = min(100, (current_time % 70) * 1.5 + time_offset)
+                progress = min(100, (current_time % 35) * 3 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             elif model_name == 'random-forest':
                 # Random forest takes longer
-                progress = min(100, (current_time % 80) * 1.3 + time_offset)
+                progress = min(100, (current_time % 40) * 2.5 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             elif model_name == 'knn':
-                progress = min(100, (current_time % 65) * 1.6 + time_offset)
+                progress = min(100, (current_time % 32) * 3.5 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             elif model_name == 'svm':
                 # SVM takes the longest
-                progress = min(100, (current_time % 90) * 1.2 + time_offset)
+                progress = min(100, (current_time % 45) * 2.2 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             else:  # naive-bayes
                 # Naive Bayes is quick
-                progress = min(100, (current_time % 55) * 2.0 + time_offset)
+                progress = min(100, (current_time % 25) * 4.5 + time_offset)
                 if progress >= 100:
                     completed_models += 1
             
