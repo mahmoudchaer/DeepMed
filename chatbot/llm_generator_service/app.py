@@ -2,10 +2,11 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import os, openai
+import os
+from openai import OpenAI
 
 app = FastAPI()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class Message(BaseModel):
     role: str
@@ -22,9 +23,9 @@ class LLMResponse(BaseModel):
 @app.post("/llm/generate", response_model=LLMResponse)
 async def generate(llm_req: LLMRequest):
     try:
-        resp = openai.ChatCompletion.create(
+        resp = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[m.dict() for m in llm_req.messages],
+            messages=[{"role": m.role, "content": m.content} for m in llm_req.messages],
             max_tokens=llm_req.max_tokens,
             temperature=llm_req.temperature
         )
