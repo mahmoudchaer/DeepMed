@@ -2,20 +2,26 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import List
 import os
 import chromadb
 
 app = FastAPI()
-client = chromadb.PersistentClient(path=os.getenv("CHROMA_PERSIST_DIR","./chroma_data"))
+client = chromadb.PersistentClient(
+    path=os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+)
 collection = client.get_or_create_collection("deepmed_docs")
 
+
 class SearchRequest(BaseModel):
-    embedding: list[float]
+    embedding: List[float]
     k: int = 4
 
+
 class SearchResponse(BaseModel):
-    documents: list[str]
-    distances: list[float]
+    documents: List[str]
+    distances: List[float]
+
 
 @app.post("/vector/search", response_model=SearchResponse)
 async def vector_search(req: SearchRequest):
@@ -34,4 +40,10 @@ async def vector_search(req: SearchRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=5202, reload=True)
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=5202,
+        reload=True,
+        log_level="info"
+    )
