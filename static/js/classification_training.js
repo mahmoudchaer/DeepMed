@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show the loading overlay
             showTrainingOverlay();
             
-            // Only start polling when form is submitted
+            // Start polling for training status
             startPollingTrainingStatus();
         });
     }
@@ -199,9 +199,6 @@ function showTrainingOverlay() {
         if (mainStatusText) {
             mainStatusText.textContent = 'Training models...';
         }
-        
-        // Start the fast progress simulation immediately
-        startPollingTrainingStatus();
     }
 }
 
@@ -291,76 +288,104 @@ function updateOverallProgress(progress, status) {
  * Start polling for training status
  */
 function startPollingTrainingStatus() {
-    // Immediately show high progress for all models
+    // Immediately show high progress for all models but not 100%
     const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
     
-    // Set initial high progress
-    modelNames.forEach(name => {
+    // Set initial high progress (around 80-95%)
+    modelNames.forEach((name, index) => {
         const progressBar = document.getElementById(`progress-${name}`);
         const statusText = document.getElementById(`status-${name}`);
         const modelCard = document.getElementById(`model-card-${name}`);
         
+        // Stagger the progress a bit for visual effect
+        const progress = 80 + Math.floor(Math.random() * 15);
+        
         if (progressBar) {
-            progressBar.style.width = '90%';
-            progressBar.setAttribute('aria-valuenow', 90);
+            progressBar.style.width = `${progress}%`;
+            progressBar.setAttribute('aria-valuenow', progress);
+            progressBar.classList.remove('bg-warning', 'progress-bar-animated');
+            progressBar.classList.add('bg-success');
         }
         
         if (statusText) {
-            statusText.textContent = 'Finalizing model...';
+            statusText.textContent = 'Training in progress...';
+        }
+        
+        if (modelCard) {
+            modelCard.classList.remove('in-progress');
+            modelCard.classList.add('complete');
         }
     });
     
-    // Update overall progress
+    // Update overall progress to 85%
     const mainProgressBar = document.getElementById('main-progress-bar');
     const mainStatusText = document.getElementById('main-status-text');
     
     if (mainProgressBar) {
-        mainProgressBar.style.width = '90%';
-        mainProgressBar.setAttribute('aria-valuenow', 90);
+        mainProgressBar.style.width = '85%';
+        mainProgressBar.setAttribute('aria-valuenow', 85);
     }
     
     if (mainStatusText) {
-        mainStatusText.textContent = 'Almost done! Finalizing models...';
+        mainStatusText.textContent = 'Models training in progress, finalizing results...';
     }
     
-    // After a short delay, complete all models
-    setTimeout(() => {
-        modelNames.forEach(name => {
-            const progressBar = document.getElementById(`progress-${name}`);
-            const statusText = document.getElementById(`status-${name}`);
-            const modelCard = document.getElementById(`model-card-${name}`);
-            
-            if (progressBar) {
-                progressBar.style.width = '100%';
-                progressBar.setAttribute('aria-valuenow', 100);
-                progressBar.classList.remove('bg-warning', 'progress-bar-animated');
-                progressBar.classList.add('bg-success');
+    // Now start polling for the actual status
+    pollForActualStatus();
+}
+
+/**
+ * Poll the server for the actual training status
+ */
+function pollForActualStatus() {
+    fetch('/api/classification_training_status')
+        .then(response => response.json())
+        .then(data => {
+            // Only redirect when the real training is complete
+            if (data.status === 'complete') {
+                // Update overall progress to 100%
+                const mainProgressBar = document.getElementById('main-progress-bar');
+                const mainStatusText = document.getElementById('main-status-text');
+                
+                if (mainProgressBar) {
+                    mainProgressBar.style.width = '100%';
+                    mainProgressBar.setAttribute('aria-valuenow', 100);
+                }
+                
+                if (mainStatusText) {
+                    mainStatusText.textContent = 'Training complete! Redirecting to results...';
+                }
+                
+                // Make all models show 100%
+                const modelNames = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes'];
+                modelNames.forEach(name => {
+                    const progressBar = document.getElementById(`progress-${name}`);
+                    const statusText = document.getElementById(`status-${name}`);
+                    
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                        progressBar.setAttribute('aria-valuenow', 100);
+                    }
+                    
+                    if (statusText) {
+                        statusText.textContent = 'Model training complete!';
+                    }
+                });
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || '/model_selection';
+                }, 800);
+            } else {
+                // Continue polling until complete
+                setTimeout(pollForActualStatus, 1000);
             }
-            
-            if (statusText) {
-                statusText.textContent = 'Model training complete!';
-            }
-            
-            if (modelCard) {
-                modelCard.classList.remove('in-progress');
-                modelCard.classList.add('complete');
-            }
+        })
+        .catch(error => {
+            console.error('Error checking training status:', error);
+            // Still poll even on error, as the training might be continuing
+            setTimeout(pollForActualStatus, 1000);
         });
-        
-        if (mainProgressBar) {
-            mainProgressBar.style.width = '100%';
-            mainProgressBar.setAttribute('aria-valuenow', 100);
-        }
-        
-        if (mainStatusText) {
-            mainStatusText.textContent = 'Training complete! Redirecting to results...';
-        }
-        
-        // Redirect after another short delay
-        setTimeout(() => {
-            window.location.href = '/model_selection';
-        }, 800);
-    }, 700);
 }
 
 /**
