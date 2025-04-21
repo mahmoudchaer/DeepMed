@@ -3,6 +3,8 @@
 {% block title %}DeepMed - Classification Training{% endblock %}
 
 {% block head %}
+{{ super() }}
+<link rel="stylesheet" href="/static/css/training_overlay.css">
 <style>
     /* Improve data table styling */
     .table-responsive table {
@@ -611,6 +613,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/classification_training.js"></script>
 <script>
     $(document).ready(function() {
         // Create a custom search input that will replace the standard Select2 display
