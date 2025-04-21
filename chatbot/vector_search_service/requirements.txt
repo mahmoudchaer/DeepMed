@@ -1,5 +1,7 @@
-fastapi
-uvicorn[standard]
-chromadb
-pydantic
-openai
+# chatbot/vector_search_service/requirements.txt
+
+fastapi>=0.100.0,<1.0
+uvicorn[standard]>=0.23.0,<1.0
+chromadb>=0.4.0,<1.0
+pydantic>=2.0,<3.0
+openai>=0.27.0,<1.0
