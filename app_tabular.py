@@ -46,12 +46,22 @@ def upload():
     keys_to_remove = [
         'model_results', 'last_training_run_id', 'run_id', 'trained_models',
         'selected_features', 'selected_features_file', 'cleaned_file',
-        'feature_importance_file', 'selected_features_file_json', 'anomaly_results'
+        'feature_importance_file', 'selected_features_file_json', 'anomaly_results',
+        'ai_recommendations', 'ai_recommendations_file'  # Reset medical assistant recommendations
     ]
     
     for key in keys_to_remove:
         if key in session:
+            # If this is a file path, remove the actual file too
+            if key.endswith('_file') and session[key] and os.path.exists(session[key]):
+                try:
+                    os.remove(session[key])
+                    logger.info(f"Removed file {session[key]} from key {key}")
+                except Exception as e:
+                    logger.error(f"Failed to remove file {session[key]}: {str(e)}")
+            
             session.pop(key, None)
+            logger.info(f"Cleared session key: {key}")
     
     # Also clear any keys that might be from previous training
     for key in list(session.keys()):
@@ -121,6 +131,19 @@ def training():
             session.pop('uploaded_file', None)
             session.pop('file_stats', None)
             session.pop('data_columns', None)
+        
+        # Also clear medical assistant recommendations
+        if 'ai_recommendations_file' in session:
+            # Delete the file if it exists
+            if os.path.exists(session['ai_recommendations_file']):
+                try:
+                    os.remove(session['ai_recommendations_file'])
+                except:
+                    pass
+            session.pop('ai_recommendations_file', None)
+        
+        if 'ai_recommendations' in session:
+            session.pop('ai_recommendations', None)
             
         # Redirect to clean URL
         return redirect(url_for('training'))
@@ -588,7 +611,8 @@ def training():
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
     ai_recommendations = None
-    if 'ai_recommendations' not in session and 'ai_recommendations_file' not in session and is_service_available(MEDICAL_ASSISTANT_URL):
+    # Always try to get fresh recommendations if the service is available
+    if is_service_available(MEDICAL_ASSISTANT_URL):
         try:
             logger.info(f"Sending data to Medical Assistant API")
             
@@ -608,6 +632,13 @@ def training():
                 ai_recommendations = response.json()["recommendations"]
                 
                 # Save to file instead of storing in session
+                # Remove old file if it exists
+                if 'ai_recommendations_file' in session and os.path.exists(session['ai_recommendations_file']):
+                    try:
+                        os.remove(session['ai_recommendations_file'])
+                    except:
+                        pass
+                        
                 recommendations_file = save_to_temp_file(ai_recommendations, 'ai_recommendations')
                 session['ai_recommendations_file'] = recommendations_file
                 logger.info(f"Saved AI recommendations to {recommendations_file}")
@@ -620,11 +651,12 @@ def training():
             logger.error(f"Error getting AI recommendations: {str(e)}", exc_info=True)
             # Don't flash this error to avoid confusing the user
             logger.info("Continuing without AI recommendations")
+    # If the service is not available, try to load from file if we have it
     elif 'ai_recommendations_file' in session:
         # Load from file
         ai_recommendations = load_from_temp_file(session['ai_recommendations_file'])
+    # Backward compatibility: Try to get from session
     else:
-        # Try to get from session (backward compatibility)
         ai_recommendations = session.get('ai_recommendations')
         
         # If it's in session, move to file
