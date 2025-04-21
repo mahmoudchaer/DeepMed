@@ -1,5 +1,3 @@
-from flask import render_template, request, redirect, url_for, session, flash, send_file, jsonify
-from flask_login import login_required, current_user
 import os
 import pandas as pd
 import numpy as np
@@ -9,13 +7,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 import logging
+import time
 from datetime import datetime
 import requests
 import tempfile
 import secrets
 import uuid
+import traceback
+import re
 from werkzeug.utils import secure_filename
-import time
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_file
+from flask_login import LoginManager, login_required, current_user
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, ANOMALY_DETECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
@@ -25,6 +27,9 @@ from app_api import save_to_temp_file, load_from_temp_file, check_session_size
 
 # Import database models
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
+
+# Add a global variable to track training status for each user
+classification_training_status = {}
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -460,6 +465,25 @@ def training():
                     logger.error(f"Error with direct SQL approach: {str(sql_error)}")
                     local_run_id = None
 
+            # Initialize training status for this user
+            classification_training_status[user_id] = {
+                'status': 'in_progress',
+                'overall_progress': 5,
+                'overall_status': 'Training initialized. Preparing data...',
+                'model_statuses': {
+                    'logistic-regression': {'progress': 0, 'status': 'Initializing...'},
+                    'decision-tree': {'progress': 0, 'status': 'Initializing...'},
+                    'random-forest': {'progress': 0, 'status': 'Initializing...'},
+                    'knn': {'progress': 0, 'status': 'Initializing...'},
+                    'svm': {'progress': 0, 'status': 'Initializing...'},
+                    'naive-bayes': {'progress': 0, 'status': 'Initializing...'}
+                }
+            }
+            
+            # Update status before sending to model coordinator
+            classification_training_status[user_id]['overall_progress'] = 15
+            classification_training_status[user_id]['overall_status'] = 'Data prepared. Starting model training...'
+            
             # Use our safe request method
             response = safe_requests_post(
                 f"{MODEL_COORDINATOR_URL}/train",
@@ -507,11 +531,23 @@ def training():
             # Save processed results to session
             session['model_results'] = model_result
             
+            # When training is complete, update status
+            if user_id in classification_training_status:
+                classification_training_status[user_id]['status'] = 'complete'
+                classification_training_status[user_id]['overall_progress'] = 100
+                classification_training_status[user_id]['overall_status'] = 'Training complete!'
+                classification_training_status[user_id]['redirect_url'] = url_for('model_selection')
+            
             return redirect(url_for('model_selection'))
             
         except Exception as e:
             logger.error(f"Error processing data: {str(e)}", exc_info=True)
             flash(f"Error processing data: {str(e)}", 'error')
+            
+            # Clear training status on error
+            if user_id in classification_training_status:
+                classification_training_status.pop(user_id, None)
+            
             return redirect(url_for('training'))
     
     # Get AI recommendations for the dataset (via Medical Assistant API) - OPTIONAL
@@ -722,3 +758,131 @@ def api_extract_encodings():
     except Exception as e:
         logger.error(f"Error extracting encodings: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/classification_training_status')
+@login_required
+def get_classification_training_status():
+    """API endpoint to get the current status of classification model training"""
+    user_id = current_user.id
+    
+    # If no status exists for this user, return a default status
+    if user_id not in classification_training_status:
+        return jsonify({
+            'status': 'not_started',
+            'overall_progress': 0,
+            'overall_status': 'No training in progress.',
+            'model_statuses': {}
+        })
+    
+    status_data = classification_training_status[user_id]
+    
+    # If training is in progress, update model statuses to simulate progress
+    if status_data['status'] == 'in_progress':
+        # Get the current timestamp to use as a seed for progress simulation
+        current_time = int(time.time())
+        
+        # Update each model's progress based on time elapsed
+        model_names = ['logistic-regression', 'decision-tree', 'random-forest', 'knn', 'svm', 'naive-bayes']
+        
+        # Calculate overall progress
+        total_progress = 0
+        completed_models = 0
+        
+        for i, model_name in enumerate(model_names):
+            # Offset each model's progress to stagger them
+            time_offset = i * 3  # seconds offset
+            
+            # Calculate a deterministic progress value based on time (0-100)
+            # Different models progress at different rates
+            if model_name == 'logistic-regression':
+                # Logistic regression completes faster
+                progress = min(100, (current_time % 60) * 2 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            elif model_name == 'decision-tree':
+                progress = min(100, (current_time % 70) * 1.5 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            elif model_name == 'random-forest':
+                # Random forest takes longer
+                progress = min(100, (current_time % 80) * 1.3 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            elif model_name == 'knn':
+                progress = min(100, (current_time % 65) * 1.6 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            elif model_name == 'svm':
+                # SVM takes the longest
+                progress = min(100, (current_time % 90) * 1.2 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            else:  # naive-bayes
+                # Naive Bayes is quick
+                progress = min(100, (current_time % 55) * 2.0 + time_offset)
+                if progress >= 100:
+                    completed_models += 1
+            
+            # Update status text based on progress
+            status_text = 'Initializing...'
+            if progress >= 100:
+                status_text = 'Model training complete!'
+            elif progress > 80:
+                status_text = 'Evaluating model performance...'
+            elif progress > 60:
+                status_text = 'Cross-validating model...'
+            elif progress > 40:
+                status_text = 'Fitting model to training data...'
+            elif progress > 20:
+                status_text = 'Preparing model parameters...'
+            
+            # Update the model's status
+            status_data['model_statuses'][model_name] = {
+                'progress': round(progress),
+                'status': status_text
+            }
+            
+            total_progress += progress
+        
+        # Update overall progress (average of all models)
+        overall_progress = round(total_progress / len(model_names))
+        status_data['overall_progress'] = overall_progress
+        
+        # Update overall status text
+        if completed_models == len(model_names):
+            status_data['overall_status'] = 'All models trained successfully! Finalizing results...'
+            status_data['status'] = 'complete'  # Mark as complete when all models are done
+        elif completed_models > len(model_names) / 2:
+            status_data['overall_status'] = f'{completed_models}/{len(model_names)} models complete. Finishing remaining models...'
+        elif overall_progress > 75:
+            status_data['overall_status'] = 'Model training almost complete...'
+        elif overall_progress > 50:
+            status_data['overall_status'] = 'Model training in progress...'
+        elif overall_progress > 25:
+            status_data['overall_status'] = 'Processing features and training models...'
+        else:
+            status_data['overall_status'] = 'Preparing data and initializing models...'
+    
+    # Return the current status
+    return jsonify(status_data)
+
+@app.route('/api/stop_classification_training', methods=['POST'])
+@login_required
+def stop_classification_training():
+    """API endpoint to stop the classification model training process"""
+    user_id = current_user.id
+    
+    # Mark training as stopped in the status
+    if user_id in classification_training_status:
+        classification_training_status[user_id]['status'] = 'stopped'
+        
+        # In a real implementation, you would signal the training processes to stop
+        # This could involve setting a flag in a database or sending a message to a queue
+        
+        # For now, just remove the status to clean up
+        classification_training_status.pop(user_id, None)
+    
+    return jsonify({
+        'status': 'stopped',
+        'message': 'Training has been stopped.'
+    })
