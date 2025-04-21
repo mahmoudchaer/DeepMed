@@ -4,13 +4,13 @@ version: '3'
 services:
   model-training-service:
     build:
-      context: ./docker_for_images/images_classification
+      context: ./images_classification
       dockerfile: Dockerfile
     ports:
       - "5021:5021"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/images_classification/app.py:/app/app.py
+      - ./images_classification/app.py:/app/app.py
     environment:
       - PORT=5021
     networks:
@@ -18,14 +18,14 @@ services:
 
   augmentation-service:
     build:
-      context: ./docker_for_images/data_augmentation
+      context: ./data_augmentation
       dockerfile: Dockerfile
     ports:
       - "5023:5023"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/data_augmentation/data_augmentation.py:/app/data_augmentation.py
-      - ./docker_for_images/data_augmentation/augment_service.py:/app/augment_service.py
+      - ./data_augmentation/data_augmentation.py:/app/data_augmentation.py
+      - ./data_augmentation/augment_service.py:/app/augment_service.py
     environment:
       - PORT=5023
     networks:
@@ -33,13 +33,13 @@ services:
       
   pipeline-service:
     build:
-      context: ./docker_for_images/pipeline
+      context: ./pipeline
       dockerfile: Dockerfile
     ports:
       - "5025:5025"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/pipeline/app.py:/app/app.py
+      - ./pipeline/app.py:/app/app.py
     environment:
       - PORT=5025
       - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
@@ -52,13 +52,13 @@ services:
   
   anomaly-detector-eep:
     build:
-      context: ./docker_for_images/eep_anomaly_detector
+      context: ./eep_anomaly_detector
       dockerfile: Dockerfile_eep
     ports:
       - "5030:5030"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
+      - ./eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
     environment:
       - PORT=5030
       - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
@@ -69,13 +69,13 @@ services:
       
   anomaly-detection-service:
     build:
-      context: ./docker_for_images/anomaly_detector
+      context: ./anomaly_detector
       dockerfile: Dockerfile
     ports:
       - "5029:5029"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
+      - ./anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
     shm_size: '4gb'
     deploy:
       resources:
@@ -91,13 +91,13 @@ services:
 
   predictor-service:
     build:
-      context: ./docker_for_images/predictor
+      context: ./predictor
       dockerfile: Dockerfile
     ports:
       - "5100:5100"
     restart: unless-stopped
     volumes:
-      - ./docker_for_images/predictor/predictor.py:/app/predictor.py
+      - ./predictor/predictor.py:/app/predictor.py
     environment:
       - PORT=5100
     networks:
