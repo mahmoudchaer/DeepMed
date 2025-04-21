@@ -259,14 +259,14 @@ function updateOverallProgress(progress, status) {
  * Start polling for training status
  */
 function startPollingTrainingStatus() {
-    // Demo values for models - this would be replaced by real API calls
+    // Demo values for models with faster progression
     const models = [
-        { name: 'logistic-regression', steps: [20, 40, 60, 80, 100] },
-        { name: 'decision-tree', steps: [25, 50, 75, 100] },
-        { name: 'random-forest', steps: [20, 40, 60, 80, 90, 100] },
-        { name: 'knn', steps: [33, 66, 100] },
-        { name: 'svm', steps: [25, 50, 75, 100] },
-        { name: 'naive-bayes', steps: [33, 66, 100] }
+        { name: 'logistic-regression', steps: [25, 60, 100] },
+        { name: 'decision-tree', steps: [35, 75, 100] },
+        { name: 'random-forest', steps: [30, 65, 100] },
+        { name: 'knn', steps: [40, 90, 100] },
+        { name: 'svm', steps: [20, 55, 100] },
+        { name: 'naive-bayes', steps: [45, 85, 100] }
     ];
     
     // Overall progress tracking
@@ -297,8 +297,8 @@ function startPollingTrainingStatus() {
                         data.overall_status || 'Training in progress...'
                     );
                     
-                    // Continue polling
-                    setTimeout(pollTrainingStatus, 2000);
+                    // Continue polling more frequently
+                    setTimeout(pollTrainingStatus, 800);
                 } else if (data.status === 'complete') {
                     // All models complete
                     updateOverallProgress(100, 'Training complete! Redirecting to results...');
@@ -306,7 +306,7 @@ function startPollingTrainingStatus() {
                     // Redirect after a short delay
                     setTimeout(() => {
                         window.location.href = data.redirect_url || '/model_selection';
-                    }, 1500);
+                    }, 1000);
                 }
             })
             .catch(error => {
@@ -317,9 +317,9 @@ function startPollingTrainingStatus() {
             });
     }
     
-    // For demo purposes - simulate progress
+    // For demo purposes - simulate progress with faster progression
     function simulateTrainingProgress() {
-        // Simulate progress for each model
+        // Simulate faster progress for each model
         models.forEach(model => {
             const currentStep = model.currentStep || 0;
             if (currentStep < model.steps.length) {
@@ -328,9 +328,9 @@ function startPollingTrainingStatus() {
                 
                 if (progress === 100) {
                     status = 'Model training complete!';
-                } else if (progress > 66) {
+                } else if (progress > 50) {
                     status = 'Evaluating model...';
-                } else if (progress > 33) {
+                } else {
                     status = 'Fitting model...';
                 }
                 
@@ -345,14 +345,10 @@ function startPollingTrainingStatus() {
         overallCompletion = Math.round((completedSteps / totalSteps) * 100);
         
         let overallStatus = 'Training classification models...';
-        if (overallCompletion > 90) {
+        if (overallCompletion > 80) {
             overallStatus = 'Almost done! Finalizing models...';
-        } else if (overallCompletion > 75) {
+        } else if (overallCompletion > 40) {
             overallStatus = 'Models training in progress...';
-        } else if (overallCompletion > 50) {
-            overallStatus = 'Cross-validating models...';
-        } else if (overallCompletion > 25) {
-            overallStatus = 'Fitting models to your data...';
         }
         
         updateOverallProgress(overallCompletion, overallStatus);
@@ -366,10 +362,10 @@ function startPollingTrainingStatus() {
             // Redirect after a short delay
             setTimeout(() => {
                 window.location.href = '/model_selection';
-            }, 1500);
+            }, 1000);
         } else {
-            // Continue with next step
-            setTimeout(simulateTrainingProgress, 2000);
+            // Continue with next step more quickly
+            setTimeout(simulateTrainingProgress, 800);
         }
     }
     
