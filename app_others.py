@@ -681,7 +681,7 @@ if __name__ == "__main__":
                     result_df.to_csv(output_file, index=False)
                     logger.info(f"Saved predictions to {output_file}")
                 
-                return 0
+                sys.exit(0)
             else:
                 logger.warning("No suitable encoding mapping found for decoding")
                 
@@ -709,7 +709,7 @@ if __name__ == "__main__":
                     result_df.to_csv(output_file, index=False)
                     logger.info(f"Saved predictions to {output_file}")
                 
-                return 0
+                sys.exit(0)
         
         result_df['prediction'] = prediction_values
         
