@@ -5,7 +5,8 @@ from pathlib import Path
 import openai
 import chromadb
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client with API key
+client_openai = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 
 # Updated to new ChromaDB client initialization
@@ -32,10 +33,12 @@ def populate_db():
     for md in DOCS_DIR.glob("*.md"):
         text = md.read_text(encoding="utf-8")
         for i, chunk in enumerate(chunk_text(text)):
-            emb = openai.Embedding.create(
+            # Updated to the new OpenAI API format
+            response = client_openai.embeddings.create(
                 model="text-embedding-3-small",
-                input=[chunk]
-            ).data[0].embedding
+                input=chunk
+            )
+            emb = response.data[0].embedding
 
             collection.add(
                 embeddings=[emb],
