@@ -788,40 +788,31 @@ def get_classification_training_status():
         total_progress = 0
         completed_models = 0
         
+        # Make all models progress very quickly to 100%
         for i, model_name in enumerate(model_names):
-            # Offset each model's progress to stagger them
-            time_offset = i * 5  # seconds offset
+            # Use a very fast simulation that completes almost immediately
+            # Start all models at high progress values
+            base_progress = 80
             
-            # Calculate a deterministic progress value based on time (0-100)
-            # Different models progress at different rates but faster than before
+            # Calculate a deterministic progress value based on time (80-100)
+            # Different models complete at slightly different rates
             if model_name == 'logistic-regression':
-                # Logistic regression completes faster
-                progress = min(100, (current_time % 30) * 4 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 5) * 5)
             elif model_name == 'decision-tree':
-                progress = min(100, (current_time % 35) * 3 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 6) * 4)
             elif model_name == 'random-forest':
-                # Random forest takes longer
-                progress = min(100, (current_time % 40) * 2.5 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 7) * 3)
             elif model_name == 'knn':
-                progress = min(100, (current_time % 32) * 3.5 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 5) * 4)
             elif model_name == 'svm':
-                # SVM takes the longest
-                progress = min(100, (current_time % 45) * 2.2 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 8) * 3)
             else:  # naive-bayes
-                # Naive Bayes is quick
-                progress = min(100, (current_time % 25) * 4.5 + time_offset)
-                if progress >= 100:
-                    completed_models += 1
+                progress = min(100, base_progress + (current_time % 4) * 6)
+            
+            # Count completed models
+            if progress >= 100:
+                completed_models += 1
+                progress = 100
             
             # Update status text based on progress
             status_text = 'Initializing...'
