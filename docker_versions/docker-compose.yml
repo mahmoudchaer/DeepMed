@@ -10,6 +10,7 @@ services:
       - "5001:5001"
     environment:
       - PORT=5001
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -68,6 +69,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5005:5005"
+    environment:
+      - PORT=5005
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
