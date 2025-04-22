@@ -63,7 +63,7 @@ SERVICES = {
 
 # Setup Flask app
 app = Flask(__name__)
-app.SECRETKEY = keyvault.getenv('SECRETKEY')
+app.secret_key = keyvault.getenv('SECRETKEY')
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
