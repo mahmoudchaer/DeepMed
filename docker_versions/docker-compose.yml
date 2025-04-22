@@ -97,6 +97,10 @@ services:
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
       - MLFLOW_TRACKING_URI=file:///app/mlruns
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - AZURESTORAGEACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURESTORAGEKEY=${AZURE_STORAGE_KEY}
+      - AZURECONTAINER=${AZURE_CONTAINER}
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
