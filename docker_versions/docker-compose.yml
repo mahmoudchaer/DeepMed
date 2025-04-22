@@ -263,22 +263,21 @@ networks:
       - augmentation-service
       - model-training-service
 
-  anomaly-detector-eep:
+    anomaly-detection-service:
     build:
-      context: ../docker_for_images/eep_anomaly_detector
-      dockerfile: Dockerfile_eep
+      context: ../docker_for_images/anomaly_detector
+      dockerfile: Dockerfile
     ports:
-      - "5030:5030"
+      - "5029:5029"
     restart: unless-stopped
     volumes:
-      - ../docker_for_images/eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
+      - ../docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
+    shm_size: '4gb'
     environment:
-      - PORT=5030
-      - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
+      - PORT=5029
     networks:
       - deepmed-network
-    depends_on:
-      - anomaly-detection-service
+
 
   anomaly-detection-service:
     build:
