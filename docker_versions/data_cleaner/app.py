@@ -10,6 +10,19 @@ import requests
 import openai
 from datetime import datetime
 
+# Import docker-secrets adapter to load Azure Key Vault secrets as environment variables
+try:
+    import docker-secrets
+    logging.info("Successfully imported docker-secrets adapter")
+except ImportError as e:
+    logging.warning(f"Could not import docker-secrets adapter: {str(e)}")
+    # Try direct import (dashes not allowed in module names)
+    try:
+        import docker_secrets
+        logging.info("Successfully imported docker_secrets adapter")
+    except ImportError as e:
+        logging.warning(f"Could not import docker_secrets adapter either: {str(e)}")
+
 # Set up logging - using most verbose logging
 logging.basicConfig(
     level=logging.DEBUG,
