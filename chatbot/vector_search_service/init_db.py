@@ -3,12 +3,17 @@
 import os
 import uuid
 from pathlib import Path
+import sys
 
 import chromadb
 from openai import OpenAI
 
-# Initialize OpenAI client (reads OPENAI-API-KEY from environment)
-client_openai = OpenAI(api_key=os.getenv("OPENAI-API-KEY"))
+# Add the parent directory to sys.path for keyvault import
+sys.path.append(str(Path(__file__).parent.parent.parent))
+import keyvault
+
+# Initialize OpenAI client (reads API key from environment or keyvault)
+client_openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or keyvault.getenv("OPENAI-API-KEY"))
 
 # Initialize ChromaDB persistent client
 persist_dir = os.getenv("CHROMAPERSISTDIR", "./chroma_data")
