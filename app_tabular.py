@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 import requests
 import tempfile
-import secrets
+import secrets as std_secrets
 import uuid
 import traceback
 import re
@@ -685,7 +685,7 @@ def tabular_prediction():
     
     # Generate a CSRF token for logout form if needed
     if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     # Check services health for status display
     services_status = check_services()

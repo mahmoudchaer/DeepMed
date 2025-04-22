@@ -33,4 +33,4 @@ for secret_name in expected_secrets:
     except ResourceNotFoundError:
         print(f"❌ {secret_name}: NOT FOUND")
     except Exception as e:
-        print(f"⚠️  {secret_name}: Error - {e}")
+        print(f"⚠️  {secret_name}: Error - {e}") 
