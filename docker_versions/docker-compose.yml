@@ -13,6 +13,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -26,6 +27,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -39,6 +41,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -54,6 +57,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -67,6 +71,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -92,6 +97,7 @@ services:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
     extra_hosts:
@@ -112,6 +118,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -128,6 +135,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -144,6 +152,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -160,6 +169,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -176,6 +186,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -192,6 +203,7 @@ services:
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -205,6 +217,7 @@ services:
     volumes:
       - ../docker_versions/predictor/predictor.py:/app/predictor.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5101
     networks:
@@ -220,6 +233,7 @@ services:
     volumes:
       - ../docker_for_images/images_classification/app.py:/app/app.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5021
     networks:
@@ -236,6 +250,7 @@ services:
       - ../docker_for_images/data_augmentation/data_augmentation.py:/app/data_augmentation.py
       - ../docker_for_images/data_augmentation/augment_service.py:/app/augment_service.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5023
     networks:
@@ -251,6 +266,7 @@ services:
     volumes:
       - ../docker_for_images/pipeline/app.py:/app/app.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5025
       - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
@@ -271,6 +287,7 @@ services:
     volumes:
       - ../docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     shm_size: '4gb'
     environment:
       - PORT=5029
@@ -287,6 +304,7 @@ services:
     volumes:
       - ../docker_for_images/eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5030
       - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
@@ -305,6 +323,7 @@ services:
     volumes:
       - ../docker_for_images/predictor/predictor.py:/app/predictor.py
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     environment:
       - PORT=5100
     networks:
@@ -319,6 +338,7 @@ services:
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -330,6 +350,7 @@ services:
       - "5202:5202"
     volumes:
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -342,6 +363,7 @@ services:
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
@@ -358,6 +380,7 @@ services:
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - ./docker_secrets.py:/app/docker_secrets.py
     networks:
       - deepmed-network
 
