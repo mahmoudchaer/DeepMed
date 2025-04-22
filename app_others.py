@@ -1814,7 +1814,8 @@ def model_selection(run_id=None):
         if all_runs:
             return render_template('model_selection_empty.html', 
                                    run_id=run_id,
-                                   all_runs=all_runs)
+                                   all_runs=all_runs,
+                                   TrainingModel=TrainingModel)
         else:
             return redirect(url_for('training'))
     
