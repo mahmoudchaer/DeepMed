@@ -149,21 +149,6 @@
                         </div>
                     </li>
                     
-                    <!-- Regression dropdown (New) -->
-                    <li class="nav-item has-dropdown">
-                        <a class="nav-link dropdown-toggle" href="#">
-                            Regression
-                        </a>
-                        <div class="custom-dropdown">
-                            <a class="{% if request.endpoint == 'train_regression' %}active{% endif %}" 
-                               href="{{ url_for('train_regression') }}">Train Regression</a>
-                            <a class="{% if request.endpoint == 'models_regression' %}active{% endif %}" 
-                               href="{{ url_for('models_regression') }}">Models Regression</a>
-                            <a class="{% if request.endpoint == 'regression_prediction' %}active{% endif %}" 
-                               href="{{ url_for('regression_prediction') }}">Regression Prediction</a>
-                        </div>
-                    </li>
-                    
                     {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="#features">Features</a>
