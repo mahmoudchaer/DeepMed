@@ -42,13 +42,13 @@ def safe_requests_post(url, json_data, **kwargs):
     return requests.post(url, json=safe_json, **kwargs)
 
 # Define service URLs with localhost and ports for host machine access
-DATA_CLEANER_URL = 'http://localhost:5001'
-FEATURE_SELECTOR_URL = 'http://localhost:5002'
-ANOMALY_DETECTOR_URL = 'http://localhost:5003'
-MODEL_COORDINATOR_URL = 'http://localhost:5020'
-MEDICAL_ASSISTANT_URL = 'http://localhost:5005'
-AUGMENTATION_SERVICE_URL = 'http://localhost:5023'
-MODEL_TRAINING_SERVICE_URL = 'http://localhost:5021'
+DATA_CLEANER_URL = keyvault.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
+FEATURE_SELECTOR_URL = keyvault.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
+ANOMALY_DETECTOR_URL = keyvault.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
+MODEL_COORDINATOR_URL = keyvault.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
+MEDICAL_ASSISTANT_URL = keyvault.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
+AUGMENTATION_SERVICE_URL = keyvault.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
+MODEL_TRAINING_SERVICE_URL = keyvault.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
 
 # Update service URLs dictionary with proper health endpoints
 SERVICES = {

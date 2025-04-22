@@ -23,10 +23,10 @@ from app_api import is_service_available, get_temp_filepath, safe_requests_post,
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
 # Define new URL for pipeline service
-PIPELINE_SERVICE_URL = 'http://localhost:5025'
+PIPELINE_SERVICE_URL = keyvault.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
 # Define URL for anomaly detection service
-ANOMALY_DETECTION_SERVICE_URL = 'http://localhost:5030'
+ANOMALY_DETECTION_SERVICE_URL = keyvault.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5030')
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData

@@ -19,10 +19,13 @@ import keyvault
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-EMB_URL       = "http://embedding_service:5201"
-VEC_URL       = "http://vector_search_service:5202"
-LLM_URL       = "http://llm_generator_service:5203"
-SYSTEM_PROMPT = "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
+EMB_URL       = keyvault.getenv("EMBEDDING_URL", "http://embedding_service:5201")
+VEC_URL       = keyvault.getenv("VECTOR_URL",    "http://vector_search_service:5202")
+LLM_URL       = keyvault.getenv("LLM_URL",       "http://llm_generator_service:5203")
+SYSTEM_PROMPT = keyvault.getenv(
+    "SYSTEM_PROMPT",
+    "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
+)
 
 # Log service URLs for debugging
 logger.info(f"EMB_URL: {EMB_URL}")

@@ -42,10 +42,25 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # Define regression service URLs with proper defaults
-REGRESSION_DATA_CLEANER_URL = "http://localhost:5031"
-REGRESSION_FEATURE_SELECTOR_URL = "http://localhost:5032"
-REGRESSION_MODEL_COORDINATOR_URL = "http://localhost:5040"
-REGRESSION_PREDICTOR_SERVICE_URL = "http://localhost:5050"
+REGRESSION_DATA_CLEANER_URL = keyvault.getenv('REGRESSION_DATA_CLEANER_URL')
+if not REGRESSION_DATA_CLEANER_URL:
+    logger.warning("REGRESSION_DATA_CLEANER_URL not set. Using default URL.")
+    REGRESSION_DATA_CLEANER_URL = "http://localhost:5031"
+
+REGRESSION_FEATURE_SELECTOR_URL = keyvault.getenv('REGRESSION_FEATURE_SELECTOR_URL')
+if not REGRESSION_FEATURE_SELECTOR_URL:
+    logger.warning("REGRESSION_FEATURE_SELECTOR_URL not set. Using default URL.")
+    REGRESSION_FEATURE_SELECTOR_URL = "http://localhost:5032"
+
+REGRESSION_MODEL_COORDINATOR_URL = keyvault.getenv('REGRESSION_MODEL_COORDINATOR_URL')
+if not REGRESSION_MODEL_COORDINATOR_URL:
+    logger.warning("REGRESSION_MODEL_COORDINATOR_URL not set. Using default URL.")
+    REGRESSION_MODEL_COORDINATOR_URL = "http://localhost:5040"
+
+REGRESSION_PREDICTOR_SERVICE_URL = keyvault.getenv('REGRESSION_PREDICTOR_SERVICE_URL')
+if not REGRESSION_PREDICTOR_SERVICE_URL:
+    logger.warning("REGRESSION_PREDICTOR_SERVICE_URL not set. Using default URL.")
+    REGRESSION_PREDICTOR_SERVICE_URL = "http://localhost:5050"
 
 # Log the actual URLs being used
 logger.info(f"Regression Data Cleaner URL: {REGRESSION_DATA_CLEANER_URL}")
