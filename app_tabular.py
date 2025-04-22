@@ -500,7 +500,6 @@ def training():
                 logger.error(f"Error adding training run directly to database: {str(e)}")
                 # Try with direct SQL as a fallback
                 try:
-                    import pymysql
                     # Get database credentials from Key Vault
                     MYSQLUSER = keyvault.getenv("MYSQLUSER")
                     MYSQLPASSWORD = keyvault.getenv("MYSQLPASSWORD")
@@ -692,7 +691,7 @@ def tabular_prediction():
     services_status = check_services()
     
     # Add tabular prediction service to services status
-    predictor_service_url = keyvault.getenv('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+    predictor_service_url = 'http://localhost:5101'
     services_status['tabular_predictor_service'] = is_service_available(predictor_service_url)
     
     return render_template('tabular_prediction.html', services_status=services_status, logout_token=session['logout_token'])
@@ -722,7 +721,7 @@ def api_predict_tabular():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+        predictor_service_url = 'http://localhost:5101'
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
@@ -786,7 +785,7 @@ def api_extract_encodings():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+        predictor_service_url = 'http://localhost:5101'
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
