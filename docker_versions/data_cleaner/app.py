@@ -47,7 +47,7 @@ class DataCleaner:
             # For debugging - try with hardcoded key
  
             # First try environment variable (this should be the normal way)
-            api_key = os.getenv("OPENAI_API_KEY")
+            api_key = os.getenv("OPENAI-API-KEY")
             logging.info(f"API key from environment: {'Found' if api_key else 'Not found'}")
             
             # If not found, use hardcoded key for testing

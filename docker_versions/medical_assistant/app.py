@@ -203,9 +203,9 @@ class MedicalAssistant:
 
 
 # Initialize the MedicalAssistant with API key from environment
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("OPENAI-API-KEY")
 if not api_key:
-    logging.error("OPENAI_API_KEY environment variable not set. Medical Assistant API will not function correctly.")
+    logging.error("OPENAI-API-KEY environment variable not set. Medical Assistant API will not function correctly.")
     medical_assistant = None
 else:
     try:

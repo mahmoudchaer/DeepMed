@@ -63,7 +63,7 @@ SERVICES = {
 
 # Setup Flask app
 app = Flask(__name__)
-app.SECRET_KEY = keyvault.getenv('SECRET_KEY', 'your_SECRET_KEY')
+app.SECRET-KEY = keyvault.getenv('SECRET-KEY', 'your_SECRET-KEY')
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -73,16 +73,16 @@ app.config['REMEMBER_COOKIE_DURATION'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24  # 24 hours
 
 # Database configuration
-MYSQL_USER = keyvault.getenv('MYSQL_USER')
-MYSQL_PASSWORD = keyvault.getenv('MYSQL_PASSWORD')
-MYSQL_HOST = keyvault.getenv('MYSQL_HOST')
-MYSQL_PORT = int(keyvault.getenv('MYSQL_PORT'))
-MYSQL_DB = keyvault.getenv('MYSQL_DB')
+MYSQL-USER = keyvault.getenv('MYSQL-USER')
+MYSQL-PASSWORD = keyvault.getenv('MYSQL-PASSWORD')
+MYSQL-HOST = keyvault.getenv('MYSQL-HOST')
+MYSQL-PORT = int(keyvault.getenv('MYSQL-PORT'))
+MYSQL-DB = keyvault.getenv('MYSQL-DB')
 
 # URL encode the password to handle special characters
-encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
+encoded_password = urllib.parse.quote_plus(MYSQL-PASSWORD)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize the database

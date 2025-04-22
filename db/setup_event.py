@@ -17,19 +17,19 @@ def setup_event_scheduler():
     """Create MySQL Event Scheduler for auto-deletion after 15 days"""
     try:
         # Get database connection parameters
-        MYSQL_USER = os.getenv("MYSQL_USER")
-        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-        MYSQL_HOST = os.getenv("MYSQL_HOST")
-        MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-        MYSQL_DB = os.getenv("MYSQL_DB")
+        MYSQL-USER = os.getenv("MYSQL-USER")
+        MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
+        MYSQL-HOST = os.getenv("MYSQL-HOST")
+        MYSQL-PORT = int(os.getenv("MYSQL-PORT"))
+        MYSQL-DB = os.getenv("MYSQL-DB")
 
         # Connect to MySQL
         conn = pymysql.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            port=MYSQL_PORT,
-            database=MYSQL_DB
+            host=MYSQL-HOST,
+            user=MYSQL-USER,
+            password=MYSQL-PASSWORD,
+            port=MYSQL-PORT,
+            database=MYSQL-DB
         )
         cursor = conn.cursor()
 

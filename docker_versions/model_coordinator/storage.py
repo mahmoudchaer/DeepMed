@@ -10,23 +10,23 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Get Azure credentials from .env
-AZURE_STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT")
-AZURE_STORAGE_KEY = os.getenv("AZURE_STORAGE_KEY")
-AZURE_CONTAINER = os.getenv("AZURE_CONTAINER")
+AZURE-STORAGE-ACCOUNT = os.getenv("AZURE-STORAGE-ACCOUNT")
+AZURE-STORAGE-KEY = os.getenv("AZURE-STORAGE-KEY")
+AZURE-CONTAINER = os.getenv("AZURE-CONTAINER")
 
 # Check if Azure credentials are available
-if not all([AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, AZURE_CONTAINER]):
+if not all([AZURE-STORAGE-ACCOUNT, AZURE-STORAGE-KEY, AZURE-CONTAINER]):
     logger.warning("Azure Storage credentials not found. Blob storage operations will not work.")
     
 # Create a Blob Service Client only if credentials are available
 blob_service_client = None
-if all([AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, AZURE_CONTAINER]):
+if all([AZURE-STORAGE-ACCOUNT, AZURE-STORAGE-KEY, AZURE-CONTAINER]):
     try:
         blob_service_client = BlobServiceClient(
-            f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net",
-            credential=AZURE_STORAGE_KEY
+            f"https://{AZURE-STORAGE-ACCOUNT}.blob.core.windows.net",
+            credential=AZURE-STORAGE-KEY
         )
-        logger.info(f"Connected to Azure Blob Storage account: {AZURE_STORAGE_ACCOUNT}")
+        logger.info(f"Connected to Azure Blob Storage account: {AZURE-STORAGE-ACCOUNT}")
     except Exception as e:
         logger.error(f"Error connecting to Azure Blob Storage: {str(e)}")
 
@@ -37,10 +37,10 @@ def upload_to_blob(file, filename):
         return None
         
     try:
-        blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=filename)
+        blob_client = blob_service_client.get_blob_client(container=AZURE-CONTAINER, blob=filename)
         blob_client.upload_blob(file, overwrite=True)
         logger.info(f"File '{filename}' uploaded successfully!")
-        return f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER}/{filename}"
+        return f"https://{AZURE-STORAGE-ACCOUNT}.blob.core.windows.net/{AZURE-CONTAINER}/{filename}"
     except Exception as e:
         logger.error(f"Error uploading file: {str(e)}")
         return None
@@ -51,7 +51,7 @@ def get_blob_url(filename):
         logger.error("Azure Blob Storage client not initialized.")
         return None
         
-    return f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER}/{filename}"
+    return f"https://{AZURE-STORAGE-ACCOUNT}.blob.core.windows.net/{AZURE-CONTAINER}/{filename}"
 
 def delete_blob(filename):
     """Deletes a file from Azure Blob Storage."""
@@ -60,7 +60,7 @@ def delete_blob(filename):
         return False
         
     try:
-        blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=filename)
+        blob_client = blob_service_client.get_blob_client(container=AZURE-CONTAINER, blob=filename)
         blob_client.delete_blob()
         logger.info(f"File '{filename}' deleted successfully!")
         return True
@@ -94,7 +94,7 @@ def download_blob(blob_url, local_path=None):
         blob_name = '/'.join(parts[4:])  # Everything after the container name
         
         # Get a blob client for the specific blob
-        blob_client = blob_service_client.get_blob_client(container=AZURE_CONTAINER, blob=blob_name)
+        blob_client = blob_service_client.get_blob_client(container=AZURE-CONTAINER, blob=blob_name)
         
         # Download the blob content
         if local_path:

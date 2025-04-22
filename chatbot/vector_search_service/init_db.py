@@ -7,11 +7,11 @@ from pathlib import Path
 import chromadb
 from openai import OpenAI
 
-# Initialize OpenAI client (reads OPENAI_API_KEY from environment)
-client_openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client (reads OPENAI-API-KEY from environment)
+client_openai = OpenAI(api_key=os.getenv("OPENAI-API-KEY"))
 
 # Initialize ChromaDB persistent client
-persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+persist_dir = os.getenv("CHROMA-PERSIST-DIR", "./chroma_data")
 client = chromadb.PersistentClient(path=persist_dir)
 collection = client.get_or_create_collection("deepmed_docs")
 
