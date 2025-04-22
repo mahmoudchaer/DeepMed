@@ -21,14 +21,18 @@ import re
 from datetime import datetime
 import logging
 import urllib.parse
-from dotenv import load_dotenv
+import requests
+from pathlib import Path
 
 # Get the absolute path to the script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Get path to project root (two directories up)
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
-# Add project root to path to import db modules
-sys.path.append(PROJECT_ROOT)
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+# Add project root to path to import modules
+sys.path.append(str(PROJECT_ROOT))
+
+# Import keyvault module
+import keyvault
 
 # Configure logging
 logging.basicConfig(
@@ -41,12 +45,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("auth_test")
 
-# Load environment variables from project root .env
-env_path = os.path.join(PROJECT_ROOT, '.env')
-logger.info(f"Loading .env from: {env_path}")
-load_dotenv(env_path)
-
-# Import db models after environment variables are loaded
+# Import db models
 try:
     from db.users import db, User
     from sqlalchemy import create_engine, text
@@ -113,12 +112,12 @@ class DatabaseTester:
     
     def __init__(self):
         """Initialize database connection"""
-        # Get database connection parameters from environment variables
-        mysql_user = os.getenv('MYSQL_USER')
-        mysql_password = os.getenv('MYSQL_PASSWORD')
-        mysql_host = os.getenv('MYSQL_HOST')
-        mysql_port = os.getenv('MYSQL_PORT')
-        mysql_db = os.getenv('MYSQL_DB')
+        # Get database connection parameters from Key Vault
+        mysql_user = keyvault.getenv('MYSQL_USER')
+        mysql_password = keyvault.getenv('MYSQL_PASSWORD')
+        mysql_host = keyvault.getenv('MYSQL_HOST')
+        mysql_port = keyvault.getenv('MYSQL_PORT')
+        mysql_db = keyvault.getenv('MYSQL_DB')
         
         # Log DB connection info (without password)
         logger.info(f"Connecting to DB: {mysql_user}@{mysql_host}:{mysql_port}/{mysql_db}")
@@ -418,6 +417,39 @@ def print_summary():
     print("="*50)
     print(f"Complete log: {os.path.join(SCRIPT_DIR, 'auth_test_results.log')}")
 
+def test_user_login():
+    """Test user login endpoint"""
+    BASE_URL = "http://localhost:5000"  # Flask app URL
+    
+    # Use keyvault to get test credentials
+    test_email = keyvault.getenv("TEST_USER_EMAIL", "test@example.com")
+    test_password = keyvault.getenv("TEST_USER_PASSWORD", "password123")
+    
+    logger.info(f"Testing login with email: {test_email}")
+    
+    # Create a session to maintain cookies
+    session = requests.Session()
+    
+    # Attempt login
+    login_data = {
+        "email": test_email,
+        "password": test_password
+    }
+    
+    try:
+        response = session.post(f"{BASE_URL}/login", data=login_data)
+        logger.info(f"Login response status: {response.status_code}")
+        
+        if response.status_code == 200 or response.status_code == 302:
+            logger.info("Login successful!")
+            return True
+        else:
+            logger.error(f"Login failed with status {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"Error testing login: {str(e)}")
+        return False
+
 if __name__ == "__main__":
     start_time = time.time()
     logger.info("Starting authentication tests")
@@ -431,4 +463,7 @@ if __name__ == "__main__":
     duration = end_time - start_time
     logger.info(f"Tests completed in {duration:.2f}s")
     
-    print_summary() 
+    print_summary()
+
+    result = test_user_login()
+    exit(0 if result else 1) 

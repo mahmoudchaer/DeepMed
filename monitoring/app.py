@@ -17,10 +17,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly
 import logging
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Add parent directory to path for importing keyvault
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import keyvault
 
 # Configure logging
 logging.basicConfig(
@@ -38,25 +38,25 @@ os.makedirs("logs", exist_ok=True)
 
 app = Flask(__name__)
 
-# Define services URLs based on DeepMed's architecture
-DATA_CLEANER_URL = os.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
-FEATURE_SELECTOR_URL = os.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
-ANOMALY_DETECTOR_URL = os.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
-MODEL_COORDINATOR_URL = os.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
-MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
-AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
-MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
-PIPELINE_SERVICE_URL = os.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
-ANOMALY_DETECTION_SERVICE_URL = os.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
-TABULAR_PREDICTOR_URL = os.getenv('TABULAR_PREDICTOR_URL', 'http://localhost:5100')
+# Define services URLs from Key Vault
+DATA_CLEANER_URL = keyvault.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
+FEATURE_SELECTOR_URL = keyvault.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
+ANOMALY_DETECTOR_URL = keyvault.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
+MODEL_COORDINATOR_URL = keyvault.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
+MEDICAL_ASSISTANT_URL = keyvault.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
+AUGMENTATION_SERVICE_URL = keyvault.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
+MODEL_TRAINING_SERVICE_URL = keyvault.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
+PIPELINE_SERVICE_URL = keyvault.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
+ANOMALY_DETECTION_SERVICE_URL = keyvault.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
+TABULAR_PREDICTOR_URL = keyvault.getenv('TABULAR_PREDICTOR_URL', 'http://localhost:5100')
 
 # Model-specific services
-LOGISTIC_REGRESSION_URL = os.getenv('LOGISTIC_REGRESSION_URL', 'http://localhost:5010')
-DECISION_TREE_URL = os.getenv('DECISION_TREE_URL', 'http://localhost:5011')
-RANDOM_FOREST_URL = os.getenv('RANDOM_FOREST_URL', 'http://localhost:5012')
-SVM_URL = os.getenv('SVM_URL', 'http://localhost:5013')
-KNN_URL = os.getenv('KNN_URL', 'http://localhost:5014')
-NAIVE_BAYES_URL = os.getenv('NAIVE_BAYES_URL', 'http://localhost:5015')
+LOGISTIC_REGRESSION_URL = keyvault.getenv('LOGISTIC_REGRESSION_URL', 'http://localhost:5010')
+DECISION_TREE_URL = keyvault.getenv('DECISION_TREE_URL', 'http://localhost:5011')
+RANDOM_FOREST_URL = keyvault.getenv('RANDOM_FOREST_URL', 'http://localhost:5012')
+SVM_URL = keyvault.getenv('SVM_URL', 'http://localhost:5013')
+KNN_URL = keyvault.getenv('KNN_URL', 'http://localhost:5014')
+NAIVE_BAYES_URL = keyvault.getenv('NAIVE_BAYES_URL', 'http://localhost:5015')
 
 # Categorize services for the dashboard
 SERVICES = {
