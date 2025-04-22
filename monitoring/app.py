@@ -39,24 +39,24 @@ os.makedirs("logs", exist_ok=True)
 app = Flask(__name__)
 
 # Define services URLs from Key Vault
-DATA_CLEANER_URL = keyvault.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
-FEATURE_SELECTOR_URL = keyvault.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
-ANOMALY_DETECTOR_URL = keyvault.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
-MODEL_COORDINATOR_URL = keyvault.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
-MEDICAL_ASSISTANT_URL = keyvault.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
-AUGMENTATION_SERVICE_URL = keyvault.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
-MODEL_TRAINING_SERVICE_URL = keyvault.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
-PIPELINE_SERVICE_URL = keyvault.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
-ANOMALY_DETECTION_SERVICE_URL = keyvault.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5029')
-TABULAR_PREDICTOR_URL = keyvault.getenv('TABULAR_PREDICTOR_URL', 'http://localhost:5100')
+DATA_CLEANER_URL = 'http://localhost:5001'
+FEATURE_SELECTOR_URL = 'http://localhost:5002'
+ANOMALY_DETECTOR_URL = 'http://localhost:5003'
+MODEL_COORDINATOR_URL = 'http://localhost:5020'
+MEDICAL_ASSISTANT_URL = 'http://localhost:5005'
+AUGMENTATION_SERVICE_URL = 'http://localhost:5023'
+MODEL_TRAINING_SERVICE_URL = 'http://localhost:5021'
+PIPELINE_SERVICE_URL = 'http://localhost:5025'
+ANOMALY_DETECTION_SERVICE_URL = 'http://localhost:5029'
+TABULAR_PREDICTOR_URL = 'http://localhost:5100'
 
 # Model-specific services
-LOGISTIC_REGRESSION_URL = keyvault.getenv('LOGISTIC_REGRESSION_URL', 'http://localhost:5010')
-DECISION_TREE_URL = keyvault.getenv('DECISION_TREE_URL', 'http://localhost:5011')
-RANDOM_FOREST_URL = keyvault.getenv('RANDOM_FOREST_URL', 'http://localhost:5012')
-SVM_URL = keyvault.getenv('SVM_URL', 'http://localhost:5013')
-KNN_URL = keyvault.getenv('KNN_URL', 'http://localhost:5014')
-NAIVE_BAYES_URL = keyvault.getenv('NAIVE_BAYES_URL', 'http://localhost:5015')
+LOGISTIC_REGRESSION_URL = 'http://localhost:5010'
+DECISION_TREE_URL = 'http://localhost:5011'
+RANDOM_FOREST_URL = 'http://localhost:5012'
+SVM_URL = 'http://localhost:5013'
+KNN_URL = 'http://localhost:5014'
+NAIVE_BAYES_URL = 'http://localhost:5015'
 
 # Categorize services for the dashboard
 SERVICES = {

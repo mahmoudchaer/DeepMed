@@ -435,11 +435,11 @@ def train_models():
         y_data = data['target']
         
         # If data cleaning is needed, send to data cleaner API
-        data_cleaner_url = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
+        DATA_CLEANER_URL = os.getenv("DATA_CLEANER_URL", "http://data_cleaner:5001")
         cleaning_prompt = None
-        if data_cleaner_url:
+        if DATA_CLEANER_URL:
             try:
-                print(f"Sending data to data cleaner at {data_cleaner_url}")
+                print(f"Sending data to data cleaner at {DATA_CLEANER_URL}")
                 
                 # Check if we have a previous prompt to use for consistent cleaning
                 previous_prompt = data.get('prompt')
@@ -456,7 +456,7 @@ def train_models():
                 
                 # Send to data cleaner
                 response = requests.post(
-                    f"{data_cleaner_url}/clean",
+                    f"{DATA_CLEANER_URL}/clean",
                     json=cleaner_payload,
                     timeout=60
                 )
