@@ -304,11 +304,6 @@ services:
     networks:
       - deepmed-network
 
-networks:
-  deepmed-network:
-    driver: bridge
-
-
   embedding_service:
     build:
       context: ../chatbot/embedding_service
@@ -368,3 +363,6 @@ networks:
     networks:
       - deepmed-network
 
+networks:
+  deepmed-network:
+    driver: bridge
