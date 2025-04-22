@@ -307,3 +307,64 @@ services:
 networks:
   deepmed-network:
     driver: bridge
+
+
+  embedding_service:
+    build:
+      context: ../chatbot/embedding_service
+      dockerfile: Dockerfile
+    ports:
+      - "5201:5201"
+    env_file:
+      - ../.env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - deepmed-network
+
+  vector_search_service:
+    build:
+      context: ../chatbot/vector_search_service
+      dockerfile: Dockerfile
+    ports:
+      - "5202:5202"
+    env_file:
+      - ../.env
+    networks:
+      - deepmed-network
+
+  llm_generator_service:
+    build:
+      context: ../chatbot/llm_generator_service
+      dockerfile: Dockerfile
+    ports:
+      - "5203:5203"
+    env_file:
+      - ../.env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - deepmed-network
+
+  chatbot_gateway:
+    build:
+      context: ../chatbot/chatbot_gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5204:5204"
+    env_file:
+      - ../.env
+    environment:
+      - EMBEDDING_URL=http://embedding_service:5201
+      - VECTOR_URL=http://vector_search_service:5202
+      - LLM_URL=http://llm_generator_service:5203
+      - SYSTEM_PROMPT=${SYSTEM_PROMPT}
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - deepmed-network
+
