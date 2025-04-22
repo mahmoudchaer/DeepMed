@@ -22,10 +22,23 @@ logger = logging.getLogger(__name__)
 EMB_URL       = "http://embedding_service:5201"
 VEC_URL       = "http://vector_search_service:5202"
 LLM_URL       = "http://llm_generator_service:5203"
-SYSTEM_PROMPT = keyvault.getenv(
+
+# Use a default system prompt instead of trying to retrieve from Key Vault
+# The secret name had invalid characters (hyphen not allowed in Key Vault secret names)
+SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
 )
+
+# Try to get the prompt from Key Vault using a valid secret name format if environment variable is not set
+if not SYSTEM_PROMPT or SYSTEM_PROMPT == "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline.":
+    try:
+        kv_prompt = keyvault.getenv("SYSTEM_PROMPT_VALUE")
+        if kv_prompt:
+            SYSTEM_PROMPT = kv_prompt
+            logger.info("Successfully loaded system prompt from Key Vault")
+    except Exception as e:
+        logger.warning(f"Failed to load system prompt from Key Vault: {e}. Using default.")
 
 # Log service URLs for debugging
 logger.info(f"EMB_URL: {EMB_URL}")

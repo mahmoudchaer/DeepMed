@@ -10,7 +10,7 @@ COPY . .
 
 # Initialize the DB on container startup
 ENV CHROMAPERSISTDIR=./chroma_data
-ENV OPENAI-API-KEY=
+ENV OPENAI_API_KEY=
 
 EXPOSE 5202
 
