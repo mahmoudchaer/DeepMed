@@ -11,6 +11,7 @@ pandas==1.5.3
 mlflow==2.2.2
 requests==2.28.1
 waitress==2.1.2
-python-dotenv==0.20.0
+azure-identity==1.13.0
+azure-keyvault-secrets==4.7.0
 azure-storage-blob==12.14.1
 joblib==1.1.1 

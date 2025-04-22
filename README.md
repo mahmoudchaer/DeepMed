@@ -13,12 +13,14 @@ A comprehensive medical AI platform for training models on medical data, making 
 - Prediction on new data
 - AI-assisted medical recommendations
 - Interactive data visualization
+- Azure Key Vault integration for secure secret management
 
 ## Requirements
 
 - Python 3.8+
 - PostgreSQL 12+
 - Required Python packages (see requirements.txt)
+- Azure subscription for Key Vault
 
 ## Installation
 
@@ -39,10 +41,11 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Update the PostgreSQL connection details (user, password, host, port, database name)
-   - Add your OpenAI API key if you want to use the AI assistant feature
+4. Configure Azure Key Vault:
+   - Create an Azure Key Vault in your Azure subscription
+   - Add all required secrets to your Key Vault (see AZURE_KEYVAULT.md for details)
+   - Update the VAULT_URL in keyvault.py with your Key Vault URL
+   - Configure authentication (Managed Identity for Azure deployments, or environment variables locally)
 
 5. Set up the PostgreSQL database:
 ```bash
@@ -92,19 +95,22 @@ DeepMed/
 │   ├── static/                # Static files (CSS, JS, images)
 │   └── templates/             # HTML templates
 ├── uploads/                   # Folder for uploaded files
-├── .env                       # Environment variables
+├── keyvault.py                # Azure Key Vault integration
 ├── requirements.txt           # Python dependencies
 └── README.md                  # This file
 ```
 
-## Usage Flow
+## Azure Key Vault Integration
 
-1. **Upload Data**: Start by uploading your medical dataset (CSV or Excel)
-2. **Configure Training**: Select the target variable and adjust training parameters
-3. **Review Features**: Examine selected features and their importance
-4. **Select Model**: Choose the best model based on performance metrics
-5. **Make Predictions**: Upload new data for predictions using your selected model
-6. **Chat with AI**: Ask the AI assistant for insights and recommendations
+This application uses Azure Key Vault for secure secrets management. All configuration previously stored in .env files is now managed through Azure Key Vault, providing:
+
+- Centralized secrets management
+- Enhanced security with built-in encryption
+- Role-based access control
+- Detailed audit logs
+- Secret rotation capability
+
+See AZURE_KEYVAULT.md for detailed information on setup and usage.
 
 ## Technologies Used
 
@@ -113,9 +119,12 @@ DeepMed/
 - **Scikit-learn**: Machine learning algorithms
 - **Plotly**: Interactive data visualization
 - **OpenAI**: AI assistant capabilities
+- **Azure Key Vault**: Secure secrets management
+- **Azure Blob Storage**: File storage
 
 ## Acknowledgments
 
 - OpenAI for providing the API for the medical assistant
 - The scikit-learn team for machine learning tools
 - The Flask team for the web framework
+- Microsoft Azure for cloud services and security features

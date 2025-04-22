@@ -310,12 +310,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5201:5201"
-    env_file:
-      - ../.env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
     volumes:
       - ../logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -325,8 +326,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5202:5202"
-    env_file:
-      - ../.env
+    environment:
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+    volumes:
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -336,12 +341,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5203:5203"
-    env_file:
-      - ../.env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
     volumes:
       - ../logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -351,15 +357,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5204:5204"
-    env_file:
-      - ../.env
     environment:
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
       - EMBEDDING_URL=http://embedding_service:5201
       - VECTOR_URL=http://vector_search_service:5202
       - LLM_URL=http://llm_generator_service:5203
-      - SYSTEM_PROMPT=${SYSTEM_PROMPT}
     volumes:
       - ../logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 

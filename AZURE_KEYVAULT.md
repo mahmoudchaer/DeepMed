@@ -10,6 +10,71 @@ The application has been migrated from using `.env` files to Azure Key Vault for
 4. Providing audit logs for secret access
 5. Enabling automatic secret rotation
 
+## Setting Up Azure Key Vault
+
+### Prerequisites
+
+- Azure Subscription
+- Azure CLI installed 
+- Appropriate permissions to create resources in Azure
+
+### Create Key Vault with Azure CLI
+
+```bash
+# Login to Azure
+az login
+
+# Set variables
+RESOURCE_GROUP="rg-deepmed"
+LOCATION="eastus"
+KEYVAULT_NAME="kv503n"  # Use your own unique name
+
+# Create a resource group if it doesn't exist
+az group create --name $RESOURCE_GROUP --location $LOCATION
+
+# Create Key Vault
+az keyvault create --name $KEYVAULT_NAME --resource-group $RESOURCE_GROUP --location $LOCATION --sku standard
+```
+
+### Add Secrets to Key Vault
+
+```bash
+# MySQL settings
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-USER" --value "root"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-PASSWORD" --value "your-secure-password"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-HOST" --value "localhost"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-PORT" --value "3306"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-DB" --value "deepmedver"
+
+# Flask settings
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "SECRET-KEY" --value "your-secure-random-key"
+
+# OpenAI API Key
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "OPENAI-API-KEY" --value "your-openai-api-key"
+
+# Azure Storage
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-STORAGE-ACCOUNT" --value "your-storage-account"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-STORAGE-KEY" --value "your-storage-key"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-CONTAINER" --value "your-container"
+```
+
+### Deploy App with Managed Identity
+
+For Azure App Service deployments, use Managed Identity:
+
+```bash
+# Create App Service with Managed Identity
+az appservice plan create --name plan-deepmed --resource-group $RESOURCE_GROUP --sku B1
+az webapp create --name app-deepmed --resource-group $RESOURCE_GROUP --plan plan-deepmed --runtime "PYTHON:3.9"
+az webapp identity assign --name app-deepmed --resource-group $RESOURCE_GROUP
+
+# Get the managed identity principal ID
+PRINCIPAL_ID=$(az webapp identity show --name app-deepmed --resource-group $RESOURCE_GROUP --query principalId --output tsv)
+
+# Grant the managed identity access to Key Vault
+az keyvault set-policy --name $KEYVAULT_NAME --resource-group $RESOURCE_GROUP --object-id $PRINCIPAL_ID --secret-permissions get list
+```
+
 ## Implementation Details
 
 ### Key Vault Module
@@ -19,7 +84,6 @@ A central module `keyvault.py` has been created that provides:
 - Connection to Azure Key Vault using DefaultAzureCredential
 - A drop-in replacement for `os.getenv()` functionality with `keyvault.getenv()`
 - LRU caching to avoid repeated calls to Key Vault
-- Mapping of environment variable names to Key Vault secret names
 
 ### Authentication
 
@@ -58,33 +122,31 @@ The Key Vault URL is configured in `keyvault.py`:
 VAULT_URL = "https://kv503n.vault.azure.net/"
 ```
 
-## Required Packages
-
-The following packages were added to `requirements.txt`:
-
-```
-azure-identity==1.13.0
-azure-keyvault-secrets==4.6.0
-```
-
 ## Local Development
 
 For local development, you can authenticate with Azure using:
 
 1. Environment variables
+   ```bash
+   export AZURE_TENANT_ID=your-tenant-id
+   export AZURE_CLIENT_ID=your-client-id
+   export AZURE_CLIENT_SECRET=your-client-secret
    ```
-   set AZURE_TENANT_ID=your-tenant-id
-   set AZURE_CLIENT_ID=your-client-id
-   set AZURE_CLIENT_SECRET=your-client-secret
+   
+   In Windows PowerShell:
+   ```powershell
+   $env:AZURE_TENANT_ID="your-tenant-id"
+   $env:AZURE_CLIENT_ID="your-client-id"
+   $env:AZURE_CLIENT_SECRET="your-client-secret"
    ```
 
 2. Azure CLI
-   ```
+   ```bash
    az login
    ```
 
 3. Visual Studio Code Azure extension
 
-## Deployment
+## Docker Deployment
 
-When deployed to Azure, the application will use Managed Identity to access Key Vault. Ensure your app service or other Azure resource has a managed identity enabled and granted access to Key Vault. 
+For Docker deployment, the necessary Azure authentication environment variables are passed to the containers, and the keyvault.py module is mounted as a volume to ensure consistent access to secrets. 
