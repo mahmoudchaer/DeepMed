@@ -12,7 +12,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 import uuid
-import secrets
+import secrets as std_secrets
 import zipfile
 # Import the key vault module
 import keyvault
@@ -50,7 +50,7 @@ def anomaly_detection():
     
     # Generate a CSRF token for logout form if needed
     if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     # Check services health for status display
     services_status = check_services()
@@ -150,7 +150,7 @@ def augment():
     
     # Generate a CSRF token for logout form if needed
     if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     # Check services health for status display
     services_status = check_services()
@@ -250,7 +250,7 @@ def pipeline():
     
     # Generate a CSRF token for logout form if needed
     if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     # Check services health for status display
     services_status = check_services()
@@ -446,7 +446,7 @@ def images_prediction():
     
     # Generate a CSRF token for logout form if needed
     if 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     # Check services health for status display
     services_status = check_services()

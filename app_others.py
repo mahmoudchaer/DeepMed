@@ -10,7 +10,7 @@ from datetime import datetime
 import logging
 import tempfile
 import uuid
-import secrets
+import secrets as std_secrets  # Renamed to avoid conflicts
 from werkzeug.utils import secure_filename
 import requests
 import urllib.parse

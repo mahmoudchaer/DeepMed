@@ -14,7 +14,7 @@ import shutil
 import atexit
 import tempfile
 import uuid
-import secrets
+import secrets as std_secrets
 import urllib.parse
 from werkzeug.utils import secure_filename
 import plotly.graph_objects as go
@@ -108,7 +108,7 @@ def inject_user():
     
     # Add logout token if user is authenticated
     if current_user.is_authenticated and 'logout_token' not in session:
-        session['logout_token'] = secrets.token_hex(16)
+        session['logout_token'] = std_secrets.token_hex(16)
     
     if current_user.is_authenticated and 'logout_token' in session:
         context['logout_token'] = session['logout_token']
