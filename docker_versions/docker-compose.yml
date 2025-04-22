@@ -10,9 +10,9 @@ services:
       - "5001:5001"
     environment:
       - PORT=5001
-      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -23,10 +23,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5002:5002"
-    environment:
-      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -39,6 +38,7 @@ services:
       - "5003:5003"
     volumes:
       - ./logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -53,6 +53,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -63,10 +64,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5005:5005"
-    environment:
-      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -88,17 +88,10 @@ services:
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
       - MLFLOW_TRACKING_URI=file:///app/mlruns
-      - AZURESTORAGEACCOUNT=${AZURESTORAGEACCOUNT}
-      - AZURESTORAGEKEY=${AZURESTORAGEKEY}
-      - AZURECONTAINER=${AZURECONTAINER}
-      - MYSQLUSER=${MYSQLUSER}
-      - MYSQLPASSWORD=${MYSQLPASSWORD}
-      - MYSQLHOST=${MYSQLHOST}
-      - MYSQLPORT=${MYSQLPORT}
-      - MYSQLDB=${MYSQLDB}
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
     extra_hosts:
@@ -118,6 +111,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -133,6 +127,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -148,6 +143,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -163,6 +159,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -178,6 +175,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -193,6 +191,7 @@ services:
       - ./logs:/app/logs
       - ./saved_models:/app/saved_models
       - ./mlruns:/app/mlruns
+      - ../keyvault.py:/app/keyvault.py
     networks:
       - deepmed-network
 
@@ -205,6 +204,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_versions/predictor/predictor.py:/app/predictor.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5101
     networks:
@@ -219,6 +219,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_for_images/images_classification/app.py:/app/app.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5021
     networks:
@@ -234,6 +235,7 @@ services:
     volumes:
       - ../docker_for_images/data_augmentation/data_augmentation.py:/app/data_augmentation.py
       - ../docker_for_images/data_augmentation/augment_service.py:/app/augment_service.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5023
     networks:
@@ -248,6 +250,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_for_images/pipeline/app.py:/app/app.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5025
       - AUGMENTATION_SERVICE_URL=http://augmentation-service:5023
@@ -267,6 +270,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
+      - ../keyvault.py:/app/keyvault.py
     shm_size: '4gb'
     environment:
       - PORT=5029
@@ -282,6 +286,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_for_images/eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5030
       - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
@@ -299,6 +304,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../docker_for_images/predictor/predictor.py:/app/predictor.py
+      - ../keyvault.py:/app/keyvault.py
     environment:
       - PORT=5100
     networks:
@@ -310,10 +316,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5201:5201"
-    environment:
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -326,10 +328,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5202:5202"
-    environment:
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
     volumes:
       - ../keyvault.py:/app/keyvault.py
     networks:
@@ -341,10 +339,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5203:5203"
-    environment:
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -358,9 +352,6 @@ services:
     ports:
       - "5204:5204"
     environment:
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
       - EMBEDDING_URL=http://embedding_service:5201
       - VECTOR_URL=http://vector_search_service:5202
       - LLM_URL=http://llm_generator_service:5203
