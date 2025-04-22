@@ -647,7 +647,7 @@ if __name__ == '__main__':
     from app_tabular import *
     from app_images import *
     from app_others import *
-    from app_regression import *
+
     
     # Register the chatbot blueprint
     app = register_chatbot_blueprint(app)
