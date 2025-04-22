@@ -1,0 +1,27 @@
+name: Build and Push Multi-Service Images
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build all images
+      run: |
+        docker compose -f docker_versions/docker-compose.yml build
+
+    - name: Push all images
+      run: |
+        docker compose -f docker_versions/docker-compose.yml push
