@@ -3,15 +3,21 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
+import sys
+from pathlib import Path
 from openai import OpenAI
 import logging
+
+# Add the parent directory to sys.path for keyvault import
+sys.path.append(str(Path(__file__).parent.parent.parent))
+import keyvault
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=keyvault.getenv("OPENAI_API_KEY"))
 
 class EmbeddingRequest(BaseModel):
     text: str

@@ -1,18 +1,15 @@
 import os
-from dotenv import load_dotenv
-from azure.storage.blob import BlobServiceClient
 import logging
+from azure.storage.blob import BlobServiceClient
+import keyvault  # Import our key vault module
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Get Azure credentials from .env
-AZURE_STORAGE_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT")
-AZURE_STORAGE_KEY = os.getenv("AZURE_STORAGE_KEY")
-AZURE_CONTAINER = os.getenv("AZURE_CONTAINER")
+# Get Azure credentials from Key Vault
+AZURE_STORAGE_ACCOUNT = keyvault.getenv("AZURE_STORAGE_ACCOUNT")
+AZURE_STORAGE_KEY = keyvault.getenv("AZURE_STORAGE_KEY")
+AZURE_CONTAINER = keyvault.getenv("AZURE_CONTAINER")
 
 # Check if Azure credentials are available
 if not all([AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, AZURE_CONTAINER]):

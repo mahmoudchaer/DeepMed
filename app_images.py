@@ -14,6 +14,8 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 import uuid
 import secrets
 import zipfile
+# Import the key vault module
+import keyvault
 
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, MODEL_COORDINATOR_URL, AUGMENTATION_SERVICE_URL, MODEL_TRAINING_SERVICE_URL
@@ -21,10 +23,10 @@ from app_api import is_service_available, get_temp_filepath, safe_requests_post,
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
 # Define new URL for pipeline service
-PIPELINE_SERVICE_URL = os.environ.get('PIPELINE_SERVICE_URL', 'http://localhost:5025')
+PIPELINE_SERVICE_URL = keyvault.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
 
 # Define URL for anomaly detection service
-ANOMALY_DETECTION_SERVICE_URL = os.environ.get('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5030')
+ANOMALY_DETECTION_SERVICE_URL = keyvault.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5030')
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
@@ -450,7 +452,7 @@ def images_prediction():
     services_status = check_services()
     
     # Add images prediction service to services status
-    predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+    predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
     services_status['predictor_service'] = is_service_available(predictor_service_url)
     
     return render_template('images_prediction.html', services_status=services_status, logout_token=session['logout_token'])
@@ -475,7 +477,7 @@ def api_predict_image():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = os.environ.get('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+        predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
@@ -515,12 +517,72 @@ def api_predict_image():
         logger.error(f"Error in image prediction: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/prediction_details', methods=['POST'])
+@login_required
+def api_prediction_details():
+    """Get prediction details"""
+    # Check for file upload
+    if 'model_package' not in request.files or 'input_file' not in request.files:
+        return jsonify({"error": "Both model package and input file are required"}), 400
+    
+    model_package = request.files['model_package']
+    input_file = request.files['input_file']
+    
+    if not model_package.filename or not input_file.filename:
+        return jsonify({"error": "Both model package and input file must be selected"}), 400
+    
+    # Validate file extensions
+    if not model_package.filename.lower().endswith('.zip'):
+        return jsonify({"error": "Model package must be a ZIP archive"}), 400
+    
+    try:
+        # Define the predictor service URL
+        predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+        
+        # Check if the predictor service is available
+        if not is_service_available(predictor_service_url):
+            return jsonify({"error": "Prediction service is not available. Please try again later."}), 503
+        
+        logger.info(f"Starting prediction details for model: {model_package.filename} and input: {input_file.filename}")
+        
+        # Forward the files to the prediction service
+        files = {
+            'model_package': (model_package.filename, model_package.stream, 'application/zip'),
+            'input_file': (input_file.filename, input_file.stream, 'application/octet-stream')
+        }
+        
+        # Send request to the predictor service
+        response = requests.post(
+            f"{predictor_service_url}/predict",
+            files=files,
+            timeout=600  # 10 minute timeout
+        )
+        
+        # Check response status
+        if response.status_code != 200:
+            error_message = "Error in prediction service"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_message = error_data['error']
+            except:
+                error_message = f"Error in prediction service (HTTP {response.status_code})"
+            
+            return jsonify({"error": error_message}), response.status_code
+        
+        # Return prediction details
+        return jsonify(response.json())
+        
+    except Exception as e:
+        logger.error(f"Error in prediction details: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5023))
+    port = int(keyvault.getenv("PORT", 5023))
     logger.info(f"Starting augmentation service on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
 

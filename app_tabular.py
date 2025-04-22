@@ -501,12 +501,12 @@ def training():
                 # Try with direct SQL as a fallback
                 try:
                     import pymysql
-                    # Get database credentials from environment variables
-                    MYSQL_USER = os.getenv("MYSQL_USER")
-                    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-                    MYSQL_HOST = os.getenv("MYSQL_HOST")
-                    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-                    MYSQL_DB = os.getenv("MYSQL_DB")
+                    # Get database credentials from Key Vault
+                    MYSQL_USER = keyvault.getenv("MYSQL_USER")
+                    MYSQL_PASSWORD = keyvault.getenv("MYSQL_PASSWORD")
+                    MYSQL_HOST = keyvault.getenv("MYSQL_HOST")
+                    MYSQL_PORT = int(keyvault.getenv("MYSQL_PORT"))
+                    MYSQL_DB = keyvault.getenv("MYSQL_DB")
                     
                     # Connect to database
                     conn = pymysql.connect(
@@ -692,7 +692,7 @@ def tabular_prediction():
     services_status = check_services()
     
     # Add tabular prediction service to services status
-    predictor_service_url = os.environ.get('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
+    predictor_service_url = keyvault.getenv('TABULAR_PREDICTOR_SERVICE_URL', 'http://localhost:5101')
     services_status['tabular_predictor_service'] = is_service_available(predictor_service_url)
     
     return render_template('tabular_prediction.html', services_status=services_status, logout_token=session['logout_token'])

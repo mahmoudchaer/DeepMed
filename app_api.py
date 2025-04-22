@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from dotenv import load_dotenv
 import json
 import io
 import time
@@ -22,6 +21,8 @@ import plotly.graph_objects as go
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 # Import the chatbot module
 from app_llm import register_chatbot_blueprint
+# Import the Key Vault module
+import keyvault
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -40,17 +41,14 @@ def safe_requests_post(url, json_data, **kwargs):
     safe_json = clean_data_for_json(json_data)
     return requests.post(url, json=safe_json, **kwargs)
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Define service URLs with localhost and ports for host machine access
-DATA_CLEANER_URL = os.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
-FEATURE_SELECTOR_URL = os.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
-ANOMALY_DETECTOR_URL = os.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
-MODEL_COORDINATOR_URL = os.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
-MEDICAL_ASSISTANT_URL = os.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
-AUGMENTATION_SERVICE_URL = os.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
-MODEL_TRAINING_SERVICE_URL = os.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
+DATA_CLEANER_URL = keyvault.getenv('DATA_CLEANER_URL', 'http://localhost:5001')
+FEATURE_SELECTOR_URL = keyvault.getenv('FEATURE_SELECTOR_URL', 'http://localhost:5002')
+ANOMALY_DETECTOR_URL = keyvault.getenv('ANOMALY_DETECTOR_URL', 'http://localhost:5003')
+MODEL_COORDINATOR_URL = keyvault.getenv('MODEL_COORDINATOR_URL', 'http://localhost:5020')
+MEDICAL_ASSISTANT_URL = keyvault.getenv('MEDICAL_ASSISTANT_URL', 'http://localhost:5005')
+AUGMENTATION_SERVICE_URL = keyvault.getenv('AUGMENTATION_SERVICE_URL', 'http://localhost:5023')
+MODEL_TRAINING_SERVICE_URL = keyvault.getenv('MODEL_TRAINING_SERVICE_URL', 'http://localhost:5021')
 
 # Update service URLs dictionary with proper health endpoints
 SERVICES = {
@@ -65,7 +63,7 @@ SERVICES = {
 
 # Setup Flask app
 app = Flask(__name__)
-app.SECRET-KEY = os.getenv('SECRET-KEY', 'your_SECRET-KEY')
+app.SECRET_KEY = keyvault.getenv('SECRET_KEY', 'your_SECRET_KEY')
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -75,11 +73,11 @@ app.config['REMEMBER_COOKIE_DURATION'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24  # 24 hours
 
 # Database configuration
-MYSQL_USER = os.getenv('MYSQL_USER')
-MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
-MYSQL_HOST = os.getenv('MYSQL_HOST')
-MYSQL_PORT = int(os.getenv('MYSQL_PORT'))
-MYSQL_DB = os.getenv('MYSQL_DB')
+MYSQL_USER = keyvault.getenv('MYSQL_USER')
+MYSQL_PASSWORD = keyvault.getenv('MYSQL_PASSWORD')
+MYSQL_HOST = keyvault.getenv('MYSQL_HOST')
+MYSQL_PORT = int(keyvault.getenv('MYSQL_PORT'))
+MYSQL_DB = keyvault.getenv('MYSQL_DB')
 
 # URL encode the password to handle special characters
 encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)

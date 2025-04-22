@@ -19,6 +19,14 @@ from flask import abort
 import shutil
 import joblib  # Add joblib import for direct model loading
 import io
+import sys
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+import base64
+import keyvault  # Import key vault module
 
 # Import common components from app_api.py
 from app_api import app, MEDICAL_ASSISTANT_URL  # Only import MEDICAL_ASSISTANT_URL
@@ -29,29 +37,30 @@ from app_api import save_to_temp_file, load_from_temp_file, check_session_size
 # Import database models
 from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 
-# Define regression-specific service URLs - Do not rely on default values that use localhost
-# Check the environment variables first
-REGRESSION_DATA_CLEANER_URL = os.environ.get('REGRESSION_DATA_CLEANER_URL') 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Define regression service URLs with proper defaults
+REGRESSION_DATA_CLEANER_URL = keyvault.getenv('REGRESSION_DATA_CLEANER_URL')
 if not REGRESSION_DATA_CLEANER_URL:
-    # Use localhost with ports - MODIFIED for direct access
-    REGRESSION_DATA_CLEANER_URL = 'http://localhost:5031'
-    logger.warning(f"REGRESSION_DATA_CLEANER_URL not found in environment, using default: {REGRESSION_DATA_CLEANER_URL}")
+    logger.warning("REGRESSION_DATA_CLEANER_URL not set. Using default URL.")
+    REGRESSION_DATA_CLEANER_URL = "http://localhost:5031"
 
-REGRESSION_FEATURE_SELECTOR_URL = os.environ.get('REGRESSION_FEATURE_SELECTOR_URL')
+REGRESSION_FEATURE_SELECTOR_URL = keyvault.getenv('REGRESSION_FEATURE_SELECTOR_URL')
 if not REGRESSION_FEATURE_SELECTOR_URL:
-    REGRESSION_FEATURE_SELECTOR_URL = 'http://localhost:5032'
-    logger.warning(f"REGRESSION_FEATURE_SELECTOR_URL not found in environment, using default: {REGRESSION_FEATURE_SELECTOR_URL}")
+    logger.warning("REGRESSION_FEATURE_SELECTOR_URL not set. Using default URL.")
+    REGRESSION_FEATURE_SELECTOR_URL = "http://localhost:5032"
 
-REGRESSION_MODEL_COORDINATOR_URL = os.environ.get('REGRESSION_MODEL_COORDINATOR_URL')
+REGRESSION_MODEL_COORDINATOR_URL = keyvault.getenv('REGRESSION_MODEL_COORDINATOR_URL')
 if not REGRESSION_MODEL_COORDINATOR_URL:
-    REGRESSION_MODEL_COORDINATOR_URL = 'http://localhost:5040'
-    logger.warning(f"REGRESSION_MODEL_COORDINATOR_URL not found in environment, using default: {REGRESSION_MODEL_COORDINATOR_URL}")
+    logger.warning("REGRESSION_MODEL_COORDINATOR_URL not set. Using default URL.")
+    REGRESSION_MODEL_COORDINATOR_URL = "http://localhost:5040"
 
-# Fix: Use the correct predictor service name from docker-compose.yml
-REGRESSION_PREDICTOR_SERVICE_URL = os.environ.get('REGRESSION_PREDICTOR_SERVICE_URL')
+REGRESSION_PREDICTOR_SERVICE_URL = keyvault.getenv('REGRESSION_PREDICTOR_SERVICE_URL')
 if not REGRESSION_PREDICTOR_SERVICE_URL:
-    REGRESSION_PREDICTOR_SERVICE_URL = 'http://localhost:5050'
-    logger.warning(f"REGRESSION_PREDICTOR_SERVICE_URL not found in environment, using default: {REGRESSION_PREDICTOR_SERVICE_URL}")
+    logger.warning("REGRESSION_PREDICTOR_SERVICE_URL not set. Using default URL.")
+    REGRESSION_PREDICTOR_SERVICE_URL = "http://localhost:5050"
 
 # Log the actual URLs being used
 logger.info(f"Regression Data Cleaner URL: {REGRESSION_DATA_CLEANER_URL}")

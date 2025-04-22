@@ -8,15 +8,13 @@ import os
 import sys
 import urllib.parse  # For URL encoding
 import pymysql
-from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# Load .env from the parent directory
-PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-load_dotenv(os.path.join(PARENT_DIR, ".env"))
+# Import the key vault module
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import keyvault
 
 # Initialize Flask App & SQLAlchemy
 app = Flask(__name__)
@@ -24,11 +22,11 @@ db = SQLAlchemy()
 
 def get_db_uri():
     """Generate MySQL connection URI from environment variables."""
-    MYSQL_USER = os.getenv("MYSQL_USER")
-    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-    MYSQL_HOST = os.getenv("MYSQL_HOST")
-    MYSQL_PORT = os.getenv("MYSQL_PORT")
-    MYSQL_DB = os.getenv("MYSQL_DB")
+    MYSQL_USER = keyvault.getenv("MYSQL_USER")
+    MYSQL_PASSWORD = keyvault.getenv("MYSQL_PASSWORD")
+    MYSQL_HOST = keyvault.getenv("MYSQL_HOST")
+    MYSQL_PORT = keyvault.getenv("MYSQL_PORT")
+    MYSQL_DB = keyvault.getenv("MYSQL_DB")
 
     # URL encode the password to handle special characters
     encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
@@ -37,11 +35,11 @@ def get_db_uri():
 
 def setup_database():
     """Setup MySQL database if it doesn't exist."""
-    MYSQL_USER = os.getenv("MYSQL_USER")
-    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-    MYSQL_HOST = os.getenv("MYSQL_HOST")
-    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-    MYSQL_DB = os.getenv("MYSQL_DB")
+    MYSQL_USER = keyvault.getenv("MYSQL_USER")
+    MYSQL_PASSWORD = keyvault.getenv("MYSQL_PASSWORD")
+    MYSQL_HOST = keyvault.getenv("MYSQL_HOST")
+    MYSQL_PORT = int(keyvault.getenv("MYSQL_PORT"))
+    MYSQL_DB = keyvault.getenv("MYSQL_DB")
 
     print(f"🔄 Connecting to MySQL server at {MYSQL_HOST}:{MYSQL_PORT} with user {MYSQL_USER}...")
 
@@ -146,11 +144,11 @@ def create_tables():
 def setup_event_scheduler():
     """Create MySQL Event Scheduler for auto-deletion after 15 days."""
     try:
-        MYSQL_USER = os.getenv("MYSQL_USER")
-        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-        MYSQL_HOST = os.getenv("MYSQL_HOST")
-        MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-        MYSQL_DB = os.getenv("MYSQL_DB")
+        MYSQL_USER = keyvault.getenv("MYSQL_USER")
+        MYSQL_PASSWORD = keyvault.getenv("MYSQL_PASSWORD")
+        MYSQL_HOST = keyvault.getenv("MYSQL_HOST")
+        MYSQL_PORT = int(keyvault.getenv("MYSQL_PORT"))
+        MYSQL_DB = keyvault.getenv("MYSQL_DB")
 
         conn = pymysql.connect(
             host=MYSQL_HOST,

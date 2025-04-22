@@ -1,20 +1,21 @@
 # chatbot/rag_update.py
 
 import os
+import sys
 from pathlib import Path
-from dotenv import load_dotenv
+
+# Add the parent directory to sys.path for keyvault import
+sys.path.append(str(Path(__file__).parent.parent))
+import keyvault
 
 from openai import OpenAI
 from chromadb import Client
 from chromadb.config import Settings
 
-# ── Load Environment ───────────────────────────────────────────────────────────
-# .env is ../.env relative to this script
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Get API key from Key Vault
+OPENAI_API_KEY = keyvault.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    raise RuntimeError("Missing OPENAI_API_KEY in .env")
+    raise RuntimeError("Missing OPENAI_API_KEY in Key Vault")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Where your docs live (20 pages max, as .md)
@@ -23,7 +24,7 @@ if not DOCS_DIR.exists():
     raise RuntimeError(f"Docs folder not found: {DOCS_DIR}")
 
 # Where Chroma will persist its files (same as vector-search service)
-PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(Path(__file__).parent / "chroma_data"))
+PERSIST_DIR = keyvault.getenv("CHROMA_PERSIST_DIR", str(Path(__file__).parent / "chroma_data"))
 
 # ── Initialize ChromaDB ────────────────────────────────────────────────────────
 chroma_client = Client(

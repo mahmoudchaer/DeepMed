@@ -4,15 +4,21 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
 import os
+import sys
 import chromadb
 import logging
+from pathlib import Path
+
+# Add the parent directory to sys.path for keyvault import
+sys.path.append(str(Path(__file__).parent.parent.parent))
+import keyvault
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+persist_dir = keyvault.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 logger.info(f"Using ChromaDB persist directory: {persist_dir}")
 
 try:
