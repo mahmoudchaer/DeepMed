@@ -115,7 +115,7 @@ This will start all model services and the model coordinator.
 1. Create a `.env` file with your OpenAI API key:
 
 ```
-OPENAI_API_KEY=your_api_key_here
+OPENAI-API-KEY=your_api_key_here
 ```
 
 2. Build and start all services using Docker Compose:

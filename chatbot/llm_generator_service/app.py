@@ -17,10 +17,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-api_key = keyvault.getenv("OPENAI_API_KEY")
+api_key = keyvault.getenv("OPENAI-API-KEY")
 if not api_key:
-    logger.error("Missing OPENAI_API_KEY in Key Vault")
-    raise ValueError("OPENAI_API_KEY is required in Key Vault")
+    logger.error("Missing OPENAI-API-KEY in Key Vault")
+    raise ValueError("OPENAI-API-KEY is required in Key Vault")
 
 # Guardrail configuration
 GUARDRAIL_TEXT = keyvault.getenv(

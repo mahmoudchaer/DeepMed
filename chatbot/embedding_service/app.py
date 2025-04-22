@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-client = OpenAI(api_key=keyvault.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=keyvault.getenv("OPENAI-API-KEY"))
 
 class EmbeddingRequest(BaseModel):
     text: str

@@ -15,7 +15,7 @@ COPY app.py .
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5001
-# Don't set OPENAI_API_KEY here - it will be passed from docker-compose
+# Don't set OPENAI-API-KEY here - it will be passed from docker-compose
 
 # Expose the port
 EXPOSE ${PORT}

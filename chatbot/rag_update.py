@@ -13,10 +13,10 @@ from chromadb import Client
 from chromadb.config import Settings
 
 # Get API key from Key Vault
-OPENAI_API_KEY = keyvault.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("Missing OPENAI_API_KEY in Key Vault")
-client = OpenAI(api_key=OPENAI_API_KEY)
+OPENAI-API-KEY = keyvault.getenv("OPENAI-API-KEY")
+if not OPENAI-API-KEY:
+    raise RuntimeError("Missing OPENAI-API-KEY in Key Vault")
+client = OpenAI(api_key=OPENAI-API-KEY)
 
 # Where your docs live (20 pages max, as .md)
 DOCS_DIR = Path(__file__).parent / "docs"
@@ -24,7 +24,7 @@ if not DOCS_DIR.exists():
     raise RuntimeError(f"Docs folder not found: {DOCS_DIR}")
 
 # Where Chroma will persist its files (same as vector-search service)
-PERSIST_DIR = keyvault.getenv("CHROMA_PERSIST_DIR", str(Path(__file__).parent / "chroma_data"))
+PERSIST_DIR = keyvault.getenv("CHROMA-PERSIST-DIR", str(Path(__file__).parent / "chroma_data"))
 
 # ── Initialize ChromaDB ────────────────────────────────────────────────────────
 chroma_client = Client(

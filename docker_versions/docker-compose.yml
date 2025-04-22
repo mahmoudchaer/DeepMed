@@ -10,7 +10,7 @@ services:
       - "5001:5001"
     environment:
       - PORT=5001
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
     networks:
@@ -24,7 +24,7 @@ services:
     ports:
       - "5002:5002"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
     networks:
@@ -64,7 +64,7 @@ services:
     ports:
       - "5005:5005"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAI-API-KEY}
     volumes:
       - ./logs:/app/logs
     networks:
@@ -88,14 +88,14 @@ services:
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
       - MLFLOW_TRACKING_URI=file:///app/mlruns
-      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
-      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
-      - AZURE_CONTAINER=${AZURE_CONTAINER}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_HOST=${MYSQL_HOST}
-      - MYSQL_PORT=${MYSQL_PORT}
-      - MYSQL_DB=${MYSQL_DB}
+      - AZURE-STORAGE-ACCOUNT=${AZURE-STORAGE-ACCOUNT}
+      - AZURE-STORAGE-KEY=${AZURE-STORAGE-KEY}
+      - AZURE-CONTAINER=${AZURE-CONTAINER}
+      - MYSQL-USER=${MYSQL-USER}
+      - MYSQL-PASSWORD=${MYSQL-PASSWORD}
+      - MYSQL-HOST=${MYSQL-HOST}
+      - MYSQL-PORT=${MYSQL-PORT}
+      - MYSQL-DB=${MYSQL-DB}
     volumes:
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns

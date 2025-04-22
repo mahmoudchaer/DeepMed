@@ -502,19 +502,19 @@ def training():
                 try:
                     import pymysql
                     # Get database credentials from Key Vault
-                    MYSQL_USER = keyvault.getenv("MYSQL_USER")
-                    MYSQL_PASSWORD = keyvault.getenv("MYSQL_PASSWORD")
-                    MYSQL_HOST = keyvault.getenv("MYSQL_HOST")
-                    MYSQL_PORT = int(keyvault.getenv("MYSQL_PORT"))
-                    MYSQL_DB = keyvault.getenv("MYSQL_DB")
+                    MYSQL-USER = keyvault.getenv("MYSQL-USER")
+                    MYSQL-PASSWORD = keyvault.getenv("MYSQL-PASSWORD")
+                    MYSQL-HOST = keyvault.getenv("MYSQL-HOST")
+                    MYSQL-PORT = int(keyvault.getenv("MYSQL-PORT"))
+                    MYSQL-DB = keyvault.getenv("MYSQL-DB")
                     
                     # Connect to database
                     conn = pymysql.connect(
-                        host=MYSQL_HOST,
-                        user=MYSQL_USER,
-                        password=MYSQL_PASSWORD,
-                        port=MYSQL_PORT,
-                        database=MYSQL_DB
+                        host=MYSQL-HOST,
+                        user=MYSQL-USER,
+                        password=MYSQL-PASSWORD,
+                        port=MYSQL-PORT,
+                        database=MYSQL-DB
                     )
                     cursor = conn.cursor()
                     
