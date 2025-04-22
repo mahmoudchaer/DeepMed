@@ -42,7 +42,7 @@ services:
     networks:
       - deepmed-network
 
-  # Model Trainer service (main service for training models)
+  # Model Trainer service
   model-trainer:
     build:
       context: ./model_trainer
@@ -56,7 +56,7 @@ services:
     networks:
       - deepmed-network
 
-  # Medical Assistant service (chatbot and analysis)
+  # Medical Assistant service
   medical-assistant:
     build:
       context: ./medical_assistant
@@ -70,7 +70,7 @@ services:
     networks:
       - deepmed-network
 
-  # Model Coordinator (orchestrates model services)
+  # Model Coordinator
   model_coordinator:
     build:
       context: ./model_coordinator
@@ -165,7 +165,7 @@ services:
       - ./mlruns:/app/mlruns
     networks:
       - deepmed-network
-      
+
   knn:
     build:
       context: ./knn
@@ -180,7 +180,7 @@ services:
       - ./mlruns:/app/mlruns
     networks:
       - deepmed-network
-      
+
   naive_bayes:
     build:
       context: ./naive_bayes
@@ -209,11 +209,6 @@ services:
       - PORT=5101
     networks:
       - deepmed-network
-
-networks:
-  deepmed-network:
-    driver: bridge 
-
 
   model-training-service:
     build:
@@ -263,22 +258,6 @@ networks:
       - augmentation-service
       - model-training-service
 
-    anomaly-detection-service:
-    build:
-      context: ../docker_for_images/anomaly_detector
-      dockerfile: Dockerfile
-    ports:
-      - "5029:5029"
-    restart: unless-stopped
-    volumes:
-      - ../docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
-    shm_size: '4gb'
-    environment:
-      - PORT=5029
-    networks:
-      - deepmed-network
-
-
   anomaly-detection-service:
     build:
       context: ../docker_for_images/anomaly_detector
@@ -289,17 +268,27 @@ networks:
     volumes:
       - ../docker_for_images/anomaly_detector/anomaly_detection_service.py:/app/anomaly_detection_service.py
     shm_size: '4gb'
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          memory: 2G
     environment:
       - PORT=5029
     networks:
       - deepmed-network
+
+  anomaly-detector-eep:
+    build:
+      context: ../docker_for_images/eep_anomaly_detector
+      dockerfile: Dockerfile_eep
+    ports:
+      - "5030:5030"
+    restart: unless-stopped
+    volumes:
+      - ../docker_for_images/eep_anomaly_detector/anomaly_detector_eep.py:/app/anomaly_detector_eep.py
+    environment:
+      - PORT=5030
+      - ANOMALY_DETECTION_SERVICE_URL=http://anomaly-detection-service:5029
+    networks:
+      - deepmed-network
+    depends_on:
+      - anomaly-detection-service
 
   predictor-service:
     build:
@@ -314,3 +303,7 @@ networks:
       - PORT=5100
     networks:
       - deepmed-network
+
+networks:
+  deepmed-network:
+    driver: bridge
