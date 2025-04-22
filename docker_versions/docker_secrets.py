@@ -19,7 +19,10 @@ logger = logging.getLogger("docker_secrets")
 
 # Default values to use as fallback if Key Vault is unavailable
 DEFAULT_SECRETS = {
-    "OPENAI-API-KEY": "sk-your-openai-key-here-replace-in-production"
+    "OPENAI-API-KEY": "MISSING_KEY_PLEASE_INSTALL_AZURE_SDK",
+    "AZURESTORAGEACCOUNT": "devstoreaccount1",
+    "AZURESTORAGEKEY": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+    "AZURECONTAINER": "models"
 }
 
 def setup_env():
