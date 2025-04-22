@@ -113,20 +113,20 @@ class DatabaseTester:
     def __init__(self):
         """Initialize database connection"""
         # Get database connection parameters from Key Vault
-        MYSQL-USER = keyvault.getenv('MYSQL-USER')
-        MYSQL-PASSWORD = keyvault.getenv('MYSQL-PASSWORD')
-        MYSQL-HOST = keyvault.getenv('MYSQL-HOST')
-        MYSQL-PORT = keyvault.getenv('MYSQL-PORT')
-        MYSQL-DB = keyvault.getenv('MYSQL-DB')
+        MYSQLUSER = keyvault.getenv('MYSQLUSER')
+        MYSQLPASSWORD = keyvault.getenv('MYSQLPASSWORD')
+        MYSQLHOST = keyvault.getenv('MYSQLHOST')
+        MYSQLPORT = keyvault.getenv('MYSQLPORT')
+        MYSQLDB = keyvault.getenv('MYSQLDB')
         
         # Log DB connection info (without password)
-        logger.info(f"Connecting to DB: {MYSQL-USER}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}")
+        logger.info(f"Connecting to DB: {MYSQLUSER}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}")
         
         # URL encode the password to handle special characters
-        encoded_password = urllib.parse.quote_plus(MYSQL-PASSWORD)
+        encoded_password = urllib.parse.quote_plus(MYSQLPASSWORD)
         
         # Create database connection string
-        db_uri = f'mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}'
+        db_uri = f'mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}'
         
         try:
             # Create engine and session

@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-persist_dir = keyvault.getenv("CHROMA-PERSIST-DIR", "./chroma_data")
+persist_dir = keyvault.getenv("CHROMAPERSISTDIR", "./chroma_data")
 logger.info(f"Using ChromaDB persist directory: {persist_dir}")
 
 try:

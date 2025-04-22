@@ -11,7 +11,7 @@ from openai import OpenAI
 client_openai = OpenAI(api_key=os.getenv("OPENAI-API-KEY"))
 
 # Initialize ChromaDB persistent client
-persist_dir = os.getenv("CHROMA-PERSIST-DIR", "./chroma_data")
+persist_dir = os.getenv("CHROMAPERSISTDIR", "./chroma_data")
 client = chromadb.PersistentClient(path=persist_dir)
 collection = client.get_or_create_collection("deepmed_docs")
 
