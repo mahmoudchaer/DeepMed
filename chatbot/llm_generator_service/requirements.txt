@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 openai>=1.0.0
 pydantic
+azure-identity==1.12.0
+azure-keyvault-secrets==4.6.0

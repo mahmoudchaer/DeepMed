@@ -7,11 +7,16 @@ Deletes expired models and data cleaners after 15 days.
 import os
 import pymysql
 import sys
-from dotenv import load_dotenv
 
-# Load .env from the parent directory
+# Add docker_secrets import to load environment variables
 PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-load_dotenv(os.path.join(PARENT_DIR, ".env"))
+sys.path.append(PARENT_DIR)
+
+try:
+    import docker_secrets
+    print("Successfully imported docker_secrets adapter for DB events")
+except ImportError as e:
+    print(f"Could not import docker_secrets adapter for DB events: {str(e)}")
 
 def setup_event_scheduler():
     """Create MySQL Event Scheduler for auto-deletion after 15 days"""

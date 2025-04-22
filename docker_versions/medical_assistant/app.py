@@ -1,3 +1,10 @@
+# Import docker_secrets to load environment variables
+try:
+    import docker_secrets
+    print("Successfully imported docker_secrets adapter")
+except ImportError as e:
+    print(f"Could not import docker_secrets adapter: {str(e)}")
+
 from flask import Flask, request, jsonify
 import pandas as pd
 from typing import Dict, List, Any
