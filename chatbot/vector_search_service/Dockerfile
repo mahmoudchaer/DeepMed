@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Initialize the DB on container startup
-ENV CHROMA-PERSIST-DIR=./chroma_data
+ENV CHROMAPERSISTDIR=./chroma_data
 ENV OPENAI-API-KEY=
 
 EXPOSE 5202

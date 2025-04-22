@@ -22,46 +22,46 @@ db = SQLAlchemy()
 
 def get_db_uri():
     """Generate MySQL connection URI from environment variables."""
-    MYSQL-USER = keyvault.getenv("MYSQL-USER")
-    MYSQL-PASSWORD = keyvault.getenv("MYSQL-PASSWORD")
-    MYSQL-HOST = keyvault.getenv("MYSQL-HOST")
-    MYSQL-PORT = keyvault.getenv("MYSQL-PORT")
-    MYSQL-DB = keyvault.getenv("MYSQL-DB")
+    MYSQLUSER = keyvault.getenv("MYSQLUSER")
+    MYSQLPASSWORD = keyvault.getenv("MYSQLPASSWORD")
+    MYSQLHOST = keyvault.getenv("MYSQLHOST")
+    MYSQLPORT = keyvault.getenv("MYSQLPORT")
+    MYSQLDB = keyvault.getenv("MYSQLDB")
 
     # URL encode the password to handle special characters
-    encoded_password = urllib.parse.quote_plus(MYSQL-PASSWORD)
+    encoded_password = urllib.parse.quote_plus(MYSQLPASSWORD)
 
-    return f"mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}"
+    return f"mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}"
 
 def setup_database():
     """Setup MySQL database if it doesn't exist."""
-    MYSQL-USER = keyvault.getenv("MYSQL-USER")
-    MYSQL-PASSWORD = keyvault.getenv("MYSQL-PASSWORD")
-    MYSQL-HOST = keyvault.getenv("MYSQL-HOST")
-    MYSQL-PORT = int(keyvault.getenv("MYSQL-PORT"))
-    MYSQL-DB = keyvault.getenv("MYSQL-DB")
+    MYSQLUSER = keyvault.getenv("MYSQLUSER")
+    MYSQLPASSWORD = keyvault.getenv("MYSQLPASSWORD")
+    MYSQLHOST = keyvault.getenv("MYSQLHOST")
+    MYSQLPORT = int(keyvault.getenv("MYSQLPORT"))
+    MYSQLDB = keyvault.getenv("MYSQLDB")
 
-    print(f"🔄 Connecting to MySQL server at {MYSQL-HOST}:{MYSQL-PORT} with user {MYSQL-USER}...")
+    print(f"🔄 Connecting to MySQL server at {MYSQLHOST}:{MYSQLPORT} with user {MYSQLUSER}...")
 
     try:
         conn = pymysql.connect(
-            user=MYSQL-USER,
-            password=MYSQL-PASSWORD,
-            host=MYSQL-HOST,
-            port=MYSQL-PORT
+            user=MYSQLUSER,
+            password=MYSQLPASSWORD,
+            host=MYSQLHOST,
+            port=MYSQLPORT
         )
         cursor = conn.cursor()
 
         # Check if database exists
-        cursor.execute(f"SHOW DATABASES LIKE '{MYSQL-DB}'")
+        cursor.execute(f"SHOW DATABASES LIKE '{MYSQLDB}'")
         exists = cursor.fetchone()
 
         if not exists:
-            print(f"🛠️ Creating database '{MYSQL-DB}'...")
-            cursor.execute(f"CREATE DATABASE `{MYSQL-DB}`")
-            print(f"✅ Database '{MYSQL-DB}' created successfully!")
+            print(f"🛠️ Creating database '{MYSQLDB}'...")
+            cursor.execute(f"CREATE DATABASE `{MYSQLDB}`")
+            print(f"✅ Database '{MYSQLDB}' created successfully!")
         else:
-            print(f"✅ Database '{MYSQL-DB}' already exists.")
+            print(f"✅ Database '{MYSQLDB}' already exists.")
 
         cursor.close()
         conn.close()
@@ -144,18 +144,18 @@ def create_tables():
 def setup_event_scheduler():
     """Create MySQL Event Scheduler for auto-deletion after 15 days."""
     try:
-        MYSQL-USER = keyvault.getenv("MYSQL-USER")
-        MYSQL-PASSWORD = keyvault.getenv("MYSQL-PASSWORD")
-        MYSQL-HOST = keyvault.getenv("MYSQL-HOST")
-        MYSQL-PORT = int(keyvault.getenv("MYSQL-PORT"))
-        MYSQL-DB = keyvault.getenv("MYSQL-DB")
+        MYSQLUSER = keyvault.getenv("MYSQLUSER")
+        MYSQLPASSWORD = keyvault.getenv("MYSQLPASSWORD")
+        MYSQLHOST = keyvault.getenv("MYSQLHOST")
+        MYSQLPORT = int(keyvault.getenv("MYSQLPORT"))
+        MYSQLDB = keyvault.getenv("MYSQLDB")
 
         conn = pymysql.connect(
-            host=MYSQL-HOST,
-            user=MYSQL-USER,
-            password=MYSQL-PASSWORD,
-            port=MYSQL-PORT,
-            database=MYSQL-DB
+            host=MYSQLHOST,
+            user=MYSQLUSER,
+            password=MYSQLPASSWORD,
+            port=MYSQLPORT,
+            database=MYSQLDB
         )
         cursor = conn.cursor()
 

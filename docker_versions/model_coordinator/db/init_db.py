@@ -24,46 +24,46 @@ db = SQLAlchemy()
 
 def get_db_uri():
     """Generate MySQL connection URI from environment variables."""
-    MYSQL-USER = os.getenv("MYSQL-USER")
-    MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-    MYSQL-HOST = os.getenv("MYSQL-HOST")
-    MYSQL-PORT = os.getenv("MYSQL-PORT")
-    MYSQL-DB = os.getenv("MYSQL-DB")
+    MYSQLUSER = os.getenv("MYSQLUSER")
+    MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+    MYSQLHOST = os.getenv("MYSQLHOST")
+    MYSQLPORT = os.getenv("MYSQLPORT")
+    MYSQLDB = os.getenv("MYSQLDB")
 
     # URL encode the password to handle special characters
-    encoded_password = urllib.parse.quote_plus(MYSQL-PASSWORD)
+    encoded_password = urllib.parse.quote_plus(MYSQLPASSWORD)
 
-    return f"mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}"
+    return f"mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}"
 
 def setup_database():
     """Setup MySQL database if it doesn't exist."""
-    MYSQL-USER = os.getenv("MYSQL-USER")
-    MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-    MYSQL-HOST = os.getenv("MYSQL-HOST")
-    MYSQL-PORT = int(os.getenv("MYSQL-PORT"))
-    MYSQL-DB = os.getenv("MYSQL-DB")
+    MYSQLUSER = os.getenv("MYSQLUSER")
+    MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+    MYSQLHOST = os.getenv("MYSQLHOST")
+    MYSQLPORT = int(os.getenv("MYSQLPORT"))
+    MYSQLDB = os.getenv("MYSQLDB")
 
-    print(f"🔄 Connecting to MySQL server at {MYSQL-HOST}:{MYSQL-PORT} with user {MYSQL-USER}...")
+    print(f"🔄 Connecting to MySQL server at {MYSQLHOST}:{MYSQLPORT} with user {MYSQLUSER}...")
 
     try:
         conn = pymysql.connect(
-            user=MYSQL-USER,
-            password=MYSQL-PASSWORD,
-            host=MYSQL-HOST,
-            port=MYSQL-PORT
+            user=MYSQLUSER,
+            password=MYSQLPASSWORD,
+            host=MYSQLHOST,
+            port=MYSQLPORT
         )
         cursor = conn.cursor()
 
         # Check if database exists
-        cursor.execute(f"SHOW DATABASES LIKE '{MYSQL-DB}'")
+        cursor.execute(f"SHOW DATABASES LIKE '{MYSQLDB}'")
         exists = cursor.fetchone()
 
         if not exists:
-            print(f"🛠️ Creating database '{MYSQL-DB}'...")
-            cursor.execute(f"CREATE DATABASE `{MYSQL-DB}`")
-            print(f"✅ Database '{MYSQL-DB}' created successfully!")
+            print(f"🛠️ Creating database '{MYSQLDB}'...")
+            cursor.execute(f"CREATE DATABASE `{MYSQLDB}`")
+            print(f"✅ Database '{MYSQLDB}' created successfully!")
         else:
-            print(f"✅ Database '{MYSQL-DB}' already exists.")
+            print(f"✅ Database '{MYSQLDB}' already exists.")
 
         cursor.close()
         conn.close()
@@ -146,18 +146,18 @@ def create_tables():
 def setup_event_scheduler():
     """Create MySQL Event Scheduler for auto-deletion after 15 days."""
     try:
-        MYSQL-USER = os.getenv("MYSQL-USER")
-        MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-        MYSQL-HOST = os.getenv("MYSQL-HOST")
-        MYSQL-PORT = int(os.getenv("MYSQL-PORT"))
-        MYSQL-DB = os.getenv("MYSQL-DB")
+        MYSQLUSER = os.getenv("MYSQLUSER")
+        MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+        MYSQLHOST = os.getenv("MYSQLHOST")
+        MYSQLPORT = int(os.getenv("MYSQLPORT"))
+        MYSQLDB = os.getenv("MYSQLDB")
 
         conn = pymysql.connect(
-            host=MYSQL-HOST,
-            user=MYSQL-USER,
-            password=MYSQL-PASSWORD,
-            port=MYSQL-PORT,
-            database=MYSQL-DB
+            host=MYSQLHOST,
+            user=MYSQLUSER,
+            password=MYSQLPASSWORD,
+            port=MYSQLPORT,
+            database=MYSQLDB
         )
         cursor = conn.cursor()
 

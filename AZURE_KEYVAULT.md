@@ -40,22 +40,22 @@ az keyvault create --name $KEYVAULT_NAME --resource-group $RESOURCE_GROUP --loca
 
 ```bash
 # MySQL settings
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-USER" --value "root"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-PASSWORD" --value "your-secure-password"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-HOST" --value "localhost"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-PORT" --value "3306"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQL-DB" --value "deepmedver"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQLUSER" --value "root"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQLPASSWORD" --value "your-secure-password"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQLHOST" --value "localhost"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQLPORT" --value "3306"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "MYSQLDB" --value "deepmedver"
 
 # Flask settings
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "SECRET-KEY" --value "your-secure-random-key"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "SECRETKEY" --value "your-secure-random-key"
 
 # OpenAI API Key
 az keyvault secret set --vault-name $KEYVAULT_NAME --name "OPENAI-API-KEY" --value "your-openai-api-key"
 
 # Azure Storage
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-STORAGE-ACCOUNT" --value "your-storage-account"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-STORAGE-KEY" --value "your-storage-key"
-az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURE-CONTAINER" --value "your-container"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURESTORAGEACCOUNT" --value "your-storage-account"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURESTORAGEKEY" --value "your-storage-key"
+az keyvault secret set --vault-name $KEYVAULT_NAME --name "AZURECONTAINER" --value "your-container"
 ```
 
 ### Deploy App with Managed Identity
@@ -98,16 +98,16 @@ Only essential secrets and sensitive credentials are stored in Key Vault with th
 
 | Environment Variable | Key Vault Secret Name |
 |----------------------|----------------------|
-| MYSQL-USER | MYSQL-USER |
-| MYSQL-PASSWORD | MYSQL-PASSWORD |
-| MYSQL-HOST | MYSQL-HOST |
-| MYSQL-PORT | MYSQL-PORT |
-| MYSQL-DB | MYSQL-DB |
-| SECRET-KEY | SECRET-KEY |
+| MYSQLUSER | MYSQLUSER |
+| MYSQLPASSWORD | MYSQLPASSWORD |
+| MYSQLHOST | MYSQLHOST |
+| MYSQLPORT | MYSQLPORT |
+| MYSQLDB | MYSQLDB |
+| SECRETKEY | SECRETKEY |
 | OPENAI-API-KEY | OPENAI-API-KEY |
-| AZURE-STORAGE-ACCOUNT | AZURE-STORAGE-ACCOUNT |
-| AZURE-STORAGE-KEY | AZURE-STORAGE-KEY |
-| AZURE-CONTAINER | AZURE-CONTAINER |
+| AZURESTORAGEACCOUNT | AZURESTORAGEACCOUNT |
+| AZURESTORAGEKEY | AZURESTORAGEKEY |
+| AZURECONTAINER | AZURECONTAINER |
 | TEST_USER_EMAIL | TEST-USER-EMAIL |
 | TEST_USER_PASSWORD | TEST-USER-PASSWORD |
 

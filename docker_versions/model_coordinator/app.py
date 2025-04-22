@@ -44,26 +44,26 @@ def configure_db():
     """Configure the database connection"""
     try:
         # Get database credentials from environment variables (no defaults)
-        MYSQL-USER = os.getenv("MYSQL-USER")
-        MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-        MYSQL-HOST = os.getenv("MYSQL-HOST")
-        MYSQL-PORT = os.getenv("MYSQL-PORT")
-        MYSQL-DB = os.getenv("MYSQL-DB")
+        MYSQLUSER = os.getenv("MYSQLUSER")
+        MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+        MYSQLHOST = os.getenv("MYSQLHOST")
+        MYSQLPORT = os.getenv("MYSQLPORT")
+        MYSQLDB = os.getenv("MYSQLDB")
         
         # Log the database configuration (without password)
-        logger.info(f"Database configuration: mysql+pymysql://{MYSQL-USER}:***@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}")
+        logger.info(f"Database configuration: mysql+pymysql://{MYSQLUSER}:***@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}")
         
         # Check if all required environment variables are set
-        if not all([MYSQL-USER, MYSQL-PASSWORD, MYSQL-HOST, MYSQL-PORT, MYSQL-DB]):
+        if not all([MYSQLUSER, MYSQLPASSWORD, MYSQLHOST, MYSQLPORT, MYSQLDB]):
             logger.warning("Missing database environment variables. Database operations will not work.")
             return
         
         # URL encode the password to handle special characters
         import urllib.parse
-        encoded_password = urllib.parse.quote_plus(str(MYSQL-PASSWORD))
+        encoded_password = urllib.parse.quote_plus(str(MYSQLPASSWORD))
         
         # Configure SQLAlchemy
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}'
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         
         # Initialize the database
@@ -249,20 +249,20 @@ def save_model_to_db(user_id, run_id, model_name, model_url, filename=None, metr
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
             # Force using host.docker.internal for testing
-            MYSQL-USER = os.getenv("MYSQL-USER")
-            MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-            MYSQL-PORT = os.getenv("MYSQL-PORT")
-            MYSQL-DB = os.getenv("MYSQL-DB")
+            MYSQLUSER = os.getenv("MYSQLUSER")
+            MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+            MYSQLPORT = os.getenv("MYSQLPORT")
+            MYSQLDB = os.getenv("MYSQLDB")
             
             # Hardcode the host for testing
-            MYSQL-HOST = "host.docker.internal"
+            MYSQLHOST = "host.docker.internal"
             
             # URL encode the password
             import urllib.parse
-            encoded_password = urllib.parse.quote_plus(str(MYSQL-PASSWORD))
+            encoded_password = urllib.parse.quote_plus(str(MYSQLPASSWORD))
             
             # Configure connection string with hardcoded host
-            app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}'
+            app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}'
             
             # Verify database connection
             try:
@@ -1038,17 +1038,17 @@ def db_diagnostics():
         
         diagnostics = {
             "database_config": {
-                "host": os.getenv("MYSQL-HOST", "Not set"),
-                "port": os.getenv("MYSQL-PORT", "Not set"),
-                "user": os.getenv("MYSQL-USER", "Not set"),
-                "database": os.getenv("MYSQL-DB", "Not set"),
-                "password": "********" if os.getenv("MYSQL-PASSWORD") else "Not set"
+                "host": os.getenv("MYSQLHOST", "Not set"),
+                "port": os.getenv("MYSQLPORT", "Not set"),
+                "user": os.getenv("MYSQLUSER", "Not set"),
+                "database": os.getenv("MYSQLDB", "Not set"),
+                "password": "********" if os.getenv("MYSQLPASSWORD") else "Not set"
             },
             "connection_string": app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured'),
             "blob_storage": {
-                "account": os.getenv("AZURE-STORAGE-ACCOUNT", "Not set"),
-                "container": os.getenv("AZURE-CONTAINER", "Not set"),
-                "key_configured": "Yes" if os.getenv("AZURE-STORAGE-KEY") else "No"
+                "account": os.getenv("AZURESTORAGEACCOUNT", "Not set"),
+                "container": os.getenv("AZURECONTAINER", "Not set"),
+                "key_configured": "Yes" if os.getenv("AZURESTORAGEKEY") else "No"
             }
         }
         
@@ -1106,25 +1106,25 @@ def save_cleaning_prompt(run_id, prompt):
         
         try:
             # Force using host.docker.internal for testing
-            MYSQL-USER = os.getenv("MYSQL-USER")
-            MYSQL-PASSWORD = os.getenv("MYSQL-PASSWORD")
-            MYSQL-PORT = os.getenv("MYSQL-PORT")
-            MYSQL-DB = os.getenv("MYSQL-DB")
+            MYSQLUSER = os.getenv("MYSQLUSER")
+            MYSQLPASSWORD = os.getenv("MYSQLPASSWORD")
+            MYSQLPORT = os.getenv("MYSQLPORT")
+            MYSQLDB = os.getenv("MYSQLDB")
             
             # Always hardcode the host to host.docker.internal
-            MYSQL-HOST = "host.docker.internal"
+            MYSQLHOST = "host.docker.internal"
             
-            print(f"DEBUG: Directly connecting to MySQL at {MYSQL-HOST}:{MYSQL-PORT}")
+            print(f"DEBUG: Directly connecting to MySQL at {MYSQLHOST}:{MYSQLPORT}")
             
             # Create a direct connection to verify it's accessible
             try:
                 # Direct connection test
                 connection = pymysql.connect(
-                    host=MYSQL-HOST,
-                    user=MYSQL-USER,
-                    password=MYSQL-PASSWORD,
-                    database=MYSQL-DB,
-                    port=int(MYSQL-PORT),
+                    host=MYSQLHOST,
+                    user=MYSQLUSER,
+                    password=MYSQLPASSWORD,
+                    database=MYSQLDB,
+                    port=int(MYSQLPORT),
                     connect_timeout=5
                 )
                 
@@ -1145,11 +1145,11 @@ def save_cleaning_prompt(run_id, prompt):
             
             # URL encode the password
             import urllib.parse
-            encoded_password = urllib.parse.quote_plus(str(MYSQL-PASSWORD))
+            encoded_password = urllib.parse.quote_plus(str(MYSQLPASSWORD))
             
             # Configure connection string with hardcoded host
-            new_uri = f'mysql+pymysql://{MYSQL-USER}:{encoded_password}@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}'
-            print(f"DEBUG: Setting SQLAlchemy URI to: mysql+pymysql://{MYSQL-USER}:***@{MYSQL-HOST}:{MYSQL-PORT}/{MYSQL-DB}")
+            new_uri = f'mysql+pymysql://{MYSQLUSER}:{encoded_password}@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}'
+            print(f"DEBUG: Setting SQLAlchemy URI to: mysql+pymysql://{MYSQLUSER}:***@{MYSQLHOST}:{MYSQLPORT}/{MYSQLDB}")
             app.config['SQLALCHEMY_DATABASE_URI'] = new_uri
             
             # Re-initialize the db with the app to apply the new connection string

@@ -24,7 +24,7 @@ if not DOCS_DIR.exists():
     raise RuntimeError(f"Docs folder not found: {DOCS_DIR}")
 
 # Where Chroma will persist its files (same as vector-search service)
-PERSIST_DIR = keyvault.getenv("CHROMA-PERSIST-DIR", str(Path(__file__).parent / "chroma_data"))
+PERSIST_DIR = keyvault.getenv("CHROMAPERSISTDIR", str(Path(__file__).parent / "chroma_data"))
 
 # ── Initialize ChromaDB ────────────────────────────────────────────────────────
 chroma_client = Client(
