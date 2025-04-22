@@ -25,6 +25,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5002:5002"
+    environment:
+      - PORT=5002
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -343,6 +346,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5201:5201"
+    environment:
+      - PORT=5201
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -356,6 +362,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5202:5202"
+    environment:
+      - PORT=5202
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ../keyvault.py:/app/keyvault.py
       - ./docker_secrets.py:/app/docker_secrets.py
@@ -368,6 +377,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5203:5203"
+    environment:
+      - PORT=5203
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -385,6 +397,7 @@ services:
       - EMBEDDING_URL=http://embedding_service:5201
       - VECTOR_URL=http://vector_search_service:5202
       - LLM_URL=http://llm_generator_service:5203
+      - OPENAI-API-KEY=${OPENAI_API_KEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py

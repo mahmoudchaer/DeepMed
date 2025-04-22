@@ -1,15 +1,11 @@
 import os
-from dotenv import load_dotenv
-from azure.storage.blob import BlobServiceClient
 import logging
+from azure.storage.blob import BlobServiceClient
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Get Azure credentials from .env
+# Get Azure credentials from environment variables
 AZURESTORAGEACCOUNT = os.getenv("AZURESTORAGEACCOUNT")
 AZURESTORAGEKEY = os.getenv("AZURESTORAGEKEY")
 AZURECONTAINER = os.getenv("AZURECONTAINER")

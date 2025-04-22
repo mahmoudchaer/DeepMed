@@ -4,15 +4,21 @@ User model and database configuration for DeepMed application.
 """
 
 import os
-from dotenv import load_dotenv
+import sys
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import urllib.parse
 
-# Load environment variables
+# Add docker_secrets import to load environment variables
 PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-load_dotenv(os.path.join(PARENT_DIR, ".env"))
+sys.path.append(PARENT_DIR)
+
+try:
+    import docker_secrets
+    print("Successfully imported docker_secrets adapter for users DB")
+except ImportError as e:
+    print(f"Could not import docker_secrets adapter for users DB: {str(e)}")
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()

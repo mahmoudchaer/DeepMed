@@ -8,15 +8,20 @@ import os
 import sys
 import urllib.parse  # For URL encoding
 import pymysql
-from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Load .env from the parent directory
+# Add docker_secrets import to load environment variables
 PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-load_dotenv(os.path.join(PARENT_DIR, ".env"))
+sys.path.append(PARENT_DIR)
+
+try:
+    import docker_secrets
+    print("Successfully imported docker_secrets adapter for DB init")
+except ImportError as e:
+    print(f"Could not import docker_secrets adapter for DB init: {str(e)}")
 
 # Initialize Flask App & SQLAlchemy
 app = Flask(__name__)
