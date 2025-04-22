@@ -5,18 +5,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Literal
 import os
+import sys
+from pathlib import Path
 import httpx
 import logging
 import random
+
+# Add the parent directory to sys.path for keyvault import
+sys.path.append(str(Path(__file__).parent.parent.parent))
+import keyvault
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-EMB_URL       = os.getenv("EMBEDDING_URL", "http://embedding_service:5201")
-VEC_URL       = os.getenv("VECTOR_URL",    "http://vector_search_service:5202")
-LLM_URL       = os.getenv("LLM_URL",       "http://llm_generator_service:5203")
-SYSTEM_PROMPT = os.getenv(
+EMB_URL       = keyvault.getenv("EMBEDDING_URL", "http://embedding_service:5201")
+VEC_URL       = keyvault.getenv("VECTOR_URL",    "http://vector_search_service:5202")
+LLM_URL       = keyvault.getenv("LLM_URL",       "http://llm_generator_service:5203")
+SYSTEM_PROMPT = keyvault.getenv(
     "SYSTEM_PROMPT",
     "You are a helpful assistant for DeepMed. Only answer questions about the platform or medical AI. If off-topic, politely decline."
 )
