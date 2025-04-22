@@ -23,10 +23,10 @@ from app_api import is_service_available, get_temp_filepath, safe_requests_post,
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
 # Define new URL for pipeline service
-PIPELINE_SERVICE_URL = keyvault.getenv('PIPELINE_SERVICE_URL', 'http://localhost:5025')
+PIPELINE_SERVICE_URL = 'http://localhost:5025'
 
 # Define URL for anomaly detection service
-ANOMALY_DETECTION_SERVICE_URL = keyvault.getenv('ANOMALY_DETECTION_SERVICE_URL', 'http://localhost:5030')
+ANOMALY_DETECTION_SERVICE_URL = 'http://localhost:5030'
 
 # Import database models
 from db.users import db, TrainingRun, TrainingModel, PreprocessingData
@@ -452,7 +452,7 @@ def images_prediction():
     services_status = check_services()
     
     # Add images prediction service to services status
-    predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+    predictor_service_url = 'http://localhost:5100'
     services_status['predictor_service'] = is_service_available(predictor_service_url)
     
     return render_template('images_prediction.html', services_status=services_status, logout_token=session['logout_token'])
@@ -477,7 +477,7 @@ def api_predict_image():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+        predictor_service_url = 'http://localhost:5100'
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
@@ -537,7 +537,7 @@ def api_prediction_details():
     
     try:
         # Define the predictor service URL
-        predictor_service_url = keyvault.getenv('PREDICTOR_SERVICE_URL', 'http://localhost:5100')
+        predictor_service_url = 'http://localhost:5100'
         
         # Check if the predictor service is available
         if not is_service_available(predictor_service_url):
@@ -582,7 +582,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-    port = int(keyvault.getenv("PORT", 5023))
+    port = int(5023)
     logger.info(f"Starting augmentation service on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
 
