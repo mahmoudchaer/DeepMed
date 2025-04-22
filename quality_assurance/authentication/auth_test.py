@@ -421,9 +421,9 @@ def test_user_login():
     """Test user login endpoint"""
     BASE_URL = "http://localhost:5000"  # Flask app URL
     
-    # Use keyvault to get test credentials
-    test_email = keyvault.getenv("TEST_USER_EMAIL", "test@example.com")
-    test_password = keyvault.getenv("TEST_USER_PASSWORD", "password123")
+    # Use default test credentials
+    test_email = "test@example.com"
+    test_password = "password123"
     
     logger.info(f"Testing login with email: {test_email}")
     

@@ -94,7 +94,7 @@ The application uses Azure's DefaultAzureCredential which provides a simplified 
 
 ## Required Secrets in Key Vault
 
-All secrets previously in `.env` are now stored in Key Vault with the following mappings:
+Only essential secrets and sensitive credentials are stored in Key Vault with the following mappings:
 
 | Environment Variable | Key Vault Secret Name |
 |----------------------|----------------------|
@@ -105,13 +105,13 @@ All secrets previously in `.env` are now stored in Key Vault with the following 
 | MYSQL_DB | MYSQL-DB |
 | SECRET_KEY | SECRET-KEY |
 | OPENAI_API_KEY | OPENAI-API-KEY |
-| CHROMA_PERSIST_DIR | CHROMA-PERSIST-DIR |
 | AZURE_STORAGE_ACCOUNT | AZURE-STORAGE-ACCOUNT |
 | AZURE_STORAGE_KEY | AZURE-STORAGE-KEY |
 | AZURE_CONTAINER | AZURE-CONTAINER |
-| DEBUG | DEBUG |
+| TEST_USER_EMAIL | TEST-USER-EMAIL |
+| TEST_USER_PASSWORD | TEST-USER-PASSWORD |
 
-Plus various service URLs.
+Service URLs are now hardcoded in the application with sensible default values.
 
 ## Configuration
 
