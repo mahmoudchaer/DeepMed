@@ -85,7 +85,7 @@ jobs:
               "Embedding Service": {"url": "http://localhost:5201", "endpoint": "/health"},
               "Vector Search Service": {"url": "http://localhost:5202", "endpoint": "/health"},
               "LLM Generator Service": {"url": "http://localhost:5203", "endpoint": "/health"},
-              "Chatbot Gateway": {"url": "http://localhost:5204", "endpoint": "/"}
+              "Chatbot Gateway": {"url": "http://localhost:5204", "endpoint": "/health"}
             },
             "Monitoring": {
               "Monitoring Service": {"url": "http://localhost:3000", "endpoint": "/health"}
@@ -139,10 +139,10 @@ jobs:
                               result["status"] = status
                               
                       except json.JSONDecodeError:
-                          # For chatbot gateway, a 200 response is good enough
-                          if service_name == "Chatbot Gateway":
+                          # For chatbot gateway and monitoring service, a 200 response is good enough
+                          if service_name in ["Chatbot Gateway", "Monitoring Service"]:
                               result["status"] = "healthy"
-                              result["details"] = {"message": "Gateway responded with 200 OK"}
+                              result["details"] = {"message": f"{service_name} responded with 200 OK"}
                           else:
                               result["status"] = "invalid" 
                               result["error"] = "Invalid JSON response"
@@ -170,7 +170,7 @@ jobs:
               results = []
               
               # Skip explicitly disabled services
-              disabled_services = ["Monitoring Service"]
+              disabled_services = []
               
               # Check all services
               for category, svcs in services.items():
@@ -267,30 +267,21 @@ jobs:
               with open('health-results.json', 'r') as f:
                   results = json.load(f)
               
-              # Count issues
+              # Count healthy services
               healthy = sum(1 for r in results if r['status'] == 'healthy')
               total = len(results)
               
-              # Print summary for GitHub Actions log
-              print(f'::group::Health Check Summary')
-              print(f'Health status: {healthy}/{total} services healthy')
-              
-              # List unhealthy services
-              unhealthy = [r for r in results if r['status'] != 'healthy']
-              if unhealthy:
-                  print('\\nUnhealthy services:')
-                  for service in unhealthy:
-                      print(f'- {service[\"service\"]} ({service[\"category\"]}): {service[\"status\"]}')
-                      if service['error']:
-                          print(f'  Error: {service[\"error\"]}')
-              print('::endgroup::')
+              # Print simple summary
+              print(f'Health Check: {healthy}/{total} services healthy')
               
               # Exit with error code if any service is unhealthy
               if healthy < total:
-                  print('\\n::error::Health check detected unhealthy services')
+                  print('ERROR: Health check failed - some services are unhealthy')
                   sys.exit(1)
+              else:
+                  print('SUCCESS: All services are healthy')
           except Exception as e:
-              print(f'::error::Error processing health check results: {str(e)}')
+              print(f'ERROR: Failed to process health check results: {str(e)}')
               sys.exit(1)
           "
       
