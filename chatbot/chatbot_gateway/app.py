@@ -130,6 +130,40 @@ def apply_message_retention_strategy(messages: List[Message]) -> List[Message]:
     logger.info(f"Message retention: {total_non_system} messages reduced to {len(final_result) - len(system_messages)} (plus {len(system_messages)} system messages)")
     return final_result
 
+# Add health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    # Check dependencies if needed
+    dependencies_status = {
+        "embedding_service": "unknown",
+        "vector_search_service": "unknown",
+        "llm_generator_service": "unknown"
+    }
+    
+    # Perform basic dependency checks
+    async with httpx.AsyncClient(timeout=2.0) as client:
+        for service, url in [
+            ("embedding_service", f"{EMB_URL}/health"),
+            ("vector_search_service", f"{VEC_URL}/health"),
+            ("llm_generator_service", f"{LLM_URL}/health")
+        ]:
+            try:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    dependencies_status[service] = "healthy"
+                else:
+                    dependencies_status[service] = "unhealthy"
+            except Exception:
+                dependencies_status[service] = "unavailable"
+    
+    # Overall status is healthy if the gateway itself is running
+    return {
+        "status": "healthy",
+        "service": "chatbot_gateway",
+        "dependencies": dependencies_status
+    }
+
 @app.post("/chatbot/query", response_model=ChatRes)
 async def chatbot_query(req: ChatReq):
     logger.info(f"Processing request for user: {req.user_id}")
