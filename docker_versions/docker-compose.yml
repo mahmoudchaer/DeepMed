@@ -3,6 +3,7 @@ version: '3'
 services:
   # Data Cleaner service
   data-cleaner:
+    image: mahmoudchaer/data-cleaner:latest
     build:
       context: ./data_cleaner
       dockerfile: Dockerfile
@@ -20,6 +21,7 @@ services:
 
   # Feature Selector service
   feature-selector:
+    image: mahmoudchaer/feature-selector:latest
     build:
       context: ./feature_selector
       dockerfile: Dockerfile
@@ -37,6 +39,7 @@ services:
 
   # Anomaly Detector service
   anomaly-detector:
+    image: mahmoudchaer/anomaly-detector:latest
     build:
       context: ./anomaly_detector
       dockerfile: Dockerfile
@@ -51,6 +54,7 @@ services:
 
   # Model Trainer service
   model-trainer:
+    image: mahmoudchaer/model-trainer:latest
     build:
       context: ./model_trainer
       dockerfile: Dockerfile
@@ -67,6 +71,7 @@ services:
 
   # Medical Assistant service
   medical-assistant:
+    image: mahmoudchaer/medical-assistant:latest
     build:
       context: ./medical_assistant
       dockerfile: Dockerfile
@@ -84,6 +89,7 @@ services:
 
   # Model Coordinator
   model_coordinator:
+    image: mahmoudchaer/model-coordinator:latest
     build:
       context: ./model_coordinator
       dockerfile: Dockerfile
@@ -117,6 +123,7 @@ services:
 
   # Individual model services
   logistic_regression:
+    image: mahmoudchaer/logistic-regression:latest
     build:
       context: ./logistic_regression
       dockerfile: Dockerfile
@@ -134,6 +141,7 @@ services:
       - deepmed-network
 
   decision_tree:
+    image: mahmoudchaer/decision-tree:latest
     build:
       context: ./decision_tree
       dockerfile: Dockerfile
@@ -151,6 +159,7 @@ services:
       - deepmed-network
 
   random_forest:
+    image: mahmoudchaer/random-forest:latest
     build:
       context: ./random_forest
       dockerfile: Dockerfile
@@ -168,6 +177,7 @@ services:
       - deepmed-network
 
   svm:
+    image: mahmoudchaer/svm:latest
     build:
       context: ./svm
       dockerfile: Dockerfile
@@ -185,6 +195,7 @@ services:
       - deepmed-network
 
   knn:
+    image: mahmoudchaer/knn:latest
     build:
       context: ./knn
       dockerfile: Dockerfile
@@ -202,6 +213,7 @@ services:
       - deepmed-network
 
   naive_bayes:
+    image: mahmoudchaer/naive-bayes:latest
     build:
       context: ./naive_bayes
       dockerfile: Dockerfile
@@ -219,6 +231,7 @@ services:
       - deepmed-network
 
   tabular-predictor-service:
+    image: mahmoudchaer/tabular-predictor-service:latest
     build:
       context: ../docker_versions/predictor
       dockerfile: Dockerfile
@@ -235,6 +248,7 @@ services:
       - deepmed-network
 
   model-training-service:
+    image: mahmoudchaer/model-training-service:latest
     build:
       context: ../docker_for_images/images_classification
       dockerfile: Dockerfile
@@ -251,6 +265,7 @@ services:
       - deepmed-network
 
   augmentation-service:
+    image: mahmoudchaer/augmentation-service:latest
     build:
       context: ../docker_for_images/data_augmentation
       dockerfile: Dockerfile
@@ -268,6 +283,7 @@ services:
       - deepmed-network
 
   pipeline-service:
+    image: mahmoudchaer/pipeline-service:latest
     build:
       context: ../docker_for_images/pipeline
       dockerfile: Dockerfile
@@ -289,6 +305,7 @@ services:
       - model-training-service
 
   anomaly-detection-service:
+    image: mahmoudchaer/anomaly-detection-service:latest
     build:
       context: ../docker_for_images/anomaly_detector
       dockerfile: Dockerfile
@@ -306,6 +323,7 @@ services:
       - deepmed-network
 
   anomaly-detector-eep:
+    image: mahmoudchaer/anomaly-detector-eep:latest
     build:
       context: ../docker_for_images/eep_anomaly_detector
       dockerfile: Dockerfile_eep
@@ -325,6 +343,7 @@ services:
       - anomaly-detection-service
 
   predictor-service:
+    image: mahmoudchaer/predictor-service:latest
     build:
       context: ../docker_for_images/predictor
       dockerfile: Dockerfile
@@ -341,6 +360,7 @@ services:
       - deepmed-network
 
   embedding_service:
+    image: mahmoudchaer/embedding-service:latest
     build:
       context: ../chatbot/embedding_service
       dockerfile: Dockerfile
@@ -357,6 +377,7 @@ services:
       - deepmed-network
 
   vector_search_service:
+    image: mahmoudchaer/vector-search-service:latest
     build:
       context: ../chatbot/vector_search_service
       dockerfile: Dockerfile
@@ -372,6 +393,7 @@ services:
       - deepmed-network
 
   llm_generator_service:
+    image: mahmoudchaer/llm-generator-service:latest
     build:
       context: ../chatbot/llm_generator_service
       dockerfile: Dockerfile
@@ -388,6 +410,7 @@ services:
       - deepmed-network
 
   chatbot_gateway:
+    image: mahmoudchaer/chatbot-gateway:latest
     build:
       context: ../chatbot/chatbot_gateway
       dockerfile: Dockerfile
