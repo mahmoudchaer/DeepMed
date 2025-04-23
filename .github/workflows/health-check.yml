@@ -5,15 +5,10 @@ on:
   schedule:
     - cron: '0 */4 * * *'  # Every 4 hours
   
-  # Run on push to specific branches
+  # Run on push to main branch (no path restrictions)
   push:
-    branches: [ main, master, develop ]
-    paths:
-      - 'docker_versions/**'
-      - 'docker_for_images/**'
-      - 'chatbot/**'
-      - 'monitoring/**'
-      - 'quality_assurance/health_check.py'
+    branches: 
+      - main
   
   # Allow manual triggering
   workflow_dispatch:
