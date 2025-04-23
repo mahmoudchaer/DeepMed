@@ -25,7 +25,7 @@ on:
       timeout:
         description: 'Request timeout in seconds'
         required: false
-        default: '5'
+        default: '15'
         type: string
 
 jobs:
@@ -37,99 +37,242 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
-      - name: Free up disk space
+      - name: Add server to known hosts
         run: |
-          echo "Disk space before cleanup:"
-          df -h
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
-          echo "Disk space after cleanup:"
-          df -h
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
       
-      - name: Install dependencies
+      - name: Create health check script on server
         run: |
-          python -m pip install --upgrade pip
-          pip install requests rich
-      
-      - name: Determine environment configuration
-        id: env-config
-        run: |
-          # Default to dev if not specified, otherwise use input
-          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
-          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
+          # Create a temporary script to run on the remote server
+          cat << 'EOF' > remote_health_check.sh
+          #!/bin/bash
           
-          # Set environment-specific configurations
-          if [ "$ENVIRONMENT" = "dev" ]; then
-            # Use the server IP from secrets
-            echo "HOST=${{ secrets.SERVER_IP || '20.119.81.37' }}" >> $GITHUB_ENV
-          elif [ "$ENVIRONMENT" = "staging" ]; then
-            echo "HOST=staging-api.deepmed.ai" >> $GITHUB_ENV
-          elif [ "$ENVIRONMENT" = "prod" ]; then
-            echo "HOST=api.deepmed.ai" >> $GITHUB_ENV
+          echo "Running health checks on $(hostname)..."
+          
+          # Create a services.json file with all service endpoints
+          cat << 'SERVICES_EOF' > services.json
+          {
+            "Tabular Data Services": {
+              "Data Cleaner": {"url": "http://localhost:5001", "endpoint": "/health"},
+              "Feature Selector": {"url": "http://localhost:5002", "endpoint": "/health"},
+              "Anomaly Detector": {"url": "http://localhost:5003", "endpoint": "/health"},
+              "Model Trainer": {"url": "http://localhost:5004", "endpoint": "/health"},
+              "Medical Assistant": {"url": "http://localhost:5005", "endpoint": "/health"},
+              "Model Coordinator": {"url": "http://localhost:5020", "endpoint": "/health"},
+              "Logistic Regression": {"url": "http://localhost:5010", "endpoint": "/health"},
+              "Decision Tree": {"url": "http://localhost:5011", "endpoint": "/health"},
+              "Random Forest": {"url": "http://localhost:5012", "endpoint": "/health"},
+              "SVM": {"url": "http://localhost:5013", "endpoint": "/health"},
+              "KNN": {"url": "http://localhost:5014", "endpoint": "/health"},
+              "Naive Bayes": {"url": "http://localhost:5015", "endpoint": "/health"},
+              "Tabular Predictor": {"url": "http://localhost:5101", "endpoint": "/health"}
+            },
+            "Image Processing Services": {
+              "Pipeline Service": {"url": "http://localhost:6001", "endpoint": "/health"},
+              "Augmentation Service": {"url": "http://localhost:6002", "endpoint": "/health"},
+              "Image Classification": {"url": "http://localhost:6003", "endpoint": "/health"},
+              "Anomaly Detection Service": {"url": "http://localhost:6004", "endpoint": "/health"},
+              "Image Predictor": {"url": "http://localhost:6005", "endpoint": "/health"}
+            },
+            "Chatbot Services": {
+              "Embedding Service": {"url": "http://localhost:5201", "endpoint": "/health"},
+              "LLM Generator": {"url": "http://localhost:5202", "endpoint": "/health"},
+              "Vector Search": {"url": "http://localhost:5203", "endpoint": "/health"},
+              "Chatbot Gateway": {"url": "http://localhost:5200", "endpoint": "/health"}
+            },
+            "Monitoring": {
+              "Monitoring Service": {"url": "http://localhost:3000", "endpoint": "/health"}
+            }
+          }
+          SERVICES_EOF
+          
+          # Create the Python health check script
+          cat << 'PYTHON_EOF' > health_check.py
+          #!/usr/bin/env python3
+          
+          import requests
+          import json
+          import time
+          import sys
+          
+          def check_service_health(category, service_name, service_info, timeout=5):
+              """Check health of a specific service"""
+              url = service_info["url"]
+              endpoint = service_info.get("endpoint", "/health")
+              full_url = f"{url}{endpoint}"
+              
+              result = {
+                  "service": service_name,
+                  "category": category,
+                  "url": full_url,
+                  "status": "unknown",
+                  "response_time": None,
+                  "details": {},
+                  "error": None
+              }
+              
+              try:
+                  start_time = time.time()
+                  response = requests.get(full_url, timeout=timeout)
+                  end_time = time.time()
+                  response_time = end_time - start_time
+                  
+                  result["response_time"] = response_time
+                  
+                  if response.status_code == 200:
+                      try:
+                          health_data = response.json()
+                          result["details"] = health_data
+                          result["status"] = health_data.get("status", "unknown")
+                      except json.JSONDecodeError:
+                          result["status"] = "invalid" 
+                          result["error"] = "Invalid JSON response"
+                  else:
+                      result["status"] = "error"
+                      result["error"] = f"HTTP Error: {response.status_code}"
+              
+              except requests.exceptions.ConnectTimeout:
+                  result["status"] = "timeout"
+                  result["error"] = "Connection timeout"
+              except requests.exceptions.ConnectionError:
+                  result["status"] = "unreachable"
+                  result["error"] = "Connection refused"
+              except Exception as e:
+                  result["status"] = "error"
+                  result["error"] = str(e)
+              
+              return result
+          
+          def main():
+              # Load service configurations
+              with open("services.json", "r") as f:
+                  services = json.load(f)
+              
+              results = []
+              
+              # Check all services
+              for category, svcs in services.items():
+                  for service_name, service_info in svcs.items():
+                      print(f"Checking {category} - {service_name}...")
+                      result = check_service_health(category, service_name, service_info)
+                      results.append(result)
+                      
+                      status_symbol = "✅" if result["status"] == "healthy" else "❌"
+                      print(f"{status_symbol} {service_name}: {result['status']}")
+                      if result["status"] != "healthy" and result["error"]:
+                          print(f"   Error: {result['error']}")
+              
+              # Save results to file
+              with open("health-results.json", "w") as f:
+                  json.dump(results, f, indent=2)
+              
+              # Print summary
+              healthy_count = sum(1 for r in results if r["status"] == "healthy")
+              total_count = len(results)
+              
+              print(f"\nHealth Check Summary: {healthy_count}/{total_count} services healthy")
+              
+              if healthy_count < total_count:
+                  print("\nUnhealthy services:")
+                  for result in results:
+                      if result["status"] != "healthy":
+                          print(f"- {result['service']} ({result['category']}): {result['status']}")
+                          if result["error"]:
+                              print(f"  Error: {result['error']}")
+              
+              return 0 if healthy_count == total_count else 1
+          
+          if __name__ == "__main__":
+              exit(main())
+          PYTHON_EOF
+          
+          # Make the script executable
+          chmod +x health_check.py
+          
+          # Install dependencies if needed
+          if ! command -v python3 &> /dev/null; then
+              echo "Python not found, installing..."
+              sudo apt-get update
+              sudo apt-get install -y python3 python3-pip
           fi
           
-          # Use manual timeout if provided
-          TIMEOUT="${{ github.event.inputs.timeout || '10' }}"
-          echo "TIMEOUT=$TIMEOUT" >> $GITHUB_ENV
-      
-      - name: Generate service config
-        run: |
-          echo "Generating configuration for $ENVIRONMENT environment with host $HOST"
+          if ! python3 -c "import requests" &> /dev/null; then
+              echo "Installing Python requests library..."
+              pip3 install requests
+          fi
           
-          # Generate config file for the appropriate environment
-          python quality_assurance/scripts/generate_service_config.py --env $ENVIRONMENT --output service-config.json
+          # Run the health check
+          python3 health_check.py
+          
+          # Return the exit code from the Python script
+          exit $?
+          EOF
+          
+          # Make the script executable
+          chmod +x remote_health_check.sh
       
-      - name: Run health check
+      - name: Run health check on remote server
         run: |
-          python quality_assurance/health_check.py \
-            --timeout ${{ env.TIMEOUT }} \
-            --config service-config.json \
-            --github-actions \
-            --output health-results.json
-        continue-on-error: true  # Don't fail the workflow if services are unhealthy
+          # Copy the script to the server
+          scp remote_health_check.sh azureuser@${{ secrets.SERVER_IP }}:~/remote_health_check.sh
+          
+          # Run the script on the server and capture output
+          ssh azureuser@${{ secrets.SERVER_IP }} "bash ~/remote_health_check.sh" | tee health_check_output.log
+          
+          # Copy results back if they exist
+          ssh azureuser@${{ secrets.SERVER_IP }} "if [ -f ~/health-results.json ]; then cat ~/health-results.json; fi" > health-results.json || echo "{}" > health-results.json
       
       - name: Upload health check results
         uses: actions/upload-artifact@v4
         with:
           name: health-check-results
-          path: health-results.json
+          path: |
+            health-results.json
+            health_check_output.log
           retention-days: 5
       
-      - name: Parse results and notify on failures
+      - name: Check for unhealthy services
         run: |
+          # Parse results and determine if any services are unhealthy
           python -c "
           import json, sys;
-          
-          # Load results
-          with open('health-results.json', 'r') as f:
-              results = json.load(f)
-          
-          # Count issues
-          healthy = sum(1 for r in results if r['status'] == 'healthy')
-          total = len(results)
-          
-          # Print summary
-          print(f'Health check results: {healthy}/{total} services healthy')
-          
-          # List unhealthy services
-          unhealthy = [r for r in results if r['status'] != 'healthy']
-          if unhealthy:
-              print('\\nUnhealthy services:')
-              for service in unhealthy:
-                  print(f'- {service[\"service\"]} ({service[\"category\"]}): {service[\"status\"]}')
-                  if service['error']:
-                      print(f'  Error: {service[\"error\"]}')
-          
-          # Exit with error code if any service is unhealthy
-          if healthy < total:
-              print('\\n::error::Health check detected unhealthy services')
+          try:
+              with open('health-results.json', 'r') as f:
+                  results = json.load(f)
+              
+              # Count issues
+              healthy = sum(1 for r in results if r['status'] == 'healthy')
+              total = len(results)
+              
+              # Print summary for GitHub Actions log
+              print(f'::group::Health Check Summary')
+              print(f'Health status: {healthy}/{total} services healthy')
+              
+              # List unhealthy services
+              unhealthy = [r for r in results if r['status'] != 'healthy']
+              if unhealthy:
+                  print('\\nUnhealthy services:')
+                  for service in unhealthy:
+                      print(f'- {service[\"service\"]} ({service[\"category\"]}): {service[\"status\"]}')
+                      if service['error']:
+                          print(f'  Error: {service[\"error\"]}')
+              print('::endgroup::')
+              
+              # Exit with error code if any service is unhealthy
+              if healthy < total:
+                  print('\\n::error::Health check detected unhealthy services')
+                  sys.exit(1)
+          except Exception as e:
+              print(f'::error::Error processing health check results: {str(e)}')
               sys.exit(1)
           "
+        continue-on-error: true
       
       # Optional: Send notifications if there are unhealthy services
       - name: Send Slack notification on failure
