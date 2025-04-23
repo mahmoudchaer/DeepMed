@@ -59,13 +59,14 @@ jobs:
       - name: Determine environment configuration
         id: env-config
         run: |
-          # Default to dev if not specified
+          # Default to dev if not specified, otherwise use input
           ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
           echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
           
           # Set environment-specific configurations
           if [ "$ENVIRONMENT" = "dev" ]; then
-            echo "HOST=localhost" >> $GITHUB_ENV
+            # Use the server IP from secrets
+            echo "HOST=${{ secrets.SERVER_IP || '20.119.81.37' }}" >> $GITHUB_ENV
           elif [ "$ENVIRONMENT" = "staging" ]; then
             echo "HOST=staging-api.deepmed.ai" >> $GITHUB_ENV
           elif [ "$ENVIRONMENT" = "prod" ]; then
@@ -73,23 +74,21 @@ jobs:
           fi
           
           # Use manual timeout if provided
-          TIMEOUT="${{ github.event.inputs.timeout || '5' }}"
+          TIMEOUT="${{ github.event.inputs.timeout || '10' }}"
           echo "TIMEOUT=$TIMEOUT" >> $GITHUB_ENV
       
-      - name: Generate custom config (if needed)
-        if: env.ENVIRONMENT != 'dev'
+      - name: Generate service config
         run: |
-          # This step is optional - you can generate a custom service config file based on the environment
-          echo "Using $ENVIRONMENT environment with host $HOST"
+          echo "Generating configuration for $ENVIRONMENT environment with host $HOST"
           
-          # Generate config file if needed for specific environments
+          # Generate config file for the appropriate environment
           python quality_assurance/scripts/generate_service_config.py --env $ENVIRONMENT --output service-config.json
       
       - name: Run health check
         run: |
           python quality_assurance/health_check.py \
             --timeout ${{ env.TIMEOUT }} \
-            --host ${{ env.HOST }} \
+            --config service-config.json \
             --github-actions \
             --output health-results.json
         continue-on-error: true  # Don't fail the workflow if services are unhealthy
