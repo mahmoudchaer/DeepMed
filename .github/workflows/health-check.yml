@@ -1,0 +1,152 @@
+name: Docker Services Health Check
+
+on:
+  # Run on schedule
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+  
+  # Run on push to specific branches
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'docker_versions/**'
+      - 'docker_for_images/**'
+      - 'chatbot/**'
+      - 'monitoring/**'
+      - 'quality_assurance/health_check.py'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to check'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      timeout:
+        description: 'Request timeout in seconds'
+        required: false
+        default: '5'
+        type: string
+
+jobs:
+  health-check:
+    name: Check Docker Services Health
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests rich
+      
+      - name: Determine environment configuration
+        id: env-config
+        run: |
+          # Default to dev if not specified
+          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
+          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
+          
+          # Set environment-specific configurations
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            echo "HOST=localhost" >> $GITHUB_ENV
+          elif [ "$ENVIRONMENT" = "staging" ]; then
+            echo "HOST=staging-api.deepmed.ai" >> $GITHUB_ENV
+          elif [ "$ENVIRONMENT" = "prod" ]; then
+            echo "HOST=api.deepmed.ai" >> $GITHUB_ENV
+          fi
+          
+          # Use manual timeout if provided
+          TIMEOUT="${{ github.event.inputs.timeout || '5' }}"
+          echo "TIMEOUT=$TIMEOUT" >> $GITHUB_ENV
+      
+      - name: Generate custom config (if needed)
+        if: env.ENVIRONMENT != 'dev'
+        run: |
+          # This step is optional - you can generate a custom service config file based on the environment
+          echo "Using $ENVIRONMENT environment with host $HOST"
+          
+          # Generate config file if needed for specific environments
+          # python scripts/generate_service_config.py --env $ENVIRONMENT --output service-config.json
+      
+      - name: Run health check
+        run: |
+          python quality_assurance/health_check.py \
+            --timeout ${{ env.TIMEOUT }} \
+            --host ${{ env.HOST }} \
+            --github-actions \
+            --output health-results.json
+        continue-on-error: true  # Don't fail the workflow if services are unhealthy
+      
+      - name: Upload health check results
+        uses: actions/upload-artifact@v3
+        with:
+          name: health-check-results
+          path: health-results.json
+      
+      - name: Parse results and notify on failures
+        run: |
+          python -c "
+          import json, sys;
+          
+          # Load results
+          with open('health-results.json', 'r') as f:
+              results = json.load(f)
+          
+          # Count issues
+          healthy = sum(1 for r in results if r['status'] == 'healthy')
+          total = len(results)
+          
+          # Print summary
+          print(f'Health check results: {healthy}/{total} services healthy')
+          
+          # List unhealthy services
+          unhealthy = [r for r in results if r['status'] != 'healthy']
+          if unhealthy:
+              print('\\nUnhealthy services:')
+              for service in unhealthy:
+                  print(f'- {service[\"service\"]} ({service[\"category\"]}): {service[\"status\"]}')
+                  if service['error']:
+                      print(f'  Error: {service[\"error\"]}')
+          
+          # Exit with error code if any service is unhealthy
+          if healthy < total:
+              print('\\n::error::Health check detected unhealthy services')
+              sys.exit(1)
+          "
+      
+      # Optional: Send notifications if there are unhealthy services
+      - name: Send Slack notification on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          # For posting a rich message using Block Kit
+          payload: |
+            {
+              "text": "DeepMed Health Check Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*DeepMed Health Check Failed* in environment `${{ env.ENVIRONMENT }}`\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK 

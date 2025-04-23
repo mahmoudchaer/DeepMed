@@ -1,0 +1,33 @@
+{
+  "Tabular Data Services": {
+    "Data Cleaner": {"url": "http://HOST:5001", "endpoint": "/health"},
+    "Feature Selector": {"url": "http://HOST:5002", "endpoint": "/health"},
+    "Anomaly Detector": {"url": "http://HOST:5003", "endpoint": "/health"},
+    "Model Trainer": {"url": "http://HOST:5004", "endpoint": "/health"},
+    "Medical Assistant": {"url": "http://HOST:5005", "endpoint": "/health"},
+    "Model Coordinator": {"url": "http://HOST:5020", "endpoint": "/health"},
+    "Logistic Regression": {"url": "http://HOST:5010", "endpoint": "/health"},
+    "Decision Tree": {"url": "http://HOST:5011", "endpoint": "/health"},
+    "Random Forest": {"url": "http://HOST:5012", "endpoint": "/health"},
+    "SVM": {"url": "http://HOST:5013", "endpoint": "/health"},
+    "KNN": {"url": "http://HOST:5014", "endpoint": "/health"},
+    "Naive Bayes": {"url": "http://HOST:5015", "endpoint": "/health"},
+    "Tabular Predictor": {"url": "http://HOST:5101", "endpoint": "/health"}
+  },
+  "Image Processing Services": {
+    "Pipeline Service": {"url": "http://HOST:6001", "endpoint": "/health"},
+    "Augmentation Service": {"url": "http://HOST:6002", "endpoint": "/health"},
+    "Image Classification": {"url": "http://HOST:6003", "endpoint": "/health"},
+    "Anomaly Detection Service": {"url": "http://HOST:6004", "endpoint": "/health"},
+    "Image Predictor": {"url": "http://HOST:6005", "endpoint": "/health"}
+  },
+  "Chatbot Services": {
+    "Embedding Service": {"url": "http://HOST:5201", "endpoint": "/health"},
+    "LLM Generator": {"url": "http://HOST:5202", "endpoint": "/health"},
+    "Vector Search": {"url": "http://HOST:5203", "endpoint": "/health"},
+    "Chatbot Gateway": {"url": "http://HOST:5200", "endpoint": "/health"}
+  },
+  "Monitoring": {
+    "Monitoring Service": {"url": "http://HOST:3000", "endpoint": "/health"}
+  }
+} 
