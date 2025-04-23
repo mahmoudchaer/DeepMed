@@ -428,6 +428,67 @@ services:
     networks:
       - deepmed-network
 
+  # Monitoring Services
+  monitoring:
+    image: mahmoudchaer/monitoring:latest
+    build:
+      context: ../monitoring
+      dockerfile: Dockerfile
+    container_name: monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../monitoring:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PORT=5432
+    networks:
+      - deepmed-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+    depends_on:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:8.2.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=deepmed
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - deepmed-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
 networks:
   deepmed-network:
     driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
