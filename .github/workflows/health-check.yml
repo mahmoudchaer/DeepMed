@@ -74,17 +74,18 @@ jobs:
               "Tabular Predictor": {"url": "http://localhost:5101", "endpoint": "/health"}
             },
             "Image Processing Services": {
-              "Pipeline Service": {"url": "http://localhost:6001", "endpoint": "/health"},
-              "Augmentation Service": {"url": "http://localhost:6002", "endpoint": "/health"},
-              "Image Classification": {"url": "http://localhost:6003", "endpoint": "/health"},
-              "Anomaly Detection Service": {"url": "http://localhost:6004", "endpoint": "/health"},
-              "Image Predictor": {"url": "http://localhost:6005", "endpoint": "/health"}
+              "Pipeline Service": {"url": "http://localhost:5025", "endpoint": "/health"},
+              "Augmentation Service": {"url": "http://localhost:5023", "endpoint": "/health"},
+              "Model Training Service": {"url": "http://localhost:5021", "endpoint": "/health"},
+              "Anomaly Detection Service": {"url": "http://localhost:5029", "endpoint": "/health"},
+              "Anomaly Detector EEP": {"url": "http://localhost:5030", "endpoint": "/health"},
+              "Predictor Service": {"url": "http://localhost:5100", "endpoint": "/health"}
             },
             "Chatbot Services": {
               "Embedding Service": {"url": "http://localhost:5201", "endpoint": "/health"},
-              "LLM Generator": {"url": "http://localhost:5202", "endpoint": "/health"},
-              "Vector Search": {"url": "http://localhost:5203", "endpoint": "/health"},
-              "Chatbot Gateway": {"url": "http://localhost:5200", "endpoint": "/health"}
+              "Vector Search Service": {"url": "http://localhost:5202", "endpoint": "/health"},
+              "LLM Generator Service": {"url": "http://localhost:5203", "endpoint": "/health"},
+              "Chatbot Gateway": {"url": "http://localhost:5204", "endpoint": "/health"}
             },
             "Monitoring": {
               "Monitoring Service": {"url": "http://localhost:3000", "endpoint": "/health"}
@@ -272,7 +273,6 @@ jobs:
               print(f'::error::Error processing health check results: {str(e)}')
               sys.exit(1)
           "
-        continue-on-error: true
       
       # Optional: Send notifications if there are unhealthy services
       - name: Send Slack notification on failure
