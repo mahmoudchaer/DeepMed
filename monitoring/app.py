@@ -131,8 +131,63 @@ def check_service_health(category, service_name, service_info):
     endpoint = service_info["endpoint"]
     full_url = f"{url}{endpoint}"
     
+    # Try to check if container is running via Docker API
+    container_running = False
+    try:
+        import docker
+        client = docker.from_env()
+        
+        # Convert service name to container name format (lowercase with underscores)
+        container_name = service_name.lower().replace(' ', '_').replace('-', '_')
+        
+        # Try different variations of container names
+        container_variations = [
+            container_name,
+            f"deepmed_{container_name}",
+            f"dockerversions_{container_name}",
+            f"dockerversions-{container_name}",
+            f"docker_versions_{container_name}",
+            f"docker_versions-{container_name}",
+            f"docker_for_images-{container_name}",
+            f"docker_for_images_{container_name}",
+            f"{container_name}_1",
+            f"deepmed_{container_name}_1",
+            f"docker_versions_{container_name}_1",
+            f"docker_versions-{container_name}-1"
+        ]
+        
+        # Get a list of all containers to check against
+        all_containers = client.containers.list()
+        
+        container = None
+        # First try exact matches
+        for name in container_variations:
+            for c in all_containers:
+                if c.name == name:
+                    container = c
+                    break
+            if container:
+                break
+                
+        # If no exact match, try partial matching
+        if not container:
+            for c in all_containers:
+                # Check if the service name is part of the container name
+                normalized_name = service_name.lower().replace(' ', '').replace('_', '').replace('-', '')
+                normalized_container = c.name.lower().replace(' ', '').replace('_', '').replace('-', '')
+                if normalized_name in normalized_container:
+                    container = c
+                    break
+        
+        if container and container.status == 'running':
+            container_running = True
+            logger.info(f"Container for {service_name} is running: {container.name}")
+    except Exception as e:
+        logger.warning(f"Could not check Docker container status for {service_name}: {str(e)}")
+    
     start_time = time.time()
     try:
+        # First try HTTP health check
         logger.info(f"Checking health of {service_name} at {full_url}")
         response = requests.get(full_url, timeout=10)
         response_time = time.time() - start_time
@@ -149,14 +204,27 @@ def check_service_health(category, service_name, service_info):
             except:
                 SERVICES[category][service_name]["details"] = None
         else:
-            SERVICES[category][service_name]["status"] = "down"
-            service_status.labels(service=service_name, category=category).set(0)
-            logger.warning(f"{service_name} returned status code {response.status_code}")
+            # If HTTP check fails but container is running, mark as "partially up"
+            if container_running:
+                SERVICES[category][service_name]["status"] = "partial"
+                service_status.labels(service=service_name, category=category).set(0.5)
+                logger.warning(f"{service_name} container is running but returned status code {response.status_code}")
+            else:
+                SERVICES[category][service_name]["status"] = "down"
+                service_status.labels(service=service_name, category=category).set(0)
+                logger.warning(f"{service_name} returned status code {response.status_code}")
     except Exception as e:
         response_time = time.time() - start_time
-        SERVICES[category][service_name]["status"] = "down"
-        service_status.labels(service=service_name, category=category).set(0)
-        logger.error(f"Error checking {service_name} health: {str(e)}")
+        
+        # If HTTP check fails but container is running, mark as "partially up"
+        if container_running:
+            SERVICES[category][service_name]["status"] = "partial"
+            service_status.labels(service=service_name, category=category).set(0.5)
+            logger.warning(f"{service_name} container is running but HTTP check failed: {str(e)}")
+        else:
+            SERVICES[category][service_name]["status"] = "down"
+            service_status.labels(service=service_name, category=category).set(0)
+            logger.error(f"Error checking {service_name} health: {str(e)}")
     
     # Update metrics and history
     SERVICES[category][service_name]["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -168,7 +236,10 @@ def check_service_health(category, service_name, service_info):
     current_time = datetime.now().strftime("%H:%M:%S")
     service_history[service_name]["timestamps"].append(current_time)
     service_history[service_name]["response_times"].append(response_time)
-    service_history[service_name]["statuses"].append(1 if SERVICES[category][service_name]["status"] == "up" else 0)
+    service_history[service_name]["statuses"].append(
+        1 if SERVICES[category][service_name]["status"] == "up" else 
+        0.5 if SERVICES[category][service_name]["status"] == "partial" else 0
+    )
     
     # Trim history if needed
     if len(service_history[service_name]["timestamps"]) > 100:
@@ -436,6 +507,47 @@ def get_service_logs(service_name):
     except Exception as e:
         logger.error(f"Error in logs endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/override_status/<service_name>', methods=['POST'])
+def override_service_status(service_name):
+    """API endpoint to manually override the status of a service"""
+    data = request.json
+    new_status = data.get('status', 'up')
+    
+    if new_status not in ['up', 'down', 'partial', 'unknown']:
+        return jsonify({"error": "Invalid status. Use 'up', 'down', 'partial', or 'unknown'"}), 400
+    
+    # Find the service
+    service_found = False
+    service_category = None
+    
+    for category, services in SERVICES.items():
+        if service_name in services:
+            service_found = True
+            service_category = category
+            break
+    
+    if not service_found:
+        return jsonify({"error": f"Service '{service_name}' not found"}), 404
+    
+    # Update the service status
+    SERVICES[service_category][service_name]["status"] = new_status
+    SERVICES[service_category][service_name]["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    SERVICES[service_category][service_name]["manual_override"] = True
+    
+    # Update Prometheus metric
+    if new_status == 'up':
+        service_status.labels(service=service_name, category=service_category).set(1)
+    elif new_status == 'partial':
+        service_status.labels(service=service_name, category=service_category).set(0.5)
+    else:
+        service_status.labels(service=service_name, category=service_category).set(0)
+    
+    return jsonify({
+        "service": service_name,
+        "status": new_status,
+        "message": f"Status of {service_name} manually set to {new_status}"
+    })
 
 if __name__ == '__main__':
     # Create logs directory
