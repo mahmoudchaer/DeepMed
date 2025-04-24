@@ -450,8 +450,12 @@ def index():
         if services_checked:
             break
     
-    # If no services have been checked yet, show loading page
+    # If no services have been checked yet, start the check and show loading page
     if not services_checked:
+        # Start the initial service check in a separate thread
+        check_thread = threading.Thread(target=check_all_services)
+        check_thread.daemon = True
+        check_thread.start()
         return render_template('loading.html')
     
     # Otherwise show the main dashboard
@@ -688,7 +692,7 @@ if __name__ == '__main__':
     scheduler.daemon = True
     scheduler.start()
     
-    # Initial service check
-    check_all_services()
+    # Don't do initial service check here anymore
+    # check_all_services()
     
     app.run(host='0.0.0.0', port=5432, debug=False) 
