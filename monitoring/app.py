@@ -134,54 +134,9 @@ def check_service_health(category, service_name, service_info):
     # Try to check if container is running via Docker API
     container_running = False
     try:
-        import docker
-        client = docker.from_env()
-        
-        # Convert service name to container name format (lowercase with underscores)
-        container_name = service_name.lower().replace(' ', '_').replace('-', '_')
-        
-        # Try different variations of container names
-        container_variations = [
-            container_name,
-            f"deepmed_{container_name}",
-            f"dockerversions_{container_name}",
-            f"dockerversions-{container_name}",
-            f"docker_versions_{container_name}",
-            f"docker_versions-{container_name}",
-            f"docker_for_images-{container_name}",
-            f"docker_for_images_{container_name}",
-            f"{container_name}_1",
-            f"deepmed_{container_name}_1",
-            f"docker_versions_{container_name}_1",
-            f"docker_versions-{container_name}-1"
-        ]
-        
-        # Get a list of all containers to check against
-        all_containers = client.containers.list()
-        
-        container = None
-        # First try exact matches
-        for name in container_variations:
-            for c in all_containers:
-                if c.name == name:
-                    container = c
-                    break
-            if container:
-                break
-                
-        # If no exact match, try partial matching
-        if not container:
-            for c in all_containers:
-                # Check if the service name is part of the container name
-                normalized_name = service_name.lower().replace(' ', '').replace('_', '').replace('-', '')
-                normalized_container = c.name.lower().replace(' ', '').replace('_', '').replace('-', '')
-                if normalized_name in normalized_container:
-                    container = c
-                    break
-        
-        if container and container.status == 'running':
-            container_running = True
-            logger.info(f"Container for {service_name} is running: {container.name}")
+        # Skip Docker check due to compatibility issues
+        # We'll rely on the HTTP checks or manual override instead
+        container_running = False
     except Exception as e:
         logger.warning(f"Could not check Docker container status for {service_name}: {str(e)}")
     
