@@ -22,7 +22,7 @@ from flask_login import LoginManager, login_required, current_user
 # Import common components from app_api.py
 from app_api import app, DATA_CLEANER_URL, FEATURE_SELECTOR_URL, ANOMALY_DETECTOR_URL, MODEL_COORDINATOR_URL, MEDICAL_ASSISTANT_URL
 from app_api import is_service_available, get_temp_filepath, safe_requests_post, cleanup_session_files, check_services
-from app_api import allowed_file, load_data, clean_data_for_json, SafeJSONEncoder, logger
+from app_api import allowed_file, load_data, clean_data_for_json, SafeJSONEncoder, logger, check_file_size
 from app_api import save_to_temp_file, load_from_temp_file, check_session_size
 
 # Import database models
