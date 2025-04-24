@@ -440,20 +440,36 @@ def create_response_time_chart(service_name):
 @app.route('/')
 def index():
     """Render the dashboard or loading page based on service check status"""
-    any_service_checked = False
-    all_services_unknown = True
+    # Calculate service counts
+    total_services = 0
+    healthy_services = 0
+    unhealthy_services = 0
+    unknown_services = 0
     
     for category in SERVICES.values():
         for service in category.values():
-            if service['status'] != 'unknown':
-                any_service_checked = True
-            if service['status'] != 'unknown':
-                all_services_unknown = False
-
-    if all_services_unknown:
+            total_services += 1
+            if service['status'] == 'up':
+                healthy_services += 1
+            elif service['status'] == 'down':
+                unhealthy_services += 1
+            elif service['status'] == 'unknown':
+                unknown_services += 1
+    
+    # If all services are unknown and no checks have been done, show loading page
+    if unknown_services == total_services:
+        # Start a service check in the background
+        check_thread = threading.Thread(target=check_all_services)
+        check_thread.daemon = True
+        check_thread.start()
         return render_template('loading.html')
-    else:
-        return render_template('index.html', services=SERVICES)
+    
+    return render_template('index.html', 
+                         services=SERVICES,
+                         total_services=total_services,
+                         healthy_services=healthy_services,
+                         unhealthy_services=unhealthy_services,
+                         unknown_services=unknown_services)
 
 @app.route('/health')
 def health():
