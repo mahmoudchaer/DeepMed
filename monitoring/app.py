@@ -440,6 +440,21 @@ def create_response_time_chart(service_name):
 @app.route('/')
 def index():
     """Main dashboard page"""
+    # Check if any service has been checked yet
+    services_checked = False
+    for category in SERVICES.values():
+        for service in category.values():
+            if service['status'] != 'unknown':
+                services_checked = True
+                break
+        if services_checked:
+            break
+    
+    # If no services have been checked yet, show loading page
+    if not services_checked:
+        return render_template('loading.html')
+    
+    # Otherwise show the main dashboard
     return render_template('index.html', services=SERVICES)
 
 @app.route('/health')
