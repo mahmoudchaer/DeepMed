@@ -91,7 +91,26 @@ def upload():
         
         # Generate unique filename for temporary storage
         filepath = get_temp_filepath(file.filename)
-        file.save(filepath)
+        try:
+            file.save(filepath)
+        except PermissionError as e:
+            logger.error(f"Permission error saving file: {str(e)}")
+            # Try to create an alternative path in user's home directory
+            alt_dir = os.path.expanduser("~/medicai_temp")
+            os.makedirs(alt_dir, exist_ok=True)
+            alt_filepath = os.path.join(alt_dir, os.path.basename(filepath))
+            try:
+                file.save(alt_filepath)
+                filepath = alt_filepath
+                logger.info(f"Saved file to alternate location: {filepath}")
+            except Exception as inner_e:
+                logger.error(f"Failed to save file to alternate location: {str(inner_e)}")
+                flash('Error saving uploaded file. Please try again.', 'error')
+                return redirect(url_for('index'))
+        except Exception as e:
+            logger.error(f"Error saving file: {str(e)}")
+            flash('Error saving uploaded file. Please try again.', 'error')
+            return redirect(url_for('index'))
         
         # Load the data to validate it
         data, result = load_data(filepath)
