@@ -55,8 +55,9 @@ os.makedirs("logs", exist_ok=True)
 
 app = Flask(__name__)
 
-# Get server IP from environment or use the static IP
-SERVER_IP = os.getenv('SERVER_IP', '20.119.81.37')
+# Use host.docker.internal to access the host from inside Docker
+SERVER_IP = os.getenv('SERVER_IP', 'host.docker.internal')
+logger.info(f"Using SERVER_IP: {SERVER_IP}")
 
 # Define services URLs with server IP instead of localhost
 DATA_CLEANER_URL = f'http://{SERVER_IP}:5001'
@@ -133,7 +134,7 @@ def check_service_health(category, service_name, service_info):
     start_time = time.time()
     try:
         logger.info(f"Checking health of {service_name} at {full_url}")
-        response = requests.get(full_url, timeout=5)
+        response = requests.get(full_url, timeout=10)
         response_time = time.time() - start_time
         
         if response.status_code == 200:
@@ -349,9 +350,11 @@ def api_refresh():
 @app.route('/api/prometheus')
 def prometheus_info():
     """API endpoint to get Prometheus info"""
+    # For external URLs, use the public IP, not the Docker host internal reference
+    external_ip = os.getenv('EXTERNAL_IP', '20.119.81.37')
     return jsonify({
-        "prometheus_url": f"http://{SERVER_IP}:9090",
-        "grafana_url": f"http://{SERVER_IP}:3000"
+        "prometheus_url": f"http://{external_ip}:9090",
+        "grafana_url": f"http://{external_ip}:3000"
     })
 
 @app.route('/api/logs/<service_name>')
