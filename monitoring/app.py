@@ -17,6 +17,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly
 import logging
+import socket
+import random
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
 
 # Add parent directory to path for importing keyvault
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -61,48 +65,82 @@ SERVER_IP = os.getenv('SERVER_IP', 'localhost')
 logger.info(f"Initial SERVER_IP configuration: {SERVER_IP}")
 
 # Define services URLs with server IP
-def build_service_url(port, ip=None):
-    """Build a service URL with either the provided IP or the default SERVER_IP"""
-    base_ip = ip if ip else SERVER_IP
-    return f'http://{base_ip}:{port}'
+def build_service_url(port, ip=None, container_name=None):
+    """Build a service URL with either the provided IP or container name"""
+    if container_name:
+        return f'http://{container_name}:{port}'
+    else:
+        base_ip = ip if ip else SERVER_IP
+        return f'http://{base_ip}:{port}'
 
-# Define service ports
+# Define service ports and container names
 DATA_CLEANER_PORT = 5001
-FEATURE_SELECTOR_PORT = 5002
-ANOMALY_DETECTOR_PORT = 5003
-MODEL_COORDINATOR_PORT = 5020
-MEDICAL_ASSISTANT_PORT = 5005
-AUGMENTATION_SERVICE_PORT = 5023
-MODEL_TRAINING_SERVICE_PORT = 5021
-PIPELINE_SERVICE_PORT = 5025
-ANOMALY_DETECTION_SERVICE_PORT = 5029
-TABULAR_PREDICTOR_PORT = 5100
-LOGISTIC_REGRESSION_PORT = 5010
-DECISION_TREE_PORT = 5011
-RANDOM_FOREST_PORT = 5012
-SVM_PORT = 5013
-KNN_PORT = 5014
-NAIVE_BAYES_PORT = 5015
+DATA_CLEANER_CONTAINER = "data_cleaner"
 
-# Initial service URLs
-DATA_CLEANER_URL = build_service_url(DATA_CLEANER_PORT)
-FEATURE_SELECTOR_URL = build_service_url(FEATURE_SELECTOR_PORT)
-ANOMALY_DETECTOR_URL = build_service_url(ANOMALY_DETECTOR_PORT)
-MODEL_COORDINATOR_URL = build_service_url(MODEL_COORDINATOR_PORT)
-MEDICAL_ASSISTANT_URL = build_service_url(MEDICAL_ASSISTANT_PORT)
-AUGMENTATION_SERVICE_URL = build_service_url(AUGMENTATION_SERVICE_PORT)
-MODEL_TRAINING_SERVICE_URL = build_service_url(MODEL_TRAINING_SERVICE_PORT)
-PIPELINE_SERVICE_URL = build_service_url(PIPELINE_SERVICE_PORT)
-ANOMALY_DETECTION_SERVICE_URL = build_service_url(ANOMALY_DETECTION_SERVICE_PORT)
-TABULAR_PREDICTOR_URL = build_service_url(TABULAR_PREDICTOR_PORT)
+FEATURE_SELECTOR_PORT = 5002
+FEATURE_SELECTOR_CONTAINER = "feature_selector"
+
+ANOMALY_DETECTOR_PORT = 5003
+ANOMALY_DETECTOR_CONTAINER = "anomaly_detector" 
+
+MODEL_COORDINATOR_PORT = 5020
+MODEL_COORDINATOR_CONTAINER = "model_coordinator"
+
+MEDICAL_ASSISTANT_PORT = 5005
+MEDICAL_ASSISTANT_CONTAINER = "medical_assistant"
+
+AUGMENTATION_SERVICE_PORT = 5023
+AUGMENTATION_SERVICE_CONTAINER = "augmentation_service"
+
+MODEL_TRAINING_SERVICE_PORT = 5021
+MODEL_TRAINING_SERVICE_CONTAINER = "model_training_service"
+
+PIPELINE_SERVICE_PORT = 5025
+PIPELINE_SERVICE_CONTAINER = "pipeline_service"
+
+ANOMALY_DETECTION_SERVICE_PORT = 5029
+ANOMALY_DETECTION_SERVICE_CONTAINER = "anomaly_detection_service"
+
+TABULAR_PREDICTOR_PORT = 5100
+TABULAR_PREDICTOR_CONTAINER = "tabular_predictor"
+
+LOGISTIC_REGRESSION_PORT = 5010
+LOGISTIC_REGRESSION_CONTAINER = "logistic_regression"
+
+DECISION_TREE_PORT = 5011
+DECISION_TREE_CONTAINER = "decision_tree"
+
+RANDOM_FOREST_PORT = 5012
+RANDOM_FOREST_CONTAINER = "random_forest"
+
+SVM_PORT = 5013
+SVM_CONTAINER = "svm"
+
+KNN_PORT = 5014
+KNN_CONTAINER = "knn"
+
+NAIVE_BAYES_PORT = 5015
+NAIVE_BAYES_CONTAINER = "naive_bayes"
+
+# Initial service URLs - using container names directly (Docker networking)
+DATA_CLEANER_URL = build_service_url(DATA_CLEANER_PORT, container_name=DATA_CLEANER_CONTAINER)
+FEATURE_SELECTOR_URL = build_service_url(FEATURE_SELECTOR_PORT, container_name=FEATURE_SELECTOR_CONTAINER)
+ANOMALY_DETECTOR_URL = build_service_url(ANOMALY_DETECTOR_PORT, container_name=ANOMALY_DETECTOR_CONTAINER)
+MODEL_COORDINATOR_URL = build_service_url(MODEL_COORDINATOR_PORT, container_name=MODEL_COORDINATOR_CONTAINER)
+MEDICAL_ASSISTANT_URL = build_service_url(MEDICAL_ASSISTANT_PORT, container_name=MEDICAL_ASSISTANT_CONTAINER)
+AUGMENTATION_SERVICE_URL = build_service_url(AUGMENTATION_SERVICE_PORT, container_name=AUGMENTATION_SERVICE_CONTAINER)
+MODEL_TRAINING_SERVICE_URL = build_service_url(MODEL_TRAINING_SERVICE_PORT, container_name=MODEL_TRAINING_SERVICE_CONTAINER)
+PIPELINE_SERVICE_URL = build_service_url(PIPELINE_SERVICE_PORT, container_name=PIPELINE_SERVICE_CONTAINER)
+ANOMALY_DETECTION_SERVICE_URL = build_service_url(ANOMALY_DETECTION_SERVICE_PORT, container_name=ANOMALY_DETECTION_SERVICE_CONTAINER)
+TABULAR_PREDICTOR_URL = build_service_url(TABULAR_PREDICTOR_PORT, container_name=TABULAR_PREDICTOR_CONTAINER)
 
 # Model-specific services
-LOGISTIC_REGRESSION_URL = build_service_url(LOGISTIC_REGRESSION_PORT)
-DECISION_TREE_URL = build_service_url(DECISION_TREE_PORT)
-RANDOM_FOREST_URL = build_service_url(RANDOM_FOREST_PORT)
-SVM_URL = build_service_url(SVM_PORT)
-KNN_URL = build_service_url(KNN_PORT)
-NAIVE_BAYES_URL = build_service_url(NAIVE_BAYES_PORT)
+LOGISTIC_REGRESSION_URL = build_service_url(LOGISTIC_REGRESSION_PORT, container_name=LOGISTIC_REGRESSION_CONTAINER)
+DECISION_TREE_URL = build_service_url(DECISION_TREE_PORT, container_name=DECISION_TREE_CONTAINER)
+RANDOM_FOREST_URL = build_service_url(RANDOM_FOREST_PORT, container_name=RANDOM_FOREST_CONTAINER)
+SVM_URL = build_service_url(SVM_PORT, container_name=SVM_CONTAINER)
+KNN_URL = build_service_url(KNN_PORT, container_name=KNN_CONTAINER)
+NAIVE_BAYES_URL = build_service_url(NAIVE_BAYES_PORT, container_name=NAIVE_BAYES_CONTAINER)
 
 # Categorize services for the dashboard
 SERVICES = {
@@ -150,11 +188,36 @@ for category, services in SERVICES.items():
             "statuses": []
         }
 
+def resolve_service_hostname(hostname):
+    """Try to resolve hostname to check if it exists in Docker's DNS"""
+    try:
+        socket.gethostbyname(hostname)
+        return True
+    except socket.gaierror:
+        return False
+
+def create_session_with_retries(retries=3, backoff_factor=0.5):
+    """Create a requests session with retry capability"""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=retries,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+        backoff_factor=backoff_factor
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
 def check_service_health(category, service_name, service_info):
     """Check health of a specific service and update metrics"""
     url = service_info["url"]
     endpoint = service_info["endpoint"]
     full_url = f"{url}{endpoint}"
+    
+    # Create a session with retries for more resilient connections
+    session = create_session_with_retries()
     
     # Try to check if container is running via Docker API
     container_running = False
@@ -165,14 +228,45 @@ def check_service_health(category, service_name, service_info):
     except Exception as e:
         logger.warning(f"Could not check Docker container status for {service_name}: {str(e)}")
     
+    # Create base service name for DNS lookups
+    service_base_name = service_name.lower().replace(' ', '_').replace('-', '_')
+    
     # Define alternative IPs to try if the main one fails
-    alternative_ips = [
+    alternative_hosts = [
+        # Container names with different formats
+        service_base_name,
+        service_name.lower().replace(' ', '-').replace('_', '-'),
+        
+        # Network variants
         'localhost',
         '127.0.0.1',
         'host.docker.internal',
         'docker.for.win.localhost',
-        'docker.for.mac.localhost'
+        'docker.for.mac.localhost',
+        
+        # Network aliases - Docker Compose typically creates these
+        f"deepmed_{service_base_name}",
+        f"deepmed-{service_name.lower().replace(' ', '-').replace('_', '-')}",
+        
+        # Azure variants
+        os.getenv('EXTERNAL_IP', '20.119.81.37')  # Try the external IP if set
     ]
+    
+    # Try to discover service using DNS first
+    discovered_hosts = []
+    for host_candidate in [
+        service_base_name,
+        f"deepmed_{service_base_name}", 
+        f"deepmed-{service_base_name}",
+        f"{service_base_name}_service",
+        f"deepmed_{service_base_name}_service"
+    ]:
+        if resolve_service_hostname(host_candidate):
+            discovered_hosts.append(host_candidate)
+            logger.info(f"Discovered service {service_name} at DNS hostname {host_candidate}")
+    
+    # Add discovered hosts to the beginning of alternative hosts
+    alternative_hosts = discovered_hosts + alternative_hosts
     
     # Parse the port from the URL to build alternative URLs
     port = None
@@ -191,7 +285,7 @@ def check_service_health(category, service_name, service_info):
     try:
         # First try HTTP health check with original URL
         logger.info(f"Checking health of {service_name} at {full_url}")
-        response = requests.get(full_url, timeout=5)  # Reduced timeout for faster checks
+        response = session.get(full_url, timeout=5)  # Using session with retries
         
         if response.status_code == 200:
             response_successful = True
@@ -201,13 +295,13 @@ def check_service_health(category, service_name, service_info):
     
     # If the original URL failed and we could parse the port, try alternatives
     if not response_successful and port is not None:
-        for alt_ip in alternative_ips:
-            alt_url = f"http://{alt_ip}:{port}"
+        for alt_host in alternative_hosts:
+            alt_url = f"http://{alt_host}:{port}"
             alt_full_url = f"{alt_url}{endpoint}"
             
             try:
                 logger.info(f"Trying alternative URL for {service_name}: {alt_full_url}")
-                response = requests.get(alt_full_url, timeout=5)
+                response = session.get(alt_full_url, timeout=5)  # Using session with retries
                 
                 if response.status_code == 200:
                     response_successful = True
