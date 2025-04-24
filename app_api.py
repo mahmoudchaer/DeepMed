@@ -252,7 +252,22 @@ def check_services():
     return status
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'csv', 'xlsx', 'xls'}
+    """Check if the file type and size are allowed"""
+    # Check file extension
+    allowed_extensions = {'csv', 'xlsx', 'xls'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def check_file_size(file, max_size_mb=2):
+    """Check if file size is within the limit"""
+    # Get the file size in bytes
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)  # Reset file pointer to beginning
+    
+    # Convert max_size_mb to bytes
+    max_size_bytes = max_size_mb * 1024 * 1024
+    
+    return size <= max_size_bytes
 
 def load_data(file_path):
     """Load data from file with error handling and feedback"""

@@ -32,8 +32,6 @@ from db.users import db, User, TrainingRun, TrainingModel, PreprocessingData
 classification_training_status = {}
 
 @app.route('/upload', methods=['POST'])
-
-
 @login_required
 def upload():
     # Double check authentication - ensure user is logged in
@@ -81,57 +79,63 @@ def upload():
         flash('No selected file', 'error')
         return redirect(url_for('index'))
     
-    if file and allowed_file(file.filename):
-        # Clean up previous upload if exists
-        if 'uploaded_file' in session and os.path.exists(session['uploaded_file']):
-            try:
-                os.remove(session['uploaded_file'])
-            except:
-                pass
-        
-        # Generate unique filename for temporary storage
-        filepath = get_temp_filepath(file.filename)
+    # Check file type first
+    if not allowed_file(file.filename):
+        flash('Invalid file type. Please upload only CSV or Excel files (.csv, .xlsx, .xls).', 'error')
+        return redirect(url_for('index'))
+    
+    # Check file size
+    if not check_file_size(file, max_size_mb=2):
+        flash('File size exceeds the 2MB limit. Please upload a smaller file.', 'error')
+        return redirect(url_for('index'))
+    
+    # Clean up previous upload if exists
+    if 'uploaded_file' in session and os.path.exists(session['uploaded_file']):
         try:
-            file.save(filepath)
-        except PermissionError as e:
-            logger.error(f"Permission error saving file: {str(e)}")
-            # Try to create an alternative path in user's home directory
-            alt_dir = os.path.expanduser("~/medicai_temp")
-            os.makedirs(alt_dir, exist_ok=True)
-            alt_filepath = os.path.join(alt_dir, os.path.basename(filepath))
-            try:
-                file.save(alt_filepath)
-                filepath = alt_filepath
-                logger.info(f"Saved file to alternate location: {filepath}")
-            except Exception as inner_e:
-                logger.error(f"Failed to save file to alternate location: {str(inner_e)}")
-                flash('Error saving uploaded file. Please try again.', 'error')
-                return redirect(url_for('index'))
-        except Exception as e:
-            logger.error(f"Error saving file: {str(e)}")
+            os.remove(session['uploaded_file'])
+        except:
+            pass
+    
+    # Generate unique filename for temporary storage
+    filepath = get_temp_filepath(file.filename)
+    try:
+        file.save(filepath)
+    except PermissionError as e:
+        logger.error(f"Permission error saving file: {str(e)}")
+        # Try to create an alternative path in user's home directory
+        alt_dir = os.path.expanduser("~/medicai_temp")
+        os.makedirs(alt_dir, exist_ok=True)
+        alt_filepath = os.path.join(alt_dir, os.path.basename(filepath))
+        try:
+            file.save(alt_filepath)
+            filepath = alt_filepath
+            logger.info(f"Saved file to alternate location: {filepath}")
+        except Exception as inner_e:
+            logger.error(f"Failed to save file to alternate location: {str(inner_e)}")
             flash('Error saving uploaded file. Please try again.', 'error')
             return redirect(url_for('index'))
-        
-        # Load the data to validate it
-        data, result = load_data(filepath)
-        if data is None:
-            # Clean up invalid file
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            flash(result, 'error')
-            return redirect(url_for('index'))
-        
-        session['uploaded_file'] = filepath
-        session['file_stats'] = result
-        
-        # Store data columns for later use
-        session['data_columns'] = data.columns.tolist()
-        
-        # Redirect to training page
-        return redirect(url_for('training'))
+    except Exception as e:
+        logger.error(f"Error saving file: {str(e)}")
+        flash('Error saving uploaded file. Please try again.', 'error')
+        return redirect(url_for('index'))
     
-    flash('Invalid file type. Please upload a CSV or Excel file.', 'error')
-    return redirect(url_for('index'))
+    # Load the data to validate it
+    data, result = load_data(filepath)
+    if data is None:
+        # Clean up invalid file
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        flash(result, 'error')
+        return redirect(url_for('index'))
+    
+    session['uploaded_file'] = filepath
+    session['file_stats'] = result
+    
+    # Store data columns for later use
+    session['data_columns'] = data.columns.tolist()
+    
+    # Redirect to training page
+    return redirect(url_for('training'))
 
 @app.route('/training', methods=['GET', 'POST'])
 @login_required
