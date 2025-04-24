@@ -5,776 +5,378 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeepMed Monitoring Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.0/dist/chart.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
+        :root {
+            --dark-blue: #1a2035;
+            --medium-blue: #242e4c;
+            --light-blue: #2d4373;
+            --accent-blue: #007bff;
+            --text-primary: #e9ecef;
+            --text-secondary: #adb5bd;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            padding-top: 20px;
+            background-color: var(--dark-blue);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-        .card {
-            margin-bottom: 20px;
+
+        .dashboard-header {
+            background-color: var(--medium-blue);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            border: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .card-header {
-            border-radius: 8px 8px 0 0;
-            font-weight: 600;
-        }
-        .service-card {
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .service-card:hover {
-            transform: translateY(-3px);
-        }
-        .service-up {
-            border-left: 5px solid #28a745;
-        }
-        .service-down {
-            border-left: 5px solid #dc3545;
-        }
-        .service-unknown {
-            border-left: 5px solid #ffc107;
-        }
-        .service-partial {
-            border-left: 5px solid #0dcaf0;
-        }
+
         .dashboard-title {
-            border-bottom: 2px solid #dee2e6;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-        }
-        .status-badge {
-            font-size: 12px;
-            padding: 5px 10px;
-            border-radius: 20px;
+            font-size: 2rem;
             font-weight: 600;
+            margin: 0;
+            color: var(--text-primary);
         }
-        .service-details {
-            font-size: 14px;
-            color: #6c757d;
+
+        .refresh-btn {
+            background-color: var(--accent-blue);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
-        .category-header {
-            font-size: 18px;
+
+        .refresh-btn:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--medium-blue);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-title {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
             font-weight: 600;
-            margin: 15px 0;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #eee;
+            margin: 0;
         }
-        .chart-container {
-            height: 300px;
-            width: 100%;
+
+        .service-section {
+            background-color: var(--medium-blue);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .test-form {
-            background-color: #f8f9ff;
-            padding: 15px;
+
+        .service-section h2 {
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--light-blue);
+            padding-bottom: 0.5rem;
+        }
+
+        .service-card {
+            background-color: var(--light-blue);
             border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
         }
-        #toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
+
+        .service-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .service-name {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .service-status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status-up {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .status-down {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .status-partial {
+            background-color: var(--warning-color);
+            color: black;
+        }
+
+        .service-details {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .service-url {
+            color: var(--accent-blue);
+            word-break: break-all;
+        }
+
+        .service-metrics {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .tools-section {
+            background-color: var(--medium-blue);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tools-section h2 {
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--light-blue);
+            padding-bottom: 0.5rem;
+        }
+
+        .tool-btn {
+            width: 100%;
+            background-color: var(--light-blue);
+            border: none;
+            color: var(--text-primary);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .tool-btn:hover {
+            background-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .chart-container {
+            background-color: var(--medium-blue);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center dashboard-title">
-            <h1>DeepMed Monitoring Dashboard</h1>
-            <div>
-                <button class="btn btn-primary" id="refresh-btn">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                </button>
-            </div>
+    <div class="container-fluid py-4">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">
+                <i class="bi bi-activity"></i> DeepMed Monitoring Dashboard
+            </h1>
+            <button class="refresh-btn" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
         </div>
 
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Services</h5>
-                        <h2 id="total-services">Loading...</h2>
-                    </div>
+        <div class="stats-container">
+            <div class="stat-card" style="border-left: 4px solid var(--accent-blue)">
+                <div class="stat-title">Total Services</div>
+                <div class="stat-value" id="total-services">{{ services|sum(attribute='values')|length }}</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid var(--success-color)">
+                <div class="stat-title">Healthy Services</div>
+                <div class="stat-value" id="healthy-services">
+                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'up')|list|length }}
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Healthy Services</h5>
-                        <h2 id="healthy-services">Loading...</h2>
-                    </div>
+            <div class="stat-card" style="border-left: 4px solid var(--danger-color)">
+                <div class="stat-title">Unhealthy Services</div>
+                <div class="stat-value" id="unhealthy-services">
+                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'down')|list|length }}
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-danger text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Unhealthy Services</h5>
-                        <h2 id="unhealthy-services">Loading...</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-warning text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Unknown Status</h5>
-                        <h2 id="unknown-services">Loading...</h2>
-                    </div>
+            <div class="stat-card" style="border-left: 4px solid var(--warning-color)">
+                <div class="stat-title">Unknown Status</div>
+                <div class="stat-value" id="unknown-services">
+                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'unknown')|list|length }}
                 </div>
             </div>
         </div>
 
         <div class="row">
-            <div class="col-md-8">
-                <!-- Services Status Cards -->
+            <div class="col-lg-8">
                 {% for category, category_services in services.items() %}
-                <div class="category-section mb-4">
-                    <h3 class="category-header">{{ category }}</h3>
-                    <div class="row">
-                        {% for service_name, service_info in category_services.items() %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card service-card 
-                            {% if service_info.status == 'up' %}service-up
-                            {% elif service_info.status == 'down' %}service-down
-                            {% elif service_info.status == 'partial' %}service-partial
-                            {% else %}service-unknown{% endif %}" 
-                                 data-service="{{ service_name }}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h5 class="card-title mb-0">{{ service_name }}</h5>
-                                        {% if service_info.status == 'up' %}
-                                        <span class="status-badge bg-success">Up</span>
-                                        {% elif service_info.status == 'down' %}
-                                        <span class="status-badge bg-danger">Down</span>
-                                        {% elif service_info.status == 'partial' %}
-                                        <span class="status-badge bg-info">Container Running</span>
-                                        {% else %}
-                                        <span class="status-badge bg-warning">Unknown</span>
-                                        {% endif %}
-                                    </div>
-                                    <p class="service-details">{{ service_info.description }}</p>
-                                    <div class="d-flex justify-content-between">
-                                        <small>{{ service_info.url }}</small>
-                                        <small>Last check: {{ service_info.last_check if service_info.last_check else "Never" }}</small>
-                                    </div>
-                                    {% if service_info.response_time %}
-                                    <div class="text-end">
-                                        <small>Response time: {{ service_info.response_time }}</small>
-                                    </div>
-                                    {% endif %}
-                                </div>
+                <div class="service-section">
+                    <h2><i class="bi bi-grid"></i> {{ category }}</h2>
+                    {% for service_name, service_info in category_services.items() %}
+                    <div class="service-card">
+                        <div class="service-header">
+                            <h3 class="service-name">
+                                <i class="bi bi-hdd-network"></i> {{ service_name }}
+                            </h3>
+                            <span class="service-status status-{{ service_info.status }}">
+                                {{ service_info.status|upper }}
+                            </span>
+                        </div>
+                        <div class="service-details">
+                            <div>{{ service_info.description }}</div>
+                            <div class="service-url">{{ service_info.url }}</div>
+                            <div class="service-metrics">
+                                <div>Last Check: {{ service_info.last_check }}</div>
+                                <div>Response Time: {{ service_info.response_time }}</div>
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
+                    {% endfor %}
                 </div>
                 {% endfor %}
-
-                <!-- Service Detail Modal -->
-                <div class="modal fade" id="serviceDetailModal" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="serviceDetailTitle">Service Details</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="chart-container mb-4">
-                                    <div id="response-time-chart"></div>
-                                </div>
-                                <div class="card mb-3">
-                                    <div class="card-header bg-primary text-white">Service Information</div>
-                                    <div class="card-body">
-                                        <table class="table table-striped">
-                                            <tbody id="service-info-table">
-                                                <!-- Service info will be populated here -->
-                                            </tbody>
-                                        </table>
-                                        <div class="d-flex gap-2">
-                                            <button id="view-logs-btn" class="btn btn-secondary">View Service Logs</button>
-                                            <div class="dropdown">
-                                                <button class="btn btn-info dropdown-toggle" type="button" id="overrideStatusBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    Override Status
-                                                </button>
-                                                <ul class="dropdown-menu" aria-labelledby="overrideStatusBtn">
-                                                    <li><a class="dropdown-item override-status" data-status="up" href="#">Mark as Up</a></li>
-                                                    <li><a class="dropdown-item override-status" data-status="partial" href="#">Mark as Container Running</a></li>
-                                                    <li><a class="dropdown-item override-status" data-status="down" href="#">Mark as Down</a></li>
-                                                    <li><a class="dropdown-item override-status" data-status="unknown" href="#">Mark as Unknown</a></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card">
-                                    <div class="card-header bg-success text-white">Test Endpoint</div>
-                                    <div class="card-body">
-                                        <form id="test-endpoint-form" class="test-form">
-                                            <div class="mb-3">
-                                                <label for="endpoint-input" class="form-label">Endpoint Path</label>
-                                                <input type="text" class="form-control" id="endpoint-input" value="/health">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="method-select" class="form-label">HTTP Method</label>
-                                                <select class="form-select" id="method-select">
-                                                    <option value="GET">GET</option>
-                                                    <option value="POST">POST</option>
-                                                </select>
-                                            </div>
-                                            <div class="mb-3" id="payload-container" style="display: none;">
-                                                <label for="payload-input" class="form-label">JSON Payload</label>
-                                                <textarea class="form-control" id="payload-input" rows="4"></textarea>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">Test Endpoint</button>
-                                        </form>
-                                        <div class="mt-3" id="endpoint-result" style="display: none;">
-                                            <div class="card">
-                                                <div class="card-header">Response</div>
-                                                <div class="card-body">
-                                                    <pre id="endpoint-result-content" class="bg-light p-3 rounded"></pre>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
-            
-            <div class="col-md-4">
-                <!-- Overall Status Chart -->
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">System Health Overview</h5>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="status-chart" height="200"></canvas>
-                    </div>
+
+            <div class="col-lg-4">
+                <div class="tools-section">
+                    <h2><i class="bi bi-tools"></i> Monitoring Tools</h2>
+                    <button class="tool-btn" onclick="window.open('/api/metrics', '_blank')">
+                        <i class="bi bi-graph-up"></i> View Prometheus Metrics
+                    </button>
+                    <button class="tool-btn" onclick="openPrometheusDashboard()">
+                        <i class="bi bi-speedometer2"></i> Open Prometheus Dashboard
+                    </button>
+                    <button class="tool-btn" onclick="openGrafanaDashboard()">
+                        <i class="bi bi-bar-chart"></i> Open Grafana Dashboard
+                    </button>
+                    <button class="tool-btn" onclick="exportStatusReport()">
+                        <i class="bi bi-file-earmark-text"></i> Export Status Report
+                    </button>
                 </div>
-                
-                <!-- Prometheus Metrics Link -->
-                <div class="card mb-4">
-                    <div class="card-header bg-dark text-white">
-                        <h5 class="mb-0">Monitoring Tools</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <a href="/api/metrics" target="_blank" class="btn btn-outline-dark">View Prometheus Metrics</a>
-                            <a id="prometheus-link" target="_blank" class="btn btn-outline-primary">Open Prometheus Dashboard</a>
-                            <a id="grafana-link" target="_blank" class="btn btn-outline-success">Open Grafana Dashboard</a>
-                            <button class="btn btn-outline-secondary" id="export-status-btn">Export Status Report</button>
-                        </div>
-                    </div>
+
+                <div class="chart-container">
+                    <h2><i class="bi bi-pie-chart"></i> System Health Overview</h2>
+                    <div id="health-chart"></div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Toast Container for notifications -->
-    <div id="toast-container"></div>
-    
-    <!-- Bootstrap Bundle with Popper -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Current selected service
-            let currentService = null;
-            
-            // Initialize Bootstrap modal
-            const serviceModalElement = document.getElementById('serviceDetailModal');
-            const serviceModal = new bootstrap.Modal(serviceModalElement);
-            
-            // Initialize status chart
-            const statusChartCtx = document.getElementById('status-chart').getContext('2d');
-            const statusChart = new Chart(statusChartCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Up', 'Down', 'Unknown/Partial'],
-                    datasets: [{
-                        data: [0, 0, 0],
-                        backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
-                        borderWidth: 0
-                    }]
+        // Function to update the health overview chart
+        function updateHealthChart() {
+            const totalServices = parseInt(document.getElementById('total-services').textContent);
+            const healthyServices = parseInt(document.getElementById('healthy-services').textContent);
+            const unhealthyServices = parseInt(document.getElementById('unhealthy-services').textContent);
+            const unknownServices = parseInt(document.getElementById('unknown-services').textContent);
+
+            const data = [{
+                values: [healthyServices, unhealthyServices, unknownServices],
+                labels: ['Healthy', 'Unhealthy', 'Unknown'],
+                type: 'pie',
+                marker: {
+                    colors: ['#28a745', '#dc3545', '#ffc107']
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
+                textinfo: 'percent',
+                hole: 0.6
+            }];
+
+            const layout = {
+                showlegend: true,
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                height: 300,
+                margin: { t: 0, b: 0, l: 0, r: 0 },
+                font: { color: '#e9ecef' },
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
                 }
-            });
-            
-            // Set up method select change event
-            document.getElementById('method-select').addEventListener('change', function() {
-                document.getElementById('payload-container').style.display = 
-                    this.value === 'POST' ? 'block' : 'none';
-            });
-            
-            // Set up export status button
-            document.getElementById('export-status-btn').addEventListener('click', exportStatusReport);
-            
-            // Initial data fetch
-            fetchServices();
-            
-            // Set up refresh button and interval
-            document.getElementById('refresh-btn').addEventListener('click', fetchServices);
-            setInterval(fetchServices, 60000); // Refresh every minute
-            
-            // Set up service detail modal - this needs to be re-applied after cards are updated
-            function setupServiceCards() {
-                document.querySelectorAll('.service-card').forEach(card => {
-                    card.addEventListener('click', function() {
-                        const serviceName = this.getAttribute('data-service');
-                        currentService = serviceName;
-                        showServiceDetails(serviceName);
-                    });
-                });
-            }
-            
-            // Initial setup
-            setupServiceCards();
-            
-            // Set up endpoint testing form
-            document.getElementById('test-endpoint-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                if (!currentService) return;
-                
-                const endpoint = document.getElementById('endpoint-input').value;
-                const method = document.getElementById('method-select').value;
-                const payload = document.getElementById('payload-input').value;
-                
-                testEndpoint(currentService, endpoint, method, payload);
-            });
-            
-            // Set up logs button
-            document.getElementById('view-logs-btn').addEventListener('click', function() {
-                if (!currentService) return;
-                fetchServiceLogs(currentService);
-            });
-            
-            // Set up prometheus/grafana links
-            fetchPrometheusInfo();
-            
-            // Set up status override buttons
-            document.querySelectorAll('.override-status').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (!currentService) return;
-                    
-                    const status = this.getAttribute('data-status');
-                    overrideServiceStatus(currentService, status);
-                });
-            });
-            
-            // Show service details in modal
-            function showServiceDetails(serviceName) {
-                // Set modal title
-                document.getElementById('serviceDetailTitle').textContent = `Service: ${serviceName}`;
-                
-                // Find the service category and info
-                fetch('/api/services')
-                    .then(response => response.json())
-                    .then(data => {
-                        let serviceInfo = null;
-                        let serviceCategory = null;
-                        
-                        // Find the service in the data
-                        for (const category in data) {
-                            if (data[category][serviceName]) {
-                                serviceInfo = data[category][serviceName];
-                                serviceCategory = category;
-                                break;
-                            }
-                        }
-                        
-                        if (!serviceInfo) {
-                            showToast(`Service ${serviceName} not found`, 'danger');
-                            return;
-                        }
-                        
-                        // Populate service information table
-                        const infoTable = document.getElementById('service-info-table');
-                        infoTable.innerHTML = '';
-                        
-                        // Add basic info rows
-                        const infoRows = [
-                            { label: 'Name', value: serviceName },
-                            { label: 'Category', value: serviceCategory },
-                            { label: 'URL', value: serviceInfo.url },
-                            { label: 'Status', value: serviceInfo.status },
-                            { label: 'Last Check', value: serviceInfo.last_check || 'Never' },
-                            { label: 'Response Time', value: serviceInfo.response_time || 'N/A' },
-                            { label: 'Description', value: serviceInfo.description || 'No description' }
-                        ];
-                        
-                        infoRows.forEach(row => {
-                            const tr = document.createElement('tr');
-                            
-                            const th = document.createElement('th');
-                            th.scope = 'row';
-                            th.textContent = row.label;
-                            
-                            const td = document.createElement('td');
-                            
-                            if (row.label === 'Status') {
-                                const badge = document.createElement('span');
-                                badge.className = 'badge rounded-pill';
-                                
-                                if (row.value === 'up') {
-                                    badge.classList.add('bg-success');
-                                    badge.textContent = 'Up';
-                                } else if (row.value === 'down') {
-                                    badge.classList.add('bg-danger');
-                                    badge.textContent = 'Down';
-                                } else if (row.value === 'partial') {
-                                    badge.classList.add('bg-info');
-                                    badge.textContent = 'Container Running';
-                                } else {
-                                    badge.classList.add('bg-warning');
-                                    badge.textContent = 'Unknown';
-                                }
-                                
-                                td.appendChild(badge);
-                            } else {
-                                td.textContent = row.value;
-                            }
-                            
-                            tr.appendChild(th);
-                            tr.appendChild(td);
-                            infoTable.appendChild(tr);
-                        });
-                        
-                        // Fetch response time history
-                        fetch(`/api/service_history/${serviceName}`)
-                            .then(response => response.json())
-                            .then(historyData => {
-                                if (historyData.chart) {
-                                    const chartContainer = document.getElementById('response-time-chart');
-                                    const chartData = JSON.parse(historyData.chart);
-                                    Plotly.newPlot(chartContainer, chartData);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching service history:', error);
-                            });
-                        
-                        // Reset the endpoint test form
-                        document.getElementById('endpoint-input').value = '/health';
-                        document.getElementById('method-select').value = 'GET';
-                        document.getElementById('payload-input').value = '';
-                        document.getElementById('endpoint-result').style.display = 'none';
-                        
-                        // Show the modal
-                        serviceModal.show();
-                    })
-                    .catch(error => {
-                        console.error('Error fetching service details:', error);
-                        showToast('Error fetching service details', 'danger');
-                    });
-            }
-            
-            // Function to fetch all services data
-            function fetchServices() {
-                fetch('/api/services')
-                    .then(response => response.json())
-                    .then(data => {
-                        updateServiceCounters(data);
-                        updateServiceCards(data);
-                        // Re-attach event listeners for service cards
-                        setupServiceCards();
-                    })
-                    .catch(error => {
-                        console.error('Error fetching services:', error);
-                        showToast('Error fetching services data', 'danger');
-                    });
-            }
-            
-            // Function to update service counters
-            function updateServiceCounters(data) {
-                let totalCount = 0;
-                let upCount = 0;
-                let downCount = 0;
-                let unknownCount = 0;
-                
-                // Count services by status
-                for (const category in data) {
-                    for (const service in data[category]) {
-                        totalCount++;
-                        const status = data[category][service].status;
-                        if (status === 'up') upCount++;
-                        else if (status === 'down') downCount++;
-                        else if (status === 'partial') unknownCount++;
-                        else unknownCount++;
-                    }
-                }
-                
-                // Update counter displays
-                document.getElementById('total-services').textContent = totalCount;
-                document.getElementById('healthy-services').textContent = upCount;
-                document.getElementById('unhealthy-services').textContent = downCount;
-                document.getElementById('unknown-services').textContent = unknownCount;
-                
-                // Update status chart
-                statusChart.data.datasets[0].data = [upCount, downCount, unknownCount];
-                statusChart.update();
-            }
-            
-            // Function to update service cards
-            function updateServiceCards(data) {
-                for (const category in data) {
-                    for (const service in data[category]) {
-                        const serviceInfo = data[category][service];
-                        const card = document.querySelector(`.service-card[data-service="${service}"]`);
-                        const status = serviceInfo.status;
-                        
-                        if (card) {
-                            // Remove existing status classes
-                            card.classList.remove('service-up', 'service-down', 'service-unknown', 'service-partial');
-                            
-                            // Add appropriate status class
-                            if (status === 'up') card.classList.add('service-up');
-                            else if (status === 'down') card.classList.add('service-down');
-                            else if (status === 'partial') card.classList.add('service-partial');
-                            else card.classList.add('service-unknown');
-                            
-                            // Update last check time
-                            const lastCheckElem = card.querySelector('small:nth-of-type(2)');
-                            if (lastCheckElem && serviceInfo.last_check) {
-                                lastCheckElem.textContent = `Last check: ${serviceInfo.last_check}`;
-                            }
-                            
-                            // Update response time if available
-                            if (serviceInfo.response_time) {
-                                const responseTimeElem = card.querySelector('small:nth-of-type(3)');
-                                if (responseTimeElem) {
-                                    responseTimeElem.textContent = `Response time: ${serviceInfo.response_time}`;
-                                } else {
-                                    const timeDiv = document.createElement('div');
-                                    timeDiv.className = 'text-end';
-                                    const timeText = document.createElement('small');
-                                    timeText.textContent = `Response time: ${serviceInfo.response_time}`;
-                                    timeDiv.appendChild(timeText);
-                                    card.querySelector('.card-body').appendChild(timeDiv);
-                                }
-                            }
-                            
-                            // Update status badge
-                            const badge = card.querySelector('.status-badge');
-                            if (badge) {
-                                badge.className = 'status-badge';
-                                if (status === 'up') badge.classList.add('bg-success');
-                                else if (status === 'down') badge.classList.add('bg-danger');
-                                else if (status === 'partial') badge.classList.add('bg-info');
-                                else badge.classList.add('bg-warning');
-                                
-                                badge.textContent = status === 'up' ? 'Up' : status === 'down' ? 'Down' : status === 'partial' ? 'Container Running' : 'Unknown';
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Function to override service status
-            function overrideServiceStatus(serviceName, newStatus) {
-                fetch(`/api/override_status/${serviceName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status: newStatus })
-                })
+            };
+
+            Plotly.newPlot('health-chart', data, layout);
+        }
+
+        // Function to open Prometheus dashboard
+        function openPrometheusDashboard() {
+            fetch('/api/prometheus')
                 .then(response => response.json())
                 .then(data => {
-                    showToast(`${serviceName} status manually set to ${newStatus}`, 'success');
-                    fetchServices(); // Refresh the services
-                    
-                    // If the service details modal is open, refresh the details
-                    if (currentService === serviceName) {
-                        showServiceDetails(serviceName);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error overriding service status:', error);
-                    showToast('Error setting service status', 'danger');
+                    window.open(data.prometheus_url, '_blank');
                 });
-            }
-            
-            // Function to fetch service logs
-            function fetchServiceLogs(serviceName) {
-                showToast(`Fetching logs for ${serviceName}...`, 'info');
-                
-                fetch(`/api/logs/${serviceName}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            showToast(`Error: ${data.error}`, 'danger');
-                        } else {
-                            // Create a modal to display logs
-                            const modal = document.createElement('div');
-                            modal.className = 'modal fade';
-                            modal.innerHTML = `
-                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">${serviceName} Logs</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <pre class="bg-dark text-light p-3" style="max-height: 500px; overflow-y: auto;">${data.logs}</pre>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            
-                            document.body.appendChild(modal);
-                            const bsModal = new bootstrap.Modal(modal);
-                            bsModal.show();
-                            
-                            modal.addEventListener('hidden.bs.modal', function() {
-                                document.body.removeChild(modal);
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching logs:', error);
-                        showToast('Error fetching service logs', 'danger');
-                    });
-            }
-            
-            // Function to test service endpoint
-            function testEndpoint(serviceName, endpoint, method, payload) {
-                const data = {
-                    endpoint: endpoint,
-                    method: method
-                };
-                
-                if (method === 'POST' && payload) {
-                    try {
-                        data.payload = JSON.parse(payload);
-                    } catch (e) {
-                        showToast('Invalid JSON payload', 'danger');
-                        return;
-                    }
-                }
-                
-                fetch(`/api/test_endpoint/${serviceName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                })
+        }
+
+        // Function to open Grafana dashboard
+        function openGrafanaDashboard() {
+            fetch('/api/prometheus')
                 .then(response => response.json())
-                .then(result => {
-                    const resultDiv = document.getElementById('endpoint-result');
-                    const resultContent = document.getElementById('endpoint-result-content');
-                    
-                    resultContent.textContent = JSON.stringify(result, null, 2);
-                    resultDiv.style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error testing endpoint:', error);
-                    showToast('Error testing endpoint', 'danger');
+                .then(data => {
+                    window.open(data.grafana_url, '_blank');
                 });
-            }
-            
-            // Function to fetch Prometheus and Grafana URLs
-            function fetchPrometheusInfo() {
-                fetch('/api/prometheus')
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('prometheus-link').href = data.prometheus_url;
-                        document.getElementById('grafana-link').href = data.grafana_url;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching monitoring URLs:', error);
-                    });
-            }
-            
-            // Function to export status report
-            function exportStatusReport() {
-                fetch('/api/services')
-                    .then(response => response.json())
-                    .then(services => {
-                        // Create a report object
-                        const report = {
-                            timestamp: new Date().toISOString(),
-                            services: services,
-                            summary: {
-                                total: 0,
-                                up: 0,
-                                down: 0,
-                                unknown: 0
-                            }
-                        };
-                        
-                        // Calculate summary
-                        for (const category in services) {
-                            for (const serviceName in services[category]) {
-                                report.summary.total++;
-                                const status = services[category][serviceName].status;
-                                
-                                if (status === 'up') report.summary.up++;
-                                else if (status === 'down') report.summary.down++;
-                                else if (status === 'partial') report.summary.unknown++;
-                                else report.summary.unknown++;
-                            }
-                        }
-                        
-                        // Create download link
-                        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `deepmed-status-report-${new Date().toISOString().split('T')[0]}.json`;
-                        a.click();
-                        
-                        showToast('Status report downloaded', 'success');
-                    })
-                    .catch(error => {
-                        console.error('Error exporting status report:', error);
-                        showToast('Error exporting status report', 'danger');
-                    });
-            }
-            
-            // Function to show toast notification
-            function showToast(message, type) {
-                const toastContainer = document.getElementById('toast-container');
-                
-                const toast = document.createElement('div');
-                toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
-                toast.role = 'alert';
-                toast.ariaLive = 'assertive';
-                toast.ariaAtomic = 'true';
-                
-                toast.innerHTML = `
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            ${message}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                `;
-                
-                toastContainer.appendChild(toast);
-                
-                // Auto-hide after 3 seconds
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                    setTimeout(() => {
-                        toastContainer.removeChild(toast);
-                    }, 300);
-                }, 3000);
-            }
+        }
+
+        // Function to export status report
+        function exportStatusReport() {
+            window.open('/api/metrics', '_blank');
+        }
+
+        // Initialize the health chart when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateHealthChart();
         });
     </script>
 </body>
