@@ -439,27 +439,21 @@ def create_response_time_chart(service_name):
 
 @app.route('/')
 def index():
-    """Main dashboard page"""
-    # Check if any service has been checked yet
-    services_checked = False
+    """Render the dashboard or loading page based on service check status"""
+    any_service_checked = False
+    all_services_unknown = True
+    
     for category in SERVICES.values():
         for service in category.values():
             if service['status'] != 'unknown':
-                services_checked = True
-                break
-        if services_checked:
-            break
-    
-    # If no services have been checked yet, start the check and show loading page
-    if not services_checked:
-        # Start the initial service check in a separate thread
-        check_thread = threading.Thread(target=check_all_services)
-        check_thread.daemon = True
-        check_thread.start()
+                any_service_checked = True
+            if service['status'] != 'unknown':
+                all_services_unknown = False
+
+    if all_services_unknown:
         return render_template('loading.html')
-    
-    # Otherwise show the main dashboard
-    return render_template('index.html', services=SERVICES)
+    else:
+        return render_template('index.html', services=SERVICES)
 
 @app.route('/health')
 def health():
@@ -468,7 +462,22 @@ def health():
 
 @app.route('/api/services')
 def get_services():
-    """API endpoint to get all service statuses"""
+    """Return the current status of all services"""
+    # Trigger a service check if all services are unknown
+    all_unknown = True
+    for category in SERVICES.values():
+        for service in category.values():
+            if service['status'] != 'unknown':
+                all_unknown = False
+                break
+        if not all_unknown:
+            break
+    
+    if all_unknown:
+        check_thread = threading.Thread(target=check_all_services)
+        check_thread.daemon = True
+        check_thread.start()
+    
     return jsonify(SERVICES)
 
 @app.route('/api/service_history/<service_name>')
