@@ -239,24 +239,56 @@
         <div class="stats-container">
             <div class="stat-card" style="border-left: 4px solid var(--accent-blue)">
                 <div class="stat-title">Total Services</div>
-                <div class="stat-value" id="total-services">{{ services|sum(attribute='values')|length }}</div>
+                <div class="stat-value" id="total-services">
+                    {% set total = 0 %}
+                    {% for category in services.values() %}
+                        {% for service in category.values() %}
+                            {% set total = total + 1 %}
+                        {% endfor %}
+                    {% endfor %}
+                    {{ total }}
+                </div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--success-color)">
                 <div class="stat-title">Healthy Services</div>
                 <div class="stat-value" id="healthy-services">
-                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'up')|list|length }}
+                    {% set healthy = 0 %}
+                    {% for category in services.values() %}
+                        {% for service in category.values() %}
+                            {% if service.status == 'up' %}
+                                {% set healthy = healthy + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {{ healthy }}
                 </div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--danger-color)">
                 <div class="stat-title">Unhealthy Services</div>
                 <div class="stat-value" id="unhealthy-services">
-                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'down')|list|length }}
+                    {% set unhealthy = 0 %}
+                    {% for category in services.values() %}
+                        {% for service in category.values() %}
+                            {% if service.status == 'down' %}
+                                {% set unhealthy = unhealthy + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {{ unhealthy }}
                 </div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--warning-color)">
                 <div class="stat-title">Unknown Status</div>
                 <div class="stat-value" id="unknown-services">
-                    {{ services|sum(attribute='values')|selectattr('status', 'equalto', 'unknown')|list|length }}
+                    {% set unknown = 0 %}
+                    {% for category in services.values() %}
+                        {% for service in category.values() %}
+                            {% if service.status == 'unknown' %}
+                                {% set unknown = unknown + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {{ unknown }}
                 </div>
             </div>
         </div>
