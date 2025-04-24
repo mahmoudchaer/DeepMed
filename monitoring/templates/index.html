@@ -39,6 +39,9 @@
         .service-unknown {
             border-left: 5px solid #ffc107;
         }
+        .service-partial {
+            border-left: 5px solid #0dcaf0;
+        }
         .dashboard-title {
             border-bottom: 2px solid #dee2e6;
             padding-bottom: 15px;
@@ -133,7 +136,11 @@
                     <div class="row">
                         {% for service_name, service_info in category_services.items() %}
                         <div class="col-md-6 mb-3">
-                            <div class="card service-card {% if service_info.status == 'up' %}service-up{% elif service_info.status == 'down' %}service-down{% else %}service-unknown{% endif %}" 
+                            <div class="card service-card 
+                            {% if service_info.status == 'up' %}service-up
+                            {% elif service_info.status == 'down' %}service-down
+                            {% elif service_info.status == 'partial' %}service-partial
+                            {% else %}service-unknown{% endif %}" 
                                  data-service="{{ service_name }}">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -142,6 +149,8 @@
                                         <span class="status-badge bg-success">Up</span>
                                         {% elif service_info.status == 'down' %}
                                         <span class="status-badge bg-danger">Down</span>
+                                        {% elif service_info.status == 'partial' %}
+                                        <span class="status-badge bg-info">Container Running</span>
                                         {% else %}
                                         <span class="status-badge bg-warning">Unknown</span>
                                         {% endif %}
@@ -184,7 +193,20 @@
                                                 <!-- Service info will be populated here -->
                                             </tbody>
                                         </table>
-                                        <button id="view-logs-btn" class="btn btn-secondary">View Service Logs</button>
+                                        <div class="d-flex gap-2">
+                                            <button id="view-logs-btn" class="btn btn-secondary">View Service Logs</button>
+                                            <div class="dropdown">
+                                                <button class="btn btn-info dropdown-toggle" type="button" id="overrideStatusBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    Override Status
+                                                </button>
+                                                <ul class="dropdown-menu" aria-labelledby="overrideStatusBtn">
+                                                    <li><a class="dropdown-item override-status" data-status="up" href="#">Mark as Up</a></li>
+                                                    <li><a class="dropdown-item override-status" data-status="partial" href="#">Mark as Container Running</a></li>
+                                                    <li><a class="dropdown-item override-status" data-status="down" href="#">Mark as Down</a></li>
+                                                    <li><a class="dropdown-item override-status" data-status="unknown" href="#">Mark as Unknown</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="card">
@@ -260,496 +282,673 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Initialize variables and DOM elements
-        const serviceCards = document.querySelectorAll('.service-card');
-        const refreshBtn = document.getElementById('refresh-btn');
-        const testEndpointForm = document.getElementById('test-endpoint-form');
-        const methodSelect = document.getElementById('method-select');
-        const payloadContainer = document.getElementById('payload-container');
-        const exportStatusBtn = document.getElementById('export-status-btn');
-        
-        // Bootstrap modal instance
-        let serviceModal;
-        
-        // Initialize charts and counters
-        let statusChart;
-        let currentServiceName;
-        
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize the modal
-            serviceModal = new bootstrap.Modal(document.getElementById('serviceDetailModal'));
+            // Current selected service
+            let currentService = null;
             
-            // Initialize the status chart
-            const ctx = document.getElementById('status-chart').getContext('2d');
-            statusChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Up', 'Down', 'Unknown'],
-                    datasets: [{
-                        data: [0, 0, 0],
-                        backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
+            // Initial data fetch
+            fetchServices();
             
-            // Set up monitoring links with API
-            fetch('/api/prometheus')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('prometheus-link').href = data.prometheus_url;
-                    document.getElementById('grafana-link').href = data.grafana_url;
-                })
-                .catch(error => {
-                    console.error('Error getting monitoring URLs:', error);
-                    // Fallback to using hostname directly
-                    const hostname = window.location.hostname;
-                    document.getElementById('prometheus-link').href = `http://${hostname}:9090`;
-                    document.getElementById('grafana-link').href = `http://${hostname}:3000`;
-                });
+            // Set up refresh button and interval
+            document.getElementById('refresh-btn').addEventListener('click', fetchServices);
+            setInterval(fetchServices, 60000); // Refresh every minute
             
-            // Update dashboard with initial data
-            updateDashboard();
-            
-            // Set up event handlers
-            setupEventHandlers();
-        });
-        
-        function setupEventHandlers() {
-            // Service card click handler
-            serviceCards.forEach(card => {
+            // Set up service detail modal
+            document.querySelectorAll('.service-card').forEach(card => {
                 card.addEventListener('click', function() {
                     const serviceName = this.getAttribute('data-service');
-                    openServiceDetails(serviceName);
+                    currentService = serviceName;
+                    showServiceDetails(serviceName);
                 });
             });
             
-            // Refresh button click handler
-            refreshBtn.addEventListener('click', function() {
-                refreshServices();
-            });
-            
-            // Method select change handler
-            methodSelect.addEventListener('change', function() {
-                payloadContainer.style.display = this.value === 'POST' ? 'block' : 'none';
-            });
-            
-            // Test endpoint form submit handler
-            testEndpointForm.addEventListener('submit', function(e) {
+            // Set up endpoint testing form
+            document.getElementById('test-endpoint-form').addEventListener('submit', function(e) {
                 e.preventDefault();
-                testEndpoint();
+                if (!currentService) return;
+                
+                const endpoint = document.getElementById('endpoint-input').value;
+                const method = document.getElementById('method-select').value;
+                const payload = document.getElementById('payload-input').value;
+                
+                testEndpoint(currentService, endpoint, method, payload);
             });
             
-            // View logs button handler
+            // Set up logs button
             document.getElementById('view-logs-btn').addEventListener('click', function() {
-                if (currentServiceName) {
-                    viewServiceLogs(currentServiceName);
-                }
+                if (!currentService) return;
+                fetchServiceLogs(currentService);
             });
             
-            // Export status button click handler
-            exportStatusBtn.addEventListener('click', function() {
-                exportStatusReport();
+            // Set up prometheus/grafana links
+            fetchPrometheusInfo();
+            
+            // Set up status override buttons
+            document.querySelectorAll('.override-status').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (!currentService) return;
+                    
+                    const status = this.getAttribute('data-status');
+                    overrideServiceStatus(currentService, status);
+                });
             });
-        }
-        
-        function updateDashboard() {
-            fetch('/api/services')
-                .then(response => response.json())
-                .then(services => {
-                    // Count services by status
-                    let totalCount = 0;
-                    let upCount = 0;
-                    let downCount = 0;
-                    let unknownCount = 0;
-                    
-                    // Process all services
-                    for (const category in services) {
-                        for (const serviceName in services[category]) {
-                            totalCount++;
-                            const status = services[category][serviceName].status;
-                            
-                            if (status === 'up') upCount++;
-                            else if (status === 'down') downCount++;
-                            else unknownCount++;
-                            
-                            // Update service card status
-                            const card = document.querySelector(`.service-card[data-service="${serviceName}"]`);
-                            if (card) {
-                                // Remove existing status classes
-                                card.classList.remove('service-up', 'service-down', 'service-unknown');
-                                
-                                // Add appropriate status class
-                                if (status === 'up') card.classList.add('service-up');
-                                else if (status === 'down') card.classList.add('service-down');
-                                else card.classList.add('service-unknown');
-                                
-                                // Update status badge
-                                const badge = card.querySelector('.status-badge');
-                                if (badge) {
-                                    badge.className = 'status-badge';
-                                    if (status === 'up') badge.classList.add('bg-success');
-                                    else if (status === 'down') badge.classList.add('bg-danger');
-                                    else badge.classList.add('bg-warning');
-                                    
-                                    badge.textContent = status === 'up' ? 'Up' : status === 'down' ? 'Down' : 'Unknown';
-                                }
-                                
-                                // Update last check and response time
-                                const lastCheck = card.querySelector('small:nth-of-type(2)');
-                                if (lastCheck) {
-                                    lastCheck.textContent = `Last check: ${services[category][serviceName].last_check || 'Never'}`;
-                                }
-                                
-                                const responseTime = card.querySelectorAll('small')[2];
-                                if (responseTime) {
-                                    responseTime.textContent = `Response time: ${services[category][serviceName].response_time || 'N/A'}`;
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Update counter cards
-                    document.getElementById('total-services').textContent = totalCount;
-                    document.getElementById('healthy-services').textContent = upCount;
-                    document.getElementById('unhealthy-services').textContent = downCount;
-                    document.getElementById('unknown-services').textContent = unknownCount;
-                    
-                    // Update status chart
-                    statusChart.data.datasets[0].data = [upCount, downCount, unknownCount];
-                    statusChart.update();
-                })
-                .catch(error => {
-                    console.error('Error updating dashboard:', error);
-                    showToast('Error updating dashboard. See console for details.', 'danger');
-                });
-        }
-        
-        function refreshServices() {
-            showToast('Refreshing services...', 'info');
             
-            fetch('/api/refresh')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'refreshed') {
-                        updateDashboard();
-                        showToast('Services refreshed successfully!', 'success');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error refreshing services:', error);
-                    showToast('Error refreshing services', 'danger');
-                });
-        }
-        
-        function openServiceDetails(serviceName) {
-            currentServiceName = serviceName;
-            
-            // Set modal title
-            document.getElementById('serviceDetailTitle').textContent = `Service: ${serviceName}`;
-            
-            // Clear previous content
-            document.getElementById('service-info-table').innerHTML = '';
-            document.getElementById('endpoint-result').style.display = 'none';
-            
-            // Find service info
-            let serviceInfo = null;
-            let category = null;
-            
-            fetch('/api/services')
-                .then(response => response.json())
-                .then(services => {
-                    // Find the service in the categories
-                    for (const cat in services) {
-                        if (services[cat][serviceName]) {
-                            serviceInfo = services[cat][serviceName];
-                            category = cat;
-                            break;
-                        }
-                    }
-                    
-                    if (!serviceInfo) {
-                        showToast(`Service ${serviceName} not found`, 'danger');
-                        return;
-                    }
-                    
-                    // Build service info table
-                    const infoTable = document.getElementById('service-info-table');
-                    
-                    // Add basic info
-                    const rows = [
-                        { name: 'Name', value: serviceName },
-                        { name: 'Category', value: category },
-                        { name: 'URL', value: serviceInfo.url },
-                        { name: 'Status', value: serviceInfo.status },
-                        { name: 'Last Check', value: serviceInfo.last_check || 'Never' },
-                        { name: 'Response Time', value: serviceInfo.response_time || 'N/A' },
-                        { name: 'Description', value: serviceInfo.description || 'No description' }
-                    ];
-                    
-                    // Add rows to table
-                    rows.forEach(row => {
-                        const tr = document.createElement('tr');
-                        
-                        const th = document.createElement('th');
-                        th.textContent = row.name;
-                        
-                        const td = document.createElement('td');
-                        
-                        // Format status with color
-                        if (row.name === 'Status') {
-                            const badge = document.createElement('span');
-                            badge.classList.add('badge', 'rounded-pill');
-                            
-                            if (row.value === 'up') {
-                                badge.classList.add('bg-success');
-                                badge.textContent = 'Up';
-                            } else if (row.value === 'down') {
-                                badge.classList.add('bg-danger');
-                                badge.textContent = 'Down';
-                            } else {
-                                badge.classList.add('bg-warning');
-                                badge.textContent = 'Unknown';
-                            }
-                            
-                            td.appendChild(badge);
-                        } else {
-                            td.textContent = row.value;
-                        }
-                        
-                        tr.appendChild(th);
-                        tr.appendChild(td);
-                        infoTable.appendChild(tr);
+            // Function to fetch all services data
+            function fetchServices() {
+                fetch('/api/services')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateServiceCounters(data);
+                        updateServiceCards(data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching services:', error);
+                        showToast('Error fetching services data', 'danger');
                     });
-                    
-                    // Add details if available
-                    if (serviceInfo.details) {
-                        const tr = document.createElement('tr');
-                        
-                        const th = document.createElement('th');
-                        th.textContent = 'Details';
-                        
-                        const td = document.createElement('td');
-                        const pre = document.createElement('pre');
-                        pre.classList.add('mb-0', 'bg-light', 'p-2', 'rounded');
-                        pre.textContent = JSON.stringify(serviceInfo.details, null, 2);
-                        
-                        td.appendChild(pre);
-                        tr.appendChild(th);
-                        tr.appendChild(td);
-                        infoTable.appendChild(tr);
-                    }
-                    
-                    // Fetch and display service history chart
-                    fetch(`/api/service_history/${serviceName}`)
-                        .then(response => response.json())
-                        .then(historyData => {
-                            if (historyData.chart) {
-                                const chartDiv = document.getElementById('response-time-chart');
-                                Plotly.newPlot(chartDiv, JSON.parse(historyData.chart));
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error fetching service history:', error);
-                        });
-                    
-                    // Show the modal
-                    serviceModal.show();
-                })
-                .catch(error => {
-                    console.error('Error fetching service details:', error);
-                    showToast('Error fetching service details', 'danger');
-                });
-        }
-        
-        function testEndpoint() {
-            const endpoint = document.getElementById('endpoint-input').value;
-            const method = document.getElementById('method-select').value;
-            let payload = null;
+            }
             
-            if (method === 'POST') {
-                try {
-                    payload = JSON.parse(document.getElementById('payload-input').value);
-                } catch (e) {
-                    showToast('Invalid JSON payload', 'danger');
-                    return;
+            // Function to update service counters
+            function updateServiceCounters(data) {
+                let totalCount = 0;
+                let upCount = 0;
+                let downCount = 0;
+                let unknownCount = 0;
+                
+                // Count services by status
+                for (const category in data) {
+                    for (const service in data[category]) {
+                        totalCount++;
+                        const status = data[category][service].status;
+                        if (status === 'up') upCount++;
+                        else if (status === 'down') downCount++;
+                        else if (status === 'partial') unknownCount++;
+                        else unknownCount++;
+                    }
+                }
+                
+                // Update counter displays
+                document.getElementById('total-services').textContent = totalCount;
+                document.getElementById('healthy-services').textContent = upCount;
+                document.getElementById('unhealthy-services').textContent = downCount;
+                document.getElementById('unknown-services').textContent = unknownCount;
+            }
+            
+            // Function to update service cards
+            function updateServiceCards(data) {
+                for (const category in data) {
+                    for (const service in data[category]) {
+                        const serviceInfo = data[category][service];
+                        const card = document.querySelector(`.service-card[data-service="${service}"]`);
+                        const status = serviceInfo.status;
+                        
+                        if (card) {
+                            // Remove existing status classes
+                            card.classList.remove('service-up', 'service-down', 'service-unknown', 'service-partial');
+                            
+                            // Add appropriate status class
+                            if (status === 'up') card.classList.add('service-up');
+                            else if (status === 'down') card.classList.add('service-down');
+                            else if (status === 'partial') card.classList.add('service-partial');
+                            else card.classList.add('service-unknown');
+                            
+                            // Update last check time
+                            const lastCheckElem = card.querySelector('small:nth-of-type(2)');
+                            if (lastCheckElem && serviceInfo.last_check) {
+                                lastCheckElem.textContent = `Last check: ${serviceInfo.last_check}`;
+                            }
+                            
+                            // Update response time if available
+                            if (serviceInfo.response_time) {
+                                const responseTimeElem = card.querySelector('small:nth-of-type(3)');
+                                if (responseTimeElem) {
+                                    responseTimeElem.textContent = `Response time: ${serviceInfo.response_time}`;
+                                } else {
+                                    const timeDiv = document.createElement('div');
+                                    timeDiv.className = 'text-end';
+                                    const timeText = document.createElement('small');
+                                    timeText.textContent = `Response time: ${serviceInfo.response_time}`;
+                                    timeDiv.appendChild(timeText);
+                                    card.querySelector('.card-body').appendChild(timeDiv);
+                                }
+                            }
+                            
+                            // Update status badge
+                            const badge = card.querySelector('.status-badge');
+                            if (badge) {
+                                badge.className = 'status-badge';
+                                if (status === 'up') badge.classList.add('bg-success');
+                                else if (status === 'down') badge.classList.add('bg-danger');
+                                else if (status === 'partial') badge.classList.add('bg-info');
+                                else badge.classList.add('bg-warning');
+                                
+                                badge.textContent = status === 'up' ? 'Up' : status === 'down' ? 'Down' : status === 'partial' ? 'Container Running' : 'Unknown';
+                            }
+                        }
+                    }
                 }
             }
             
-            fetch(`/api/test_endpoint/${currentServiceName}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    endpoint: endpoint,
-                    method: method,
-                    payload: payload
+            // Function to override service status
+            function overrideServiceStatus(serviceName, newStatus) {
+                fetch(`/api/override_status/${serviceName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const resultDiv = document.getElementById('endpoint-result');
-                const resultContent = document.getElementById('endpoint-result-content');
-                
-                if (data.error) {
-                    resultContent.textContent = `Error: ${data.error}`;
-                } else {
-                    resultContent.textContent = JSON.stringify(data, null, 2);
-                }
-                
-                resultDiv.style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Error testing endpoint:', error);
-                showToast('Error testing endpoint', 'danger');
-            });
-        }
-        
-        function viewServiceLogs(serviceName) {
-            // Show loading toast
-            showToast(`Fetching logs for ${serviceName}...`, 'info');
-            
-            fetch(`/api/logs/${serviceName}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.error) {
-                        showToast(`Error: ${data.error}`, 'danger');
-                    } else {
-                        // Create and show logs modal
-                        const logsModal = document.createElement('div');
-                        logsModal.className = 'modal fade';
-                        logsModal.id = 'logsModal';
-                        logsModal.setAttribute('tabindex', '-1');
-                        logsModal.setAttribute('aria-hidden', 'true');
+                    showToast(`${serviceName} status manually set to ${newStatus}`, 'success');
+                    fetchServices(); // Refresh the services
+                    
+                    // If the service details modal is open, refresh the details
+                    if (currentService === serviceName) {
+                        showServiceDetails(serviceName);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error overriding service status:', error);
+                    showToast('Error setting service status', 'danger');
+                });
+            }
+            
+            // Initialize variables and DOM elements
+            const serviceCards = document.querySelectorAll('.service-card');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const testEndpointForm = document.getElementById('test-endpoint-form');
+            const methodSelect = document.getElementById('method-select');
+            const payloadContainer = document.getElementById('payload-container');
+            const exportStatusBtn = document.getElementById('export-status-btn');
+            
+            // Bootstrap modal instance
+            let serviceModal;
+            
+            // Initialize charts and counters
+            let statusChart;
+            let currentServiceName;
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize the modal
+                serviceModal = new bootstrap.Modal(document.getElementById('serviceDetailModal'));
+                
+                // Initialize the status chart
+                const ctx = document.getElementById('status-chart').getContext('2d');
+                statusChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Up', 'Down', 'Unknown'],
+                        datasets: [{
+                            data: [0, 0, 0],
+                            backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+                
+                // Set up monitoring links with API
+                fetch('/api/prometheus')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('prometheus-link').href = data.prometheus_url;
+                        document.getElementById('grafana-link').href = data.grafana_url;
+                    })
+                    .catch(error => {
+                        console.error('Error getting monitoring URLs:', error);
+                        // Fallback to using hostname directly
+                        const hostname = window.location.hostname;
+                        document.getElementById('prometheus-link').href = `http://${hostname}:9090`;
+                        document.getElementById('grafana-link').href = `http://${hostname}:3000`;
+                    });
+                
+                // Update dashboard with initial data
+                updateDashboard();
+                
+                // Set up event handlers
+                setupEventHandlers();
+            });
+            
+            function setupEventHandlers() {
+                // Service card click handler
+                serviceCards.forEach(card => {
+                    card.addEventListener('click', function() {
+                        const serviceName = this.getAttribute('data-service');
+                        openServiceDetails(serviceName);
+                    });
+                });
+                
+                // Refresh button click handler
+                refreshBtn.addEventListener('click', function() {
+                    refreshServices();
+                });
+                
+                // Method select change handler
+                methodSelect.addEventListener('change', function() {
+                    payloadContainer.style.display = this.value === 'POST' ? 'block' : 'none';
+                });
+                
+                // Test endpoint form submit handler
+                testEndpointForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    testEndpoint();
+                });
+                
+                // View logs button handler
+                document.getElementById('view-logs-btn').addEventListener('click', function() {
+                    if (currentServiceName) {
+                        viewServiceLogs(currentServiceName);
+                    }
+                });
+                
+                // Export status button click handler
+                exportStatusBtn.addEventListener('click', function() {
+                    exportStatusReport();
+                });
+            }
+            
+            function updateDashboard() {
+                fetch('/api/services')
+                    .then(response => response.json())
+                    .then(services => {
+                        // Count services by status
+                        let totalCount = 0;
+                        let upCount = 0;
+                        let downCount = 0;
+                        let unknownCount = 0;
                         
-                        logsModal.innerHTML = `
-                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">${serviceName} Logs</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <pre class="bg-dark text-light p-3" style="max-height: 500px; overflow-y: auto;">${data.logs}</pre>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        // Process all services
+                        for (const category in services) {
+                            for (const serviceName in services[category]) {
+                                totalCount++;
+                                const status = services[category][serviceName].status;
+                                
+                                if (status === 'up') upCount++;
+                                else if (status === 'down') downCount++;
+                                else if (status === 'partial') unknownCount++;
+                                else unknownCount++;
+                                
+                                // Update service card status
+                                const card = document.querySelector(`.service-card[data-service="${serviceName}"]`);
+                                if (card) {
+                                    // Remove existing status classes
+                                    card.classList.remove('service-up', 'service-down', 'service-unknown', 'service-partial');
+                                    
+                                    // Add appropriate status class
+                                    if (status === 'up') card.classList.add('service-up');
+                                    else if (status === 'down') card.classList.add('service-down');
+                                    else if (status === 'partial') card.classList.add('service-partial');
+                                    else card.classList.add('service-unknown');
+                                    
+                                    // Update status badge
+                                    const badge = card.querySelector('.status-badge');
+                                    if (badge) {
+                                        badge.className = 'status-badge';
+                                        if (status === 'up') badge.classList.add('bg-success');
+                                        else if (status === 'down') badge.classList.add('bg-danger');
+                                        else if (status === 'partial') badge.classList.add('bg-info');
+                                        else badge.classList.add('bg-warning');
+                                        
+                                        badge.textContent = status === 'up' ? 'Up' : status === 'down' ? 'Down' : status === 'partial' ? 'Container Running' : 'Unknown';
+                                    }
+                                    
+                                    // Update last check and response time
+                                    const lastCheck = card.querySelector('small:nth-of-type(2)');
+                                    if (lastCheck) {
+                                        lastCheck.textContent = `Last check: ${services[category][serviceName].last_check || 'Never'}`;
+                                    }
+                                    
+                                    const responseTime = card.querySelectorAll('small')[2];
+                                    if (responseTime) {
+                                        responseTime.textContent = `Response time: ${services[category][serviceName].response_time || 'N/A'}`;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Update counter cards
+                        document.getElementById('total-services').textContent = totalCount;
+                        document.getElementById('healthy-services').textContent = upCount;
+                        document.getElementById('unhealthy-services').textContent = downCount;
+                        document.getElementById('unknown-services').textContent = unknownCount;
+                        
+                        // Update status chart
+                        statusChart.data.datasets[0].data = [upCount, downCount, unknownCount];
+                        statusChart.update();
+                    })
+                    .catch(error => {
+                        console.error('Error updating dashboard:', error);
+                        showToast('Error updating dashboard. See console for details.', 'danger');
+                    });
+            }
+            
+            function refreshServices() {
+                showToast('Refreshing services...', 'info');
+                
+                fetch('/api/refresh')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'refreshed') {
+                            updateDashboard();
+                            showToast('Services refreshed successfully!', 'success');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing services:', error);
+                        showToast('Error refreshing services', 'danger');
+                    });
+            }
+            
+            function openServiceDetails(serviceName) {
+                currentServiceName = serviceName;
+                
+                // Set modal title
+                document.getElementById('serviceDetailTitle').textContent = `Service: ${serviceName}`;
+                
+                // Clear previous content
+                document.getElementById('service-info-table').innerHTML = '';
+                document.getElementById('endpoint-result').style.display = 'none';
+                
+                // Find service info
+                let serviceInfo = null;
+                let category = null;
+                
+                fetch('/api/services')
+                    .then(response => response.json())
+                    .then(services => {
+                        // Find the service in the categories
+                        for (const cat in services) {
+                            if (services[cat][serviceName]) {
+                                serviceInfo = services[cat][serviceName];
+                                category = cat;
+                                break;
+                            }
+                        }
+                        
+                        if (!serviceInfo) {
+                            showToast(`Service ${serviceName} not found`, 'danger');
+                            return;
+                        }
+                        
+                        // Build service info table
+                        const infoTable = document.getElementById('service-info-table');
+                        
+                        // Add basic info
+                        const rows = [
+                            { name: 'Name', value: serviceName },
+                            { name: 'Category', value: category },
+                            { name: 'URL', value: serviceInfo.url },
+                            { name: 'Status', value: serviceInfo.status },
+                            { name: 'Last Check', value: serviceInfo.last_check || 'Never' },
+                            { name: 'Response Time', value: serviceInfo.response_time || 'N/A' },
+                            { name: 'Description', value: serviceInfo.description || 'No description' }
+                        ];
+                        
+                        // Add rows to table
+                        rows.forEach(row => {
+                            const tr = document.createElement('tr');
+                            
+                            const th = document.createElement('th');
+                            th.textContent = row.name;
+                            
+                            const td = document.createElement('td');
+                            
+                            // Format status with color
+                            if (row.name === 'Status') {
+                                const badge = document.createElement('span');
+                                badge.classList.add('badge', 'rounded-pill');
+                                
+                                if (row.value === 'up') {
+                                    badge.classList.add('bg-success');
+                                    badge.textContent = 'Up';
+                                } else if (row.value === 'down') {
+                                    badge.classList.add('bg-danger');
+                                    badge.textContent = 'Down';
+                                } else if (row.value === 'partial') {
+                                    badge.classList.add('bg-info');
+                                    badge.textContent = 'Container Running';
+                                } else {
+                                    badge.classList.add('bg-warning');
+                                    badge.textContent = 'Unknown';
+                                }
+                                
+                                td.appendChild(badge);
+                            } else {
+                                td.textContent = row.value;
+                            }
+                            
+                            tr.appendChild(th);
+                            tr.appendChild(td);
+                            infoTable.appendChild(tr);
+                        });
+                        
+                        // Add details if available
+                        if (serviceInfo.details) {
+                            const tr = document.createElement('tr');
+                            
+                            const th = document.createElement('th');
+                            th.textContent = 'Details';
+                            
+                            const td = document.createElement('td');
+                            const pre = document.createElement('pre');
+                            pre.classList.add('mb-0', 'bg-light', 'p-2', 'rounded');
+                            pre.textContent = JSON.stringify(serviceInfo.details, null, 2);
+                            
+                            td.appendChild(pre);
+                            tr.appendChild(th);
+                            tr.appendChild(td);
+                            infoTable.appendChild(tr);
+                        }
+                        
+                        // Fetch and display service history chart
+                        fetch(`/api/service_history/${serviceName}`)
+                            .then(response => response.json())
+                            .then(historyData => {
+                                if (historyData.chart) {
+                                    const chartDiv = document.getElementById('response-time-chart');
+                                    Plotly.newPlot(chartDiv, JSON.parse(historyData.chart));
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching service history:', error);
+                            });
+                        
+                        // Show the modal
+                        serviceModal.show();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching service details:', error);
+                        showToast('Error fetching service details', 'danger');
+                    });
+            }
+            
+            function testEndpoint() {
+                const endpoint = document.getElementById('endpoint-input').value;
+                const method = document.getElementById('method-select').value;
+                let payload = null;
+                
+                if (method === 'POST') {
+                    try {
+                        payload = JSON.parse(document.getElementById('payload-input').value);
+                    } catch (e) {
+                        showToast('Invalid JSON payload', 'danger');
+                        return;
+                    }
+                }
+                
+                fetch(`/api/test_endpoint/${currentServiceName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        endpoint: endpoint,
+                        method: method,
+                        payload: payload
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('endpoint-result');
+                    const resultContent = document.getElementById('endpoint-result-content');
+                    
+                    if (data.error) {
+                        resultContent.textContent = `Error: ${data.error}`;
+                    } else {
+                        resultContent.textContent = JSON.stringify(data, null, 2);
+                    }
+                    
+                    resultDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error testing endpoint:', error);
+                    showToast('Error testing endpoint', 'danger');
+                });
+            }
+            
+            function viewServiceLogs(serviceName) {
+                // Show loading toast
+                showToast(`Fetching logs for ${serviceName}...`, 'info');
+                
+                fetch(`/api/logs/${serviceName}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showToast(`Error: ${data.error}`, 'danger');
+                        } else {
+                            // Create and show logs modal
+                            const logsModal = document.createElement('div');
+                            logsModal.className = 'modal fade';
+                            logsModal.id = 'logsModal';
+                            logsModal.setAttribute('tabindex', '-1');
+                            logsModal.setAttribute('aria-hidden', 'true');
+                            
+                            logsModal.innerHTML = `
+                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">${serviceName} Logs</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <pre class="bg-dark text-light p-3" style="max-height: 500px; overflow-y: auto;">${data.logs}</pre>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        `;
-                        
-                        document.body.appendChild(logsModal);
-                        const bsModal = new bootstrap.Modal(logsModal);
-                        bsModal.show();
-                        
-                        // Remove modal from DOM after it's hidden
-                        logsModal.addEventListener('hidden.bs.modal', function() {
-                            document.body.removeChild(logsModal);
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching logs:', error);
-                    showToast('Error fetching service logs', 'danger');
-                });
-        }
-        
-        function exportStatusReport() {
-            fetch('/api/services')
-                .then(response => response.json())
-                .then(services => {
-                    // Create a report object
-                    const report = {
-                        timestamp: new Date().toISOString(),
-                        services: services,
-                        summary: {
-                            total: 0,
-                            up: 0,
-                            down: 0,
-                            unknown: 0
-                        }
-                    };
-                    
-                    // Calculate summary
-                    for (const category in services) {
-                        for (const serviceName in services[category]) {
-                            report.summary.total++;
-                            const status = services[category][serviceName].status;
+                            `;
                             
-                            if (status === 'up') report.summary.up++;
-                            else if (status === 'down') report.summary.down++;
-                            else report.summary.unknown++;
+                            document.body.appendChild(logsModal);
+                            const bsModal = new bootstrap.Modal(logsModal);
+                            bsModal.show();
+                            
+                            // Remove modal from DOM after it's hidden
+                            logsModal.addEventListener('hidden.bs.modal', function() {
+                                document.body.removeChild(logsModal);
+                            });
                         }
-                    }
-                    
-                    // Convert to JSON and create download link
-                    const jsonData = JSON.stringify(report, null, 2);
-                    const blob = new Blob([jsonData], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `deepmed-status-report-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    
-                    // Clean up
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 0);
-                    
-                    showToast('Status report exported successfully!', 'success');
-                })
-                .catch(error => {
-                    console.error('Error exporting status report:', error);
-                    showToast('Error exporting status report', 'danger');
-                });
-        }
-        
-        function showToast(message, type) {
-            const toastContainer = document.getElementById('toast-container');
+                    })
+                    .catch(error => {
+                        console.error('Error fetching logs:', error);
+                        showToast('Error fetching service logs', 'danger');
+                    });
+            }
             
-            const toast = document.createElement('div');
-            toast.className = `toast show bg-${type} text-white`;
-            toast.setAttribute('role', 'alert');
-            toast.setAttribute('aria-live', 'assertive');
-            toast.setAttribute('aria-atomic', 'true');
+            function exportStatusReport() {
+                fetch('/api/services')
+                    .then(response => response.json())
+                    .then(services => {
+                        // Create a report object
+                        const report = {
+                            timestamp: new Date().toISOString(),
+                            services: services,
+                            summary: {
+                                total: 0,
+                                up: 0,
+                                down: 0,
+                                unknown: 0
+                            }
+                        };
+                        
+                        // Calculate summary
+                        for (const category in services) {
+                            for (const serviceName in services[category]) {
+                                report.summary.total++;
+                                const status = services[category][serviceName].status;
+                                
+                                if (status === 'up') report.summary.up++;
+                                else if (status === 'down') report.summary.down++;
+                                else if (status === 'partial') report.summary.unknown++;
+                                else report.summary.unknown++;
+                            }
+                        }
+                        
+                        // Convert to JSON and create download link
+                        const jsonData = JSON.stringify(report, null, 2);
+                        const blob = new Blob([jsonData], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `deepmed-status-report-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // Clean up
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 0);
+                        
+                        showToast('Status report exported successfully!', 'success');
+                    })
+                    .catch(error => {
+                        console.error('Error exporting status report:', error);
+                        showToast('Error exporting status report', 'danger');
+                    });
+            }
             
-            toast.innerHTML = `
-                <div class="toast-header bg-${type} text-white">
-                    <strong class="me-auto">Notification</strong>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">
-                    ${message}
-                </div>
-            `;
-            
-            toastContainer.appendChild(toast);
-            
-            // Remove toast after 5 seconds
-            setTimeout(() => {
-                toast.classList.remove('show');
+            function showToast(message, type) {
+                const toastContainer = document.getElementById('toast-container');
+                
+                const toast = document.createElement('div');
+                toast.className = `toast show bg-${type} text-white`;
+                toast.setAttribute('role', 'alert');
+                toast.setAttribute('aria-live', 'assertive');
+                toast.setAttribute('aria-atomic', 'true');
+                
+                toast.innerHTML = `
+                    <div class="toast-header bg-${type} text-white">
+                        <strong class="me-auto">Notification</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                `;
+                
+                toastContainer.appendChild(toast);
+                
+                // Remove toast after 5 seconds
                 setTimeout(() => {
-                    toastContainer.removeChild(toast);
-                }, 300);
-            }, 5000);
-        }
-        
-        // Auto-refresh every 60 seconds
-        setInterval(updateDashboard, 60000);
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        toastContainer.removeChild(toast);
+                    }, 300);
+                }, 5000);
+            }
+        });
     </script>
 </body>
 </html> 

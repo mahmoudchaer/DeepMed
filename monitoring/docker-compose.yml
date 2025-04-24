@@ -10,6 +10,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PROMETHEUS_URL=http://prometheus:9090
       - GRAFANA_URL=http://grafana:3000
