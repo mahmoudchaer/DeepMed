@@ -284,7 +284,35 @@ def training():
                     pass
                     
             cleaned_filepath = get_temp_filepath(extension='.csv')
-            cleaned_data.to_csv(cleaned_filepath, index=False)
+            try:
+                cleaned_data.to_csv(cleaned_filepath, index=False)
+            except PermissionError as e:
+                logger.error(f"Permission error saving cleaned data: {str(e)}")
+                # Try saving to alternative location
+                alt_dir = os.path.expanduser("~/medicai_temp")
+                os.makedirs(alt_dir, exist_ok=True)
+                cleaned_filepath = os.path.join(alt_dir, f"cleaned_data_{uuid.uuid4()}.csv")
+                try:
+                    cleaned_data.to_csv(cleaned_filepath, index=False)
+                    logger.info(f"Saved cleaned data to alternative location: {cleaned_filepath}")
+                except Exception as inner_e:
+                    logger.error(f"Failed to save cleaned data to alternative location: {str(inner_e)}")
+                    # Last resort: try saving to the static directory
+                    static_dir = os.path.join('static', 'temp')
+                    os.makedirs(static_dir, exist_ok=True)
+                    cleaned_filepath = os.path.join(static_dir, f"cleaned_data_{uuid.uuid4()}.csv")
+                    try:
+                        cleaned_data.to_csv(cleaned_filepath, index=False)
+                        logger.info(f"Saved cleaned data to static directory: {cleaned_filepath}")
+                    except Exception as last_e:
+                        logger.error(f"Critical error - unable to save cleaned data anywhere: {str(last_e)}")
+                        flash('Error saving processed data. Please try again.', 'error')
+                        return redirect(url_for('training'))
+            except Exception as e:
+                logger.error(f"Error saving cleaned data: {str(e)}")
+                flash('Error saving processed data. Please try again.', 'error')
+                return redirect(url_for('training'))
+                
             session['cleaned_file'] = cleaned_filepath
             
             # Add logging to verify data being sent to APIs
@@ -342,7 +370,33 @@ def training():
                     pass
                     
             selected_features_filepath = get_temp_filepath(extension='.csv')
-            X_selected.to_csv(selected_features_filepath, index=False)
+            try:
+                X_selected.to_csv(selected_features_filepath, index=False)
+            except PermissionError as e:
+                logger.error(f"Permission error saving selected features: {str(e)}")
+                # Try alternative location
+                alt_dir = os.path.expanduser("~/medicai_temp")
+                os.makedirs(alt_dir, exist_ok=True)
+                selected_features_filepath = os.path.join(alt_dir, f"selected_features_{uuid.uuid4()}.csv")
+                try:
+                    X_selected.to_csv(selected_features_filepath, index=False)
+                    logger.info(f"Saved selected features to alternative location: {selected_features_filepath}")
+                except Exception as inner_e:
+                    # Last resort - try static directory
+                    logger.error(f"Failed to save selected features to alternative location: {str(inner_e)}")
+                    static_dir = os.path.join('static', 'temp')
+                    os.makedirs(static_dir, exist_ok=True)
+                    selected_features_filepath = os.path.join(static_dir, f"selected_features_{uuid.uuid4()}.csv")
+                    try:
+                        X_selected.to_csv(selected_features_filepath, index=False)
+                        logger.info(f"Saved selected features to static directory: {selected_features_filepath}")
+                    except Exception as last_e:
+                        logger.error(f"Critical error - unable to save selected features anywhere: {str(last_e)}")
+                        # We'll continue anyway - this is not critical enough to fail the entire process
+            except Exception as e:
+                logger.error(f"Error saving selected features: {str(e)}")
+                # We can still continue even if this fails
+                
             session['selected_features_file'] = selected_features_filepath
             
             # Add logging to verify data being sent to APIs
