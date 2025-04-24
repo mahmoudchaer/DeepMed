@@ -239,57 +239,19 @@
         <div class="stats-container">
             <div class="stat-card" style="border-left: 4px solid var(--accent-blue)">
                 <div class="stat-title">Total Services</div>
-                <div class="stat-value" id="total-services">
-                    {% set total = 0 %}
-                    {% for category in services.values() %}
-                        {% for service in category.values() %}
-                            {% set total = total + 1 %}
-                        {% endfor %}
-                    {% endfor %}
-                    {{ total }}
-                </div>
+                <div class="stat-value" id="total-services">{{ total_services }}</div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--success-color)">
                 <div class="stat-title">Healthy Services</div>
-                <div class="stat-value" id="healthy-services">
-                    {% set healthy = 0 %}
-                    {% for category in services.values() %}
-                        {% for service in category.values() %}
-                            {% if service.status == 'up' %}
-                                {% set healthy = healthy + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                    {{ healthy }}
-                </div>
+                <div class="stat-value" id="healthy-services">{{ healthy_services }}</div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--danger-color)">
                 <div class="stat-title">Unhealthy Services</div>
-                <div class="stat-value" id="unhealthy-services">
-                    {% set unhealthy = 0 %}
-                    {% for category in services.values() %}
-                        {% for service in category.values() %}
-                            {% if service.status == 'down' %}
-                                {% set unhealthy = unhealthy + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                    {{ unhealthy }}
-                </div>
+                <div class="stat-value" id="unhealthy-services">{{ unhealthy_services }}</div>
             </div>
             <div class="stat-card" style="border-left: 4px solid var(--warning-color)">
                 <div class="stat-title">Unknown Status</div>
-                <div class="stat-value" id="unknown-services">
-                    {% set unknown = 0 %}
-                    {% for category in services.values() %}
-                        {% for service in category.values() %}
-                            {% if service.status == 'unknown' %}
-                                {% set unknown = unknown + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                    {{ unknown }}
-                </div>
+                <div class="stat-value" id="unknown-services">{{ unknown_services }}</div>
             </div>
         </div>
 
