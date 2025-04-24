@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./logs:/app/logs
+      - ../keyvault.py:/app/keyvault.py
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - GRAFANA_URL=http://grafana:3000
+    networks:
+      - monitoring-network
+    restart: always
+
+  prometheus:
+    build:
+      context: ./prometheus
+      dockerfile: Dockerfile
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - monitoring-network
+    restart: always
+
+  grafana:
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=deepmed
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - monitoring-network
+    depends_on:
+      - prometheus
+    restart: always
+
+networks:
+  monitoring-network:
+    driver: bridge 
