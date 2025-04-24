@@ -64,14 +64,52 @@ SERVICES = {
 # Setup Flask app
 app = Flask(__name__)
 app.secret_key = keyvault.getenv('SECRETKEY')
+
+# First try to use the default temp directory
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# Ensure proper permissions on the temp directory
-try:
-    os.chmod(UPLOAD_FOLDER, 0o777)  # Full permissions for all users
-    logger.info(f"Set permissions on upload folder: {UPLOAD_FOLDER}")
-except Exception as e:
-    logger.error(f"Error setting permissions on upload folder: {str(e)}")
+
+# Function to setup and validate a temp directory
+def setup_temp_dir(directory_path):
+    try:
+        # Create directory if it doesn't exist
+        os.makedirs(directory_path, exist_ok=True)
+        
+        # Test write permissions by creating a test file
+        test_file = os.path.join(directory_path, f"test_{uuid.uuid4()}.txt")
+        with open(test_file, 'w') as f:
+            f.write('test')
+        os.remove(test_file)
+        
+        # Set permissions
+        os.chmod(directory_path, 0o777)
+        
+        logger.info(f"Using temporary directory: {directory_path}")
+        return directory_path
+    except (PermissionError, OSError) as e:
+        logger.error(f"Error setting up directory {directory_path}: {str(e)}")
+        return None
+
+# Try to set up the default temp directory
+if not setup_temp_dir(UPLOAD_FOLDER):
+    # Try alternative locations
+    alternatives = [
+        os.path.expanduser("~/medicai_temp"),  # User's home directory
+        os.path.join(os.getcwd(), "temp"),     # Current working directory
+        os.path.join("static", "temp")         # Static folder (should always be writable)
+    ]
+    
+    for alt_dir in alternatives:
+        logger.info(f"Trying alternate temporary directory: {alt_dir}")
+        if setup_temp_dir(alt_dir):
+            UPLOAD_FOLDER = alt_dir
+            break
+    else:
+        # If all alternatives fail, log a critical error
+        logger.critical("No writable temporary directory could be found!")
+        # Use the static/temp as a last resort
+        UPLOAD_FOLDER = os.path.join("static", "temp")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
@@ -456,10 +494,37 @@ def force_logout():
 # Function to save data to a temporary file
 def save_to_temp_file(data, prefix='data'):
     """Save data to a temporary file and return the filepath"""
+    # First try the configured temp directory
     filepath = get_temp_filepath(extension='.json')
-    with open(filepath, 'w') as f:
-        json.dump(data, f, cls=SafeJSONEncoder)
-    return filepath
+    try:
+        with open(filepath, 'w') as f:
+            json.dump(data, f, cls=SafeJSONEncoder)
+        return filepath
+    except PermissionError as e:
+        # If permission issue, try a fallback directory in user's home
+        logger.error(f"Permission error saving to {filepath}: {str(e)}")
+        try:
+            fallback_dir = os.path.expanduser("~/medicai_temp")
+            os.makedirs(fallback_dir, exist_ok=True)
+            alt_filepath = os.path.join(fallback_dir, os.path.basename(filepath))
+            with open(alt_filepath, 'w') as f:
+                json.dump(data, f, cls=SafeJSONEncoder)
+            logger.info(f"Successfully saved to fallback location: {alt_filepath}")
+            return alt_filepath
+        except Exception as inner_e:
+            logger.error(f"Error saving to fallback location: {str(inner_e)}")
+            # Last resort: try saving to the static directory
+            try:
+                static_dir = os.path.join('static', 'temp')
+                os.makedirs(static_dir, exist_ok=True)
+                static_filepath = os.path.join(static_dir, f"{uuid.uuid4()}.json")
+                with open(static_filepath, 'w') as f:
+                    json.dump(data, f, cls=SafeJSONEncoder)
+                logger.info(f"Successfully saved to static directory: {static_filepath}")
+                return static_filepath
+            except Exception as last_e:
+                logger.error(f"Critical error - failed to save file anywhere: {str(last_e)}")
+                raise
 
 # Function to load data from a temporary file
 def load_from_temp_file(filepath):
