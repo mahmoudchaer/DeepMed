@@ -27,6 +27,10 @@
             color: #6c757d;
             font-size: 1.2rem;
         }
+        .progress {
+            width: 300px;
+            margin: 1rem auto;
+        }
     </style>
 </head>
 <body>
@@ -39,6 +43,10 @@
             <br>
             <small class="text-muted">Checking service health status...</small>
         </div>
+        <div class="progress mt-3">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div class="text-muted mt-2 small" id="progress-text">0% Complete</div>
     </div>
 
     <script>
@@ -47,23 +55,31 @@
             fetch('/api/services')
                 .then(response => response.json())
                 .then(data => {
-                    // Check if any service has been checked (has a status other than "unknown")
-                    let servicesChecked = false;
+                    // Count total services and checked services
+                    let totalServices = 0;
+                    let checkedServices = 0;
+                    
                     for (const category in data) {
                         for (const service in data[category]) {
+                            totalServices++;
                             if (data[category][service].status !== "unknown") {
-                                servicesChecked = true;
-                                break;
+                                checkedServices++;
                             }
                         }
-                        if (servicesChecked) break;
                     }
                     
-                    if (servicesChecked) {
-                        // If services have been checked, redirect to main dashboard
+                    // Calculate progress percentage
+                    const progress = Math.round((checkedServices / totalServices) * 100);
+                    
+                    // Update progress bar and text
+                    document.querySelector('.progress-bar').style.width = `${progress}%`;
+                    document.getElementById('progress-text').textContent = `${progress}% Complete (${checkedServices}/${totalServices} services checked)`;
+                    
+                    if (checkedServices === totalServices) {
+                        // All services have been checked, redirect to main dashboard
                         window.location.href = "/";
                     } else {
-                        // If not ready yet, check again in 1 second
+                        // If not all services are checked yet, check again in 1 second
                         setTimeout(checkServicesReady, 1000);
                     }
                 })
