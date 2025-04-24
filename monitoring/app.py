@@ -20,7 +20,24 @@ import logging
 
 # Add parent directory to path for importing keyvault
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import keyvault
+
+# Try to import keyvault, or create a fallback implementation
+try:
+    import keyvault
+except ImportError:
+    # Create a fallback implementation for keyvault
+    class KeyVaultFallback:
+        @staticmethod
+        def get_secret(secret_name, default_value=None):
+            return os.getenv(secret_name, default_value)
+        
+        @staticmethod
+        def getenv(key, default=None):
+            return os.getenv(key, default)
+    
+    # Create the module
+    keyvault = KeyVaultFallback()
+    print("Using fallback keyvault implementation as the module couldn't be imported")
 
 # Configure logging
 logging.basicConfig(
