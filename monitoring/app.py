@@ -55,29 +55,54 @@ os.makedirs("logs", exist_ok=True)
 
 app = Flask(__name__)
 
-# Use host.docker.internal to access the host from inside Docker
-SERVER_IP = os.getenv('SERVER_IP', 'host.docker.internal')
-logger.info(f"Using SERVER_IP: {SERVER_IP}")
+# Use a flexible approach for the server IP
+# Try different hostnames in order of preference
+SERVER_IP = os.getenv('SERVER_IP', 'localhost')
+logger.info(f"Initial SERVER_IP configuration: {SERVER_IP}")
 
-# Define services URLs with server IP instead of localhost
-DATA_CLEANER_URL = f'http://{SERVER_IP}:5001'
-FEATURE_SELECTOR_URL = f'http://{SERVER_IP}:5002'
-ANOMALY_DETECTOR_URL = f'http://{SERVER_IP}:5003'
-MODEL_COORDINATOR_URL = f'http://{SERVER_IP}:5020'
-MEDICAL_ASSISTANT_URL = f'http://{SERVER_IP}:5005'
-AUGMENTATION_SERVICE_URL = f'http://{SERVER_IP}:5023'
-MODEL_TRAINING_SERVICE_URL = f'http://{SERVER_IP}:5021'
-PIPELINE_SERVICE_URL = f'http://{SERVER_IP}:5025'
-ANOMALY_DETECTION_SERVICE_URL = f'http://{SERVER_IP}:5029'
-TABULAR_PREDICTOR_URL = f'http://{SERVER_IP}:5100'
+# Define services URLs with server IP
+def build_service_url(port, ip=None):
+    """Build a service URL with either the provided IP or the default SERVER_IP"""
+    base_ip = ip if ip else SERVER_IP
+    return f'http://{base_ip}:{port}'
+
+# Define service ports
+DATA_CLEANER_PORT = 5001
+FEATURE_SELECTOR_PORT = 5002
+ANOMALY_DETECTOR_PORT = 5003
+MODEL_COORDINATOR_PORT = 5020
+MEDICAL_ASSISTANT_PORT = 5005
+AUGMENTATION_SERVICE_PORT = 5023
+MODEL_TRAINING_SERVICE_PORT = 5021
+PIPELINE_SERVICE_PORT = 5025
+ANOMALY_DETECTION_SERVICE_PORT = 5029
+TABULAR_PREDICTOR_PORT = 5100
+LOGISTIC_REGRESSION_PORT = 5010
+DECISION_TREE_PORT = 5011
+RANDOM_FOREST_PORT = 5012
+SVM_PORT = 5013
+KNN_PORT = 5014
+NAIVE_BAYES_PORT = 5015
+
+# Initial service URLs
+DATA_CLEANER_URL = build_service_url(DATA_CLEANER_PORT)
+FEATURE_SELECTOR_URL = build_service_url(FEATURE_SELECTOR_PORT)
+ANOMALY_DETECTOR_URL = build_service_url(ANOMALY_DETECTOR_PORT)
+MODEL_COORDINATOR_URL = build_service_url(MODEL_COORDINATOR_PORT)
+MEDICAL_ASSISTANT_URL = build_service_url(MEDICAL_ASSISTANT_PORT)
+AUGMENTATION_SERVICE_URL = build_service_url(AUGMENTATION_SERVICE_PORT)
+MODEL_TRAINING_SERVICE_URL = build_service_url(MODEL_TRAINING_SERVICE_PORT)
+PIPELINE_SERVICE_URL = build_service_url(PIPELINE_SERVICE_PORT)
+ANOMALY_DETECTION_SERVICE_URL = build_service_url(ANOMALY_DETECTION_SERVICE_PORT)
+TABULAR_PREDICTOR_URL = build_service_url(TABULAR_PREDICTOR_PORT)
 
 # Model-specific services
-LOGISTIC_REGRESSION_URL = f'http://{SERVER_IP}:5010'
-DECISION_TREE_URL = f'http://{SERVER_IP}:5011'
-RANDOM_FOREST_URL = f'http://{SERVER_IP}:5012'
-SVM_URL = f'http://{SERVER_IP}:5013'
-KNN_URL = f'http://{SERVER_IP}:5014'
-NAIVE_BAYES_URL = f'http://{SERVER_IP}:5015'
+LOGISTIC_REGRESSION_URL = build_service_url(LOGISTIC_REGRESSION_PORT)
+DECISION_TREE_URL = build_service_url(DECISION_TREE_PORT)
+RANDOM_FOREST_URL = build_service_url(RANDOM_FOREST_PORT)
+SVM_URL = build_service_url(SVM_PORT)
+KNN_URL = build_service_url(KNN_PORT)
+NAIVE_BAYES_URL = build_service_url(NAIVE_BAYES_PORT)
 
 # Categorize services for the dashboard
 SERVICES = {
@@ -140,46 +165,87 @@ def check_service_health(category, service_name, service_info):
     except Exception as e:
         logger.warning(f"Could not check Docker container status for {service_name}: {str(e)}")
     
-    start_time = time.time()
+    # Define alternative IPs to try if the main one fails
+    alternative_ips = [
+        'localhost',
+        '127.0.0.1',
+        'host.docker.internal',
+        'docker.for.win.localhost',
+        'docker.for.mac.localhost'
+    ]
+    
+    # Parse the port from the URL to build alternative URLs
+    port = None
     try:
-        # First try HTTP health check
+        from urllib.parse import urlparse
+        parsed_url = urlparse(url)
+        port = parsed_url.port
+    except Exception as e:
+        logger.warning(f"Could not parse URL {url} for {service_name}: {str(e)}")
+    
+    # First try the original URL
+    start_time = time.time()
+    response_successful = False
+    response_data = None
+    
+    try:
+        # First try HTTP health check with original URL
         logger.info(f"Checking health of {service_name} at {full_url}")
-        response = requests.get(full_url, timeout=10)
-        response_time = time.time() - start_time
+        response = requests.get(full_url, timeout=5)  # Reduced timeout for faster checks
         
         if response.status_code == 200:
-            SERVICES[category][service_name]["status"] = "up"
-            service_status.labels(service=service_name, category=category).set(1)
-            logger.info(f"{service_name} is up, response time: {response_time:.2f}s")
-            
-            # Try to parse additional info from the response
-            try:
-                health_data = response.json()
-                SERVICES[category][service_name]["details"] = health_data
-            except:
-                SERVICES[category][service_name]["details"] = None
-        else:
-            # If HTTP check fails but container is running, mark as "partially up"
-            if container_running:
-                SERVICES[category][service_name]["status"] = "partial"
-                service_status.labels(service=service_name, category=category).set(0.5)
-                logger.warning(f"{service_name} container is running but returned status code {response.status_code}")
-            else:
-                SERVICES[category][service_name]["status"] = "down"
-                service_status.labels(service=service_name, category=category).set(0)
-                logger.warning(f"{service_name} returned status code {response.status_code}")
+            response_successful = True
+            response_data = response
     except Exception as e:
-        response_time = time.time() - start_time
+        logger.warning(f"Error with primary URL for {service_name}: {str(e)}")
+    
+    # If the original URL failed and we could parse the port, try alternatives
+    if not response_successful and port is not None:
+        for alt_ip in alternative_ips:
+            alt_url = f"http://{alt_ip}:{port}"
+            alt_full_url = f"{alt_url}{endpoint}"
+            
+            try:
+                logger.info(f"Trying alternative URL for {service_name}: {alt_full_url}")
+                response = requests.get(alt_full_url, timeout=5)
+                
+                if response.status_code == 200:
+                    response_successful = True
+                    response_data = response
+                    
+                    # Update the service URL with the working alternative
+                    SERVICES[category][service_name]["url"] = alt_url
+                    logger.info(f"Updated {service_name} URL to {alt_url}")
+                    break
+            except Exception as e:
+                logger.debug(f"Alternative URL {alt_full_url} failed: {str(e)}")
+                continue
+    
+    # Calculate total response time
+    response_time = time.time() - start_time
+    
+    # Process the result of our health checks
+    if response_successful:
+        SERVICES[category][service_name]["status"] = "up"
+        service_status.labels(service=service_name, category=category).set(1)
+        logger.info(f"{service_name} is up, response time: {response_time:.2f}s")
         
+        # Try to parse additional info from the response
+        try:
+            health_data = response_data.json()
+            SERVICES[category][service_name]["details"] = health_data
+        except:
+            SERVICES[category][service_name]["details"] = None
+    else:
         # If HTTP check fails but container is running, mark as "partially up"
         if container_running:
             SERVICES[category][service_name]["status"] = "partial"
             service_status.labels(service=service_name, category=category).set(0.5)
-            logger.warning(f"{service_name} container is running but HTTP check failed: {str(e)}")
+            logger.warning(f"{service_name} container is running but HTTP check failed")
         else:
             SERVICES[category][service_name]["status"] = "down"
             service_status.labels(service=service_name, category=category).set(0)
-            logger.error(f"Error checking {service_name} health: {str(e)}")
+            logger.warning(f"{service_name} is down, tried multiple endpoints")
     
     # Update metrics and history
     SERVICES[category][service_name]["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
