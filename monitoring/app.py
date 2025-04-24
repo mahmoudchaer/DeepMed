@@ -55,25 +55,28 @@ os.makedirs("logs", exist_ok=True)
 
 app = Flask(__name__)
 
-# Define services URLs from Key Vault
-DATA_CLEANER_URL = 'http://localhost:5001'
-FEATURE_SELECTOR_URL = 'http://localhost:5002'
-ANOMALY_DETECTOR_URL = 'http://localhost:5003'
-MODEL_COORDINATOR_URL = 'http://localhost:5020'
-MEDICAL_ASSISTANT_URL = 'http://localhost:5005'
-AUGMENTATION_SERVICE_URL = 'http://localhost:5023'
-MODEL_TRAINING_SERVICE_URL = 'http://localhost:5021'
-PIPELINE_SERVICE_URL = 'http://localhost:5025'
-ANOMALY_DETECTION_SERVICE_URL = 'http://localhost:5029'
-TABULAR_PREDICTOR_URL = 'http://localhost:5100'
+# Get server IP from environment or use the static IP
+SERVER_IP = os.getenv('SERVER_IP', '20.119.81.37')
+
+# Define services URLs with server IP instead of localhost
+DATA_CLEANER_URL = f'http://{SERVER_IP}:5001'
+FEATURE_SELECTOR_URL = f'http://{SERVER_IP}:5002'
+ANOMALY_DETECTOR_URL = f'http://{SERVER_IP}:5003'
+MODEL_COORDINATOR_URL = f'http://{SERVER_IP}:5020'
+MEDICAL_ASSISTANT_URL = f'http://{SERVER_IP}:5005'
+AUGMENTATION_SERVICE_URL = f'http://{SERVER_IP}:5023'
+MODEL_TRAINING_SERVICE_URL = f'http://{SERVER_IP}:5021'
+PIPELINE_SERVICE_URL = f'http://{SERVER_IP}:5025'
+ANOMALY_DETECTION_SERVICE_URL = f'http://{SERVER_IP}:5029'
+TABULAR_PREDICTOR_URL = f'http://{SERVER_IP}:5100'
 
 # Model-specific services
-LOGISTIC_REGRESSION_URL = 'http://localhost:5010'
-DECISION_TREE_URL = 'http://localhost:5011'
-RANDOM_FOREST_URL = 'http://localhost:5012'
-SVM_URL = 'http://localhost:5013'
-KNN_URL = 'http://localhost:5014'
-NAIVE_BAYES_URL = 'http://localhost:5015'
+LOGISTIC_REGRESSION_URL = f'http://{SERVER_IP}:5010'
+DECISION_TREE_URL = f'http://{SERVER_IP}:5011'
+RANDOM_FOREST_URL = f'http://{SERVER_IP}:5012'
+SVM_URL = f'http://{SERVER_IP}:5013'
+KNN_URL = f'http://{SERVER_IP}:5014'
+NAIVE_BAYES_URL = f'http://{SERVER_IP}:5015'
 
 # Categorize services for the dashboard
 SERVICES = {
@@ -346,11 +349,9 @@ def api_refresh():
 @app.route('/api/prometheus')
 def prometheus_info():
     """API endpoint to get Prometheus info"""
-    # Use request.host to get the current host
-    host = request.host.split(':')[0]  # Extract hostname without port
     return jsonify({
-        "prometheus_url": f"http://{host}:9090",
-        "grafana_url": f"http://{host}:3000"
+        "prometheus_url": f"http://{SERVER_IP}:9090",
+        "grafana_url": f"http://{SERVER_IP}:3000"
     })
 
 @app.route('/api/logs/<service_name>')
