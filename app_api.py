@@ -66,6 +66,12 @@ app = Flask(__name__)
 app.secret_key = keyvault.getenv('SECRETKEY')
 UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), 'medicai_temp')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Ensure proper permissions on the temp directory
+try:
+    os.chmod(UPLOAD_FOLDER, 0o777)  # Full permissions for all users
+    logger.info(f"Set permissions on upload folder: {UPLOAD_FOLDER}")
+except Exception as e:
+    logger.error(f"Error setting permissions on upload folder: {str(e)}")
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
@@ -130,6 +136,20 @@ atexit.register(cleanup_temp_files)
 # Function to generate a unique filename
 def get_temp_filepath(original_filename=None, extension=None):
     """Generate a unique temporary filepath"""
+    # Make sure the upload folder exists with proper permissions
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        try:
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            os.chmod(app.config['UPLOAD_FOLDER'], 0o777)  # Full permissions
+            logger.info(f"Created missing upload folder: {app.config['UPLOAD_FOLDER']}")
+        except Exception as e:
+            logger.error(f"Failed to create upload folder: {str(e)}")
+            # Fall back to user's home directory if temp folder creation fails
+            fallback_dir = os.path.expanduser("~/medicai_temp")
+            os.makedirs(fallback_dir, exist_ok=True)
+            app.config['UPLOAD_FOLDER'] = fallback_dir
+            logger.info(f"Using fallback directory: {fallback_dir}")
+    
     if extension is None and original_filename:
         extension = os.path.splitext(original_filename)[1]
     elif extension is None:
