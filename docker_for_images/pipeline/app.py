@@ -485,4 +485,4 @@ python predict.py --image your_image.jpg --num_classes 3
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5025))
     logger.info(f"Starting pipeline service on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False) 
+    app.run(host="0.0.0.0", port=port, debug=True) 
