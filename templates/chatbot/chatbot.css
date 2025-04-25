@@ -37,8 +37,8 @@
     position: absolute;
     bottom: 80px;
     right: 0;
-    width: 400px; /* Increased from 350px */
-    height: 600px; /* Increased from 500px */
+    width: 400px;
+    height: 500px; /* Reduced from 600px */
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -75,8 +75,8 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Increased from 10px for better spacing between messages */
-    height: calc(100% - 130px);
+    gap: 15px;
+    height: calc(100% - 130px); /* Adjusted to maintain proportions */
 }
 
 /* Message styles - improved readability */
