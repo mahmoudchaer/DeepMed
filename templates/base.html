@@ -138,8 +138,6 @@
                             Images
                         </a>
                         <div class="custom-dropdown">
-                            <a class="{% if request.endpoint == 'augment' %}active{% endif %}" 
-                               href="{{ url_for('augment') }}">Augment</a>
                             <a class="{% if request.endpoint == 'pipeline' %}active{% endif %}" 
                                href="{{ url_for('pipeline') }}">Pipeline</a>
                             <a class="{% if request.endpoint == 'anomaly_detection' %}active{% endif %}" 
