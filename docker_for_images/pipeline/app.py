@@ -38,7 +38,7 @@ def health():
     
     # Check augmentation service
     try:
-        aug_response = requests.get(f"{AUGMENTATION_SERVICE_URL}/health", timeout=2)
+        aug_response = requests.get(f"{AUGMENTATION_SERVICE_URL}/health", timeout=602)
         if aug_response.status_code == 200:
             services_status["augmentation_service"] = "healthy"
         else:
@@ -48,7 +48,7 @@ def health():
     
     # Check model training service
     try:
-        model_response = requests.get(f"{MODEL_TRAINING_SERVICE_URL}/health", timeout=2)
+        model_response = requests.get(f"{MODEL_TRAINING_SERVICE_URL}/health", timeout=602)
         if model_response.status_code == 200:
             services_status["model_training_service"] = "healthy"
         else:

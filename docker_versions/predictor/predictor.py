@@ -504,7 +504,7 @@ def predict():
         result = subprocess.run(
             [python_path, predict_script, input_file_path, "--stdout"],
             cwd=temp_dir,
-            capture_output=True, text=True, timeout=300  # 5 minute timeout
+            capture_output=True, text=True, timeout=60300  # 5 minute timeout
         )
         
         print(f"Prediction completed with return code {result.returncode}")

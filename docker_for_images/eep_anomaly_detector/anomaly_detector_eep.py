@@ -18,7 +18,7 @@ def health_check():
     """Health check endpoint"""
     try:
         # Check if the actual anomaly detection service is available
-        response = requests.get(f"{ANOMALY_DETECTION_SERVICE_URL}/health", timeout=5)
+        response = requests.get(f"{ANOMALY_DETECTION_SERVICE_URL}/health", timeout=605)
         if response.status_code == 200:
             return jsonify({"status": "ok", "message": "Anomaly detection EEP service is running"}), 200
         else:
@@ -67,7 +67,7 @@ def train():
             headers={'Content-Type': multipart_data.content_type},
             data=multipart_data,
             stream=True,
-            timeout=600  # 10 minute timeout
+            timeout=60600  # 10 minute timeout
         )
         
         # Forward the response back
@@ -119,7 +119,7 @@ def detect():
             headers={'Content-Type': multipart_data.content_type},
             data=multipart_data,
             stream=True,
-            timeout=600
+            timeout=60600
         )
         
         logger.info(f"Received response from anomaly detection service with status code {response.status_code}")

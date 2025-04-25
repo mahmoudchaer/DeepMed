@@ -55,7 +55,7 @@ def predict():
         result = subprocess.run(
             [python_path, predict_script],
             cwd=temp_dir,
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, timeout=6060
         )
 
         

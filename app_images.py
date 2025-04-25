@@ -403,7 +403,7 @@ def api_train_anomaly():
                 headers=headers,
                 data=form_data,
                 stream=True,
-                timeout=600  # Increase timeout to 10 minutes
+                timeout=60600  # Increase timeout to 10 minutes
             )
         
         # Clean up the temporary file
@@ -495,7 +495,7 @@ def api_predict_image():
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
-            timeout=600  # 10 minute timeout
+            timeout=60600  # 10 minute timeout
         )
         
         # Check response status
@@ -555,7 +555,7 @@ def api_prediction_details():
         response = requests.post(
             f"{predictor_service_url}/predict",
             files=files,
-            timeout=600  # 10 minute timeout
+            timeout=60600  # 10 minute timeout
         )
         
         # Check response status

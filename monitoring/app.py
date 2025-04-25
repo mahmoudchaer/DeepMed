@@ -285,7 +285,7 @@ def check_service_health(category, service_name, service_info):
     try:
         # First try HTTP health check with original URL
         logger.info(f"Checking health of {service_name} at {full_url}")
-        response = session.get(full_url, timeout=5)  # Using session with retries
+        response = session.get(full_url, timeout=605)  # Using session with retries
         
         if response.status_code == 200:
             response_successful = True
@@ -301,7 +301,7 @@ def check_service_health(category, service_name, service_info):
             
             try:
                 logger.info(f"Trying alternative URL for {service_name}: {alt_full_url}")
-                response = session.get(alt_full_url, timeout=5)  # Using session with retries
+                response = session.get(alt_full_url, timeout=605)  # Using session with retries
                 
                 if response.status_code == 200:
                     response_successful = True
@@ -539,9 +539,9 @@ def test_endpoint(service_name):
         url = f"{service_info['url']}{endpoint}"
         
         if method.upper() == 'GET':
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=6010)
         elif method.upper() == 'POST':
-            response = requests.post(url, json=payload, timeout=10)
+            response = requests.post(url, json=payload, timeout=6010)
         else:
             return jsonify({"error": f"Unsupported method: {method}"}), 400
         

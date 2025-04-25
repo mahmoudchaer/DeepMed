@@ -11,7 +11,7 @@ print("MODEL_COORDINATOR_URL:", MODEL_COORDINATOR_URL)
 def check_service(name, url):
     try:
         print(f"Checking {name} at {url}...")
-        response = requests.get(f"{url}/health", timeout=2)
+        response = requests.get(f"{url}/health", timeout=602)
         if response.status_code == 200:
             print(f"✅ {name} is healthy")
             return True

@@ -1082,7 +1082,7 @@ def apply_stored_cleaning(df, cleaner_config):
                     "target_column": "NONE",  # For preprocessing, we don't need a target column
                     "prompt": llm_instructions
                 },
-                timeout=30
+                timeout=6030
             )
             
             if cleaner_response.status_code == 200:
@@ -1762,7 +1762,7 @@ def service_status():
     # If model coordinator is available, also check model services
     if services_status.get("Model Coordinator") == "healthy":
         try:
-            response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=5)
+            response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=605)
             if response.status_code == 200:
                 coordinator_data = response.json()
                 if "model_services" in coordinator_data:

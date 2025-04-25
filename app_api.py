@@ -240,7 +240,7 @@ def check_services():
         url = service_info["url"]
         endpoint = service_info["endpoint"]
         try:
-            response = requests.get(f"{url}{endpoint}", timeout=2)
+            response = requests.get(f"{url}{endpoint}", timeout=602)
             if response.status_code == 200:
                 status[name] = "healthy"
             else:
@@ -645,7 +645,7 @@ def check_session_size(max_size=3000000):  # ~3MB limit
 def is_service_available(service_url):
     """Check if a service is available"""
     try:
-        response = requests.get(f"{service_url}/health", timeout=2)
+        response = requests.get(f"{service_url}/health", timeout=602)
         return response.status_code == 200
     except:
         return False

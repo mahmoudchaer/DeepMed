@@ -73,7 +73,7 @@ def load_services_config():
     
     return DEFAULT_SERVICES
 
-def check_service_health(category, service_name, service_info, timeout=2):
+def check_service_health(category, service_name, service_info, timeout=602):
     """Check health of a specific service"""
     url = service_info["url"]
     endpoint = service_info.get("endpoint", "/health")
@@ -91,7 +91,7 @@ def check_service_health(category, service_name, service_info, timeout=2):
     
     try:
         start_time = time.time()
-        response = requests.get(full_url, timeout=timeout)
+        response = requests.get(full_url, timeout=60timeout)
         end_time = time.time()
         response_time = end_time - start_time
         
@@ -121,7 +121,7 @@ def check_service_health(category, service_name, service_info, timeout=2):
     
     return result
 
-def check_all_services(services, max_workers=10, timeout=2, verbose=False, github_actions=False):
+def check_all_services(services, max_workers=10, timeout=602, verbose=False, github_actions=False):
     """Check health of all registered services in parallel"""
     console = Console()
     results = []
@@ -292,7 +292,7 @@ def main():
     results = check_all_services(
         services=services,
         max_workers=args.workers,
-        timeout=args.timeout,
+        timeout=60args.timeout,
         verbose=args.verbose,
         github_actions=args.github_actions
     )

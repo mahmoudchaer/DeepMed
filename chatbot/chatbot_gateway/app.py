@@ -142,7 +142,7 @@ async def health_check():
     }
     
     # Perform basic dependency checks
-    async with httpx.AsyncClient(timeout=2.0) as client:
+    async with httpx.AsyncClient(timeout=602.0) as client:
         for service, url in [
             ("embedding_service", f"{EMB_URL}/health"),
             ("vector_search_service", f"{VEC_URL}/health"),
@@ -167,7 +167,7 @@ async def health_check():
 @app.post("/chatbot/query", response_model=ChatRes)
 async def chatbot_query(req: ChatReq):
     logger.info(f"Processing request for user: {req.user_id}")
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=6030.0) as client:
         # 1) Embed
         try:
             logger.info(f"Calling embedding service at: {EMB_URL}")

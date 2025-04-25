@@ -341,7 +341,7 @@ def health():
     for service_name, service_info in MODEL_SERVICES.items():
         url = get_service_url(service_name)
         try:
-            response = requests.get(f"{url}/health", timeout=2)
+            response = requests.get(f"{url}/health", timeout=602)
             service_statuses[service_name] = "healthy" if response.status_code == 200 else "unhealthy"
         except requests.RequestException:
             service_statuses[service_name] = "unreachable"
@@ -365,7 +365,7 @@ def train_model(service_name, train_data):
     
     try:
         # First, reset the model service to clear any previous state
-        reset_response = requests.post(f"{url}/reset", timeout=10)
+        reset_response = requests.post(f"{url}/reset", timeout=6010)
         if reset_response.status_code == 200:
             logger.info(f"Successfully reset {service_name} model service")
         else:
@@ -376,7 +376,7 @@ def train_model(service_name, train_data):
         response = requests.post(
             f"{url}/train",
             json=train_data,
-            timeout=600  # 10 minutes timeout for training
+            timeout=60600  # 10 minutes timeout for training
         )
         
         if response.status_code == 200:
@@ -465,7 +465,7 @@ def train_models():
                 response = requests.post(
                     f"{DATA_CLEANER_URL}/clean",
                     json=cleaner_payload,
-                    timeout=60
+                    timeout=6060
                 )
                 
                 if response.status_code == 200:
@@ -506,7 +506,7 @@ def train_models():
                 }
                 
                 # Send training request to model service
-                response = requests.post(f"{model_url}/train", json=payload, timeout=120)
+                response = requests.post(f"{model_url}/train", json=payload, timeout=60120)
                 
                 # Check response
                 if response.status_code == 200:
@@ -606,7 +606,7 @@ def model_info():
         for model_name, service_info in MODEL_SERVICES.items():
             url = get_service_url(model_name)
             try:
-                response = requests.get(f"{url}/model_info", timeout=5)
+                response = requests.get(f"{url}/model_info", timeout=605)
                 if response.status_code == 200:
                     model_data = response.json()
                     
@@ -700,7 +700,7 @@ def get_model_services():
         try:
             # Test connectivity with a short timeout
             print(f"Testing connectivity to {name} at {url}")
-            response = requests.get(f"{url}/health", timeout=2)
+            response = requests.get(f"{url}/health", timeout=602)
             if response.status_code == 200:
                 print(f"  - {name} is AVAILABLE")
                 available_services[name] = url
@@ -864,7 +864,7 @@ def save_best_models(best_models, user_id, run_id):
                     try:
                         # First get model metadata for reference
                         logger.info(f"Fetching model metadata from {service_name} for metric {metric}")
-                        info_response = requests.get(f"{service_url}/model_info", timeout=5)
+                        info_response = requests.get(f"{service_url}/model_info", timeout=605)
                         
                         if info_response.status_code != 200:
                             logger.error(f"Failed to get model info from {service_name}: {info_response.text}")
@@ -872,7 +872,7 @@ def save_best_models(best_models, user_id, run_id):
                         
                         # Get the actual model binary data using download_model endpoint
                         logger.info(f"Downloading model binary from {service_name}")
-                        download_response = requests.get(f"{service_url}/download_model", timeout=60)
+                        download_response = requests.get(f"{service_url}/download_model", timeout=6060)
                         
                         if download_response.status_code != 200:
                             logger.error(f"Failed to download model from {service_name}: {download_response.text}")
@@ -932,7 +932,7 @@ def verify_model_metrics(model_services):
     for model_name, service_url in model_services.items():
         try:
             logger.info(f"Requesting metrics from {model_name} at {service_url}")
-            response = requests.get(f"{service_url}/model_info", timeout=5)
+            response = requests.get(f"{service_url}/model_info", timeout=605)
             
             if response.status_code == 200:
                 model_info = response.json()
@@ -1132,7 +1132,7 @@ def save_cleaning_prompt(run_id, prompt):
                     password=MYSQLPASSWORD,
                     database=MYSQLDB,
                     port=int(MYSQLPORT),
-                    connect_timeout=5
+                    connect_timeout=605
                 )
                 
                 with connection.cursor() as cursor:

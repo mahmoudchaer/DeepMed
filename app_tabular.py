@@ -232,7 +232,7 @@ def training():
             
             # DEBUG: Check which model services are available through the coordinator
             try:
-                coordinator_health_response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=5)
+                coordinator_health_response = requests.get(f"{MODEL_COORDINATOR_URL}/health", timeout=605)
                 if coordinator_health_response.status_code == 200:
                     coordinator_health = coordinator_health_response.json()
                     if "model_services" in coordinator_health:
@@ -271,7 +271,7 @@ def training():
                     "data": data_records,
                     "target_column": target_column
                 },
-                timeout=60
+                timeout=6060
             )
             
             if response.status_code != 200:
@@ -339,7 +339,7 @@ def training():
                     "target": y_list,
                     "target_name": target_column
                 },
-                timeout=120
+                timeout=60120
             )
             
             if response.status_code != 200:
@@ -417,7 +417,7 @@ def training():
                 {
                     "data": X_selected_records
                 },
-                timeout=60
+                timeout=6060
             )
             
             if response.status_code != 200:
@@ -631,7 +631,7 @@ def training():
                     "force_new_training": True,
                     "unique_dataset_id": unique_dataset_id
                 },
-                timeout=1800  # Model training can take time
+                timeout=601800  # Model training can take time
             )
             
             if response.status_code != 200:
@@ -701,7 +701,7 @@ def training():
                 {
                     "data": data_records
                 },
-                timeout=30
+                timeout=6030
             )
             
             if response.status_code == 200:
@@ -824,7 +824,7 @@ def api_predict_tabular():
             f"{predictor_service_url}/predict",
             files=files,
             data=data,
-            timeout=600  # 10 minute timeout
+            timeout=60600  # 10 minute timeout
         )
         
         # Check response status
@@ -879,7 +879,7 @@ def api_extract_encodings():
         response = requests.post(
             f"{predictor_service_url}/extract_encodings",
             files=files,
-            timeout=60  # 1 minute timeout
+            timeout=6060  # 1 minute timeout
         )
         
         # Check response status
