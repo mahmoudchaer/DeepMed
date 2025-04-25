@@ -54,59 +54,14 @@
         <div class="card-header bg-light">
             <h3>Metrics Information</h3>
         </div>
-        <div class="card-body">
+        <div class="card-body text-dark">
             <p class="lead">Models are selected based on different metrics:</p>
             <ul>
                 <li><strong>Accuracy</strong>: Measures the overall performance when all classes are equally important</li>
                 <li><strong>Precision</strong>: Measures how accurate the positive predictions are (reducing false positives)</li>
                 <li><strong>Recall</strong>: Measures the ability to find all positive instances (reducing false negatives)</li>
                 <li><strong>F1 Score</strong>: Harmonic mean of precision and recall, balancing both metrics</li>
-                <li><strong>Specificity</strong>: Measures the ability to correctly identify negative cases</li>
             </ul>
-        </div>
-    </div>
-
-    <div class="card mb-3">
-        <div class="card-header bg-light">
-            <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#allModelMetrics" aria-expanded="false" aria-controls="allModelMetrics">
-                Show All Model Metrics
-            </button>
-        </div>
-        <div class="collapse" id="allModelMetrics">
-            <div class="card-body">
-                {% if model_metrics is defined and model_metrics %}
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Model</th>
-                                <th>Accuracy</th>
-                                <th>Precision</th>
-                                <th>Recall</th>
-                                <th>F1 Score</th>
-                                <th>Specificity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for model_name, metrics in model_metrics.items() %}
-                            <tr>
-                                <td>{{ model_name }}</td>
-                                <td>{{ "%.3f" | format(metrics.accuracy) if metrics.accuracy is defined else 'N/A' }}</td>
-                                <td>{{ "%.3f" | format(metrics.precision) if metrics.precision is defined else 'N/A' }}</td>
-                                <td>{{ "%.3f" | format(metrics.recall) if metrics.recall is defined else 'N/A' }}</td>
-                                <td>{{ "%.3f" | format(metrics.f1) if metrics.f1 is defined else 'N/A' }}</td>
-                                <td>{{ "%.3f" | format(metrics.specificity) if metrics.specificity is defined else 'N/A' }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="alert alert-info">
-                    <p>Detailed model metrics are not available for this training run.</p>
-                </div>
-                {% endif %}
-            </div>
         </div>
     </div>
 </div>
