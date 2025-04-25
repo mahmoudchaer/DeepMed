@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import ssl
 import tempfile
 import zipfile
 import logging
@@ -23,6 +24,11 @@ app = Flask(__name__)
 AUGMENTATION_SERVICE_URL = os.environ.get('AUGMENTATION_SERVICE_URL', 'http://augmentation-service:5023')
 MODEL_TRAINING_SERVICE_URL = os.environ.get('MODEL_TRAINING_SERVICE_URL', 'http://model-training-service:5021')
 
+# SSL settings
+USE_HTTPS = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+SSL_CERT_PATH = os.environ.get('SSL_CERT_PATH', '/app/certs/cert.pem')
+SSL_KEY_PATH = os.environ.get('SSL_KEY_PATH', '/app/certs/key.pem')
+
 # Track temp files for cleanup
 temp_files = []
 
@@ -33,12 +39,13 @@ def health():
     services_status = {
         "pipeline_service": "healthy",
         "augmentation_service": "unknown",
-        "model_training_service": "unknown"
+        "model_training_service": "unknown",
+        "https_enabled": USE_HTTPS
     }
     
     # Check augmentation service
     try:
-        aug_response = requests.get(f"{AUGMENTATION_SERVICE_URL}/health", timeout=602)
+        aug_response = requests.get(f"{AUGMENTATION_SERVICE_URL}/health", timeout=602, verify=False)
         if aug_response.status_code == 200:
             services_status["augmentation_service"] = "healthy"
         else:
@@ -48,7 +55,7 @@ def health():
     
     # Check model training service
     try:
-        model_response = requests.get(f"{MODEL_TRAINING_SERVICE_URL}/health", timeout=602)
+        model_response = requests.get(f"{MODEL_TRAINING_SERVICE_URL}/health", timeout=602, verify=False)
         if model_response.status_code == 200:
             services_status["model_training_service"] = "healthy"
         else:
@@ -57,12 +64,13 @@ def health():
         services_status["model_training_service"] = "unavailable"
     
     overall_status = "healthy" if all(status == "healthy" for service, status in services_status.items() 
-                                 if service != "pipeline_service") else "degraded"
+                                 if service != "pipeline_service" and service != "https_enabled") else "degraded"
     
     return jsonify({
         "status": overall_status,
         "service": "pipeline-service",
-        "dependencies": services_status
+        "dependencies": services_status,
+        "https_enabled": USE_HTTPS
     })
 
 @app.route('/pipeline', methods=['POST'])
@@ -485,4 +493,13 @@ python predict.py --image your_image.jpg --num_classes 3
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5025))
     logger.info(f"Starting pipeline service on port {port}")
-    app.run(host="0.0.0.0", port=port, debug=True) 
+    
+    if USE_HTTPS:
+        logger.info(f"HTTPS enabled. Using certificates: {SSL_CERT_PATH}, {SSL_KEY_PATH}")
+        # Configure SSL context
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(SSL_CERT_PATH, SSL_KEY_PATH)
+        app.run(host="0.0.0.0", port=port, ssl_context=context, debug=False)
+    else:
+        logger.info("HTTPS not enabled. Running with HTTP only.")
+        app.run(host="0.0.0.0", port=port, debug=False) 

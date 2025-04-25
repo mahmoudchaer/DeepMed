@@ -23,7 +23,7 @@ from app_api import is_service_available, get_temp_filepath, safe_requests_post,
 from app_api import check_services, save_to_temp_file, clean_data_for_json
 
 # Define new URL for pipeline service
-PIPELINE_SERVICE_URL = 'http://localhost:5025'
+PIPELINE_SERVICE_URL = 'https://localhost:5025'
 
 # Define URL for anomaly detection service
 ANOMALY_DETECTION_SERVICE_URL = 'http://localhost:5030'
@@ -254,7 +254,7 @@ def pipeline():
     services_status = check_services()
     
     # Add pipeline service to services status
-    services_status['pipeline_service'] = is_service_available(PIPELINE_SERVICE_URL)
+    services_status['pipeline_service'] = is_pipeline_service_available()
     
     return render_template('pipeline.html', services_status=services_status, logout_token=session['logout_token'])
 
@@ -276,7 +276,7 @@ def api_pipeline():
     
     try:
         # Check if the pipeline service is available
-        if not is_service_available(PIPELINE_SERVICE_URL):
+        if not is_pipeline_service_available():
             return jsonify({"error": "Pipeline service is not available. Please try again later."}), 503
         
         logger.info(f"Starting pipeline process for file: {zip_file.filename}")
@@ -312,7 +312,8 @@ def api_pipeline():
                 f"{PIPELINE_SERVICE_URL}/pipeline",
                 headers=headers,
                 data=form_data,
-                stream=True
+                stream=True,
+                verify=False  # Disable SSL verification for self-signed certificate
             )
         
         # Clean up the temporary file
@@ -651,6 +652,15 @@ def api_prediction_details():
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Update the is_service_available usage for pipeline service
+def is_pipeline_service_available():
+    """Check if the pipeline service is available, with HTTPS support"""
+    try:
+        response = requests.get(f"{PIPELINE_SERVICE_URL}/health", timeout=602, verify=False)
+        return response.status_code == 200
+    except:
+        return False
 
 if __name__ == "__main__":
     port = int(5023)
