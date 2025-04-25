@@ -19,21 +19,30 @@ scrape_configs:
   - job_name: 'data_cleaner'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-data-cleaner-1:5001']
+      - targets: 
+        - 'docker_versions-data-cleaner-1:5001'
+        - 'data_cleaner:5001'
+        - 'deepmed_data_cleaner:5001'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'feature_selector'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-feature-selector-1:5002']
+      - targets: 
+        - 'docker_versions-feature-selector-1:5002'
+        - 'feature_selector:5002'
+        - 'deepmed_feature_selector:5002'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'anomaly_detector'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-anomaly-detector-1:5003']
+      - targets: 
+        - 'docker_versions-anomaly-detector-1:5003'
+        - 'anomaly_detector:5003'
+        - 'deepmed_anomaly_detector:5003'
     scrape_timeout: 10s
     scheme: http
   
@@ -41,56 +50,80 @@ scrape_configs:
   - job_name: 'model_coordinator'
     metrics_path: /metrics
     static_configs:
-      - targets: ['model_coordinator:5020']
+      - targets: 
+        - 'docker_versions-model-coordinator-1:5020'
+        - 'model_coordinator:5020'
+        - 'deepmed_model_coordinator:5020'
     scrape_timeout: 10s
     scheme: http
   
   - job_name: 'model_training_service'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-model-training-service-1:5021']
+      - targets: 
+        - 'docker_versions-model-training-service-1:5021'
+        - 'model_training_service:5021'
+        - 'deepmed_model_training_service:5021'
     scrape_timeout: 10s
     scheme: http
   
   - job_name: 'logistic_regression'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-logistic_regression-1:5010']
+      - targets: 
+        - 'docker_versions-logistic_regression-1:5010'
+        - 'logistic_regression:5010'
+        - 'deepmed_logistic_regression:5010'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'decision_tree'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-decision_tree-1:5011']
+      - targets: 
+        - 'docker_versions-decision_tree-1:5011'
+        - 'decision_tree:5011'
+        - 'deepmed_decision_tree:5011'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'random_forest'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-random_forest-1:5012']
+      - targets: 
+        - 'docker_versions-random_forest-1:5012'
+        - 'random_forest:5012'
+        - 'deepmed_random_forest:5012'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'svm'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-svm-1:5013']
+      - targets: 
+        - 'docker_versions-svm-1:5013'
+        - 'svm:5013'
+        - 'deepmed_svm:5013'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'knn'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-knn-1:5014']
+      - targets: 
+        - 'docker_versions-knn-1:5014'
+        - 'knn:5014'
+        - 'deepmed_knn:5014'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'naive_bayes'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-naive_bayes-1:5015']
+      - targets: 
+        - 'docker_versions-naive_bayes-1:5015'
+        - 'naive_bayes:5015'
+        - 'deepmed_naive_bayes:5015'
     scrape_timeout: 10s
     scheme: http
       
@@ -98,14 +131,20 @@ scrape_configs:
   - job_name: 'medical_assistant'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-medical-assistant-1:5005']
+      - targets: 
+        - 'docker_versions-medical-assistant-1:5005'
+        - 'medical_assistant:5005'
+        - 'deepmed_medical_assistant:5005'
     scrape_timeout: 10s
     scheme: http
     
   - job_name: 'pipeline_service'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-pipeline-service-1:5025']
+      - targets: 
+        - 'docker_versions-pipeline-service-1:5025'
+        - 'pipeline_service:5025'
+        - 'deepmed_pipeline_service:5025'
     scrape_timeout: 10s
     scheme: http
   
@@ -113,14 +152,20 @@ scrape_configs:
   - job_name: 'augmentation_service'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-augmentation-service-1:5023']
+      - targets: 
+        - 'docker_versions-augmentation-service-1:5023'
+        - 'augmentation_service:5023'
+        - 'deepmed_augmentation_service:5023'
     scrape_timeout: 10s
     scheme: http
   
   - job_name: 'anomaly_detection_service'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-anomaly-detection-service-1:5029']
+      - targets: 
+        - 'docker_versions-anomaly-detection-service-1:5029'
+        - 'anomaly_detection_service:5029'
+        - 'deepmed_anomaly_detection_service:5029'
     scrape_timeout: 10s
     scheme: http
   
@@ -128,6 +173,9 @@ scrape_configs:
   - job_name: 'tabular_predictor'
     metrics_path: /metrics
     static_configs:
-      - targets: ['docker_versions-tabular-predictor-service-1:5100']
+      - targets: 
+        - 'docker_versions-tabular-predictor-service-1:5100'
+        - 'tabular_predictor:5100'
+        - 'deepmed_tabular_predictor:5100'
     scrape_timeout: 10s
     scheme: http 
