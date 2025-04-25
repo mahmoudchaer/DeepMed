@@ -18,6 +18,7 @@ services:
       - EXTERNAL_IP=20.119.81.37
     networks:
       - monitoring-network
+      - docker_versions_deepmed-network
     restart: always
 
   prometheus:
@@ -31,7 +32,7 @@ services:
       - prometheus_data:/prometheus
     networks:
       - monitoring-network
-      - host
+      - docker_versions_deepmed-network
     restart: always
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -58,6 +59,7 @@ services:
       - grafana_data:/var/lib/grafana
     networks:
       - monitoring-network
+      - docker_versions_deepmed-network
     depends_on:
       - prometheus
     restart: always
@@ -65,7 +67,7 @@ services:
 networks:
   monitoring-network:
     driver: bridge
-  host:
+  docker_versions_deepmed-network:
     external: true
 
 volumes:
