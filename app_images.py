@@ -95,19 +95,34 @@ def api_train_model():
         if response.status_code != 200:
             error_message = "Error from model training service"
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
-                pass
+                # Check if the response content is JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_message = error_data['error']
+                else:
+                    # If not JSON, get a preview of the content
+                    content_preview = response.content[:200].decode('utf-8', errors='replace')
+                    logger.error(f"Received non-JSON error response: {content_preview}")
+                    error_message = f"Error in model training service (HTTP {response.status_code})"
+            except Exception as e:
+                logger.error(f"Error parsing error response: {str(e)}")
+                error_message = f"Error from model training service (HTTP {response.status_code})"
+            
             return jsonify({"error": error_message}), response.status_code
         
         # Get metrics from the response headers
         metrics = {}
         if 'X-Training-Metrics' in response.headers:
             try:
-                metrics = json.loads(response.headers['X-Training-Metrics'])
-                logger.info(f"Successfully parsed metrics from model service: {metrics}")
+                metrics_header = response.headers['X-Training-Metrics']
+                # Check if metrics_header starts with { and ends with }
+                if metrics_header.strip().startswith('{') and metrics_header.strip().endswith('}'):
+                    metrics = json.loads(metrics_header)
+                    logger.info(f"Successfully parsed metrics from model service: {metrics}")
+                else:
+                    logger.warning(f"X-Training-Metrics header doesn't appear to be valid JSON: {metrics_header[:100]}")
             except Exception as e:
                 logger.error(f"Failed to parse metrics from model service response: {str(e)}")
                 
@@ -123,12 +138,13 @@ def api_train_model():
         
         # Add metrics header if available
         if metrics:
-            flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
-            # Debug log to verify metrics are being added to the response
-            logger.info(f"Added X-Training-Metrics header to response: {metrics}")
-        else:
-            logger.warning("No metrics available to add to response headers")
-            
+            try:
+                flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
+                # Debug log to verify metrics are being added to the response
+                logger.info(f"Added X-Training-Metrics header to response: {metrics}")
+            except Exception as e:
+                logger.error(f"Failed to add metrics to response headers: {str(e)}")
+        
         # Check for Access-Control-Expose-Headers and add it if needed
         if 'Access-Control-Expose-Headers' not in flask_response.headers:
             flask_response.headers['Access-Control-Expose-Headers'] = 'X-Training-Metrics'
@@ -327,23 +343,57 @@ def api_pipeline():
         if response.status_code != 200:
             error_message = "Error in pipeline service"
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
+                # Check if the response content is JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_message = error_data['error']
+                else:
+                    # If not JSON, get a preview of the content
+                    content_preview = response.content[:200].decode('utf-8', errors='replace')
+                    logger.error(f"Received non-JSON error response: {content_preview}")
+                    error_message = f"Error in pipeline service (HTTP {response.status_code})"
+            except Exception as e:
+                logger.error(f"Error parsing error response: {str(e)}")
                 error_message = f"Error in pipeline service (HTTP {response.status_code})"
             
             return jsonify({"error": error_message}), response.status_code
+        
+        # Get metrics from the response headers
+        metrics = {}
+        if 'X-Training-Metrics' in response.headers:
+            try:
+                metrics_header = response.headers['X-Training-Metrics']
+                # Check if metrics_header starts with { and ends with }
+                if metrics_header.strip().startswith('{') and metrics_header.strip().endswith('}'):
+                    metrics = json.loads(metrics_header)
+                    logger.info(f"Successfully parsed metrics from pipeline service: {metrics}")
+                else:
+                    logger.warning(f"X-Training-Metrics header doesn't appear to be valid JSON: {metrics_header[:100]}")
+            except Exception as e:
+                logger.error(f"Failed to parse metrics from pipeline service: {str(e)}")
+                
+        # Debug log all response headers
+        logger.info("All headers from pipeline service response:")
+        for header, value in response.headers.items():
+            logger.info(f"  {header}: {value[:100]}{'...' if len(value) > 100 else ''}")
         
         # Create a Flask response with the model file
         flask_response = Response(response.content)
         flask_response.headers["Content-Type"] = "application/zip"
         flask_response.headers["Content-Disposition"] = "attachment; filename=model_package.zip"
         
-        # Forward any training metrics in headers
-        if 'X-Training-Metrics' in response.headers:
-            flask_response.headers["X-Training-Metrics"] = response.headers['X-Training-Metrics']
-            flask_response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
+        # Add metrics to response headers if available
+        if metrics:
+            try:
+                flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
+                logger.info(f"Added X-Training-Metrics header to response: {metrics}")
+            except Exception as e:
+                logger.error(f"Failed to add metrics to response headers: {str(e)}")
+        
+        # Always add Access-Control-Expose-Headers for X-Training-Metrics
+        flask_response.headers["Access-Control-Expose-Headers"] = "X-Training-Metrics"
         
         return flask_response
         
@@ -416,18 +466,58 @@ def api_train_anomaly():
         if response.status_code != 200:
             error_message = "Error in anomaly detection service"
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
+                # Check if the response content is JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_message = error_data['error']
+                else:
+                    # If not JSON, get a preview of the content
+                    content_preview = response.content[:200].decode('utf-8', errors='replace')
+                    logger.error(f"Received non-JSON error response: {content_preview}")
+                    error_message = f"Error in anomaly detection service (HTTP {response.status_code})"
+            except Exception as e:
+                logger.error(f"Error parsing error response: {str(e)}")
                 error_message = f"Error in anomaly detection service (HTTP {response.status_code})"
             
             return jsonify({"error": error_message}), response.status_code
+        
+        # Get metrics from the response headers
+        metrics = {}
+        if 'X-Training-Metrics' in response.headers:
+            try:
+                metrics_header = response.headers['X-Training-Metrics']
+                # Check if metrics_header starts with { and ends with }
+                if metrics_header.strip().startswith('{') and metrics_header.strip().endswith('}'):
+                    metrics = json.loads(metrics_header)
+                    logger.info(f"Successfully parsed metrics from anomaly detection service: {metrics}")
+                else:
+                    logger.warning(f"X-Training-Metrics header doesn't appear to be valid JSON: {metrics_header[:100]}")
+            except Exception as e:
+                logger.error(f"Failed to parse metrics from anomaly detection service: {str(e)}")
+        
+        # Debug log all response headers
+        logger.info("All headers from anomaly detection service response:")
+        for header, value in response.headers.items():
+            logger.info(f"  {header}: {value[:100]}{'...' if len(value) > 100 else ''}")
         
         # Create a Flask response with the model zip file
         flask_response = Response(response.content)
         flask_response.headers["Content-Type"] = "application/zip"
         flask_response.headers["Content-Disposition"] = "attachment; filename=anomaly_detection_model.zip"
+        
+        # Add metrics header if available
+        if metrics:
+            try:
+                flask_response.headers["X-Training-Metrics"] = json.dumps(metrics)
+                # Debug log to verify metrics are being added to the response
+                logger.info(f"Added X-Training-Metrics header to response: {metrics}")
+            except Exception as e:
+                logger.error(f"Failed to add metrics to response headers: {str(e)}")
+        
+        # Add Access-Control-Expose-Headers to make custom headers accessible to browser JavaScript
+        flask_response.headers['Access-Control-Expose-Headers'] = 'X-Training-Metrics'
         
         return flask_response
         
@@ -502,16 +592,54 @@ def api_predict_image():
         if response.status_code != 200:
             error_message = "Error in prediction service"
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = error_data['error']
-            except:
+                # Check if the response content is JSON
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_message = error_data['error']
+                else:
+                    # If not JSON, get a preview of the content
+                    content_preview = response.content[:200].decode('utf-8', errors='replace')
+                    logger.error(f"Received non-JSON error response: {content_preview}")
+                    error_message = f"Error in prediction service (HTTP {response.status_code})"
+            except Exception as e:
+                logger.error(f"Error parsing error response: {str(e)}")
                 error_message = f"Error in prediction service (HTTP {response.status_code})"
             
             return jsonify({"error": error_message}), response.status_code
         
-        # Return prediction results
-        return jsonify(response.json())
+        # Get the prediction results
+        try:
+            prediction_results = response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response from prediction service: {str(e)}")
+            content_preview = response.content[:200].decode('utf-8', errors='replace')
+            logger.error(f"Response content preview: {content_preview}")
+            return jsonify({"error": "Invalid response format from prediction service"}), 500
+        
+        # Check if the response has metrics in headers
+        if 'X-Prediction-Metrics' in response.headers:
+            try:
+                metrics_header = response.headers['X-Prediction-Metrics']
+                # Check if metrics_header starts with { and ends with }
+                if metrics_header.strip().startswith('{') and metrics_header.strip().endswith('}'):
+                    metrics = json.loads(metrics_header)
+                    logger.info(f"Found prediction metrics: {metrics}")
+                    # Add metrics to the response JSON
+                    prediction_results['metrics'] = metrics
+                else:
+                    logger.warning(f"X-Prediction-Metrics header doesn't appear to be valid JSON: {metrics_header[:100]}")
+            except Exception as e:
+                logger.error(f"Failed to parse prediction metrics: {str(e)}")
+        
+        # Debug log all response headers
+        logger.info("All headers from prediction service response:")
+        for header, value in response.headers.items():
+            logger.info(f"  {header}: {value[:100]}{'...' if len(value) > 100 else ''}")
+        
+        # Return prediction results with Access-Control-Expose-Headers
+        return jsonify(prediction_results), 200, {'Access-Control-Expose-Headers': 'X-Prediction-Metrics'}
         
     except Exception as e:
         logger.error(f"Error in image prediction: {str(e)}", exc_info=True)
