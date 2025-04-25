@@ -424,6 +424,32 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         
+        # Validate password
+        if not password:
+            flash('Password is required.', 'danger')
+            return redirect(url_for('register'))
+            
+        # Check password requirements
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+            return redirect(url_for('register'))
+            
+        if not any(c.isupper() for c in password):
+            flash('Password must contain at least one uppercase letter.', 'danger')
+            return redirect(url_for('register'))
+            
+        if not any(c.islower() for c in password):
+            flash('Password must contain at least one lowercase letter.', 'danger')
+            return redirect(url_for('register'))
+            
+        if not any(c.isdigit() for c in password):
+            flash('Password must contain at least one number.', 'danger')
+            return redirect(url_for('register'))
+            
+        if not any(c in '@$!%*?&' for c in password):
+            flash('Password must contain at least one special character (@$!%*?&).', 'danger')
+            return redirect(url_for('register'))
+        
         # Check if user already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:

@@ -19,7 +19,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" action="{{ url_for('register') }}">
+                    <form method="POST" action="{{ url_for('register') }}" id="registerForm" onsubmit="return validateForm()">
                         <div class="mb-3">
                             <label for="name" class="form-label">Full Name</label>
                             <input type="text" class="form-control" id="name" name="name" required>
@@ -30,11 +30,22 @@
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                            <div class="form-text">Password must be at least 8 characters long.</div>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+                                   oninput="validatePassword(this)" required>
+                            <div class="form-text">
+                                Password must meet the following requirements:
+                                <ul class="mb-0 mt-1">
+                                    <li id="length" class="text-danger">At least 8 characters long</li>
+                                    <li id="uppercase" class="text-danger">At least one uppercase letter</li>
+                                    <li id="lowercase" class="text-danger">At least one lowercase letter</li>
+                                    <li id="number" class="text-danger">At least one number</li>
+                                    <li id="special" class="text-danger">At least one special character (@$!%*?&)</li>
+                                </ul>
+                            </div>
                         </div>
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Register</button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">Register</button>
                         </div>
                     </form>
                 </div>
@@ -45,4 +56,50 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function validatePassword(input) {
+    const password = input.value;
+    
+    // Check each requirement
+    const requirements = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[@$!%*?&]/.test(password)
+    };
+    
+    // Update the visual indicators
+    for (const [requirement, valid] of Object.entries(requirements)) {
+        const element = document.getElementById(requirement);
+        if (valid) {
+            element.classList.remove('text-danger');
+            element.classList.add('text-success');
+        } else {
+            element.classList.remove('text-success');
+            element.classList.add('text-danger');
+        }
+    }
+}
+
+function validateForm() {
+    const password = document.getElementById('password').value;
+    const requirements = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[@$!%*?&]/.test(password)
+    };
+    
+    if (!Object.values(requirements).every(Boolean)) {
+        alert('Please ensure your password meets all the requirements.');
+        return false;
+    }
+    return true;
+}
+</script>
 {% endblock %} 
