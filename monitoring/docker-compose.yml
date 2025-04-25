@@ -14,12 +14,10 @@ services:
     environment:
       - PROMETHEUS_URL=http://prometheus:9090
       - GRAFANA_URL=http://grafana:3000
-      - SERVER_IP=host.docker.internal
+      - SERVER_IP=20.119.81.37
       - EXTERNAL_IP=20.119.81.37
     networks:
       - monitoring-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: always
 
   prometheus:
@@ -30,11 +28,15 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
     networks:
       - monitoring-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.external-url=http://20.119.81.37:9090'
 
   grafana:
     build:
@@ -45,17 +47,22 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=deepmed
+      - GF_SERVER_ROOT_URL=http://20.119.81.37:3000
+      - GF_SERVER_DOMAIN=20.119.81.37
     volumes:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
     networks:
       - monitoring-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       - prometheus
     restart: always
 
 networks:
   monitoring-network:
-    driver: bridge 
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data: 
