@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import pandas as pd
 import numpy as np
-from flask import Flask
+from flask import Flask, jsonify
 from flask_login import LoginManager, current_user, login_user
 from app_tabular import (
     classification_training_status,
@@ -67,8 +67,10 @@ def test_get_classification_training_status(app, mock_user):
         }
         
         # Test getting status
-        status = get_classification_training_status()
-        assert status == {
+        response = get_classification_training_status()
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {
             'status': 'running',
             'progress': 50,
             'message': 'Training in progress'
@@ -88,8 +90,10 @@ def test_stop_classification_training(app, mock_user):
         }
         
         # Test stopping training
-        result = stop_classification_training()
-        assert result == {'status': 'stopped'}
+        response = stop_classification_training()
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {'status': 'stopped'}
         assert classification_training_status[mock_user.id]['status'] == 'stopped'
 
 @patch('app_tabular.requests.post')
@@ -109,10 +113,12 @@ def test_api_predict_tabular(mock_post, app, mock_user, sample_data):
         mock_post.return_value = mock_response
         
         # Test prediction
-        result = api_predict_tabular()
-        assert isinstance(result, dict)
-        assert 'predictions' in result
-        assert 'probabilities' in result
+        response = api_predict_tabular()
+        assert response.status_code == 200
+        data = response.get_json()
+        assert isinstance(data, dict)
+        assert 'predictions' in data
+        assert 'probabilities' in data
 
 @patch('app_tabular.requests.post')
 def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
@@ -132,7 +138,9 @@ def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
         mock_post.return_value = mock_response
         
         # Test encoding extraction
-        result = api_extract_encodings()
-        assert isinstance(result, dict)
-        assert 'encodings' in result
-        assert 'feature2' in result['encodings'] 
+        response = api_extract_encodings()
+        assert response.status_code == 200
+        data = response.get_json()
+        assert isinstance(data, dict)
+        assert 'encodings' in data
+        assert 'feature2' in data['encodings'] 
