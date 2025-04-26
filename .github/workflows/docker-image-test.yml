@@ -28,17 +28,32 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
       
+      - name: Install Docker Compose if needed
+        run: |
+          # Check if Docker Compose is installed
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "
+            if ! command -v docker-compose &> /dev/null; then
+              echo 'Docker Compose not found, installing...'
+              sudo curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+              docker-compose --version
+            else
+              echo 'Docker Compose is already installed'
+              docker-compose --version
+            fi
+          "
+      
       - name: Pull Latest Images
         run: |
           # Login to Docker Hub on VM
           ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
           
-          # Get the list of services from the docker-compose file
+          # Create directories and copy docker-compose.yml
           ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
           scp docker_versions/docker-compose.yml azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/docker_versions/
           
-          # Pull all images at once with docker-compose
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "cd ~/DeepMed/docker_versions && docker-compose pull"
+          # Pull all images using docker-compose
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
       
       - name: Run Each Image Individually
         run: |
