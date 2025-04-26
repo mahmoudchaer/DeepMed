@@ -19,7 +19,7 @@ client_openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or keyvault.getenv("O
 persist_dir = os.getenv("CHROMAPERSISTDIR", "./chroma_data")
 client = chromadb.PersistentClient(path=persist_dir)
 collection = client.get_or_create_collection("deepmed_docs")
-
+#init
 DOCS_DIR = Path(__file__).parent / "docs"
 
 

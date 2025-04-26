@@ -5,9 +5,12 @@ on:
   schedule:
     - cron: '0 */4 * * *'  # Every 4 hours
   
-  # Run on push to main branch (no path restrictions)
-  push:
-    branches: 
+  # Trigger after Docker Image Test
+  workflow_run:
+    workflows: ["Test Docker Images"]
+    types:
+      - completed
+    branches:
       - main
   
   # Allow manual triggering
@@ -32,6 +35,8 @@ jobs:
   health-check:
     name: Check Docker Services Health
     runs-on: ubuntu-latest
+    # Only run this job when triggered by the workflow_run event and the previous workflow was successful
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     
     steps:
       - name: Checkout repository

@@ -26,10 +26,14 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build all images
+    - name: Build and Push Images
       run: |
+        # Build with default tag (latest)
+        echo "Building Docker images..."
         docker compose -f docker_versions/docker-compose.yml build
-
-    - name: Push all images
-      run: |
+        
+        # Push latest tags
+        echo "Pushing Docker images to DockerHub..."
         docker compose -f docker_versions/docker-compose.yml push
+        
+        echo "All images built and pushed successfully!"
