@@ -7,7 +7,6 @@ on:
 
 jobs:
   setup-test-environment:
-    name: Setup Test Environment
     runs-on: ubuntu-latest
 
     steps:
@@ -19,6 +18,18 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
 
+      - name: Wait for SSH to be available
+        run: |
+          for i in {1..12}; do
+            if ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} 'echo SSH ready' &>/dev/null; then
+              echo "✅ SSH connection established"
+              break
+            else
+              echo "⏳ Waiting for SSH..."
+              sleep 10
+            fi
+          done
+
       - name: Update & install Python on test VM
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} bash << 'EOF'
@@ -27,13 +38,11 @@ jobs:
             if ! command -v pip3 &> /dev/null; then sudo apt-get install -y python3-pip; fi
           EOF
 
-      - name: Ensure DeepMed folder exists
+      - name: Ensure DeepMed directory exists
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
 
-      - name: Copy requirements.txt and install deps
+      - name: Copy requirements.txt & install deps
         run: |
-          scp -o StrictHostKeyChecking=no requirements.txt \
-            azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} \
-            "pip3 install -r ~/DeepMed/requirements.txt"
+          scp -o StrictHostKeyChecking=no requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt"

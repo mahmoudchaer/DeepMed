@@ -7,15 +7,14 @@ on:
 
 jobs:
   deploy-production:
-    name: Deploy to Production
     runs-on: ubuntu-latest
 
     steps:
       - name: Free up disk space
         run: |
-          echo "Disk space before cleanup:" && df -h
+          echo "Disk before cleanup:" && df -h
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache || true
-          echo "Disk space after cleanup:" && df -h
+          echo "Disk after cleanup:" && df -h
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -25,7 +24,7 @@ jobs:
       - name: Pull & switch Docker containers (fast)
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.SERVER_IP }} bash << 'EOF'
-            cd ~/DeepMed
-            docker-compose pull
-            docker-compose up -d --remove-orphans
+            cd ~/DeepMed/docker_versions
+            docker compose pull
+            docker compose up -d --remove-orphans
           EOF
