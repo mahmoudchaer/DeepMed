@@ -93,7 +93,8 @@ def test_stop_classification_training(app, mock_user):
         response = stop_classification_training()
         assert response.status_code == 200
         data = response.get_json()
-        assert data == {'status': 'stopped'}
+        assert data['status'] == 'stopped'
+        assert data['message'] == 'Training has been stopped.'
         assert classification_training_status[mock_user.id]['status'] == 'stopped'
 
 @patch('app_tabular.requests.post')
@@ -113,12 +114,11 @@ def test_api_predict_tabular(mock_post, app, mock_user, sample_data):
         mock_post.return_value = mock_response
         
         # Test prediction
-        response = api_predict_tabular()
-        assert response.status_code == 200
-        data = response.get_json()
-        assert isinstance(data, dict)
-        assert 'predictions' in data
-        assert 'probabilities' in data
+        response, status_code = api_predict_tabular()
+        assert status_code == 200
+        assert isinstance(response, dict)
+        assert 'predictions' in response
+        assert 'probabilities' in response
 
 @patch('app_tabular.requests.post')
 def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
@@ -138,9 +138,8 @@ def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
         mock_post.return_value = mock_response
         
         # Test encoding extraction
-        response = api_extract_encodings()
-        assert response.status_code == 200
-        data = response.get_json()
-        assert isinstance(data, dict)
-        assert 'encodings' in data
-        assert 'feature2' in data['encodings'] 
+        response, status_code = api_extract_encodings()
+        assert status_code == 200
+        assert isinstance(response, dict)
+        assert 'encodings' in response
+        assert 'feature2' in response['encodings'] 
