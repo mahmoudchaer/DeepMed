@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import pandas as pd
 import numpy as np
 from flask import Flask
-from flask_login import LoginManager, current_user
+from flask_login import LoginManager, current_user, login_user
 from app_tabular import (
     classification_training_status,
     get_classification_training_status,
@@ -36,6 +36,7 @@ def mock_user():
     """Create a mock user"""
     user = MagicMock()
     user.id = 'test_user'
+    user.is_authenticated = True
     return user
 
 @pytest.fixture
@@ -55,6 +56,9 @@ def test_classification_training_status_initialization():
 def test_get_classification_training_status(app, mock_user):
     """Test getting training status"""
     with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
         # Set up test data
         classification_training_status[mock_user.id] = {
             'status': 'running',
@@ -73,6 +77,9 @@ def test_get_classification_training_status(app, mock_user):
 def test_stop_classification_training(app, mock_user):
     """Test stopping training"""
     with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
         # Set up test data
         classification_training_status[mock_user.id] = {
             'status': 'running',
@@ -86,9 +93,12 @@ def test_stop_classification_training(app, mock_user):
         assert classification_training_status[mock_user.id]['status'] == 'stopped'
 
 @patch('app_tabular.requests.post')
-def test_api_predict_tabular(mock_post, app, sample_data):
+def test_api_predict_tabular(mock_post, app, mock_user, sample_data):
     """Test tabular prediction API"""
     with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
         # Mock successful prediction response
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -105,9 +115,12 @@ def test_api_predict_tabular(mock_post, app, sample_data):
         assert 'probabilities' in result
 
 @patch('app_tabular.requests.post')
-def test_api_extract_encodings(mock_post, app, sample_data):
+def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
     """Test encoding extraction API"""
     with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
         # Mock successful encoding response
         mock_response = MagicMock()
         mock_response.status_code = 200
