@@ -1,4 +1,4 @@
-name: Pull and Run Docker Images
+name: Test Docker Images
 
 on:
   workflow_run:
