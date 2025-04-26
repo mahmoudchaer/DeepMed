@@ -573,7 +573,6 @@ X-RateLimit-Reset: 1619194800</pre>
                                                 </div>
                                                 <div class="code-body">
                                                     <pre>curl -X POST https://api.deepmed.ai/v1/images/upload \
-  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: multipart/form-data" \
   -F file=@chest_xray.dcm \
   -F "patient_id=P12345" \
@@ -740,7 +739,6 @@ fetch('https://api.deepmed.ai/v1/images/upload', {
                                     </div>
                                     <div class="code-body">
                                         <pre>curl -X POST https://api.deepmed.ai/v1/images/img_1a2b3c4d5e6f7g8h/analyze \
-  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "models": ["mod_xray_classifier", "mod_lung_nodule_detector"],
