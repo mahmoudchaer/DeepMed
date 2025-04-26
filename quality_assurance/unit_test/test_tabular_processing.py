@@ -2,16 +2,19 @@ import pytest
 from unittest.mock import patch, MagicMock
 import pandas as pd
 import numpy as np
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session, url_for
 from flask_login import LoginManager, current_user, login_user
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
+import os
 from app_tabular import (
     classification_training_status,
     get_classification_training_status,
     stop_classification_training,
     api_predict_tabular,
-    api_extract_encodings
+    api_extract_encodings,
+    upload,
+    training
 )
 
 @pytest.fixture
@@ -64,6 +67,14 @@ def mock_input_file(sample_data):
     file = BytesIO(csv_content.encode())
     file.filename = 'input.csv'
     return FileStorage(file, filename='input.csv', content_type='text/csv')
+
+@pytest.fixture
+def mock_csv_file(sample_data):
+    """Create a mock CSV file for upload"""
+    csv_content = sample_data.to_csv(index=False)
+    file = BytesIO(csv_content.encode())
+    file.filename = 'test.csv'
+    return FileStorage(file, filename='test.csv', content_type='text/csv')
 
 def test_classification_training_status_initialization():
     """Test training status initialization"""
@@ -172,4 +183,192 @@ def test_api_extract_encodings(mock_post, app, mock_user, mock_model_package):
         data = response.get_json()
         assert isinstance(data, dict)
         assert 'encodings' in data
-        assert 'feature2' in data['encodings'] 
+        assert 'feature2' in data['encodings']
+
+def test_api_predict_tabular_missing_files(app, mock_user):
+    """Test tabular prediction API with missing files"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Test without files
+        response = api_predict_tabular()
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Both model package and input file are required' in data['error']
+
+def test_api_extract_encodings_missing_file(app, mock_user):
+    """Test encoding extraction API with missing file"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Test without file
+        response = api_extract_encodings()
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Model package file is required' in data['error']
+
+@patch('app_tabular.requests.post')
+def test_api_predict_tabular_invalid_files(app, mock_user, mock_model_package, mock_input_file):
+    """Test tabular prediction API with invalid files"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up invalid files
+        mock_model_package.filename = 'model.txt'  # Invalid extension
+        mock_input_file.filename = 'input.txt'  # Invalid extension
+        
+        request.files = {
+            'model_package': mock_model_package,
+            'input_file': mock_input_file
+        }
+        
+        # Test with invalid files
+        response = api_predict_tabular()
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Model package must be a ZIP archive' in data['error']
+
+@patch('app_tabular.requests.post')
+def test_api_extract_encodings_invalid_file(app, mock_user, mock_model_package):
+    """Test encoding extraction API with invalid file"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up invalid file
+        mock_model_package.filename = 'model.txt'  # Invalid extension
+        
+        request.files = {
+            'model_package': mock_model_package
+        }
+        
+        # Test with invalid file
+        response = api_extract_encodings()
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Model package must be a ZIP archive' in data['error']
+
+@patch('app_tabular.requests.post')
+def test_api_predict_tabular_service_unavailable(app, mock_user, mock_model_package, mock_input_file):
+    """Test tabular prediction API when service is unavailable"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up request files
+        request.files = {
+            'model_package': mock_model_package,
+            'input_file': mock_input_file
+        }
+        
+        # Mock service unavailable response
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        mock_post.return_value = mock_response
+        
+        # Test with unavailable service
+        response = api_predict_tabular()
+        assert response.status_code == 503
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Tabular prediction service is not available' in data['error']
+
+@patch('app_tabular.requests.post')
+def test_api_extract_encodings_service_unavailable(app, mock_user, mock_model_package):
+    """Test encoding extraction API when service is unavailable"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up request files
+        request.files = {
+            'model_package': mock_model_package
+        }
+        
+        # Mock service unavailable response
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        mock_post.return_value = mock_response
+        
+        # Test with unavailable service
+        response = api_extract_encodings()
+        assert response.status_code == 503
+        data = response.get_json()
+        assert 'error' in data
+        assert 'Tabular prediction service is not available' in data['error']
+
+@patch('app_tabular.requests.post')
+def test_upload_success(app, mock_user, mock_csv_file):
+    """Test successful file upload"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up request file
+        request.files = {
+            'file': mock_csv_file
+        }
+        
+        # Mock successful data loading
+        with patch('app_tabular.pd.read_csv') as mock_read_csv:
+            mock_read_csv.return_value = pd.DataFrame({
+                'feature1': [1, 2, 3],
+                'feature2': ['A', 'B', 'C']
+            })
+            
+            # Test upload
+            response = upload()
+            assert response.status_code == 302  # Redirect
+            assert 'uploaded_file' in session
+            assert 'file_stats' in session
+            assert 'data_columns' in session
+
+@patch('app_tabular.requests.post')
+def test_upload_invalid_file(app, mock_user):
+    """Test upload with invalid file"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up invalid file
+        invalid_file = BytesIO(b'invalid content')
+        invalid_file.filename = 'test.txt'
+        request.files = {
+            'file': FileStorage(invalid_file, filename='test.txt', content_type='text/plain')
+        }
+        
+        # Test upload
+        response = upload()
+        assert response.status_code == 302  # Redirect
+        assert 'uploaded_file' not in session
+        assert 'file_stats' not in session
+        assert 'data_columns' not in session
+
+@patch('app_tabular.requests.post')
+def test_training_reset(app, mock_user):
+    """Test training page reset"""
+    with app.test_request_context():
+        # Log in the user
+        login_user(mock_user)
+        
+        # Set up session data
+        session['uploaded_file'] = '/tmp/test.csv'
+        session['file_stats'] = {'rows': 100, 'columns': 5}
+        session['data_columns'] = ['col1', 'col2']
+        
+        # Set up request args
+        request.args = {'new': '1'}
+        
+        # Test training reset
+        response = training()
+        assert response.status_code == 302  # Redirect
+        assert 'uploaded_file' not in session
+        assert 'file_stats' not in session
+        assert 'data_columns' not in session 
