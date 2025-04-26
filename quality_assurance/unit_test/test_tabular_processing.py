@@ -201,8 +201,8 @@ def test_api_predict_tabular_missing_files(app, mock_user):
         login_user(mock_user)
         
         # Test without files
-        response = api_predict_tabular()
-        assert response.status_code == 400
+        response, status_code = api_predict_tabular()
+        assert status_code == 400
         data = response.get_json()
         assert isinstance(data, dict)
         assert 'error' in data
@@ -215,8 +215,8 @@ def test_api_extract_encodings_missing_file(app, mock_user):
         login_user(mock_user)
         
         # Test without file
-        response = api_extract_encodings()
-        assert response.status_code == 400
+        response, status_code = api_extract_encodings()
+        assert status_code == 400
         data = response.get_json()
         assert isinstance(data, dict)
         assert 'error' in data
@@ -240,8 +240,8 @@ def test_api_predict_tabular_invalid_files(mock_post, app, mock_user, mock_model
             }
             
             # Test with invalid files
-            response = api_predict_tabular()
-            assert response.status_code == 400
+            response, status_code = api_predict_tabular()
+            assert status_code == 400
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
@@ -263,8 +263,8 @@ def test_api_extract_encodings_invalid_file(mock_post, app, mock_user, mock_mode
             }
             
             # Test with invalid file
-            response = api_extract_encodings()
-            assert response.status_code == 400
+            response, status_code = api_extract_encodings()
+            assert status_code == 400
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
@@ -290,8 +290,8 @@ def test_api_predict_tabular_service_unavailable(mock_post, app, mock_user, mock
             mock_post.return_value = mock_response
             
             # Test with unavailable service
-            response = api_predict_tabular()
-            assert response.status_code == 503
+            response, status_code = api_predict_tabular()
+            assert status_code == 503
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
@@ -316,8 +316,8 @@ def test_api_extract_encodings_service_unavailable(mock_post, app, mock_user, mo
             mock_post.return_value = mock_response
             
             # Test with unavailable service
-            response = api_extract_encodings()
-            assert response.status_code == 503
+            response, status_code = api_extract_encodings()
+            assert status_code == 503
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
