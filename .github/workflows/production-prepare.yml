@@ -29,22 +29,21 @@ jobs:
       - name: Setup SSH and add to known hosts
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.PROD_SERVER_IP }}" > ~/.ssh/prod_server_ip.txt
-          ssh-keyscan -H $(cat ~/.ssh/prod_server_ip.txt) >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Setup SSH connection
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_K }}
       
       - name: Verify SSH connection
         run: |
-          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.PROD_SERVER_IP }} "echo 'SSH connection to production successful'"
+          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.SERVER_IP }} "echo 'SSH connection to production successful'"
       
       - name: Install Docker Compose if needed
         run: |
           # Check if Docker Compose is installed
-          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "
+          ssh azureuser@${{ secrets.SERVER_IP }} "
             if ! command -v docker-compose &> /dev/null; then
               echo 'Docker Compose not found, installing...'
               sudo curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
@@ -59,14 +58,14 @@ jobs:
       - name: Pull Docker Images
         run: |
           # Log in to Docker Hub on Production VM
-          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
           
           # Create directories and copy docker-compose.yml if needed
-          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
-          scp docker_versions/docker-compose.yml azureuser@${{ secrets.PROD_SERVER_IP }}:~/DeepMed/docker_versions/
+          ssh azureuser@${{ secrets.SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
+          scp docker_versions/docker-compose.yml azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/docker_versions/
           
           # Pull all latest images using docker-compose
-          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
+          ssh azureuser@${{ secrets.SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
           
           echo "✅ All images pulled successfully on production server"
-          echo "Images are ready for deployment - no containers restarted yet" 
+          echo "Images are ready for deployment - no containers restarted yet"
