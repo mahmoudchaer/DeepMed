@@ -1,10 +1,7 @@
 name: Prepare and Deploy to Production
 
 on:
-  workflow_run:
-    workflows: ["Docker Services Health Check"]
-    types:
-      - completed
+  push:
     branches:
       - main
 
@@ -12,7 +9,6 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
       - name: Free up disk space
@@ -25,7 +21,6 @@ jobs:
 
       - name: Setup SSH and add to known hosts
         run: |
-          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Setup SSH connection
