@@ -21,6 +21,7 @@ jobs:
 
       - name: Add Test Server to known hosts
         run: |
+          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Update System Packages

@@ -21,6 +21,7 @@ jobs:
 
       - name: Setup SSH and add to known hosts
         run: |
+          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Setup SSH connection
