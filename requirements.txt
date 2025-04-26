@@ -30,7 +30,7 @@ urllib3==1.26.16
 azure-storage-blob==12.18.2
 azure-identity==1.13.0
 azure-keyvault-secrets==4.6.0
-dotenv==1.0.1
+dotenv
 # Testing dependencies
 pytest==7.4.3
 pytest-cov==4.1.0
