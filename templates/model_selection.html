@@ -11,16 +11,6 @@
         <a href="{{ url_for('my_models') }}" class="btn btn-success">My Models</a>
     </div>
     
-    <div class="alert alert-info" role="alert">
-        <h4>Training Results</h4>
-        <ul>
-            <li><strong>Models Trained:</strong> {{ overall_metrics.models_trained }}</li>
-            <li><strong>Dataset Name:</strong> {{ overall_metrics.dataset_name if overall_metrics.dataset_name is defined else 'Unknown' }}</li>
-            <li><strong>Target Column:</strong> {{ overall_metrics.target_column if overall_metrics.target_column is defined else 'Unknown' }}</li>
-            <li><strong>Training Date:</strong> {{ overall_metrics.training_date if overall_metrics.training_date is defined else 'Unknown' }}</li>
-        </ul>
-    </div>
-
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
