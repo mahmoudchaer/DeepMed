@@ -1,0 +1,37 @@
+name: Prepare Production Environment
+
+on:
+  workflow_run:
+    workflows: ["Docker Services Health Check"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  prepare-production:
+    name: Prepare Production Environment
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Setup SSH connection
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Add production server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Pull Docker Images
+        run: |
+          # Log in to Docker Hub on Production VM
+          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+          
+          # Pull all latest images using docker-compose
+          ssh azureuser@${{ secrets.PROD_SERVER_IP }} "cd /path/to/docker/compose && docker-compose pull"
+          
+          echo "✅ All images pulled successfully on production server"
+          echo "Images are ready for deployment - no containers restarted yet" 
