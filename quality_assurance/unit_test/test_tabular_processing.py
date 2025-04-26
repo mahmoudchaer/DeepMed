@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from flask import Flask, jsonify, request
 from flask_login import LoginManager, current_user, login_user
+from werkzeug.datastructures import FileStorage
+from io import BytesIO
 from app_tabular import (
     classification_training_status,
     get_classification_training_status,
@@ -47,6 +49,21 @@ def sample_data():
         'feature2': ['A', 'B', 'C', 'D', 'E'],
         'target': [0, 1, 0, 1, 0]
     })
+
+@pytest.fixture
+def mock_model_package():
+    """Create a mock model package file"""
+    file = BytesIO(b'fake zip content')
+    file.filename = 'model.zip'
+    return FileStorage(file, filename='model.zip', content_type='application/zip')
+
+@pytest.fixture
+def mock_input_file(sample_data):
+    """Create a mock input file"""
+    csv_content = sample_data.to_csv(index=False)
+    file = BytesIO(csv_content.encode())
+    file.filename = 'input.csv'
+    return FileStorage(file, filename='input.csv', content_type='text/csv')
 
 def test_classification_training_status_initialization():
     """Test training status initialization"""
@@ -98,14 +115,17 @@ def test_stop_classification_training(app, mock_user):
         # Don't check classification_training_status as it's cleared by the function
 
 @patch('app_tabular.requests.post')
-def test_api_predict_tabular(mock_post, app, mock_user, sample_data):
+def test_api_predict_tabular(mock_post, app, mock_user, mock_model_package, mock_input_file):
     """Test tabular prediction API"""
-    with app.test_request_context(json={
-        'data': sample_data.to_dict(orient='records'),
-        'model_type': 'classification'
-    }):
+    with app.test_request_context():
         # Log in the user
         login_user(mock_user)
+        
+        # Set up request files
+        request.files = {
+            'model_package': mock_model_package,
+            'input_file': mock_input_file
+        }
         
         # Mock successful prediction response
         mock_response = MagicMock()
@@ -124,14 +144,16 @@ def test_api_predict_tabular(mock_post, app, mock_user, sample_data):
         assert 'probabilities' in response
 
 @patch('app_tabular.requests.post')
-def test_api_extract_encodings(mock_post, app, mock_user, sample_data):
+def test_api_extract_encodings(mock_post, app, mock_user, mock_model_package):
     """Test encoding extraction API"""
-    with app.test_request_context(json={
-        'data': sample_data.to_dict(orient='records'),
-        'categorical_columns': ['feature2']
-    }):
+    with app.test_request_context():
         # Log in the user
         login_user(mock_user)
+        
+        # Set up request files
+        request.files = {
+            'model_package': mock_model_package
+        }
         
         # Mock successful encoding response
         mock_response = MagicMock()
