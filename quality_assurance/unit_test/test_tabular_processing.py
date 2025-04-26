@@ -295,7 +295,7 @@ def test_api_predict_tabular_service_unavailable(mock_post, app, mock_user, mock
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
-            assert 'Tabular prediction service is not available' in data['error']
+            assert 'Error in prediction service' in data['error']
 
 @patch('app_tabular.requests.post')
 def test_api_extract_encodings_service_unavailable(mock_post, app, mock_user, mock_model_package):
@@ -321,7 +321,7 @@ def test_api_extract_encodings_service_unavailable(mock_post, app, mock_user, mo
             data = response.get_json()
             assert isinstance(data, dict)
             assert 'error' in data
-            assert 'Tabular prediction service is not available' in data['error']
+            assert 'Error extracting encodings' in data['error']
 
 @patch('app_tabular.requests.post')
 def test_upload_success(mock_post, app, mock_user, mock_csv_file):
