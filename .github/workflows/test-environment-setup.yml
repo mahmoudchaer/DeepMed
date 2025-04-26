@@ -1,4 +1,4 @@
-name: Test Environment Setup
+name: Setup Test Environment
 
 on:
   workflow_run:
@@ -18,30 +18,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: SSH into VM
+      - name: Setup SSH connection
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
-      
-      - name: Add server to known hosts
+
+      - name: Add Test Server to known hosts
         run: |
-          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
       
-      - name: Update System
+      - name: Update System Packages
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "sudo apt update"
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "sudo apt update"
       
-      - name: Install Python and Pip
+      - name: Install Python and Pip (if missing)
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi"
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi"
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "
+            if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi
+            if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi
+          "
       
-      - name: Copy Requirements File
+      - name: Copy requirements.txt to VM
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
-          scp requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
+          scp -o StrictHostKeyChecking=no requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
       
-      - name: Install Requirements
+      - name: Install Python Requirements
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt"
