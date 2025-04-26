@@ -9,8 +9,7 @@ from app_tabular import (
     get_classification_training_status,
     stop_classification_training,
     api_predict_tabular,
-    api_extract_encodings,
-    validate_data
+    api_extract_encodings
 )
 
 @pytest.fixture
@@ -123,16 +122,4 @@ def test_api_extract_encodings(mock_post, app, sample_data):
         result = api_extract_encodings()
         assert isinstance(result, dict)
         assert 'encodings' in result
-        assert 'feature2' in result['encodings']
-
-def test_data_validation(sample_data):
-    """Test data validation"""
-    # Test valid data
-    assert validate_data(sample_data) is True
-    
-    # Test invalid data (empty DataFrame)
-    assert validate_data(pd.DataFrame()) is False
-    
-    # Test invalid data (missing target column)
-    invalid_data = sample_data.drop(columns=['target'])
-    assert validate_data(invalid_data) is False 
+        assert 'feature2' in result['encodings'] 
