@@ -10,6 +10,7 @@ from pathlib import Path
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
 import requests
+from flask import Flask, session
 
 # Import the modules to test
 from app_api import (
@@ -26,6 +27,18 @@ from app_api import (
     check_session_size,
     is_service_available
 )
+
+@pytest.fixture
+def app():
+    """Create a Flask app for testing"""
+    app = Flask(__name__)
+    app.secret_key = 'test_secret_key'
+    return app
+
+@pytest.fixture
+def client(app):
+    """Create a test client"""
+    return app.test_client()
 
 @pytest.fixture
 def temp_dir():
@@ -78,7 +91,7 @@ def test_check_file_size(sample_csv):
     assert check_file_size(file) is True
     
     # Test with smaller limit (file is about 30 bytes)
-    assert check_file_size(file, max_size_mb=0.0001) is True  # Changed to True since file is small
+    assert check_file_size(file, max_size_mb=0.0001) is True
 
 def test_load_data_csv(sample_csv, temp_dir):
     """Test loading CSV data"""
@@ -148,32 +161,35 @@ def test_get_temp_filepath():
     # Test with filename
     filepath = get_temp_filepath('test.csv')
     assert filepath.endswith('.csv')
-    assert os.path.basename(filepath).startswith('test_') or os.path.basename(filepath).startswith('temp_')
+    # The filename should start with a UUID followed by an underscore
+    filename = os.path.basename(filepath)
+    assert '_' in filename
+    assert len(filename.split('_')[0]) == 36  # UUID length
     
     # Test with extension only
     filepath = get_temp_filepath(extension='.csv')
     assert filepath.endswith('.csv')
-    assert os.path.basename(filepath).startswith('temp_')
+    filename = os.path.basename(filepath)
+    assert '_' in filename
+    assert len(filename.split('_')[0]) == 36  # UUID length
 
-def test_cleanup_session_files(temp_dir):
+def test_cleanup_session_files(app):
     """Test session file cleanup"""
-    # Create test files
-    files = {
-        'test_file': os.path.join(temp_dir, 'test1.txt'),
-        'another_file': os.path.join(temp_dir, 'test2.txt')
-    }
-    
-    for filepath in files.values():
-        with open(filepath, 'w') as f:
-            f.write('test')
-    
-    # Test cleanup
-    cleanup_session_files()  # No arguments needed as per implementation
-    
-    # Verify files still exist (since cleanup_session_files doesn't take arguments)
-    for filepath in files.values():
-        assert os.path.exists(filepath)
+    with app.test_request_context():
+        # Set up test session data
+        session['test_file'] = '/tmp/test1.txt'
+        session['another_file'] = '/tmp/test2.txt'
+        
+        # Test cleanup
+        cleanup_session_files()
+        
+        # Verify session keys are removed
+        assert 'test_file' not in session
+        assert 'another_file' not in session
 
+@patch('app_api.SERVICES', {
+    "Test Service": {"url": "http://test", "endpoint": "/health"}
+})
 @patch('requests.get')
 def test_check_services(mock_get):
     """Test service health checking"""
@@ -181,17 +197,27 @@ def test_check_services(mock_get):
     mock_get.return_value.status_code = 200
     
     # Test with all services up
-    result = check_services()  # No arguments needed as per implementation
+    result = check_services()
     assert isinstance(result, dict)
-    assert all(isinstance(value, bool) for value in result.values())
-
-def test_check_session_size():
-    """Test session size checking"""
-    # Test with default size limit
-    assert check_session_size() is True  # No arguments needed as per implementation
+    assert "Test Service" in result
+    assert result["Test Service"] is True
     
-    # Test with custom size limit
-    assert check_session_size(max_size=1000000) is True
+    # Test with service down
+    mock_get.return_value.status_code = 500
+    result = check_services()
+    assert result["Test Service"] is False
+
+def test_check_session_size(app):
+    """Test session size checking"""
+    with app.test_request_context():
+        # Set up test session data
+        session['data'] = 'x' * 1000  # Small data
+        
+        # Test with default size limit
+        assert check_session_size() is True
+        
+        # Test with custom size limit
+        assert check_session_size(max_size=1000000) is True
 
 @patch('requests.get')
 def test_is_service_available(mock_get):
