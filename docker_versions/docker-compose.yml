@@ -11,7 +11,7 @@ services:
       - "5001:5001"
     environment:
       - PORT=5001
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -29,7 +29,7 @@ services:
       - "5002:5002"
     environment:
       - PORT=5002
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -79,7 +79,7 @@ services:
       - "5005:5005"
     environment:
       - PORT=5005
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ./logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -106,7 +106,7 @@ services:
       - KNN_URL=http://knn:5014
       - NAIVE_BAYES_URL=http://naive_bayes:5015
       - MLFLOW_TRACKING_URI=file:///app/mlruns
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
       - AZURESTORAGEACCOUNT=${AZURE_STORAGE_ACCOUNT}
       - AZURESTORAGEKEY=${AZURE_STORAGE_KEY}
       - AZURECONTAINER=${AZURE_CONTAINER}
@@ -368,7 +368,7 @@ services:
       - "5201:5201"
     environment:
       - PORT=5201
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -385,7 +385,7 @@ services:
       - "5202:5202"
     environment:
       - PORT=5202
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../keyvault.py:/app/keyvault.py
       - ./docker_secrets.py:/app/docker_secrets.py
@@ -401,7 +401,7 @@ services:
       - "5203:5203"
     environment:
       - PORT=5203
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py
@@ -420,7 +420,7 @@ services:
       - EMBEDDING_URL=http://embedding_service:5201
       - VECTOR_URL=http://vector_search_service:5202
       - LLM_URL=http://llm_generator_service:5203
-      - OPENAI-API-KEY=${OPENAI_API_KEY}
+      - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../logs:/app/logs
       - ../keyvault.py:/app/keyvault.py

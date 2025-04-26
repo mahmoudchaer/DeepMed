@@ -47,10 +47,18 @@ jobs:
         
         # Loop through services and tag with SHA
         for service in $(docker compose -f docker_versions/docker-compose.yml config --services); do
-          image_name=$(docker compose -f docker_versions/docker-compose.yml config | grep "image:" | grep "$service" | awk '{print $2}')
+          # Get the image name from the compose config
+          image_name=$(docker compose -f docker_versions/docker-compose.yml config | grep "image:" | grep -w "$service" || grep "image: .*$service" | awk '{print $2}')
+          
+          # Skip if image name is empty
+          if [ -z "$image_name" ]; then
+            echo "Warning: Could not find image for service $service, skipping"
+            continue
+          fi
+          
           # Tag with SHA
-          docker tag $image_name ${image_name%:*}:$GIT_SHA
-          echo "Tagged $image_name as ${image_name%:*}:$GIT_SHA"
+          echo "Tagging $image_name as ${image_name%:*}:$GIT_SHA"
+          docker tag "$image_name" "${image_name%:*}:$GIT_SHA"
         done
 
     - name: Push Images
@@ -60,12 +68,23 @@ jobs:
         # Push latest tags
         docker compose -f docker_versions/docker-compose.yml push
         
-        # Push SHA tags
+        # Push SHA tags - use a different approach that's more reliable
         for service in $(docker compose -f docker_versions/docker-compose.yml config --services); do
-          image_name=$(docker compose -f docker_versions/docker-compose.yml config | grep "image:" | grep "$service" | awk '{print $2}')
+          # Get the full image name including organization
+          full_image=$(docker compose -f docker_versions/docker-compose.yml config | grep -A 1 "  $service:" | grep "image:" | awk '{print $2}')
+          
+          # Skip if image name is empty
+          if [ -z "$full_image" ]; then
+            echo "Warning: Could not find image for service $service, skipping"
+            continue
+          fi
+          
+          # Extract the image name without tag
+          image_without_tag=${full_image%:*}
+          
           # Push SHA tag
-          docker push ${image_name%:*}:$GIT_SHA
-          echo "Pushed ${image_name%:*}:$GIT_SHA"
+          echo "Pushing $image_without_tag:$GIT_SHA"
+          docker push "$image_without_tag:$GIT_SHA"
         done
         
     - name: Upload image tag artifact
