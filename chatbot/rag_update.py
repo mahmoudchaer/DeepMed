@@ -2,7 +2,12 @@
 
 import os
 import sys
+import logging
 from pathlib import Path
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add the parent directory to sys.path for keyvault import
 sys.path.append(str(Path(__file__).parent.parent))
@@ -13,18 +18,22 @@ from chromadb import Client
 from chromadb.config import Settings
 
 # Get API key from Key Vault
-OPENAI-API-KEY = keyvault.getenv("OPENAI-API-KEY")
-if not OPENAI-API-KEY:
+api_key = keyvault.getenv("OPENAI-API-KEY")
+if not api_key:
+    logger.error("Missing OPENAI-API-KEY in Key Vault")
     raise RuntimeError("Missing OPENAI-API-KEY in Key Vault")
-client = OpenAI(api_key=OPENAI-API-KEY)
+    
+client = OpenAI(api_key=api_key)
+logger.info("OpenAI client initialized")
 
 # Where your docs live (20 pages max, as .md)
-DOCS_DIR = Path(__file__).parent / "docs"
+DOCS_DIR = Path(__file__).parent / "vector_search_service" / "docs"
 if not DOCS_DIR.exists():
     raise RuntimeError(f"Docs folder not found: {DOCS_DIR}")
 
 # Where Chroma will persist its files (same as vector-search service)
-PERSIST_DIR = str(Path(__file__).parent / "chroma_data")
+PERSIST_DIR = str(Path(__file__).parent / "vector_search_service" / "chroma_data")
+logger.info(f"Using ChromaDB persist directory: {PERSIST_DIR}")
 
 # ── Initialize ChromaDB ────────────────────────────────────────────────────────
 chroma_client = Client(
@@ -35,6 +44,7 @@ chroma_client = Client(
 )
 # This will create (or open) the collection
 collection = chroma_client.get_or_create_collection("deepmed_docs")
+logger.info("ChromaDB collection initialized")
 
 # ── Helper: Chunk text into ~1 000‑char pieces ──────────────────────────────────
 def chunk_text(text: str, max_chars: int = 1000) -> list[str]:
@@ -52,11 +62,12 @@ def chunk_text(text: str, max_chars: int = 1000) -> list[str]:
 
 # ── Main: Read, embed, insert ──────────────────────────────────────────────────
 def main():
-    print(f"Resetting collection and writing into {PERSIST_DIR} …")
+    logger.info(f"Resetting collection and writing into {PERSIST_DIR} …")
     chroma_client.reset()
 
     for md in sorted(DOCS_DIR.glob("*.md")):
         text = md.read_text(encoding="utf-8")
+        logger.info(f"Processing {md.name}")
         for idx, chunk in enumerate(chunk_text(text)):
             # 1) embed
             response = client.embeddings.create(
@@ -71,9 +82,10 @@ def main():
                 documents=[chunk],
                 metadatas=[{"source": md.name, "chunk": idx}]
             )
+            logger.info(f"Added chunk {idx} from {md.name}")
 
     chroma_client.persist()
-    print("✅ RAG database updated.")
+    logger.info("✅ RAG database updated.")
 
 if __name__ == "__main__":
     main()
