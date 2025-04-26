@@ -1,4 +1,4 @@
-name: Prepare Production Environment
+name: Prepare and Deploy to Production
 
 on:
   workflow_run:
@@ -9,15 +9,12 @@ on:
       - main
 
 jobs:
-  prepare-production:
-    name: Prepare Production Environment
+  deploy-production:
+    name: Deploy to Production
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-    
       - name: Free up disk space
         run: |
           echo "Disk space before cleanup:"
@@ -25,7 +22,7 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
           echo "Disk space after cleanup:"
           df -h
-    
+
       - name: Setup SSH and add to known hosts
         run: |
           mkdir -p ~/.ssh
@@ -34,38 +31,20 @@ jobs:
       - name: Setup SSH connection
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_K }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
       - name: Verify SSH connection
         run: |
-          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.SERVER_IP }} "echo 'SSH connection to production successful'"
-      
-      - name: Install Docker Compose if needed
+          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.SERVER_IP }} "echo '✅ SSH connection successful'"
+
+      - name: Pull and Switch Docker Containers (Fast Deployment)
         run: |
-          # Check if Docker Compose is installed
           ssh azureuser@${{ secrets.SERVER_IP }} "
-            if ! command -v docker-compose &> /dev/null; then
-              echo 'Docker Compose not found, installing...'
-              sudo curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-              docker-compose --version
-            else
-              echo 'Docker Compose is already installed'
-              docker-compose --version
-            fi
+            cd ~/DeepMed &&
+            echo '🔄 Pulling latest Docker images...' &&
+            docker-compose pull &&
+            echo '🚀 Restarting containers with minimal downtime...' &&
+            docker-compose up -d --remove-orphans
           "
-      
-      - name: Pull Docker Images
-        run: |
-          # Log in to Docker Hub on Production VM
-          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
           
-          # Create directories and copy docker-compose.yml if needed
-          ssh azureuser@${{ secrets.SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
-          scp docker_versions/docker-compose.yml azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/docker_versions/
-          
-          # Pull all latest images using docker-compose
-          ssh azureuser@${{ secrets.SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
-          
-          echo "✅ All images pulled successfully on production server"
-          echo "Images are ready for deployment - no containers restarted yet"
+          echo "✅ Deployment completed successfully."
