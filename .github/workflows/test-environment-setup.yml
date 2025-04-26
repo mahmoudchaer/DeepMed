@@ -1,48 +1,47 @@
-name: Setup Test Environment
+name: Test Environment Setup
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build and Push Multi-Service Images"]
+    types:
+      - completed
     branches:
       - main
 
 jobs:
   setup-test-environment:
+    name: Setup Test Environment
     runs-on: ubuntu-latest
-
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup SSH agent
+      
+      - name: SSH into VM
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
-
-      - name: Wait for SSH to be available
+      
+      - name: Add server to known hosts
         run: |
-          for i in {1..12}; do
-            if ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} 'echo SSH ready' &>/dev/null; then
-              echo "✅ SSH connection established"
-              break
-            else
-              echo "⏳ Waiting for SSH..."
-              sleep 10
-            fi
-          done
-
-      - name: Update & install Python on test VM
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Update System
         run: |
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} bash << 'EOF'
-            sudo apt-get update -y
-            if ! command -v python3 &> /dev/null; then sudo apt-get install -y python3; fi
-            if ! command -v pip3 &> /dev/null; then sudo apt-get install -y python3-pip; fi
-          EOF
-
-      - name: Ensure DeepMed directory exists
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "sudo apt update"
+      
+      - name: Install Python and Pip
         run: |
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
-
-      - name: Copy requirements.txt & install deps
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi"
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi"
+      
+      - name: Copy Requirements File
         run: |
-          scp -o StrictHostKeyChecking=no requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt"
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
+          scp requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
+      
+      - name: Install Requirements
+        run: |
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 
