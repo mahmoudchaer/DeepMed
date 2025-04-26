@@ -35,7 +35,7 @@ def app():
         return "Index page"
     
     @app.route('/training')
-    def training_route():
+    def training():
         return "Training page"
     
     return app
@@ -201,12 +201,11 @@ def test_api_predict_tabular_missing_files(app, mock_user):
         login_user(mock_user)
         
         # Test without files
-        response = api_predict_tabular()
-        assert response.status_code == 400
-        data = response.get_json()
-        assert isinstance(data, dict)
-        assert 'error' in data
-        assert 'Both model package and input file are required' in data['error']
+        response, status_code = api_predict_tabular()
+        assert status_code == 400
+        assert isinstance(response, dict)
+        assert 'error' in response
+        assert 'Both model package and input file are required' in response['error']
 
 def test_api_extract_encodings_missing_file(app, mock_user):
     """Test encoding extraction API with missing file"""
@@ -215,12 +214,11 @@ def test_api_extract_encodings_missing_file(app, mock_user):
         login_user(mock_user)
         
         # Test without file
-        response = api_extract_encodings()
-        assert response.status_code == 400
-        data = response.get_json()
-        assert isinstance(data, dict)
-        assert 'error' in data
-        assert 'Model package file is required' in data['error']
+        response, status_code = api_extract_encodings()
+        assert status_code == 400
+        assert isinstance(response, dict)
+        assert 'error' in response
+        assert 'Model package file is required' in response['error']
 
 @patch('app_tabular.requests.post')
 def test_api_predict_tabular_invalid_files(mock_post, app, mock_user, mock_model_package, mock_input_file):
@@ -240,12 +238,11 @@ def test_api_predict_tabular_invalid_files(mock_post, app, mock_user, mock_model
             }
             
             # Test with invalid files
-            response = api_predict_tabular()
-            assert response.status_code == 400
-            data = response.get_json()
-            assert isinstance(data, dict)
-            assert 'error' in data
-            assert 'Model package must be a ZIP archive' in data['error']
+            response, status_code = api_predict_tabular()
+            assert status_code == 400
+            assert isinstance(response, dict)
+            assert 'error' in response
+            assert 'Model package must be a ZIP archive' in response['error']
 
 @patch('app_tabular.requests.post')
 def test_api_extract_encodings_invalid_file(mock_post, app, mock_user, mock_model_package):
@@ -263,12 +260,11 @@ def test_api_extract_encodings_invalid_file(mock_post, app, mock_user, mock_mode
             }
             
             # Test with invalid file
-            response = api_extract_encodings()
-            assert response.status_code == 400
-            data = response.get_json()
-            assert isinstance(data, dict)
-            assert 'error' in data
-            assert 'Model package must be a ZIP archive' in data['error']
+            response, status_code = api_extract_encodings()
+            assert status_code == 400
+            assert isinstance(response, dict)
+            assert 'error' in response
+            assert 'Model package must be a ZIP archive' in response['error']
 
 @patch('app_tabular.requests.post')
 def test_api_predict_tabular_service_unavailable(mock_post, app, mock_user, mock_model_package, mock_input_file):
@@ -290,12 +286,11 @@ def test_api_predict_tabular_service_unavailable(mock_post, app, mock_user, mock
             mock_post.return_value = mock_response
             
             # Test with unavailable service
-            response = api_predict_tabular()
-            assert response.status_code == 503
-            data = response.get_json()
-            assert isinstance(data, dict)
-            assert 'error' in data
-            assert 'Tabular prediction service is not available' in data['error']
+            response, status_code = api_predict_tabular()
+            assert status_code == 503
+            assert isinstance(response, dict)
+            assert 'error' in response
+            assert 'Tabular prediction service is not available' in response['error']
 
 @patch('app_tabular.requests.post')
 def test_api_extract_encodings_service_unavailable(mock_post, app, mock_user, mock_model_package):
@@ -316,12 +311,11 @@ def test_api_extract_encodings_service_unavailable(mock_post, app, mock_user, mo
             mock_post.return_value = mock_response
             
             # Test with unavailable service
-            response = api_extract_encodings()
-            assert response.status_code == 503
-            data = response.get_json()
-            assert isinstance(data, dict)
-            assert 'error' in data
-            assert 'Tabular prediction service is not available' in data['error']
+            response, status_code = api_extract_encodings()
+            assert status_code == 503
+            assert isinstance(response, dict)
+            assert 'error' in response
+            assert 'Tabular prediction service is not available' in response['error']
 
 @patch('app_tabular.requests.post')
 def test_upload_success(mock_post, app, mock_user, mock_csv_file):
