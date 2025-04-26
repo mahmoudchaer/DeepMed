@@ -28,6 +28,8 @@ jobs:
         GIT_SHA=$(git rev-parse --short=7 HEAD)
         echo "git_sha=$GIT_SHA" >> $GITHUB_OUTPUT
         echo "Generated tag: $GIT_SHA"
+        # Create a file with the tag for other workflows
+        echo "$GIT_SHA" > image_tag.txt
 
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
@@ -65,3 +67,10 @@ jobs:
           docker push ${image_name%:*}:$GIT_SHA
           echo "Pushed ${image_name%:*}:$GIT_SHA"
         done
+        
+    - name: Upload image tag artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: image-tag
+        path: image_tag.txt
+        retention-days: 7

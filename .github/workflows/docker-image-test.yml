@@ -1,0 +1,157 @@
+name: Pull and Run Docker Images
+
+on:
+  workflow_run:
+    workflows: ["Test Environment Setup"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  pull-and-run-docker-images:
+    name: Pull and Run Docker Images
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download workflow artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: docker-multi-push.yml
+          workflow_conclusion: success
+          name: image-tag
+          path: .
+      
+      - name: Get image tag
+        id: get_tag
+        run: |
+          echo "image_tag=$(cat image_tag.txt)" >> $GITHUB_OUTPUT
+          echo "Using image tag: $(cat image_tag.txt)"
+      
+      - name: SSH into VM
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+      
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Pull Images Using Tag
+        run: |
+          # Login to Docker Hub on VM
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+          
+          # Extract image tag
+          IMAGE_TAG="${{ steps.get_tag.outputs.image_tag }}"
+          echo "Pulling images with tag: $IMAGE_TAG"
+          
+          # Get the list of services from the docker-compose file
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
+          scp docker_versions/docker-compose.yml azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/docker_versions/
+          
+          # Pull each image individually
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "
+            cd ~/DeepMed/docker_versions
+            
+            # Extract service names and image names
+            services=\$(grep -A 1 'image:' docker-compose.yml | grep 'mahmoudchaer' | awk '{print \$1}' | tr -d ':')
+            
+            # Pull each image
+            for service in \$services; do
+              # Extract full image name
+              image=\$(grep -A 1 '\${service}:' docker-compose.yml | grep 'image:' | awk '{print \$2}')
+              
+              # Replace :latest with specific tag
+              tagged_image=\${image%:*}:$IMAGE_TAG
+              
+              echo \"Pulling \$tagged_image\"
+              docker pull \$tagged_image
+            done
+          "
+      
+      - name: Run Each Image Individually
+        run: |
+          # Get the image tag
+          IMAGE_TAG="${{ steps.get_tag.outputs.image_tag }}"
+          
+          # Create a script to run each service individually
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "cat > ~/run_containers.sh << 'EOF'
+          #!/bin/bash
+          
+          # Image tag to use
+          IMAGE_TAG=\"$IMAGE_TAG\"
+          
+          # Create a network for the containers
+          docker network create deepmed-test-network || true
+          
+          # Function to run a container
+          run_container() {
+            local service_name=\$1
+            local port=\$2
+            local image=\"mahmoudchaer/\${service_name}:\${IMAGE_TAG}\"
+            
+            echo \"Starting \$service_name on port \$port using \$image\"
+            
+            # Stop and remove if already exists
+            docker stop \$service_name 2>/dev/null || true
+            docker rm \$service_name 2>/dev/null || true
+            
+            # Run the container
+            docker run -d --name \$service_name \
+              -p \$port:\$port \
+              --network deepmed-test-network \
+              \$image
+              
+            # Check if container is running
+            if docker ps | grep \$service_name > /dev/null; then
+              echo \"✅ \$service_name is running\"
+            else
+              echo \"❌ \$service_name failed to start\"
+              docker logs \$service_name
+            fi
+          }
+          
+          # Run Tabular Data Services
+          echo \"=== Starting Tabular Data Services ===\"
+          run_container data-cleaner 5001
+          run_container feature-selector 5002
+          run_container anomaly-detector 5003
+          run_container model-trainer 5004
+          run_container medical-assistant 5005
+          run_container model-coordinator 5020
+          run_container logistic-regression 5010
+          run_container decision-tree 5011
+          run_container random-forest 5012
+          run_container svm 5013
+          run_container knn 5014
+          run_container naive-bayes 5015
+          run_container tabular-predictor-service 5101
+          
+          # Run Image Processing Services
+          echo \"=== Starting Image Processing Services ===\"
+          run_container pipeline-service 5025
+          run_container augmentation-service 5023
+          run_container model-training-service 5021
+          run_container anomaly-detection-service 5029
+          run_container anomaly-detector-eep 5030
+          run_container predictor-service 5100
+          
+          # Run Chatbot Services
+          echo \"=== Starting Chatbot Services ===\"
+          run_container embedding-service 5201
+          run_container vector-search-service 5202
+          run_container llm-generator-service 5203
+          run_container chatbot-gateway 5204
+          
+          echo \"All containers started individually\"
+          docker ps
+          EOF"
+          
+          # Make the script executable and run it
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "chmod +x ~/run_containers.sh && ~/run_containers.sh" 

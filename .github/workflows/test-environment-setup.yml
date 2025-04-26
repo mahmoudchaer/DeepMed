@@ -1,18 +1,18 @@
 name: Test Environment Setup
 
 on:
-  # Run on push to main branch
-  push:
-    branches: 
+  workflow_run:
+    workflows: ["Build and Push Multi-Service Images"]
+    types:
+      - completed
+    branches:
       - main
-  
-  # Allow manual triggering
-  workflow_dispatch:
 
 jobs:
   setup-test-environment:
     name: Setup Test Environment
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
       - name: Checkout repository
