@@ -1,0 +1,5 @@
+pytest==7.4.3
+pytest-cov==4.1.0
+azure-storage-blob==12.19.0
+azure-identity==1.15.0
+azure-keyvault-secrets==4.7.0 
