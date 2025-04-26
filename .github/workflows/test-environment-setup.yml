@@ -9,36 +9,31 @@ jobs:
   setup-test-environment:
     name: Setup Test Environment
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Setup SSH connection
+
+      - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
 
-      - name: Add Test Server to known hosts
+      - name: Update & install Python on test VM
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
-      
-      - name: Update System Packages
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} bash << 'EOF'
+            sudo apt-get update -y
+            if ! command -v python3 &> /dev/null; then sudo apt-get install -y python3; fi
+            if ! command -v pip3 &> /dev/null; then sudo apt-get install -y python3-pip; fi
+          EOF
+
+      - name: Ensure DeepMed folder exists
         run: |
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "sudo apt update"
-      
-      - name: Install Python and Pip (if missing)
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
+
+      - name: Copy requirements.txt and install deps
         run: |
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "
-            if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi
-            if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi
-          "
-      
-      - name: Copy requirements.txt to VM
-        run: |
-          scp -o StrictHostKeyChecking=no requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
-      
-      - name: Install Python Requirements
-        run: |
-          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt"
+          scp -o StrictHostKeyChecking=no requirements.txt \
+            azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.TEST_SERVER_IP }} \
+            "pip3 install -r ~/DeepMed/requirements.txt"

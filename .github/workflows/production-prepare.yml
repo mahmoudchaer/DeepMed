@@ -9,38 +9,23 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Free up disk space
         run: |
-          echo "Disk space before cleanup:"
-          df -h
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
-          echo "Disk space after cleanup:"
-          df -h
+          echo "Disk space before cleanup:" && df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache || true
+          echo "Disk space after cleanup:" && df -h
 
-      - name: Setup SSH and add to known hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-      
-      - name: Setup SSH connection
+      - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
-      - name: Verify SSH connection
-        run: |
-          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.SERVER_IP }} "echo '✅ SSH connection successful'"
 
-      - name: Pull and Switch Docker Containers (Fast Deployment)
+      - name: Pull & switch Docker containers (fast)
         run: |
-          ssh azureuser@${{ secrets.SERVER_IP }} "
-            cd ~/DeepMed &&
-            echo '🔄 Pulling latest Docker images...' &&
-            docker-compose pull &&
-            echo '🚀 Restarting containers with minimal downtime...' &&
+          ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.SERVER_IP }} bash << 'EOF'
+            cd ~/DeepMed
+            docker-compose pull
             docker-compose up -d --remove-orphans
-          "
-          
-          echo "✅ Deployment completed successfully."
+          EOF
