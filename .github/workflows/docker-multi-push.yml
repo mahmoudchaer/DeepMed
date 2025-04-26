@@ -7,8 +7,6 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.generate_tag.outputs.git_sha }}
 
     steps:
     - name: Checkout code
@@ -22,74 +20,20 @@ jobs:
         echo "Disk space after cleanup:"
         df -h
 
-    - name: Generate Tag
-      id: generate_tag
-      run: |
-        GIT_SHA=$(git rev-parse --short=7 HEAD)
-        echo "git_sha=$GIT_SHA" >> $GITHUB_OUTPUT
-        echo "Generated tag: $GIT_SHA"
-        # Create a file with the tag for other workflows
-        echo "$GIT_SHA" > image_tag.txt
-
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and Tag Images
+    - name: Build and Push Images
       run: |
         # Build with default tag (latest)
+        echo "Building Docker images..."
         docker compose -f docker_versions/docker-compose.yml build
         
-        # Tag with Git SHA
-        GIT_SHA=${{ steps.generate_tag.outputs.git_sha }}
-        
-        # Loop through services and tag with SHA
-        for service in $(docker compose -f docker_versions/docker-compose.yml config --services); do
-          # Get the image name from the compose config
-          image_name=$(docker compose -f docker_versions/docker-compose.yml config | grep "image:" | grep -w "$service" || grep "image: .*$service" | awk '{print $2}')
-          
-          # Skip if image name is empty
-          if [ -z "$image_name" ]; then
-            echo "Warning: Could not find image for service $service, skipping"
-            continue
-          fi
-          
-          # Tag with SHA
-          echo "Tagging $image_name as ${image_name%:*}:$GIT_SHA"
-          docker tag "$image_name" "${image_name%:*}:$GIT_SHA"
-        done
-
-    - name: Push Images
-      run: |
-        GIT_SHA=${{ steps.generate_tag.outputs.git_sha }}
-        
         # Push latest tags
+        echo "Pushing Docker images to DockerHub..."
         docker compose -f docker_versions/docker-compose.yml push
         
-        # Push SHA tags - use a different approach that's more reliable
-        for service in $(docker compose -f docker_versions/docker-compose.yml config --services); do
-          # Get the full image name including organization
-          full_image=$(docker compose -f docker_versions/docker-compose.yml config | grep -A 1 "  $service:" | grep "image:" | awk '{print $2}')
-          
-          # Skip if image name is empty
-          if [ -z "$full_image" ]; then
-            echo "Warning: Could not find image for service $service, skipping"
-            continue
-          fi
-          
-          # Extract the image name without tag
-          image_without_tag=${full_image%:*}
-          
-          # Push SHA tag
-          echo "Pushing $image_without_tag:$GIT_SHA"
-          docker push "$image_without_tag:$GIT_SHA"
-        done
-        
-    - name: Upload image tag artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: image-tag
-        path: image_tag.txt
-        retention-days: 7
+        echo "All images built and pushed successfully!"
