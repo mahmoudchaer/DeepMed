@@ -205,7 +205,7 @@ def test_check_services(mock_get):
     # Test with service down
     mock_get.return_value.status_code = 500
     result = check_services()
-    assert result["Test Service"] == "unhealthy"
+    assert result["Test Service"] == "unhealthy - 500"
 
 def test_check_session_size(app):
     """Test session size checking"""
