@@ -47,7 +47,11 @@ pip install -r requirements.txt
 ```
 python db/init_db.py
 ```
-6. Start the application
+6. Initialize ChromaDB for vector storage (required for chatbot services)
+```
+python -c "import chromadb; chromadb.Client().reset()"
+```
+7. Start the application
 ```
 python app_api.py
 ```
