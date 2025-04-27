@@ -4,7 +4,6 @@
         "Feature Selector": {"url": "http://20.119.81.37:5002", "endpoint": "/health"},
         "Anomaly Detector": {"url": "http://20.119.81.37:5003", "endpoint": "/health"},
         "Model Trainer": {"url": "http://20.119.81.37:5004", "endpoint": "/health"},
-        "Medical Assistant": {"url": "http://20.119.81.37:5005", "endpoint": "/health"},
         "Model Coordinator": {"url": "http://20.119.81.37:5020", "endpoint": "/health"},
         "Logistic Regression": {"url": "http://20.119.81.37:5010", "endpoint": "/health"},
         "Decision Tree": {"url": "http://20.119.81.37:5011", "endpoint": "/health"},
@@ -15,11 +14,12 @@
         "Tabular Predictor": {"url": "http://20.119.81.37:5101", "endpoint": "/health"}
     },
     "Image Processing Services": {
-        "Pipeline Service": {"url": "http://20.119.81.37:6001", "endpoint": "/health"},
-        "Augmentation Service": {"url": "http://20.119.81.37:6002", "endpoint": "/health"},
-        "Image Classification": {"url": "http://20.119.81.37:6003", "endpoint": "/health"},
-        "Anomaly Detection Service": {"url": "http://20.119.81.37:6004", "endpoint": "/health"},
-        "Image Predictor": {"url": "http://20.119.81.37:6005", "endpoint": "/health"}
+        "Pipeline Service": {"url": "http://20.119.81.37:5025", "endpoint": "/health"},
+        "Augmentation Service": {"url": "http://20.119.81.37:5023", "endpoint": "/health"},
+        "Model Training Service": {"url": "http://20.119.81.37:5021", "endpoint": "/health"},
+        "Anomaly Detection Service": {"url": "http://20.119.81.37:5029", "endpoint": "/health"},
+        "Anomaly Detector EEP": {"url": "http://20.119.81.37:5030", "endpoint": "/health"},
+        "Image Predictor": {"url": "http://20.119.81.37:5100", "endpoint": "/health"}
     },
     "Chatbot Services": {
         "Embedding Service": {"url": "http://20.119.81.37:5201", "endpoint": "/health"},
@@ -28,6 +28,6 @@
         "Chatbot Gateway": {"url": "http://20.119.81.37:5200", "endpoint": "/health"}
     },
     "Monitoring": {
-        "Monitoring Service": {"url": "http://20.119.81.37:3000", "endpoint": "/health"}
+        "Monitoring Service": {"url": "http://20.119.81.37:4532", "endpoint": "/health"}
     }
 } 
