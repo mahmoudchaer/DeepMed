@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from flask import session
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
 import app_images
@@ -18,25 +17,22 @@ def client(app):
 @pytest.fixture
 def mock_user():
     user = MagicMock()
-    user.id = 'test_user'
+    user.id = 1
     user.is_authenticated = True
     return user
 
 # --- /images redirect ---
 def test_images_route_redirect(client, mock_user):
-    with client.session_transaction() as sess:
-        sess['_user_id'] = mock_user.id
-    resp = client.get('/images')
-    assert resp.status_code == 302
-    assert '/pipeline' in resp.location
+    with patch('app_images.current_user', mock_user):
+        resp = client.get('/images')
+        assert resp.status_code == 302
+        assert '/pipeline' in resp.location
 
 # --- /anomaly_detection page ---
 def test_anomaly_detection_route_authenticated(client, mock_user):
     with patch('app_images.current_user', mock_user), \
          patch('app_images.check_services', return_value={}), \
          patch('app_images.is_service_available', return_value=True):
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         resp = client.get('/anomaly_detection')
         assert resp.status_code == 200
         assert b'anomaly_detection' in resp.data
@@ -58,8 +54,6 @@ def test_api_train_model_success(client, mock_user):
         mock_response.content = b'modeldata'
         mock_response.headers = {'X-Training-Metrics': '{}'}
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'zipFile': (BytesIO(b'zipcontent'), 'test.zip'),
             'numClasses': '2',
@@ -77,8 +71,6 @@ def test_api_train_model_failure(client, mock_user):
         mock_response.status_code = 400
         mock_response.json.return_value = {'error': 'fail'}
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'zipFile': (BytesIO(b'zipcontent'), 'test.zip'),
             'numClasses': '2',
@@ -92,8 +84,6 @@ def test_api_train_model_failure(client, mock_user):
 def test_augment_route(client, mock_user):
     with patch('app_images.current_user', mock_user), \
          patch('app_images.check_services', return_value={}):
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         resp = client.get('/augment')
         assert resp.status_code == 200
         assert b'augment' in resp.data
@@ -107,8 +97,6 @@ def test_process_augmentation_success(client, mock_user):
         mock_response.status_code = 200
         mock_response.content = b'augzip'
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'zipFile': (BytesIO(b'zipcontent'), 'test.zip'),
             'level': '2'
@@ -126,8 +114,6 @@ def test_process_augmentation_failure(client, mock_user):
         mock_response.status_code = 400
         mock_response.json.return_value = {'error': 'bad'}
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'zipFile': (BytesIO(b'zipcontent'), 'test.zip'),
             'level': '2'
@@ -140,8 +126,6 @@ def test_process_augmentation_failure(client, mock_user):
 def test_pipeline_route(client, mock_user):
     with patch('app_images.current_user', mock_user), \
          patch('app_images.check_services', return_value={}):
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         resp = client.get('/pipeline')
         assert resp.status_code == 200
         assert b'pipeline' in resp.data
@@ -154,8 +138,6 @@ def test_api_predict_image_success(client, mock_user):
         mock_response.status_code = 200
         mock_response.json.return_value = {'predictions': [{'class': 'cat'}]}
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'image': (BytesIO(b'img'), 'test.jpg'),
             'modelPackage': (BytesIO(b'model'), 'model.pt')
@@ -171,8 +153,6 @@ def test_api_predict_image_failure(client, mock_user):
         mock_response.status_code = 400
         mock_response.json.return_value = {'error': 'badimg'}
         mock_post.return_value = mock_response
-        with client.session_transaction() as sess:
-            sess['_user_id'] = mock_user.id
         data = {
             'image': (BytesIO(b'img'), 'test.jpg'),
             'modelPackage': (BytesIO(b'model'), 'model.pt')
