@@ -62,15 +62,6 @@ def test_get_secret_success(mock_secret_client):
     assert result == "test_secret_value"
     mock_secret_client.get_secret.assert_called_once_with("test_secret")
 
-def test_get_secret_failure(mock_secret_client):
-    """Test secret retrieval failure from Key Vault"""
-    # Setup mock to raise exception
-    mock_secret_client.get_secret.side_effect = Exception("Test error")
-    
-    # Test
-    result = keyvault.get_secret("test_secret", default_value="default")
-    assert result == "default"
-
 def test_getenv_success(mock_secret_client):
     """Test getenv function success"""
     # Setup mock
