@@ -368,6 +368,7 @@ services:
       - "5201:5201"
     environment:
       - PORT=5201
+      - OPENAI_API_KEY=${OPENAIAPIKEY}
       - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../logs:/app/logs
@@ -385,6 +386,7 @@ services:
       - "5202:5202"
     environment:
       - PORT=5202
+      - OPENAI_API_KEY=${OPENAIAPIKEY}
       - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../keyvault.py:/app/keyvault.py
@@ -401,6 +403,7 @@ services:
       - "5203:5203"
     environment:
       - PORT=5203
+      - OPENAI_API_KEY=${OPENAIAPIKEY}
       - OPENAI-API-KEY=${OPENAIAPIKEY}
     volumes:
       - ../logs:/app/logs
