@@ -224,8 +224,8 @@ jobs:
           # Install dependencies if needed
           if ! command -v python3 &> /dev/null; then
               echo "Python not found, installing..."
-              sudo apt-get update
-              sudo apt-get install -y python3 python3-pip
+              echo "$PASSWORD" | sudo -S apt-get update
+              echo "$PASSWORD" | sudo -S apt-get install -y python3 python3-pip
           fi
           
           if ! python3 -c "import requests" &> /dev/null; then
@@ -249,7 +249,7 @@ jobs:
           scp remote_health_check.sh azureuser@${{ secrets.SERVER_IP }}:~/remote_health_check.sh
           
           # Run the script on the server and capture output
-          ssh azureuser@${{ secrets.SERVER_IP }} "bash ~/remote_health_check.sh" | tee health_check_output.log
+          ssh azureuser@${{ secrets.SERVER_IP }} "PASSWORD='${{ secrets.PASSWORD }}' bash ~/remote_health_check.sh" | tee health_check_output.log
           
           # Copy results back if they exist
           ssh azureuser@${{ secrets.SERVER_IP }} "if [ -f ~/health-results.json ]; then cat ~/health-results.json; fi" > health-results.json || echo "{}" > health-results.json

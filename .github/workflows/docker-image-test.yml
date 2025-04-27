@@ -47,8 +47,8 @@ jobs:
           ssh azureuser@${{ secrets.SERVER_IP }} "
             if ! command -v docker-compose &> /dev/null; then
               echo 'Docker Compose not found, installing...'
-              sudo curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
+              echo '${{ secrets.PASSWORD }}' | sudo -S curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
+              echo '${{ secrets.PASSWORD }}' | sudo -S chmod +x /usr/local/bin/docker-compose
               docker-compose --version
             else
               echo 'Docker Compose is already installed'
@@ -66,7 +66,7 @@ jobs:
           scp docker_versions/docker-compose.yml azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/docker_versions/
           
           # Pull all images using docker-compose
-          ssh azureuser@${{ secrets.SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
+          ssh azureuser@${{ secrets.SERVER_IP }} "cd ~/DeepMed/docker_versions && echo '${{ secrets.PASSWORD }}' | sudo -S /usr/local/bin/docker-compose pull"
       
       - name: Run Each Image Individually
         run: |
@@ -141,4 +141,4 @@ jobs:
           EOF"
           
           # Make the script executable and run it
-          ssh azureuser@${{ secrets.SERVER_IP }} "chmod +x ~/run_containers.sh && ~/run_containers.sh" 
+          ssh azureuser@${{ secrets.SERVER_IP }} "chmod +x ~/run_containers.sh && echo '${{ secrets.PASSWORD }}' | sudo -S ~/run_containers.sh" 

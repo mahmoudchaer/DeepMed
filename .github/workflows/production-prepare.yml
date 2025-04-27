@@ -29,6 +29,6 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@${{ secrets.SERVER_IP }} bash << 'EOF'
             cd ~/DeepMed/docker_versions
-            docker compose pull
-            docker compose up -d --remove-orphans
+            echo '${{ secrets.PASSWORD }}' | sudo -S docker compose pull
+            echo '${{ secrets.PASSWORD }}' | sudo -S docker compose up -d --remove-orphans
           EOF
