@@ -24,10 +24,6 @@
     "Chatbot Services": {
         "Embedding Service": {"url": "http://20.119.81.37:5201", "endpoint": "/health"},
         "LLM Generator": {"url": "http://20.119.81.37:5202", "endpoint": "/health"},
-        "Vector Search": {"url": "http://20.119.81.37:5203", "endpoint": "/health"},
-        "Chatbot Gateway": {"url": "http://20.119.81.37:5200", "endpoint": "/health"}
-    },
-    "Monitoring": {
-        "Monitoring Service": {"url": "http://20.119.81.37:4532", "endpoint": "/health"}
+        "Vector Search": {"url": "http://20.119.81.37:5203", "endpoint": "/health"}
     }
 } 
