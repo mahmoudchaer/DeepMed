@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-import openai
+from openai import OpenAI
 import pandas as pd
 import json
 import os
@@ -39,9 +39,8 @@ class MedicalAssistant:
     def __init__(self, api_key: str):
         """Initialize the medical assistant with OpenAI API key."""
         try:
-            # Set the API key directly on the openai module
-            openai.api_key = api_key
-            self.client = openai  # Use the openai module as the client
+            # Initialize the new OpenAI client
+            self.client = OpenAI(api_key=api_key)
             logging.info("Medical Assistant: OpenAI client initialized")
             self.conversation_history = {}  # Use dictionary to store conversation history for multiple sessions
             self.system_prompt = (
@@ -57,12 +56,12 @@ class MedicalAssistant:
     def _get_chat_completion(self, messages: List[Dict[str, str]]) -> str:
         """Get completion from OpenAI API."""
         try:
-            response = self.client.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=messages,
                 temperature=0.3  # Lower temperature for more focused responses
             )
-            return response['choices'][0]['message']['content']
+            return response.choices[0].message.content
         except Exception as e:
             logging.error(f"Error communicating with AI assistant: {str(e)}")
             return f"Error communicating with AI assistant: {str(e)}"
