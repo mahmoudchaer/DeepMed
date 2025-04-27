@@ -67,11 +67,10 @@ The application uses Azure Key Vault for secure configuration management. No `.e
 - `MYSQLDB`: MySQL database name
 - `SECRETKEY`: Flask application secret key
 - `OPENAIAPIKEY`: OpenAI API key for LLM services
+- `OPENAI_API_KEY`: OpenAI API key for LLM services
 - `AZURESTORAGEACCOUNT`: Azure Storage account name
 - `AZURESTORAGEKEY`: Azure Storage access key
 - `AZURECONTAINER`: Azure Storage container name
-- `SYSTEM_PROMPT_VALUE`: System prompt for the chatbot
-- `VAULT_URL`: URL of your Azure Key Vault (already set in keyvault.py)
 
 The application accesses these secrets directly from Azure Key Vault using the `keyvault.py` module, which handles authentication and secret retrieval.
 
