@@ -21,27 +21,27 @@ jobs:
       - name: SSH into VM
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Update System
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "sudo apt update"
+          ssh azureuser@${{ secrets.SERVER_IP }} "sudo apt update"
       
       - name: Install Python and Pip
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi"
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi"
+          ssh azureuser@${{ secrets.SERVER_IP }} "if ! command -v python3 &> /dev/null; then sudo apt install -y python3; fi"
+          ssh azureuser@${{ secrets.SERVER_IP }} "if ! command -v pip3 &> /dev/null; then sudo apt install -y python3-pip; fi"
       
       - name: Copy Requirements File
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
-          scp requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
+          ssh azureuser@${{ secrets.SERVER_IP }} "mkdir -p ~/DeepMed"
+          scp requirements.txt azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/requirements.txt
       
       - name: Install Requirements
         run: |
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 
+          ssh azureuser@${{ secrets.SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 

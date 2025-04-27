@@ -29,22 +29,22 @@ jobs:
       - name: Setup SSH and add to known hosts
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.TEST_SERVER_IP }}" > ~/.ssh/test_server_ip.txt
-          ssh-keyscan -H $(cat ~/.ssh/test_server_ip.txt) >> ~/.ssh/known_hosts
+          echo "${{ secrets.SERVER_IP }}" > ~/.ssh/server_ip.txt
+          ssh-keyscan -H $(cat ~/.ssh/server_ip.txt) >> ~/.ssh/known_hosts
       
       - name: SSH into VM
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
       - name: Verify SSH connection
         run: |
-          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.TEST_SERVER_IP }} "echo 'SSH connection successful'"
+          ssh -o StrictHostKeyChecking=accept-new azureuser@${{ secrets.SERVER_IP }} "echo 'SSH connection successful'"
       
       - name: Install Docker Compose if needed
         run: |
           # Check if Docker Compose is installed
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "
+          ssh azureuser@${{ secrets.SERVER_IP }} "
             if ! command -v docker-compose &> /dev/null; then
               echo 'Docker Compose not found, installing...'
               sudo curl -L \"https://github.com/docker/compose/releases/download/v2.24.1/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose
@@ -59,19 +59,19 @@ jobs:
       - name: Pull Latest Images
         run: |
           # Login to Docker Hub on VM
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
           
           # Create directories and copy docker-compose.yml
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
-          scp docker_versions/docker-compose.yml azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/docker_versions/
+          ssh azureuser@${{ secrets.SERVER_IP }} "mkdir -p ~/DeepMed/docker_versions"
+          scp docker_versions/docker-compose.yml azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/docker_versions/
           
           # Pull all images using docker-compose
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
+          ssh azureuser@${{ secrets.SERVER_IP }} "cd ~/DeepMed/docker_versions && sudo /usr/local/bin/docker-compose pull"
       
       - name: Run Each Image Individually
         run: |
           # Create a script to run each service individually
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "cat > ~/run_containers.sh << 'EOF'
+          ssh azureuser@${{ secrets.SERVER_IP }} "cat > ~/run_containers.sh << 'EOF'
           #!/bin/bash
           
           # Create a network for the containers
@@ -141,4 +141,4 @@ jobs:
           EOF"
           
           # Make the script executable and run it
-          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "chmod +x ~/run_containers.sh && ~/run_containers.sh" 
+          ssh azureuser@${{ secrets.SERVER_IP }} "chmod +x ~/run_containers.sh && ~/run_containers.sh" 
