@@ -3,6 +3,7 @@
 import os
 import sys
 import logging
+import httpx
 from pathlib import Path
 
 # Set up logging
@@ -23,9 +24,15 @@ if not api_key:
     logger.error("Missing OPENAI-API-KEY in Key Vault")
     raise RuntimeError("Missing OPENAI-API-KEY in Key Vault")
 
-# Initialize OpenAI client (correct for v1.x)
+# Clean proxy environment variables to prevent OpenAI crash
+os.environ.pop("HTTP_PROXY", None)
+os.environ.pop("HTTPS_PROXY", None)
+
+# Initialize OpenAI client with custom httpx client to avoid proxy issues
+http_client = httpx.Client()
 client = OpenAI(
-    api_key=api_key
+    api_key=api_key,
+    http_client=http_client
 )
 logger.info("OpenAI client initialized")
 
