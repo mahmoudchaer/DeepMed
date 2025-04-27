@@ -21,27 +21,27 @@ jobs:
       - name: SSH into VM
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
       
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Update System
         run: |
-          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt update"
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt update"
       
       - name: Install Python and Pip
         run: |
-          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt install -y python3 || echo 'Python3 already installed'"
-          ssh azureuser@${{ secrets.SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt install -y python3-pip || echo 'Pip already installed'"
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt install -y python3 || echo 'Python3 already installed'"
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "echo '${{ secrets.PASSWORD }}' | sudo -S apt install -y python3-pip || echo 'Pip already installed'"
       
       - name: Copy Requirements File
         run: |
-          ssh azureuser@${{ secrets.SERVER_IP }} "mkdir -p ~/DeepMed"
-          scp requirements.txt azureuser@${{ secrets.SERVER_IP }}:~/DeepMed/requirements.txt
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "mkdir -p ~/DeepMed"
+          scp requirements.txt azureuser@${{ secrets.TEST_SERVER_IP }}:~/DeepMed/requirements.txt
       
       - name: Install Requirements
         run: |
-          ssh azureuser@${{ secrets.SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "pip3 install -r ~/DeepMed/requirements.txt" 

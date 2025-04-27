@@ -45,12 +45,12 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
       
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.TEST_SERVER_IP }} >> ~/.ssh/known_hosts
       
       - name: Create health check script on server
         run: |
@@ -246,13 +246,13 @@ jobs:
       - name: Run health check on remote server
         run: |
           # Copy the script to the server
-          scp remote_health_check.sh azureuser@${{ secrets.SERVER_IP }}:~/remote_health_check.sh
+          scp remote_health_check.sh azureuser@${{ secrets.TEST_SERVER_IP }}:~/remote_health_check.sh
           
           # Run the script on the server and capture output
-          ssh azureuser@${{ secrets.SERVER_IP }} "PASSWORD='${{ secrets.PASSWORD }}' bash ~/remote_health_check.sh" | tee health_check_output.log
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "PASSWORD='${{ secrets.PASSWORD }}' bash ~/remote_health_check.sh" | tee health_check_output.log
           
           # Copy results back if they exist
-          ssh azureuser@${{ secrets.SERVER_IP }} "if [ -f ~/health-results.json ]; then cat ~/health-results.json; fi" > health-results.json || echo "{}" > health-results.json
+          ssh azureuser@${{ secrets.TEST_SERVER_IP }} "if [ -f ~/health-results.json ]; then cat ~/health-results.json; fi" > health-results.json || echo "{}" > health-results.json
       
       - name: Upload health check results
         uses: actions/upload-artifact@v4
