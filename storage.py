@@ -7,17 +7,25 @@ import keyvault  # Import our key vault module
 logger = logging.getLogger(__name__)
 
 # Get Azure credentials from Key Vault
-AZURESTORAGEACCOUNT = keyvault.getenv("AZURESTORAGEACCOUNT")
-AZURESTORAGEKEY = keyvault.getenv("AZURESTORAGEKEY")
-AZURECONTAINER = keyvault.getenv("AZURECONTAINER")
-
-# Check if Azure credentials are available
-if not all([AZURESTORAGEACCOUNT, AZURESTORAGEKEY, AZURECONTAINER]):
-    logger.warning("Azure Storage credentials not found. Blob storage operations will not work.")
-    
-# Create a Blob Service Client only if credentials are available
+AZURESTORAGEACCOUNT = None
+AZURESTORAGEKEY = None
+AZURECONTAINER = None
 blob_service_client = None
-if all([AZURESTORAGEACCOUNT, AZURESTORAGEKEY, AZURECONTAINER]):
+
+def init_storage():
+    """Initialize storage credentials and client"""
+    global AZURESTORAGEACCOUNT, AZURESTORAGEKEY, AZURECONTAINER, blob_service_client
+    
+    AZURESTORAGEACCOUNT = keyvault.getenv("AZURESTORAGEACCOUNT")
+    AZURESTORAGEKEY = keyvault.getenv("AZURESTORAGEKEY")
+    AZURECONTAINER = keyvault.getenv("AZURECONTAINER")
+    
+    # Check if Azure credentials are available
+    if not all([AZURESTORAGEACCOUNT, AZURESTORAGEKEY, AZURECONTAINER]):
+        logger.warning("Azure Storage credentials not found. Blob storage operations will not work.")
+        return
+        
+    # Create a Blob Service Client
     try:
         blob_service_client = BlobServiceClient(
             f"https://{AZURESTORAGEACCOUNT}.blob.core.windows.net",
@@ -26,18 +34,21 @@ if all([AZURESTORAGEACCOUNT, AZURESTORAGEKEY, AZURECONTAINER]):
         logger.info(f"Connected to Azure Blob Storage account: {AZURESTORAGEACCOUNT}")
     except Exception as e:
         logger.error(f"Error connecting to Azure Blob Storage: {str(e)}")
+        blob_service_client = None
 
 def upload_to_blob(file, filename):
     """Uploads a file to Azure Blob Storage."""
     if blob_service_client is None:
-        logger.error("Azure Blob Storage client not initialized. Cannot upload file.")
-        return None
+        init_storage()
+        if blob_service_client is None:
+            logger.error("Azure Blob Storage client not initialized. Cannot upload file.")
+            return None
         
     try:
         blob_client = blob_service_client.get_blob_client(container=AZURECONTAINER, blob=filename)
         blob_client.upload_blob(file, overwrite=True)
         logger.info(f"File '{filename}' uploaded successfully!")
-        return f"https://{AZURESTORAGEACCOUNT}.blob.core.windows.net/{AZURECONTAINER}/{filename}"
+        return get_blob_url(filename)
     except Exception as e:
         logger.error(f"Error uploading file: {str(e)}")
         return None
@@ -45,16 +56,20 @@ def upload_to_blob(file, filename):
 def get_blob_url(filename):
     """Gets the public URL of a blob file."""
     if blob_service_client is None:
-        logger.error("Azure Blob Storage client not initialized.")
-        return None
+        init_storage()
+        if blob_service_client is None:
+            logger.error("Azure Blob Storage client not initialized.")
+            return None
         
     return f"https://{AZURESTORAGEACCOUNT}.blob.core.windows.net/{AZURECONTAINER}/{filename}"
 
 def delete_blob(filename):
     """Deletes a file from Azure Blob Storage."""
     if blob_service_client is None:
-        logger.error("Azure Blob Storage client not initialized. Cannot delete file.")
-        return False
+        init_storage()
+        if blob_service_client is None:
+            logger.error("Azure Blob Storage client not initialized. Cannot delete file.")
+            return False
         
     try:
         blob_client = blob_service_client.get_blob_client(container=AZURECONTAINER, blob=filename)
@@ -78,8 +93,10 @@ def download_blob(blob_url, local_path=None):
                       otherwise True if the download was successful.
     """
     if blob_service_client is None:
-        logger.error("Azure Blob Storage client not initialized. Cannot download file.")
-        return None
+        init_storage()
+        if blob_service_client is None:
+            logger.error("Azure Blob Storage client not initialized. Cannot download file.")
+            return None
     
     try:
         # Extract the blob name from the URL
