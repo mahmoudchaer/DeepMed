@@ -1,130 +1,114 @@
-# DeepMed - Medical AI Platform
+# DeepMed: Medical AI Platform
 
-A comprehensive medical AI platform for training models on medical data, making predictions, and getting AI-assisted insights.
+DeepMed is a comprehensive AI platform designed for medical professionals and researchers to leverage machine learning for healthcare applications. The platform provides tools for data processing, model training, prediction, and AI-powered medical assistance.
 
-## Features
+## 🚀 Features
 
-- User authentication system
-- Data cleaning and preprocessing
-- Feature selection
-- Anomaly detection
-- Model training (classification and regression)
-- Model evaluation and selection
-- Prediction on new data
-- AI-assisted medical recommendations
-- Interactive data visualization
-- Azure Key Vault integration for secure secret management
+- **Tabular Data Analysis**: Process and analyze medical data tables with advanced cleaning and feature selection
+- **Medical Image Processing**: Train and use deep learning models for medical image analysis
+- **Anomaly Detection**: Identify abnormal patterns in medical data using autoencoder-based anomaly detection
+- **Data Augmentation**: Enhance medical datasets with sophisticated augmentation techniques
+- **AI-Powered Chatbot**: Get medical AI assistance with a context-aware chatbot
+- **Pipeline Integration**: Streamlined end-to-end workflows for medical AI applications
+- **User Management**: Secure authentication and project management
+- **Azure Integration**: Secure secret management via Azure Key Vault
 
-## Requirements
+## 🔧 Technical Architecture
+
+DeepMed is built on a microservices architecture with the following components:
+
+- **Flask Web Application**: Main application interface
+- **Machine Learning Services**: Specialized containerized services for different ML tasks
+- **Database Layer**: User data, training runs, and model storage
+- **Chatbot Services**: AI assistant with RAG (Retrieval Augmented Generation) capabilities
+- **Storage Services**: Management of files and model artifacts
+
+## 📋 Requirements
 
 - Python 3.8+
-- PostgreSQL 12+
-- Required Python packages (see requirements.txt)
-- Azure subscription for Key Vault
+- Docker and Docker Compose
+- MySQL Database
+- Azure Key Vault (for production environments)
 
-## Installation
+## 🛠️ Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/DeepMedVer.git
-cd DeepMed
+1. Clone the repository
+2. Create a virtual environment
 ```
-
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
 ```
-
-3. Install dependencies:
-```bash
+3. Install requirements
+```
 pip install -r requirements.txt
 ```
-
-4. Configure Azure Key Vault:
-   - Create an Azure Key Vault in your Azure subscription
-   - Add all required secrets to your Key Vault (see AZURE_KEYVAULT.md for details)
-   - Update the VAULT_URL in keyvault.py with your Key Vault URL
-   - Configure authentication (Managed Identity for Azure deployments, or environment variables locally)
-
-5. Set up the PostgreSQL database:
-```bash
-python setup_db.py
+4. Configure database settings (see Configuration section)
+5. Initialize the database
+```
+python db/init_db.py
+```
+6. Start the application
+```
+python app_api.py
 ```
 
-6. Run the application:
-```bash
-python app.py
-```
+## 🔐 Configuration
 
-7. Open your browser and navigate to http://localhost:5000
-
-## Usage
-
-1. Register a new account or log in to an existing account
-2. Upload your dataset (CSV or Excel format)
-3. Select the target variable and training parameters
-4. Train various models and select the best one
-5. Make predictions on new data
-6. Use the AI assistant for medical insights
-
-## Authentication
-
-The platform includes a user authentication system with the following features:
-- User registration with email validation
-- Secure password storage (hashed)
-- Login and session management
-- Access control for all application features
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Project Structure
+The application uses Azure Key Vault for secure configuration management. Create a `.env` file in the root directory with the following variables:
 
 ```
-DeepMed/
-├── src/
-│   ├── app.py                 # Flask application entry point
-│   ├── models/                # Core model components
-│   │   ├── data_cleaner.py    # Data cleaning functionality
-│   │   ├── feature_selector.py # Feature selection
-│   │   ├── anomaly_detector.py # Anomaly detection
-│   │   ├── model_trainer.py   # Model training functionality
-│   │   └── medical_assistant.py # AI assistant integration
-│   ├── static/                # Static files (CSS, JS, images)
-│   └── templates/             # HTML templates
-├── uploads/                   # Folder for uploaded files
-├── keyvault.py                # Azure Key Vault integration
-├── requirements.txt           # Python dependencies
-└── README.md                  # This file
+MYSQLUSER=your_database_user
+MYSQLPASSWORD=your_database_password
+MYSQLHOST=your_database_host
+MYSQLPORT=your_database_port
+MYSQLDB=your_database_name
+SECRETKEY=your_application_secret_key
 ```
 
-## Azure Key Vault Integration
+For production environments, these secrets should be stored in Azure Key Vault.
 
-This application uses Azure Key Vault for secure secrets management. All configuration previously stored in .env files is now managed through Azure Key Vault, providing:
+## 🚢 Docker Deployment
 
-- Centralized secrets management
-- Enhanced security with built-in encryption
-- Role-based access control
-- Detailed audit logs
-- Secret rotation capability
+DeepMed is designed to run as a set of microservices using Docker. To deploy with Docker Compose:
 
-See AZURE_KEYVAULT.md for detailed information on setup and usage.
+```
+docker-compose up -d
+```
 
-## Technologies Used
+## 📚 Documentation
 
-- **Flask**: Web framework
-- **Pandas/NumPy**: Data processing
-- **Scikit-learn**: Machine learning algorithms
-- **Plotly**: Interactive data visualization
-- **OpenAI**: AI assistant capabilities
-- **Azure Key Vault**: Secure secrets management
-- **Azure Blob Storage**: File storage
+Comprehensive documentation is available in the `Documentation` directory, including:
+- DeepMed User Guide for Chatbot
+- DeepMed Business Analysis Report
 
-## Acknowledgments
+## 🧪 Quality Assurance
 
-- OpenAI for providing the API for the medical assistant
-- The scikit-learn team for machine learning tools
-- The Flask team for the web framework
-- Microsoft Azure for cloud services and security features
+The `quality_assurance` directory contains testing frameworks and tools for ensuring the reliability of the platform.
+
+## 👥 Contributing
+
+Contributions to DeepMed are welcome! Please follow the standard fork and pull request workflow.
+
+## 📄 License
+
+DeepMed is licensed under [Your License]. See the LICENSE file for details.
+
+## 🔄 Services
+
+DeepMed integrates the following services:
+- Data Cleaner (port 5001)
+- Feature Selector (port 5002)
+- Anomaly Detector (port 5003)
+- Medical Assistant (port 5005)
+- Model Coordinator (port 5020)
+- Model Training Service (port 5021)
+- Augmentation Service (port 5023)
+- Pipeline Service (port 5025)
+- Anomaly Detection Service (port 5030)
+- Embedding Service (port 5201)
+- Vector Search Service (port 5202)
+- LLM Generator Service (port 5203)
+
+## 📝 API Documentation
+
+API documentation is available at the `/documentation` endpoint when the application is running. 
