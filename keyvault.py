@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ✅ Azure Key Vault URL
-VAULT_URL = "https://keys503n.vault.azure.net/"
+VAULT_URL = "https://kv503n.vault.azure.net/"
 
 # Cache the secrets to avoid repeated calls to Key Vault
 secret_cache = {}

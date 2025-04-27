@@ -3,7 +3,7 @@ from azure.keyvault.secrets import SecretClient
 from azure.core.exceptions import ResourceNotFoundError
 
 # Replace with your Key Vault URL
-VAULT_URL = "https://keys503n.vault.azure.net/"
+VAULT_URL = "https://kv503n.vault.azure.net/"
 
 # Secrets you want to verify
 expected_secrets = [
