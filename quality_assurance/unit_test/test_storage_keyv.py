@@ -10,6 +10,15 @@ from azure.keyvault.secrets import SecretClient
 import storage
 import keyvault
 
+@pytest.fixture(autouse=True)
+def setup_storage():
+    """Setup storage module before each test"""
+    # Reset storage module globals
+    storage.AZURESTORAGEACCOUNT = None
+    storage.AZURESTORAGEKEY = None
+    storage.AZURECONTAINER = None
+    storage.blob_service_client = None
+
 @pytest.fixture
 def mock_azure_credentials():
     """Fixture to mock Azure credentials"""
@@ -28,6 +37,8 @@ def mock_blob_service_client():
         # Create a mock instance
         mock_instance = MagicMock()
         mock_client.return_value = mock_instance
+        # Initialize storage
+        storage.init_storage()
         yield mock_instance
 
 @pytest.fixture
