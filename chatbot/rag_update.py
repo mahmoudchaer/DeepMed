@@ -22,8 +22,11 @@ api_key = keyvault.getenv("OPENAI-API-KEY")
 if not api_key:
     logger.error("Missing OPENAI-API-KEY in Key Vault")
     raise RuntimeError("Missing OPENAI-API-KEY in Key Vault")
-    
-client = OpenAI(api_key=api_key)
+
+# Initialize OpenAI client (correct for v1.x)
+client = OpenAI(
+    api_key=api_key
+)
 logger.info("OpenAI client initialized")
 
 # Where your docs live (20 pages max, as .md)
@@ -42,11 +45,10 @@ chroma_client = Client(
         persist_directory=PERSIST_DIR
     )
 )
-# This will create (or open) the collection
 collection = chroma_client.get_or_create_collection("deepmed_docs")
 logger.info("ChromaDB collection initialized")
 
-# ── Helper: Chunk text into ~1 000‑char pieces ──────────────────────────────────
+# ── Helper: Chunk text into ~1,000‑char pieces ─────────────────────────────────
 def chunk_text(text: str, max_chars: int = 1000) -> list[str]:
     paras = text.split("\n\n")
     chunks, curr = [], ""
