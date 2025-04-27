@@ -24,7 +24,7 @@ def mock_user():
 
 @pytest.fixture(autouse=True)
 def patch_user_loader(monkeypatch, mock_user):
-    monkeypatch.setattr(app_api.login_manager, 'user_callback', lambda user_id: mock_user)
+    monkeypatch.setattr(app_api, 'load_user', lambda user_id: mock_user)
 
 # --- /images redirect ---
 def test_images_route_redirect(client, mock_user):
