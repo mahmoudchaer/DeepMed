@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 import keyvault
 
 from openai import OpenAI
-from chromadb import Client
+from chromadb import PersistentClient
 from chromadb.config import Settings
 
 # Get API key from Key Vault
@@ -46,12 +46,8 @@ PERSIST_DIR = str(Path(__file__).parent / "vector_search_service" / "chroma_data
 logger.info(f"Using ChromaDB persist directory: {PERSIST_DIR}")
 
 # ── Initialize ChromaDB ────────────────────────────────────────────────────────
-chroma_client = Client(
-    Settings(
-        chroma_db_impl="duckdb+parquet",
-        persist_directory=PERSIST_DIR
-    )
-)
+# Updated to use the new ChromaDB client initialization format
+chroma_client = PersistentClient(path=PERSIST_DIR)
 collection = chroma_client.get_or_create_collection("deepmed_docs")
 logger.info("ChromaDB collection initialized")
 
@@ -72,7 +68,7 @@ def chunk_text(text: str, max_chars: int = 1000) -> list[str]:
 # ── Main: Read, embed, insert ──────────────────────────────────────────────────
 def main():
     logger.info(f"Resetting collection and writing into {PERSIST_DIR} …")
-    chroma_client.reset()
+    collection.delete(where={})
 
     for md in sorted(DOCS_DIR.glob("*.md")):
         text = md.read_text(encoding="utf-8")
@@ -89,11 +85,11 @@ def main():
             collection.add(
                 embeddings=[embedding],
                 documents=[chunk],
-                metadatas=[{"source": md.name, "chunk": idx}]
+                metadatas=[{"source": md.name, "chunk": idx}],
+                ids=[f"{md.stem}-{idx}"]
             )
             logger.info(f"Added chunk {idx} from {md.name}")
 
-    chroma_client.persist()
     logger.info("✅ RAG database updated.")
 
 if __name__ == "__main__":
