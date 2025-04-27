@@ -107,8 +107,11 @@ def check_service_health(category, service_name, service_info, timeout=2):
         if response.status_code == 200:
             try:
                 health_data = response.json()
+                status = health_data.get("status", "healthy")
+                if status == "ok":
+                    status = "healthy"
                 result["details"] = health_data
-                result["status"] = health_data.get("status", "healthy")
+                result["status"] = status
             except json.JSONDecodeError:
                 result["status"] = "invalid"
                 result["error"] = "Invalid JSON response"
@@ -160,8 +163,11 @@ def check_service_health(category, service_name, service_info, timeout=2):
             if response.status_code == 200:
                 try:
                     health_data = response.json()
+                    status = health_data.get("status", "healthy")
+                    if status == "ok":
+                        status = "healthy"
                     result["details"] = health_data
-                    result["status"] = health_data.get("status", "healthy")
+                    result["status"] = status
                 except json.JSONDecodeError:
                     result["status"] = "invalid"
                     result["error"] = "Invalid JSON response"
