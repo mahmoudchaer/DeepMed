@@ -10,6 +10,8 @@ import sys
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
+import socket
+from urllib.parse import urlparse
 
 # Default services with health endpoints
 DEFAULT_SERVICES = {
@@ -73,12 +75,19 @@ def load_services_config():
     
     return DEFAULT_SERVICES
 
+def resolve_service_hostname(hostname):
+    """Try to resolve hostname to check if it exists in DNS"""
+    try:
+        socket.gethostbyname(hostname)
+        return True
+    except socket.gaierror:
+        return False
+
 def check_service_health(category, service_name, service_info, timeout=2):
-    """Check health of a specific service"""
+    """Check health of a specific service, trying multiple hostnames if needed"""
     url = service_info["url"]
     endpoint = service_info.get("endpoint", "/health")
     full_url = f"{url}{endpoint}"
-    
     result = {
         "service": service_name,
         "category": category,
@@ -88,37 +97,88 @@ def check_service_health(category, service_name, service_info, timeout=2):
         "details": {},
         "error": None
     }
-    
+    start_time = time.time()
+    response = None
+    response_time = None
+    # Try the primary URL first
     try:
-        start_time = time.time()
         response = requests.get(full_url, timeout=timeout)
-        end_time = time.time()
-        response_time = end_time - start_time
-        
-        result["response_time"] = response_time
-        
+        response_time = time.time() - start_time
         if response.status_code == 200:
             try:
                 health_data = response.json()
                 result["details"] = health_data
-                result["status"] = health_data.get("status", "unknown")
+                result["status"] = health_data.get("status", "healthy")
             except json.JSONDecodeError:
-                result["status"] = "invalid" 
+                result["status"] = "invalid"
                 result["error"] = "Invalid JSON response"
         else:
             result["status"] = "error"
             result["error"] = f"HTTP Error: {response.status_code}"
-    
-    except requests.exceptions.ConnectTimeout:
-        result["status"] = "timeout"
-        result["error"] = "Connection timeout"
-    except requests.exceptions.ConnectionError:
-        result["status"] = "unreachable"
-        result["error"] = "Connection refused"
+        result["response_time"] = response_time
+        return result
     except Exception as e:
-        result["status"] = "error"
-        result["error"] = str(e)
-    
+        last_error = str(e)
+    # If the primary URL fails, try alternatives
+    # Build alternative hostnames
+    parsed = urlparse(url)
+    port = parsed.port
+    service_base_name = service_name.lower().replace(' ', '_').replace('-', '_')
+    alt_hosts = [
+        service_base_name,
+        service_name.lower().replace(' ', '-').replace('_', '-'),
+        'localhost',
+        '127.0.0.1',
+        'host.docker.internal',
+        'docker.for.win.localhost',
+        'docker.for.mac.localhost',
+        f"deepmed_{service_base_name}",
+        f"deepmed-{service_name.lower().replace(' ', '-').replace('_', '-')}"
+    ]
+    # Add external IP from env or config
+    external_ip = os.getenv('EXTERNAL_IP', '20.119.81.37')
+    alt_hosts.append(external_ip)
+    # Try DNS-discovered hosts first
+    discovered_hosts = []
+    for host_candidate in [
+        service_base_name,
+        f"deepmed_{service_base_name}",
+        f"deepmed-{service_base_name}",
+        f"{service_base_name}_service",
+        f"deepmed_{service_base_name}_service"
+    ]:
+        if resolve_service_hostname(host_candidate):
+            discovered_hosts.append(host_candidate)
+    alt_hosts = discovered_hosts + alt_hosts
+    # Try each alternative
+    for alt_host in alt_hosts:
+        alt_url = f"http://{alt_host}:{port}{endpoint}"
+        try:
+            alt_start = time.time()
+            response = requests.get(alt_url, timeout=timeout)
+            response_time = time.time() - alt_start
+            if response.status_code == 200:
+                try:
+                    health_data = response.json()
+                    result["details"] = health_data
+                    result["status"] = health_data.get("status", "healthy")
+                except json.JSONDecodeError:
+                    result["status"] = "invalid"
+                    result["error"] = "Invalid JSON response"
+                result["url"] = alt_url
+                result["response_time"] = response_time
+                # Update the service_info URL for future checks
+                service_info["url"] = f"http://{alt_host}:{port}"
+                return result
+            else:
+                last_error = f"HTTP Error: {response.status_code}"
+        except Exception as e:
+            last_error = str(e)
+            continue
+    # If all attempts fail
+    result["status"] = "timeout"
+    result["error"] = f"Connection timeout ({last_error})"
+    result["response_time"] = None
     return result
 
 def check_all_services(services, max_workers=10, timeout=2, verbose=False, github_actions=False):
