@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 import sys
 import logging
+import httpx
 
 import chromadb
 from openai import OpenAI
@@ -28,7 +29,9 @@ os.environ.pop("HTTP_PROXY", None)
 os.environ.pop("HTTPS_PROXY", None)
 
 # ── Initialize OpenAI client ─────────────────────────────────────────────────────
-client_openai = OpenAI(api_key=api_key)
+# Create a custom httpx client with no proxies to avoid proxy-related issues
+http_client = httpx.Client()
+client_openai = OpenAI(api_key=api_key, http_client=http_client)
 logger.info("OpenAI client initialized")
 
 # ── Initialize ChromaDB Persistent Client ───────────────────────────────────────
