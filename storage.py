@@ -37,7 +37,7 @@ def upload_to_blob(file, filename):
         blob_client = blob_service_client.get_blob_client(container=AZURECONTAINER, blob=filename)
         blob_client.upload_blob(file, overwrite=True)
         logger.info(f"File '{filename}' uploaded successfully!")
-        return f"https://{AZURESTORAGEACCOUNT}.blob.core.windows.net/{AZURECONTAINER}/{filename}"
+        return get_blob_url(filename)
     except Exception as e:
         logger.error(f"Error uploading file: {str(e)}")
         return None
