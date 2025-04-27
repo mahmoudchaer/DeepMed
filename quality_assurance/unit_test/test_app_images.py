@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from flask import Flask, session
-from flask_login import LoginManager, login_user
+from flask import session
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
 import app_images
@@ -10,16 +9,6 @@ import app_images
 def app():
     app_images.app.config['TESTING'] = True
     app_images.app.secret_key = 'test_secret_key'
-    login_manager = LoginManager()
-    login_manager.init_app(app_images.app)
-
-    @login_manager.user_loader
-    def load_user(user_id):
-        user = MagicMock()
-        user.id = user_id
-        user.is_authenticated = True
-        return user
-
     return app_images.app
 
 @pytest.fixture
@@ -53,7 +42,9 @@ def test_anomaly_detection_route_authenticated(client, mock_user):
         assert b'anomaly_detection' in resp.data
 
 def test_anomaly_detection_route_unauthenticated(client):
-    with patch('app_images.current_user.is_authenticated', False):
+    unauth_user = MagicMock()
+    unauth_user.is_authenticated = False
+    with patch('app_images.current_user', unauth_user):
         resp = client.get('/anomaly_detection', follow_redirects=False)
         assert resp.status_code == 302
         assert '/login' in resp.location
