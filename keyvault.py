@@ -47,6 +47,8 @@ def get_secret(secret_name, default_value=None):
         # Clear the cache for this secret to allow retries
         if secret_name in secret_cache:
             del secret_cache[secret_name]
+        # Clear the lru_cache for this secret
+        get_secret.cache_clear()
         return default_value
 
 def getenv(key, default=None):

@@ -24,16 +24,20 @@ def mock_azure_credentials():
 @pytest.fixture
 def mock_blob_service_client():
     """Fixture to mock BlobServiceClient"""
-    mock_client = MagicMock(spec=BlobServiceClient)
-    with patch('storage.BlobServiceClient', return_value=mock_client):
-        yield mock_client
+    with patch('storage.BlobServiceClient') as mock_client:
+        # Create a mock instance
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+        yield mock_instance
 
 @pytest.fixture
 def mock_secret_client():
     """Fixture to mock SecretClient"""
-    mock_client = MagicMock(spec=SecretClient)
-    with patch('keyvault.SecretClient', return_value=mock_client):
-        yield mock_client
+    with patch('keyvault.SecretClient') as mock_client:
+        # Create a mock instance
+        mock_instance = MagicMock()
+        mock_client.return_value = mock_instance
+        yield mock_instance
 
 def test_get_secret_success(mock_secret_client):
     """Test successful secret retrieval from Key Vault"""
